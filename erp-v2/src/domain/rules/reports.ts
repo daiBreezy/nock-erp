@@ -693,7 +693,7 @@ function stageAppts(l: Pick<Lead, "stage" | "archivedFrom" | "direct">): LeadApp
 /** The funnel's steps (owner 2026-10-21: booked — a Test or a Trial — and came are their own steps, every lead passes
  *  them the same way); enroll-now leads never had a test / trial — they skip those two (owner 2026-10-05). */
 const leadSteps = <L extends Pick<Lead, "stage" | "archivedFrom" | "direct">>(a: (l: L) => LeadAppts) => [
-  { key: "lead", label: "Lead ใหม่", hit: (_: L) => true },
+  { key: "lead", label: "Lead ใหม่", hit: () => true },
   { key: "contacted", label: "ติดต่อแล้ว", hit: (l: L) => stageRank(l) >= 1 },
   { key: "booked", label: "นัด Test / Trial", hit: (l: L) => !!(a(l).test || a(l).trial) },
   { key: "came", label: "มาจริง", hit: (l: L) => a(l).test === "came" || a(l).trial === "came" },

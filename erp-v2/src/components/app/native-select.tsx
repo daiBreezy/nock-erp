@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react"
 import { cn } from "@/lib/utils"
+// eslint-disable-next-line no-restricted-imports -- ds-exception: this IS the shared NativeSelect wrapper around the shadcn Select
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export interface Option {

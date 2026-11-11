@@ -14,9 +14,9 @@ import { durationText, tx } from "@/lib/i18n"
 
 function Chip({ on, children, onClick }: { on: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+    <Button variant="ghost" size="inline" type="button" onClick={onClick} className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
       {on && <CheckIcon className="size-3.5" />}{children}
-    </button>
+    </Button>
   )
 }
 
@@ -45,7 +45,7 @@ export function GradesTab({ branch }: { branch: Branch }) {
           <div key={g.name}>
             <div className="mb-1.5 flex items-center gap-2">
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{tx(g.name)}</p>
-              <button className="text-xs text-primary underline" onClick={() => setB({ ...b, grades: sortGrades([...new Set([...b.grades, ...g.grades])]) })}>{tx("เลือกทั้งหมด")}</button>
+              <Button variant="ghost" size="inline" className="text-xs text-primary underline" onClick={() => setB({ ...b, grades: sortGrades([...new Set([...b.grades, ...g.grades])]) })}>{tx("เลือกทั้งหมด")}</Button>
             </div>
             <div className="flex flex-wrap gap-2">
               {g.grades.map((gr) => <Chip key={gr} on={b.grades.includes(gr)} onClick={() => setB({ ...b, grades: sortGrades(toggle(b.grades, gr)) })}>{gr}</Chip>)}
@@ -91,7 +91,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
     <SettingsCard title={tx("แพ็กเกจ & ตารางราคา (Packages)")} hint={tx("ราคาแนะนำต่อ วิชา × ระดับชั้น × ระยะเวลา — ใช้เติมราคาอัตโนมัติตอนสร้างคอร์ส (แก้ราคาจริงที่คอร์สได้)")}>
       <div className="mb-3 inline-flex rounded-full bg-muted p-1">
         {brandPriceUnits(b.brand).map((u) => (
-          <button key={u} onClick={() => setUnit(u)} className={cn("rounded-full px-4 py-1 text-sm", unit === u ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(PRICE_UNIT_LABEL[u])}</button>
+          <Button variant="ghost" size="inline" key={u} onClick={() => setUnit(u)} className={cn("rounded-full px-4 py-1 text-sm", unit === u ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{tx(PRICE_UNIT_LABEL[u])}</Button>
         ))}
       </div>
 
@@ -101,7 +101,7 @@ export function PackagesTab({ branch }: { branch: Branch }) {
             <span key={d} className="flex items-center gap-1 rounded-full border px-3 py-1 text-sm">
               {durationText(unit, d)}
               <span className="text-xs text-muted-foreground">{unit === "hour" ? tx("· {0} นาที", [d * 60]) : tx("· หลายคลาส & ชั่วโมง")}</span>
-              <button aria-label={tx("ลบระยะเวลา")} onClick={() => removeDuration(d)}><XIcon className="size-3.5" /></button>
+              <Button variant="ghost" size="inline" aria-label={tx("ลบระยะเวลา")} onClick={() => removeDuration(d)}><XIcon className="size-3.5" /></Button>
             </span>
           ))}
           <span className="flex items-center gap-1">

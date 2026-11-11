@@ -7,7 +7,6 @@
 // every page at every size (RESPONSIVE.md). One light/dark switch flips all frames at once.
 import { useEffect, useRef, useState } from "react"
 import { MoonIcon, SunIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { useEdgeDrag } from "@/components/ui/sheet"
 import { Page, PageHeader, Segmented, type SegmentOption } from "@/components/app/page-layout"
 import { Button } from "@/components/ui/button"

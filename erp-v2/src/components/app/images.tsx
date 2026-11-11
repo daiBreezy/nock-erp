@@ -8,6 +8,8 @@ import { ChevronLeftIcon, ChevronRightIcon, ImagePlusIcon, XIcon } from "lucide-
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { slipDataUrl } from "@/lib/image"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 const MAX = 6
 
@@ -26,13 +28,13 @@ export function ImageAttach({ value, onChange, className }: { value: string[]; o
           <span key={i} className="group relative">
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
             <img src={src} alt={`รูป ${i + 1}`} className="size-20 rounded-xl object-cover ring-1 ring-foreground/10" />
-            <button type="button" aria-label="เอารูปออก" onClick={() => onChange(value.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background shadow"><XIcon className="size-3" /></button>
+            <Button variant="ghost" size="inline" type="button" aria-label="เอารูปออก" onClick={() => onChange(value.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background shadow"><XIcon className="size-3" /></Button>
           </span>
         ))}
         {value.length < MAX && (
           <label className={cn("grid size-20 cursor-pointer place-items-center rounded-xl border border-dashed text-muted-foreground hover:bg-muted/50", busy && "opacity-50")}>
             <span className="flex flex-col items-center gap-0.5 text-2xs"><ImagePlusIcon className="size-5" />{busy ? "กำลังใส่…" : "เพิ่มรูป"}</span>
-            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { add([...(e.target.files ?? [])]); e.target.value = "" }} />
+            <Input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { add([...(e.target.files ?? [])]); e.target.value = "" }} />
           </label>
         )}
       </div>
@@ -49,10 +51,10 @@ export function ImageGallery({ images, size = "md" }: { images?: string[]; size?
     <>
       <div className="flex flex-wrap gap-2">
         {images.map((src, i) => (
-          <button key={i} type="button" onClick={() => setOpen(i)} className="overflow-hidden rounded-xl ring-1 ring-foreground/10 hover:ring-primary/50" aria-label={`ดูรูป ${i + 1}`}>
+          <Button variant="ghost" size="inline" key={i} type="button" onClick={() => setOpen(i)} className="overflow-hidden rounded-xl ring-1 ring-foreground/10 hover:ring-primary/50" aria-label={`ดูรูป ${i + 1}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
             <img src={src} alt={`รูป ${i + 1}`} className={cn("object-cover", size === "sm" ? "size-14" : "size-24")} />
-          </button>
+          </Button>
         ))}
       </div>
       <Dialog open={open !== null} onOpenChange={(o) => !o && setOpen(null)}>
@@ -63,8 +65,8 @@ export function ImageGallery({ images, size = "md" }: { images?: string[]; size?
               {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
               <img src={images[open]} alt={`รูป ${open + 1}`} className="max-h-[78vh] w-auto rounded-xl object-contain" />
               {n > 1 && <>
-                <button type="button" aria-label="รูปก่อนหน้า" onClick={() => setOpen((open - 1 + n) % n)} className="absolute top-1/2 left-2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-background/90 shadow"><ChevronLeftIcon className="size-5" /></button>
-                <button type="button" aria-label="รูปถัดไป" onClick={() => setOpen((open + 1) % n)} className="absolute top-1/2 right-2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-background/90 shadow"><ChevronRightIcon className="size-5" /></button>
+                <Button variant="ghost" size="inline" type="button" aria-label="รูปก่อนหน้า" onClick={() => setOpen((open - 1 + n) % n)} className="absolute top-1/2 left-2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-background/90 shadow"><ChevronLeftIcon className="size-5" /></Button>
+                <Button variant="ghost" size="inline" type="button" aria-label="รูปถัดไป" onClick={() => setOpen((open + 1) % n)} className="absolute top-1/2 right-2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-background/90 shadow"><ChevronRightIcon className="size-5" /></Button>
               </>}
             </div>
           )}

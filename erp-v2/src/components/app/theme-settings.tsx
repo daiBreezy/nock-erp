@@ -10,6 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { Segmented } from "./page-layout"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 export interface ThemePrefs {
   mode: "light" | "dark" | "system"
@@ -135,7 +137,7 @@ export function ThemeChip() {
   useApplyPrefs(prefs)
   return (
     <Popover>
-      <PopoverTrigger render={<button type="button" aria-label="ธีม" className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
+      <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="ธีม" className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
         <PaletteIcon className="size-3.5 text-muted-foreground" />ธีม
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 gap-4">
@@ -153,9 +155,9 @@ export function ThemeChip() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">สีหลักของฉัน</span>
             {prefs.primary && (
-              <button type="button" onClick={() => set({ primary: "" })} className="flex items-center gap-1 text-xs text-primary hover:underline">
+              <Button variant="ghost" size="inline" type="button" onClick={() => set({ primary: "" })} className="flex items-center gap-1 text-xs text-primary hover:underline">
                 <RotateCcwIcon className="size-3" />กลับไปใช้สีแบรนด์
-              </button>
+              </Button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -163,7 +165,7 @@ export function ThemeChip() {
             {SWATCHES.map((c) => <Swatch key={c} on={prefs.primary === c} onClick={() => set({ primary: c })} label={c} style={{ background: c }} />)}
             <label className="relative grid size-7 cursor-pointer place-items-center rounded-full border border-dashed text-muted-foreground" title="เลือกสีเอง">
               <PaletteIcon className="size-3.5" />
-              <input type="color" className="absolute inset-0 cursor-pointer opacity-0" value={prefs.primary || "#be123c"} onChange={(e) => set({ primary: e.target.value })} />
+              <Input type="color" className="absolute inset-0 h-full cursor-pointer border-0 p-0 opacity-0" value={prefs.primary || "#be123c"} onChange={(e) => set({ primary: e.target.value })} />
             </label>
           </div>
           <p className="text-xs text-muted-foreground">สีสถานะ (เขียว · เหลือง · แดง) ไม่เปลี่ยนตาม</p>
@@ -182,9 +184,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function Swatch({ on, onClick, label, style }: { on: boolean; onClick: () => void; label: string; style: React.CSSProperties }) {
   return (
-    <button type="button" aria-label={label} aria-pressed={on} onClick={onClick} style={style}
+    <Button variant="ghost" size="inline" type="button" aria-label={label} aria-pressed={on} onClick={onClick} style={style}
       className={cn("grid size-7 place-items-center rounded-full text-white ring-offset-2 ring-offset-popover", on && "ring-2 ring-foreground")}>
       {on && <CheckIcon className="size-3.5" />}
-    </button>
+    </Button>
   )
 }

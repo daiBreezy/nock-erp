@@ -182,18 +182,18 @@ function InfoTab({ s, week, onTab }: { s: Staff; week: string; onTab: (t: Tab) =
       {teaches && (
         <>
           <div className="grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => onTab("sessions")} className="rounded-2xl border p-3 text-left hover:bg-muted/40">
+            <Button variant="ghost" size="inline" type="button" onClick={() => onTab("sessions")} className="rounded-2xl border p-3 text-left hover:bg-muted/40">
               <p className="text-xs text-muted-foreground">คาบสอนสัปดาห์นี้</p>
               <p className="text-2xl font-semibold tabular-nums">{w.sessions.total} <span className="text-sm font-normal text-muted-foreground">คาบ · {Math.round(w.minutes / 6) / 10} ชม.</span></p>
               <Progress done={w.sessions.done} total={w.sessions.total} />
               <p className="mt-1 text-xs"><span className="text-success">เสร็จ {w.sessions.done}</span> · <span className={w.sessions.left ? "text-warning" : "text-muted-foreground"}>เหลือ {w.sessions.left}</span></p>
-            </button>
-            <button type="button" onClick={() => onTab("summaries")} className="rounded-2xl border p-3 text-left hover:bg-muted/40">
+            </Button>
+            <Button variant="ghost" size="inline" type="button" onClick={() => onTab("summaries")} className="rounded-2xl border p-3 text-left hover:bg-muted/40">
               <p className="text-xs text-muted-foreground">สรุปการเรียนสัปดาห์นี้</p>
               <p className="text-2xl font-semibold tabular-nums">{w.summaries.total} <span className="text-sm font-normal text-muted-foreground">ฉบับ</span></p>
               <Progress done={w.summaries.written} total={w.summaries.total} />
               <p className="mt-1 text-xs"><span className="text-success">เขียนแล้ว {w.summaries.written}</span> · <span className={w.summaries.left ? "text-warning" : "text-muted-foreground"}>เหลือ {w.summaries.left}</span></p>
-            </button>
+            </Button>
           </div>
           <div className="flex divide-x rounded-2xl bg-muted/50 py-2">
             <Stat label="นักเรียนในมือ" value={mine.length} sub="คน" />
@@ -289,12 +289,12 @@ function SessionsTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id:
               <ul className="divide-y overflow-hidden rounded-2xl border">
                 {rows.map((r) => (
                   <li key={r.session.id}>
-                    <button type="button" onClick={() => onOpen(r.session.id)} className="grid w-full grid-cols-[6.5rem_1fr_3rem_9rem] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
+                    <Button variant="row" size="inline" type="button" onClick={() => onOpen(r.session.id)} className="grid w-full grid-cols-[6.5rem_1fr_3rem_9rem] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
                       <span className="text-xs tabular-nums">{r.session.start}–{endTime(r.session.start, r.session.minutes)}</span>
                       <span className="truncate">{name(r.session)}</span>
                       <span className="text-right text-xs text-muted-foreground tabular-nums">{r.session.studentIds.length} คน</span>
                       <span className="flex justify-end"><WorkChip w={workState(r.session, now, attendance, summaries)} students={r.session.studentIds.length} /></span>
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -327,12 +327,12 @@ function SummariesTab({ s, week, onOpen }: { s: Staff; week: string; onOpen: (id
             const state = !started(r.session) ? { t: "ยังไม่ถึงคาบ", c: "bg-muted text-muted-foreground" } : all ? { t: "เขียนครบ", c: "bg-success-soft text-success-ink" } : r.needed === 0 ? { t: "ไม่มีนักเรียนมาเรียน", c: "bg-muted text-muted-foreground" } : { t: "ยังไม่ได้เขียน", c: "bg-warning-soft text-warning-ink" }
             return (
               <li key={r.session.id}>
-                <button type="button" onClick={() => onOpen(r.session.id)} className="grid w-full grid-cols-[8rem_1fr_2.5rem_7.5rem] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
+                <Button variant="row" size="inline" type="button" onClick={() => onOpen(r.session.id)} className="grid w-full grid-cols-[8rem_1fr_2.5rem_7.5rem] items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/40">
                   <span className="text-xs text-muted-foreground tabular-nums">{fmtDate(r.session.date, { weekday: true })} {r.session.start}</span>
                   <span className="truncate">{name(r.session)}</span>
                   <span className="text-right text-xs tabular-nums">{r.written}/{r.needed}</span>
                   <span className="flex justify-end"><span className={cn("rounded-full px-2 py-0.5 text-2xs whitespace-nowrap", state.c)}>{state.t}</span></span>
-                </button>
+                </Button>
               </li>
             )
           })}
@@ -491,8 +491,8 @@ function Chips({ label, items, on, toggle }: { label: string; items: { key: stri
       <p className="mb-1 text-xs text-muted-foreground">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {items.map((x) => (
-          <button key={x.key} type="button" aria-pressed={on(x.key)} onClick={() => toggle(x.key)}
-            className={cn("rounded-full border px-2.5 py-0.5 text-xs", on(x.key) ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{x.label}</button>
+          <Button variant="chip" size="inline" key={x.key} type="button" aria-pressed={on(x.key)} onClick={() => toggle(x.key)}
+            className="px-2.5 py-0.5 text-xs">{x.label}</Button>
         ))}
       </div>
     </div>

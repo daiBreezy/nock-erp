@@ -40,6 +40,7 @@ import { report } from "@/lib/feedback"
 import { useBranch, useQueryState, useToday } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Textarea } from "@/components/ui/textarea"
 
 const LIST_DEFAULT = 288
 const clampWidth = (w: number) => Math.min(480, Math.max(240, Math.round(w)))
@@ -286,7 +287,7 @@ export default function InboxPage() {
           {(searching || search) && (
             <div className="relative">
               <Input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ…" className="pr-8" onKeyDown={(e) => { if (e.key === "Escape") { setSearch(""); setSearching(false) } }} />
-              {search && <button type="button" aria-label="ล้าง" className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearch(""); setSearching(false) }}><XIcon className="size-4" /></button>}
+              {search && <Button variant="ghost" size="inline" type="button" aria-label="ล้าง" className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => { setSearch(""); setSearching(false) }}><XIcon className="size-4" /></Button>}
             </div>
           )}
           {/* Conversation type and assignee selectors; read status as directly accessible chips. */}
@@ -298,7 +299,7 @@ export default function InboxPage() {
           </div>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="สถานะการอ่าน">
             {([{ value: "all", label: "ทั้งหมด" }, { value: "unread", label: "ยังไม่อ่าน" }, { value: "read", label: "อ่านแล้ว" }] as const).map((item) => (
-              <button
+              <Button variant="ghost" size="inline"
                 key={item.value}
                 type="button"
                 aria-pressed={readFilter === item.value}
@@ -306,7 +307,7 @@ export default function InboxPage() {
                 className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", readFilter === item.value ? "border-primary/20 bg-primary/10 text-primary" : "border-transparent bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground")}
               >
                 {item.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -316,7 +317,7 @@ export default function InboxPage() {
             const lm = lastMessage(c.id)
             const type = conversationType(c)
             return (
-              <button key={c.id} onClick={() => select(c.id)}
+              <Button variant="row" size="inline" key={c.id} onClick={() => select(c.id)}
                 className={cn("flex w-full items-start gap-2.5 rounded-2xl p-2.5 text-left hover:bg-muted/60", selected?.id === c.id && "bg-muted")}>
                 <span className={cn("relative grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(c.id))}>
                   {initial(c.name)}
@@ -334,7 +335,7 @@ export default function InboxPage() {
                   </div>
                   <div className="mt-0.5 text-2xs text-muted-foreground">{c.assigneeId ? staff.find((s) => s.id === c.assigneeId)?.nickname : "ยังไม่มอบหมาย"}</div>
                 </div>
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -488,9 +489,9 @@ export default function InboxPage() {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
+                  <Input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
                   {/* grows with the text (times from the Calendar Preview come in several lines) · Enter sends, Shift+Enter = new line */}
-                  <textarea ref={composer} rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }}
+                  <Textarea ref={composer} rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }}
                     placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn("max-h-40 min-h-9 flex-1", draft ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none bg-transparent px-1 py-2 text-sm outline-none placeholder:text-muted-foreground")} />
                   <Button size="icon" className="rounded-full" onClick={submit} disabled={!draft.trim() || sending} aria-label={sending ? "กำลังส่ง…" : "ส่ง"}>{sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon />}</Button>
                 </div>
@@ -499,9 +500,9 @@ export default function InboxPage() {
                   {isLive(selected.id) ? (
                     <span className="inline-flex items-center gap-1 text-info"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
                   ) : (
-                    <button className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
+                    <Button variant="ghost" size="inline" className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
                       <SparklesIcon className="size-3" /> จำลองข้อความจากผู้ปกครอง
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

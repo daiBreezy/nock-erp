@@ -30,6 +30,7 @@ import { PaySlipDialog } from "./pay-slip-dialog"
 import { IssueReceiptDialog } from "./issue-receipt-dialog"
 import { BundleOverview } from "./bundle-overview"
 import { InfoTip } from "@/components/app/info-tip"
+import { Checkbox } from "@/components/ui/checkbox"
 
 /** a titled group inside the expanded billing info */
 function Block({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -87,8 +88,8 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose 
   const tabs = isBundle && (
     <div role="tablist" className="flex shrink-0 gap-1 overflow-x-auto border-b px-4 pt-2">
       {([["all", `รวม (${members.length})`], ...members.map((m) => [m.id, students.find((x) => x.id === m.studentId)?.nickname ?? "—"] as const)] as const).map(([k, label]) => (
-        <button key={k} role="tab" type="button" aria-selected={tab === k} onClick={() => setTab(k as "all" | ID)}
-          className={cn("-mb-px shrink-0 rounded-t-lg border-b-2 px-3 py-1.5 text-sm", tab === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>
+        <Button variant="ghost" size="inline" key={k} role="tab" type="button" aria-selected={tab === k} onClick={() => setTab(k as "all" | ID)}
+          className={cn("-mb-px shrink-0 rounded-t-lg border-b-2 px-3 py-1.5 text-sm", tab === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</Button>
       ))}
     </div>
   )
@@ -188,15 +189,15 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         {([["combined", "รวมทุกใบ", group.map((x) => x.id)], ["separate", "แยกรายนักเรียน", [] as ID[]]] as const).map(([k, label, ids]) => {
           const on = k === "combined" ? combined.length === group.length : combined.length === 0
           return (
-            <button key={k} type="button" disabled={!manage} aria-pressed={on} onClick={() => !on && report(act.regroup(inv.id, [...ids]), k === "combined" ? "รวมเป็นใบเสร็จเดียวแล้ว" : "แยกใบเสร็จรายนักเรียนแล้ว")}
-              className={cn("flex-1 rounded-full border px-3 py-1 text-xs disabled:opacity-60", on ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>{label}</button>
+            <Button variant="chip" size="inline" key={k} type="button" disabled={!manage} aria-pressed={on} onClick={() => !on && report(act.regroup(inv.id, [...ids]), k === "combined" ? "รวมเป็นใบเสร็จเดียวแล้ว" : "แยกใบเสร็จรายนักเรียนแล้ว")}
+              className="flex-1 px-3 py-1 text-xs disabled:opacity-60">{label}</Button>
           )
         })}
       </div>
       <p className="text-xs text-muted-foreground">หรือติ๊กเลือกเองว่าใบไหนรวมกัน (ไม่ติ๊ก = แยกใบ)</p>
       {group.map((x) => (
         <label key={x.id} className="flex items-center gap-2 text-xs">
-          <input type="checkbox" disabled={!manage} checked={combined.includes(x.id)} onChange={() => setReceiptIds(toggle(combined, x.id))} />
+          <Checkbox disabled={!manage} checked={combined.includes(x.id)} onCheckedChange={() => setReceiptIds(toggle(combined, x.id))} />
           <span className="font-mono">{x.number}</span>
           <span>{nick(x.studentId)}</span>
           <span className="ml-auto text-muted-foreground">ใบเสร็จ <span className="font-mono">{x.receiptNumber}</span></span>
@@ -308,12 +309,12 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
 
         {/* Billing info (owner 2026-11-05): the summary always visible; one expander opens the whole invoice */}
         <section className="rounded-lg border px-3">
-          <button type="button" aria-expanded={showAll} onClick={() => setShowAll(!showAll)} className="flex w-full items-center gap-2 py-2 text-left text-sm">
+          <Button variant="row" size="inline" type="button" aria-expanded={showAll} onClick={() => setShowAll(!showAll)} className="flex w-full items-center gap-2 py-2 text-left text-sm">
             <span className="font-mono text-xs text-muted-foreground">{inv.number ?? "ร่าง"}</span>
             <span className="ml-auto text-xs text-muted-foreground">ยอดรวม</span>
             <span className="font-semibold tabular-nums">{fmtMoney(totals.total)}</span>
             <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", showAll && "rotate-180")} />
-          </button>
+          </Button>
           {showAll && (
             <div className="space-y-3 border-t py-3">
               <table className="w-full text-xs tabular-nums"><tbody>

@@ -145,10 +145,10 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
 
         <div className="grid grid-cols-2 gap-2">
           {([["teacher", "ครู + ช่วงเวลา", "ช่วงสอน 2 ชม. ของครู — นักเรียนหลายวิชา/หลายระดับเรียนด้วยกันได้"], ["subject", "วิชา + ระดับชั้น", "คลาสของวิชาเดียว ระดับชั้นที่กำหนด"]] as const).map(([k, label, hint]) => (
-            <button key={k} type="button" aria-pressed={layout === k} onClick={() => setLayout(k)}
+            <Button variant="ghost" size="inline" key={k} type="button" aria-pressed={layout === k} onClick={() => setLayout(k)}
               className={cn("rounded-2xl border p-3 text-left", layout === k ? "border-primary ring-2 ring-primary/20" : "hover:bg-muted/40")}>
               <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -175,10 +175,10 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
             {branch.subjects.map((s) => {
               const on = subjects.includes(s)
               return (
-                <button key={s} type="button" onClick={() => toggleSubject(s)}
+                <Button variant="ghost" size="inline" key={s} type="button" onClick={() => toggleSubject(s)}
                   className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm", on ? cn("border-transparent", subjectColor(s).chip) : "hover:bg-muted")}>
                   {on && <CheckIcon className="size-3.5" />}{s}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -197,15 +197,15 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
         </div>
 
         {layout === "subject" && (
-        <Field label="ระดับชั้น" action={grades.length > 0 ? <button type="button" className="text-xs text-primary underline" onClick={() => setGrades([])}>ล้างทั้งหมด</button> : undefined}>
+        <Field label="ระดับชั้น" action={grades.length > 0 ? <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline" onClick={() => setGrades([])}>ล้างทั้งหมด</Button> : undefined}>
           <div className="flex flex-wrap gap-1.5">
             {sortGrades(branch.grades).map((g) => {
               const on = grades.includes(g)
               return (
-                <button key={g} type="button" onClick={() => setGrades((x) => sortGrades(on ? x.filter((y) => y !== g) : [...x, g]))}
+                <Button variant="ghost" size="inline" key={g} type="button" onClick={() => setGrades((x) => sortGrades(on ? x.filter((y) => y !== g) : [...x, g]))}
                   className={cn("flex items-center gap-1 rounded-full border px-3 py-1 text-sm", on ? cn("border-transparent", gradeTone(g)) : "hover:bg-muted")}>
                   {on && <CheckIcon className="size-3" />}{g}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -258,8 +258,8 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                     <span className="flex w-full flex-wrap gap-1 pt-1">
                       {blocksOn(branch, nextWeekday(startDate, r.weekday)).map((b) => {
                         const on = r.start === b.start && r.end === b.end
-                        return <button key={b.start} type="button" onClick={() => setRow(r.key, { start: b.start, end: b.end })}
-                          className={cn("rounded-full border px-2.5 py-0.5 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{b.start}–{b.end}</button>
+                        return <Button variant="ghost" size="inline" key={b.start} type="button" onClick={() => setRow(r.key, { start: b.start, end: b.end })}
+                          className={cn("rounded-full border px-2.5 py-0.5 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{b.start}–{b.end}</Button>
                       })}
                     </span>
                   )}
@@ -275,9 +275,9 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
               </div>
             )
           })}
-          <button type="button" onClick={addRow} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2.5 text-sm text-primary hover:bg-primary/5">
+          <Button variant="ghost" size="inline" type="button" onClick={addRow} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2.5 text-sm text-primary hover:bg-primary/5">
             <PlusIcon className="size-4" /> เพิ่มวัน/เวลา
-          </button>
+          </Button>
         </div>
 
         <Field label={`นักเรียน (${studentIds.length}/${courseCap} คน)`} hint={`${courseCap !== CAPACITY[type] ? "คอร์สรับได้สูงสุด" : "แนะนำไม่เกิน"} ${courseCap} คน · ไม่บังคับ เพิ่มทีหลังได้`}>
@@ -291,16 +291,16 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                   return (
                     <span key={id} className="flex items-center gap-1 rounded-full bg-primary/10 py-0.5 pr-1 pl-2.5 text-xs text-primary">
                       {s.nickname} · {s.grade}
-                      <button type="button" aria-label={`เอา ${s.nickname} ออก`} onClick={() => setStudentIds((x) => x.filter((y) => y !== id))} className="rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"><XIcon className="size-3" /></button>
+                      <Button variant="ghost" size="inline" type="button" aria-label={`เอา ${s.nickname} ออก`} onClick={() => setStudentIds((x) => x.filter((y) => y !== id))} className="rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"><XIcon className="size-3" /></Button>
                     </span>
                   )
                 })}
               </div>
             )}
             {studentIds.length < courseCap && (
-              <button type="button" onClick={() => setPickingStudent(true)} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2 text-sm text-primary hover:bg-primary/5">
+              <Button variant="ghost" size="inline" type="button" onClick={() => setPickingStudent(true)} className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed py-2 text-sm text-primary hover:bg-primary/5">
                 <PlusIcon className="size-4" /> เพิ่มนักเรียน
-              </button>
+              </Button>
             )}
           </div>
           {pickingStudent && (

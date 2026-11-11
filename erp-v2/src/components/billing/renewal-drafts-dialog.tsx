@@ -46,7 +46,6 @@ export function RenewalDraftsDialog({ branchIds, onClose, onCreated }: { branchI
     if (created[0]) onCreated?.(created[0].id)
     onClose()
   }
-  const name = (id: ID) => students.find((s) => s.id === id)?.nickname ?? "—"
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[92vh] flex-col gap-3 lg:max-w-2xl">

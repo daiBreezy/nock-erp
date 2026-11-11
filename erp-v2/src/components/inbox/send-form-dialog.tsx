@@ -11,12 +11,12 @@ import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { Button } from "../ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog"
 import { NativeSelect } from "@/components/app/native-select"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { subjectHex } from "@/components/app/subject-color"
 import { uid } from "@/data/seed"
+import { Button } from "@/components/ui/button"
 
 const TYPES: FormType[] = ["test", "trial"]
 
@@ -132,10 +132,10 @@ export function SendFormDialog({
           {step === "type" && (
             <div className="grid grid-cols-2 gap-3">
               {TYPES.map((t) => (
-                <button key={t} type="button" onClick={() => setType(t)} className={cn("rounded-2xl border p-4 text-left transition-colors", type === t ? "border-foreground/40 bg-muted" : "hover:bg-muted")}>
+                <Button variant="ghost" size="inline" key={t} type="button" onClick={() => setType(t)} className={cn("rounded-2xl border p-4 text-left transition-colors", type === t ? "border-foreground/40 bg-muted" : "hover:bg-muted")}>
                   <p className="font-medium">{FORM_TYPE_LABEL[t]}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{t === "test" ? "สอบวัดระดับ — หลายวิชามาวันเดียวได้" : "ทดลองเรียนในคลาสจริง — เวลาแยกตามวิชา"}</p>
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -159,10 +159,10 @@ export function SendFormDialog({
                   {branch.subjects.map((s) => {
                     const on = subjects.includes(s)
                     return (
-                      <button key={s} type="button" onClick={() => toggleSubject(s)}
+                      <Button variant="ghost" size="inline" key={s} type="button" onClick={() => toggleSubject(s)}
                         className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors", on ? "border-foreground/40 bg-muted font-medium" : "text-muted-foreground hover:bg-muted")}>
                         {on ? <CheckIcon className="size-3.5" /> : <span className="size-2 rounded-full" style={{ background: subjectHex(s) }} />}{s}
-                      </button>
+                      </Button>
                     )
                   })}
                 </div>
@@ -258,10 +258,10 @@ function StepTitle({ n, title, hint }: { n: number; title: string; hint?: string
 
 function VisitCard({ on, onClick, icon: Icon, title, sub }: { on: boolean; onClick: () => void; icon: typeof CalendarClockIcon; title: string; sub: string }) {
   return (
-    <button type="button" onClick={onClick} className={cn("flex items-start gap-3 rounded-2xl border p-3 text-left transition-colors", on ? "border-foreground/40 bg-muted" : "hover:bg-muted")}>
+    <Button variant="ghost" size="inline" type="button" onClick={onClick} className={cn("flex items-start gap-3 rounded-2xl border p-3 text-left transition-colors", on ? "border-foreground/40 bg-muted" : "hover:bg-muted")}>
       <Icon className={cn("mt-0.5 size-5 shrink-0", on ? "text-foreground" : "text-muted-foreground")} />
       <span><span className="block text-sm font-medium">{title}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
-    </button>
+    </Button>
   )
 }
 
@@ -304,13 +304,13 @@ export function SlotDays({ title, color, items, picked, onToggle, empty, tall }:
                 {list.map((it) => {
                   const on = picked.has(it.key)
                   return (
-                    <button key={it.key} type="button" onClick={() => onToggle(it.key)} title={it.label}
+                    <Button variant="ghost" size="inline" key={it.key} type="button" onClick={() => onToggle(it.key)} title={it.label}
                       className={cn("relative flex h-11 flex-col justify-center rounded-xl border px-2.5 text-left text-xs tabular-nums transition-colors",
                         on ? "border-foreground bg-foreground text-background" : it.kind === "class" ? "border-violet-200 bg-violet-50/60 hover:bg-violet-50 dark:border-violet-900 dark:bg-violet-950/40" : "bg-background hover:bg-muted")}>
                       <span className="block font-medium">{it.start}–{it.end}</span>
                       {it.label ? <span className={cn("block truncate text-2xs", on ? "text-background/75" : "text-violet-700 dark:text-violet-300")}>{it.label}</span> : <span className={cn("block text-2xs", on ? "text-background/75" : "text-muted-foreground")}>ว่าง</span>}
                       {on && <CheckIcon className="absolute right-1.5 top-1.5 size-3" />}
-                    </button>
+                    </Button>
                   )
                 })}
               </div>

@@ -3,7 +3,7 @@
 
 import { subjectsAt, worksOn } from "./permissions"
 import { addDays, at, endTime, fmtDate, fromMinutes, nextWeekday, overlaps, parseDate, toMinutes, weekdayOf } from "../dates"
-import type { Brand, ClassBlock, ClassMove, Course, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
+import type { Brand, ClassBlock, ClassMove, DayBlocks, Attendance, Branch, DateStr, Holiday, ID, Klass, Result, Session, SpecialPeriod, Staff, TimeStr, Weekday } from "../types"
 
 export const GENERATE_WEEKS = 8
 /** Soft limits only (owner 2026-09-30): a class takes any number of students — the app warns above 6, and above 3 for a

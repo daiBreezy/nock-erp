@@ -7,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { slipDataUrl } from "@/lib/image"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 interface Person { id: string; nickname: string; photo?: string }
 
@@ -32,18 +34,18 @@ export function PhotoCell({ person, disabled, onSave }: { person: Person; disabl
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger render={<button type="button" aria-label={`รูปของ ${person.nickname}`} title="คลิกเพื่อเปลี่ยนรูป" className="rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none hover:ring-2 hover:ring-primary/30" />}>
+        <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`รูปของ ${person.nickname}`} title="คลิกเพื่อเปลี่ยนรูป" className="rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none hover:ring-2 hover:ring-primary/30" />}>
           <PersonAvatar person={person} />
         </PopoverTrigger>
         <PopoverContent align="start" className="w-48 gap-0 p-1.5">
           <p className="px-2 pb-1 text-xs text-muted-foreground">รูปของ {person.nickname}</p>
-          <button type="button" className={item} onClick={() => file.current?.click()}>
+          <Button variant="ghost" size="inline" type="button" className={item} onClick={() => file.current?.click()}>
             {person.photo ? <><RefreshCwIcon className="size-4" />เปลี่ยนรูป</> : <><ImagePlusIcon className="size-4" />อัปโหลดรูป</>}
-          </button>
+          </Button>
           {person.photo && (
-            <button type="button" className={cn(item, "text-danger")} onClick={() => setPhoto(undefined, "เอารูปออกแล้ว")}><Trash2Icon className="size-4" />เอารูปออก</button>
+            <Button variant="ghost" size="inline" type="button" className={cn(item, "text-danger")} onClick={() => setPhoto(undefined, "เอารูปออกแล้ว")}><Trash2Icon className="size-4" />เอารูปออก</Button>
           )}
-          <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => {
+          <Input ref={file} type="file" accept="image/*" hidden onChange={async (e) => {
             const f = e.target.files?.[0]
             e.target.value = ""
             if (!f) return

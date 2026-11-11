@@ -7,7 +7,7 @@ import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
 import { brandUsesBus, busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, ChevronDownIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -223,7 +223,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
             <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
               <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
               {student.imported && <span className="rounded-full bg-info-soft px-2 py-0.5 text-2xs text-info-ink">นักเรียนเก่า</span>}
-              {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</button>}
+              {!invoice && <Button variant="ghost" size="inline" type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</Button>}
             </div>
           ) : (
             <Button type="button" variant="outline" className="w-full justify-start" onClick={() => setPicking(true)}><UserRoundSearchIcon /> เลือกนักเรียน / Lead</Button>
@@ -345,19 +345,19 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
                   const c = courses.find((x) => x.id === e.courseId)
                   const on = lines.some((l) => l.courseId === e.courseId && l.classIds.join("+") === e.classIds.join("+"))
                   return (
-                    <button key={e.id} type="button" onClick={() => renewPackage(e)}
+                    <Button variant="ghost" size="inline" key={e.id} type="button" onClick={() => renewPackage(e)}
                       className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
                       {c?.name ?? "คอร์ส"} · {classes.filter((k) => e.classIds.includes(k.id)).map((k) => k.name).join(" + ") || "—"} · {e.to < today ? "หมด" : "ถึง"} {fmtDate(e.to)}
-                    </button>
+                    </Button>
                   )
                 })}
               </div>
             </div>
           )}
           {lines.length === 0 && (
-            <button type="button" onClick={() => setPickingCourses(true)} className="w-full rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground hover:bg-muted/40">
+            <Button variant="ghost" size="inline" type="button" onClick={() => setPickingCourses(true)} className="w-full rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground hover:bg-muted/40">
               ยังไม่มีคอร์ส — กดเพื่อเลือก (เลือกได้หลายคอร์ส) · หรือเว้นไว้ถ้าเก็บเฉพาะค่าอื่นๆ
-            </button>
+            </Button>
           )}
           {lines.map((l, i) => (
             <LineCard key={l.id} index={i} draft={l} quote={totals.lines[i]} studentId={studentId} studentGrade={student?.grade}
@@ -382,12 +382,12 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
                 const on = advance.some((a) => a.feeId === f.id)
                 const paidBefore = f.kind === "entry" && waiver
                 return (
-                  <button key={f.id} type="button" aria-pressed={on}
+                  <Button variant="ghost" size="inline" key={f.id} type="button" aria-pressed={on}
                     onClick={() => setAdvancePicked(on ? advance.filter((a) => a.feeId !== f.id) : [...advance, { feeId: f.id, name: f.name, amount: f.price }])}
                     className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
                     {on && <CheckIcon className="size-3" />}{f.name} · {fmtMoney(advance.find((a) => a.feeId === f.id)?.amount ?? f.price)}
                     {paidBefore && <span className="text-muted-foreground">({waiver.reason === "imported" ? "นักเรียนเก่า" : "เคยจ่ายแล้ว"})</span>}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -562,7 +562,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
             const seat = draft.seats?.[k.id] ?? { offset: 0, minutes: k.minutes }
             return (
               <div key={k.id} className={cn("space-y-1", on && k.minutes > 60 && "@3xl:col-span-2")}>
-                <button type="button" onClick={() => toggleClass(k.id)} aria-pressed={on}
+                <Button variant="row" size="inline" type="button" onClick={() => toggleClass(k.id)} aria-pressed={on}
                   className={cn("flex min-h-9 w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-left text-sm", on ? "border-primary bg-primary/5" : "hover:bg-muted/50", warnings.length > 0 && !on && "border-dashed")}>
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
                   <span className="min-w-0 flex-1 truncate"><span className="font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start}</span> · {k.name}</span>
@@ -576,7 +576,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                       </HoverCard>
                     )}
                   </span>
-                </button>
+                </Button>
                 {on && k.minutes > 60 && (
                   <div className="flex flex-wrap items-center gap-2 pl-3 text-xs">
                     <span className="text-muted-foreground">เวลาเรียน</span>
@@ -591,9 +591,9 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
       </div>
 
       {picking && choices.length > fits.length && (
-        <button type="button" className="text-xs text-primary underline" onClick={() => setShowAll((v) => !v)}>
+        <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline" onClick={() => setShowAll((v) => !v)}>
           {showAll ? "ซ่อนคลาสที่ไม่ตรง" : `แสดงคลาสอื่น (${choices.length - fits.length}) — เลือกได้แต่ไม่ตรงวิชา/ระดับ/รูปแบบ`}
-        </button>
+        </Button>
       )}
 
       <div className="grid grid-cols-2 gap-2">
@@ -629,10 +629,10 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
               <p>{course.duration * periods} ชม.{quote!.line.carryIn ? ` + ${quote!.line.carryIn} นาที` : ""} ได้ {q.slots.length - (draft.leftover === "extra" ? 1 : 0)} คาบเต็ม เหลือเศษ <b>{q.leftoverMinutes} นาที</b> — จะทำอย่างไรกับเศษนี้? *</p>
               <div className="flex flex-wrap gap-1.5">
                 {LEFTOVER_CHOICES.map(([v, label]) => (
-                  <button key={v} type="button" aria-pressed={draft.leftover === v} onClick={() => onChange({ leftover: v })}
+                  <Button variant="ghost" size="inline" key={v} type="button" aria-pressed={draft.leftover === v} onClick={() => onChange({ leftover: v })}
                     className={cn("rounded-full border px-2.5 py-1", draft.leftover === v ? "border-info bg-info text-white" : "border-info/40 bg-background hover:bg-info-soft")}>
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </>
@@ -655,7 +655,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                   <td className="px-3 py-1.5 text-xs text-muted-foreground">
                     {p.sessions.length === 0 ? "—" : (
                       <HoverCard>
-                        <HoverCardTrigger render={<button type="button" className="cursor-default underline decoration-dotted underline-offset-4" />}>
+                        <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" className="cursor-default underline decoration-dotted underline-offset-4" />}>
                           {course.unit === "month" ? `${fmtDate(p.sessions[0])} → ${fmtDate(p.sessions[p.sessions.length - 1])} · ${p.sessions.length} คาบ` : `ดูวันเรียนทั้ง ${p.sessions.length} คาบ`}
                         </HoverCardTrigger>
                         <HoverCardContent align="start" className="max-h-72 w-52 overflow-y-auto">

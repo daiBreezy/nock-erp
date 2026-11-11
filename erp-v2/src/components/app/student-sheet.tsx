@@ -40,6 +40,8 @@ import { AddToClassDialog } from "./add-to-class-dialog"
 import { stateDetail, STATUS_PILL } from "./student-status"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
 import { InfoTip } from "./info-tip"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export { STATUS_PILL } from "./student-status"
 
@@ -237,7 +239,7 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
       {rows.map(({ k, next, ahead }) => (
         <li key={k.id} className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-1.5 text-xs">
           <span className="min-w-0 flex-1 truncate"><span className="font-medium">{k.name}</span> <span className="text-muted-foreground">· ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} · {`เหลือ ${ahead} คาบ`}</span></span>
-          {canMove && <button type="button" onClick={() => setMoveFrom(next)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-primary hover:bg-primary/10"><CalendarClockIcon className="size-3.5" /> ย้ายวัน/คาบ</button>}
+          {canMove && <Button variant="ghost" size="inline" type="button" onClick={() => setMoveFrom(next)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-primary hover:bg-primary/10"><CalendarClockIcon className="size-3.5" /> ย้ายวัน/คาบ</Button>}
         </li>
       ))}
       {moveFrom && <RescheduleDialog from={moveFrom} studentId={stu.id} initialMode="always" onClose={() => setMoveFrom(null)} />}
@@ -284,9 +286,9 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
           {current.length === 0 && <p className="py-3 text-sm text-muted-foreground">ไม่มีคอร์สที่ใช้อยู่</p>}
           <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
           {pastCount > 0 && (
-            <button type="button" onClick={onHistory} className="mt-1 flex w-full items-center gap-1 border-t pt-2.5 text-xs text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="inline" type="button" onClick={onHistory} className="mt-1 flex w-full items-center gap-1 border-t pt-2.5 text-xs text-muted-foreground hover:text-foreground">
               <HistoryIcon className="size-3.5" />ประวัติคอร์สที่หมดแล้ว {pastCount} รายการ<ChevronRightIcon className="ml-auto size-3.5" />
-            </button>
+            </Button>
           )}
         </div>
 
@@ -330,7 +332,7 @@ function ClassSeg({ stu, ents, sub, setSub }: { stu: Student; ents: Entitlement[
     <div className="space-y-3">
       <div className="flex gap-4 border-b text-sm">
         {([["session", "คาบเรียน"], ["history", "ประวัติคอร์ส"]] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setSub(k)} className={cn("-mb-px border-b-2 pb-2", sub === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>{l}</button>
+          <Button variant="ghost" size="inline" key={k} onClick={() => setSub(k)} className={cn("-mb-px border-b-2 pb-2", sub === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>{l}</Button>
         ))}
       </div>
       {sub === "session" ? <SessionList stu={stu} ents={ents} /> : <CourseHistory stu={stu} ents={ents} />}
@@ -480,11 +482,11 @@ function BusTag({ studentId, date, legs, editable }: { studentId: ID; date: stri
   }
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) { setP(!!legs?.pickup); setD(!!legs?.dropoff) } }}>
-      <PopoverTrigger render={<button type="button" aria-label="แก้รถรับส่งวันนี้" className="rounded-full hover:ring-2 hover:ring-primary/30" />}>{tag}</PopoverTrigger>
+      <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="แก้รถรับส่งวันนี้" className="rounded-full hover:ring-2 hover:ring-primary/30" />}>{tag}</PopoverTrigger>
       <PopoverContent align="center" className="w-56 space-y-2 p-3 text-sm">
         <p className="font-medium">{`รถรับส่ง ${fmtDate(date, { weekday: true })}`}</p>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={p} onChange={(e) => setP(e.target.checked)} /> รับ (Pickup)</label>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={d} onChange={(e) => setD(e.target.checked)} /> ส่ง (Drop)</label>
+        <label className="flex items-center gap-2"><Checkbox checked={p} onCheckedChange={(v) => setP(v === true)} /> รับ (Pickup)</label>
+        <label className="flex items-center gap-2"><Checkbox checked={d} onCheckedChange={(v) => setD(v === true)} /> ส่ง (Drop)</label>
         <p className="text-xs text-muted-foreground">เพิ่ม = เรียกเก็บในใบถัดไป · เอาออก = รถไม่มารับ (ไม่คืนเงินรอบที่จ่ายแล้ว)</p>
         <div className="flex justify-end"><Button size="xs" onClick={save}>บันทึก</Button></div>
       </PopoverContent>
@@ -587,7 +589,7 @@ function NoteSeg({ stu }: { stu: Student }) {
       <p className="my-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"><MessageSquareIcon className="size-3.5" /> ข้อมูลภายในเท่านั้น — ผู้ปกครองไม่เห็น</p>
       {/* owner 2026-10-29: the same type bar as the Inbox */}
       <div className="flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60">
-        <textarea rows={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โน้ต…"
+        <Textarea rows={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โน้ต…"
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() } }}
           className={cn("max-h-40 min-h-9 flex-1", text ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground")} />
         <Button size="icon" className="rounded-full" disabled={!text.trim()} aria-label="บันทึกโน้ต" onClick={send}><ArrowUpIcon /></Button>
@@ -623,7 +625,7 @@ function TimelineSeg({ stu }: { stu: Student }) {
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1">
           {(["", "profile", "class", "attendance", "billing", "note"] as const).map((c) => (
-            <button key={c || "all"} onClick={() => setCat(c)} className={cn("rounded-full border px-3 py-1 text-xs", cat === c ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{c ? CAT_LABEL[c] : "ทั้งหมด"}</button>
+            <Button variant="ghost" size="inline" key={c || "all"} onClick={() => setCat(c)} className={cn("rounded-full border px-3 py-1 text-xs", cat === c ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{c ? CAT_LABEL[c] : "ทั้งหมด"}</Button>
           ))}
         </div>
         <SearchBox value={q} onChange={setQ} placeholder="ค้นหาใน Log" />

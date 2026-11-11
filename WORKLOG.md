@@ -5,6 +5,14 @@
 
 ---
 
+## 2026-11-11 (ต่อ) — erp-v2: Design System รอบ 7–9c — ครบทั้ง 4 เรื่อง · ทุกกฎเป็น `error` · `main` อัปเดตแล้ว
+- **ผล:** px 44→0 · breakpoint 29→0 · controls ดิบ 329→0 · eslint ทั้ง src = 0 warning/0 error · 421 tests ผ่าน · ตรวจด้วย eslint/tsc เท่านั้น (**ยังไม่ได้เปิดดูหน้าจอ**)
+- **แยกกฎ:** no-raw-controls ย้ายไป `react/forbid-elements` · `no-restricted-syntax` (สีสถานะ/px/breakpoint/search icon) + forbid-elements = `error` ถาวร
+- **Button ใหม่:** `variant="chip"` (ชิปเลือกได้ ใช้ `aria-pressed`/`aria-checked`) · `variant="row"` (ปุ่มทั้งแถว) · `size="inline"` (ไม่บังคับสูง/padding) · ปุ่มตกแต่งเอง ~190 จุด = `ghost`+`inline` คง className เดิม
+- **เปลี่ยนหน้าตาตามมาตรฐาน:** ชิปที่เลือกเป็นพื้นทึบ (liff/exit, notifications, seat-hours, bundle, issue-receipt) → พื้นอ่อน `bg-primary/10` · px→scale ทำให้ radius ขยับเล็กน้อย (8px→rounded-lg=10px) · xl→lg ที่ reports อาจแน่นที่ 1024px
+- **ข้อยกเว้น:** `inline-edit` `<select>` (native picker) · `native-select.tsx` · `transport/labels.tsx` `<img>`
+- **ค้าง:** (1) เปิดดูหน้าจอ: reports, parent-app, ปุ่มกางพับที่มี `aria-expanded` (ghost มี `aria-expanded:bg-muted`) · (2) ค้างให้เจ้าของตัดสิน 3 ข้อ (สีวันหยุดบริษัท · สีลา · ป้ายรับ/ส่งรถ) ท้าย DESIGN-SYSTEM.md · (3) merge รอบ 9c (`erp-v2/design-system-finish`) เข้า main
+
 ## 2026-11-11 — erp-v2: Design System รอบ 6 — สีสถานะทั้งแอปเข้า token (694 → 0) · branch `erp-v2/design-system`
 
 **ก่อนหน้า (ยังไม่เคยจดใน WORKLOG):** DS รอบ 1–5 อยู่บน branch นี้แล้ว — tokens/brand theme (globals.css), shared components (Kpi/KpiRow/SearchBox/Empty), ListPage, eslint guard rails 5 ข้อ (warn), ThemeSettings · commit a965c65 · 110fbe8 · aafa844

@@ -75,6 +75,7 @@ function SelectEditor({ value, options, className, onDone }: { value: string; op
   const ref = useRef<HTMLSelectElement>(null)
   useEffect(() => { ref.current?.focus(); try { ref.current?.showPicker?.() } catch { /* needs a fresh click in some browsers — focus is enough */ } }, [])
   return (
+    // eslint-disable-next-line react/forbid-elements -- ds-exception: needs the browser's native picker (focus + showPicker, blur closes it); NativeSelect is a popup that can't do this
     <select
       ref={ref} value={value}
       onClick={(e) => e.stopPropagation()}

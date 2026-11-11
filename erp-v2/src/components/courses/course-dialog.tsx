@@ -73,11 +73,11 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
             <MapPinIcon className="size-4 text-primary" />
             <span className="font-medium">สาขา{branch.name}</span>
             <InfoTip text="คอร์ส คลาส และคาบเรียนจะอยู่ในสาขานี้" />
-            <button type="button" onClick={() => setShowPlans(!showPlans)} className="ml-auto flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs">
+            <Button variant="ghost" size="inline" type="button" onClick={() => setShowPlans(!showPlans)} className="ml-auto flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs">
               <TagIcon className="size-3.5 text-primary" />
               <b>{UNITS.reduce((n, u) => n + durationsOf(branch, u).length, 0)}</b> แพ็กเกจ
               <ChevronDownIcon className={cn("size-3.5 transition-transform", showPlans && "rotate-180")} />
-            </button>
+            </Button>
           </div>
           <div className="mt-2 flex flex-wrap gap-1 text-xs">
             <span className="text-muted-foreground">วิชา</span>
@@ -103,19 +103,19 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
         <div className="flex flex-wrap gap-2">
         <div className="inline-flex w-fit rounded-full bg-muted p-1">
           {([["single", "Single", StarIcon], ["bundle", "Bundle", LayersIcon]] as const).map(([k, label, Icon]) => (
-            <button key={k} type="button" onClick={() => set({ kind: k, subjects: k === "single" ? c.subjects.slice(0, 1) : c.subjects })}
+            <Button variant="ghost" size="inline" key={k} type="button" onClick={() => set({ kind: k, subjects: k === "single" ? c.subjects.slice(0, 1) : c.subjects })}
               className={cn("flex items-center gap-1.5 rounded-full px-4 py-1 text-sm", c.kind === k ? "bg-foreground font-medium text-background" : "text-muted-foreground")}>
               <Icon className="size-3.5" /> {label}
-            </button>
+            </Button>
           ))}
         </div>
         {/* owner 2026-09-30: the branch decides which course types it offers — เรียนเดี่ยว (Private) or กลุ่ม */}
         <div className="inline-flex w-fit rounded-full bg-muted p-1" title="รูปแบบการเรียน — ใบแจ้งหนี้จะเลือกได้เฉพาะคลาสแบบเดียวกัน">
           {([["group", "กลุ่ม", UsersIcon], ["single", "เดี่ยว", UserIcon]] as const).map(([k, label, Icon]) => (
-            <button key={k} type="button" onClick={() => set({ format: k })}
+            <Button variant="ghost" size="inline" key={k} type="button" onClick={() => set({ format: k })}
               className={cn("flex items-center gap-1.5 rounded-full px-4 py-1 text-sm", c.format === k ? "bg-foreground font-medium text-background" : "text-muted-foreground")}>
               <Icon className="size-3.5" /> {label}
-            </button>
+            </Button>
           ))}
         </div>
         </div>
@@ -130,10 +130,10 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
               {branch.subjects.map((s) => {
                 const on = c.subjects.includes(s)
                 return (
-                  <button key={s} type="button" onClick={() => toggleSubject(s)}
+                  <Button variant="ghost" size="inline" key={s} type="button" onClick={() => toggleSubject(s)}
                     className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
                     {on && <CheckIcon className="size-3.5" />}{s}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -145,16 +145,16 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
                 <div key={g.name}>
                   <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
                     {g.name}
-                    <button type="button" className="text-primary underline" onClick={() => set({ grades: sortGrades([...new Set([...c.grades, ...g.grades])]) })}>เลือกทั้งหมด</button>
+                    <Button variant="ghost" size="inline" type="button" className="text-primary underline" onClick={() => set({ grades: sortGrades([...new Set([...c.grades, ...g.grades])]) })}>เลือกทั้งหมด</Button>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {g.grades.map((gr) => {
                       const on = c.grades.includes(gr)
                       return (
-                        <button key={gr} type="button" onClick={() => set({ grades: sortGrades(on ? c.grades.filter((x) => x !== gr) : [...c.grades, gr]) })}
+                        <Button variant="ghost" size="inline" key={gr} type="button" onClick={() => set({ grades: sortGrades(on ? c.grades.filter((x) => x !== gr) : [...c.grades, gr]) })}
                           className={cn("rounded-full border px-3 py-1 text-sm", on ? cn("border-transparent", gradeTone(gr)) : "hover:bg-muted")}>
                           {gr}
-                        </button>
+                        </Button>
                       )
                     })}
                   </div>
@@ -194,7 +194,7 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
                   {chart.price !== null && (
                     c.price === chart.price
                       ? null
-                      : <button type="button" className="text-xs text-primary underline" onClick={() => { setPriceTouched(false); setC({ ...c, price: chart.price! }) }}>ใช้ราคาตาราง {fmtMoney(chart.price)}</button>
+                      : <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline" onClick={() => { setPriceTouched(false); setC({ ...c, price: chart.price! }) }}>ใช้ราคาตาราง {fmtMoney(chart.price)}</Button>
                   )}
                 </div>
                 {reasonNeeded && (

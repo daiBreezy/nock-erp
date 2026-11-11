@@ -211,14 +211,14 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
         <div ref={bigRef} className="px-4 pb-2.5 pt-4">
           {summaryKid ? (
             <div className="flex items-center gap-1.5">
-              <button type="button" aria-label={t.back} onClick={() => setCsId(null)} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
+              <Button variant="ghost" size="inline" type="button" aria-label={t.back} onClick={() => setCsId(null)} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
               {/* the child's name, then the family — small and light (owner 2026-11-09) */}
               <p className="min-w-0 flex-1 truncate"><span className="text-lg font-semibold">{nick(summaryKid)}</span><span className="ml-2 text-xs text-muted-foreground/70">{family}</span></p>
               <Pill tone="blue">{summaryKid.grade}</Pill>
             </div>
           ) : catalogOpen ? (
             <div className="flex items-center gap-1.5">
-              <button type="button" aria-label={t.back} onClick={catalogOpen.back} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
+              <Button variant="ghost" size="inline" type="button" aria-label={t.back} onClick={catalogOpen.back} className="-ml-1.5 grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
               <p className="min-w-0 flex-1 truncate text-lg font-semibold">{family}</p>
             </div>
           ) : <p className="truncate text-lg font-semibold">{family}</p>}
@@ -227,9 +227,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
         {/* the bar that stays: small name (slides in as you scroll) + the child tabs. No tabs → the bar just hangs under the header */}
         <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !barBody && "pointer-events-none absolute inset-x-0 top-full py-2.5 group-data-[stuck=true]:pointer-events-auto")} style={!barBody ? { opacity: "var(--p)" } : undefined}>
           {summaryKid ? (
-            <button type="button" aria-label={t.back} onClick={() => setCsId(null)} className="flex min-w-0 items-center gap-1 text-sm font-semibold"><ArrowLeftIcon className="size-4 shrink-0" /><span className="truncate">{nick(summaryKid)}</span></button>
+            <Button variant="ghost" size="inline" type="button" aria-label={t.back} onClick={() => setCsId(null)} className="flex min-w-0 items-center gap-1 text-sm font-semibold"><ArrowLeftIcon className="size-4 shrink-0" /><span className="truncate">{nick(summaryKid)}</span></Button>
           ) : catalogOpen ? (
-            <button type="button" aria-label={t.back} onClick={catalogOpen.back} className="flex min-w-0 items-center gap-1 text-sm font-semibold"><ArrowLeftIcon className="size-4 shrink-0" /><span className="truncate">{family}</span></button>
+            <Button variant="ghost" size="inline" type="button" aria-label={t.back} onClick={catalogOpen.back} className="flex min-w-0 items-center gap-1 text-sm font-semibold"><ArrowLeftIcon className="size-4 shrink-0" /><span className="truncate">{family}</span></Button>
           ) : (
             <p className="truncate text-sm font-semibold" style={{ maxWidth: "calc(var(--p) * 34%)", opacity: "var(--p)", flexShrink: 0 }}>{family}</p>
           )}
@@ -240,10 +240,10 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
       <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
         {paid && usesBus && !view.home && !(cur === "request" && ask === "home") && (
-          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-lg bg-warning-soft/60 p-3 text-left text-sm text-warning-ink ring-1 ring-warning/30">
+          <Button variant="row" size="inline" type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-lg bg-warning-soft/60 p-3 text-left text-sm text-warning-ink ring-1 ring-warning/30">
             <MapPinHouseIcon className="size-5 shrink-0" /><span className="min-w-0 flex-1">{t.homeBanner}</span>
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
-          </button>
+          </Button>
         )}
         {!child ? null : cur === "overview" ? <Overview view={childId ? { ...view, children: view.children.filter((c) => c.id === childId) } : view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
           : cur === "study"
@@ -254,9 +254,9 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
 
       <nav className={cn("z-10 mx-auto flex w-full max-w-lg border-t bg-background/95 backdrop-blur", framed ? "sticky bottom-0" : "fixed inset-x-0 bottom-0")}>
         {tabs.map((x) => (
-          <button key={x.key} type="button" onClick={() => { setTab(x.key); setCsId(null) }} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-2xs", cur === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
+          <Button variant="ghost" size="inline" key={x.key} type="button" onClick={() => { setTab(x.key); setCsId(null) }} className={cn("flex flex-1 flex-col items-center gap-0.5 py-2 text-2xs", cur === x.key ? "font-medium text-primary" : "text-muted-foreground")}>
             <x.icon className="size-5" />{x.label}
-          </button>
+          </Button>
         ))}
       </nav>
     </div>
@@ -270,12 +270,12 @@ type T = (typeof DICT)["th"]
 /** one chip look for every pick-one / toggle in the parent app — same as ShowChip / FilterChipGroup in the ERP (h-9 · pill · picked = pink outline) */
 function Chip({ on, onClick, children, disabled, state }: { on?: boolean; onClick: () => void; children: React.ReactNode; disabled?: boolean; state?: "add" | "cancel" | "booked" }) {
   return (
-    <button type="button" aria-pressed={!!on} disabled={disabled} onClick={onClick}
+    <Button variant="ghost" size="inline" type="button" aria-pressed={!!on} disabled={disabled} onClick={onClick}
       className={cn("inline-flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm whitespace-nowrap transition-colors disabled:opacity-40",
         state === "add" ? "border-success/50 bg-success-soft font-medium text-success-ink" : state === "cancel" ? "border-danger/40 bg-danger-soft/50 text-danger line-through" : state === "booked" ? "border-info/40 bg-info-soft text-info-ink"
           : on ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted/50")}>
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -288,21 +288,21 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
         const next = c.upcoming.filter((x) => !x.cancelled).slice(0, 2)
         return (
           <section key={c.id} className="space-y-4 py-5 first:pt-1 last:pb-1">
-            <button type="button" onClick={() => onDrill(c.id)} className="flex w-full items-center gap-3 text-left">
+            <Button variant="row" size="inline" type="button" onClick={() => onDrill(c.id)} className="flex w-full items-center gap-3 text-left">
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-base font-semibold text-muted-foreground">{nick(c).slice(0, 1)}</span>
               <span className="min-w-0 flex-1 truncate text-lg font-semibold">{nick(c)}</span>
               <Pill tone={c.left ? "gray" : "blue"}>{c.left ? t.leftTag : c.grade}</Pill>
-            </button>
+            </Button>
             {next.length > 0 && (
               <div className="space-y-1.5">
               <p className="px-1 text-xs font-semibold text-muted-foreground">{t.nextClasses}</p>
               <div className="overflow-hidden rounded-lg bg-card text-sm ring-1 ring-foreground/5">
                 {next.map((x) => (
-                  <button key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left">
+                  <Button variant="row" size="inline" key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left">
                     <span className={cn("w-14 shrink-0 text-xs", x.date === today ? "font-medium text-danger" : "text-muted-foreground")}>{dayLabel(x.date)}</span>
                     <span className="shrink-0 font-semibold tabular-nums">{x.start}</span>
                     <span className="min-w-0 flex-1 truncate">{x.subjects.join(" + ")}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
               </div>
@@ -341,7 +341,7 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
                 <span className="block truncate text-base font-semibold">{p.course}</span>
                 <span className="block truncate text-xs text-muted-foreground">{fmtDay(p.from, lang)} → {fmtDay(p.until, lang)}</span>
               </span>
-              {onPick && <button type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></button>}
+              {onPick && <Button variant="ghost" size="inline" type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></Button>}
             </div>
             <div className="grid grid-cols-4 divide-x rounded-lg border bg-background/70 py-2 text-center">
               {stats.map(([label, value]) => (
@@ -451,7 +451,7 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
     // owner 2026-11-09: collapsed = the quiet grey "past" row; OPEN = it turns into a white card with a coloured ring and a filled chevron — the
     // two states must be told apart at a glance
     <li className={cn("overflow-hidden rounded-2xl transition-colors", open ? "bg-card text-foreground shadow-sm ring-1 ring-primary/30" : "bg-muted/70 text-muted-foreground")}>
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-4 py-3 text-left">
+      <Button variant="row" size="inline" type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-4 py-3 text-left">
         <span className="w-24 shrink-0">
           <span className="block truncate text-xs">{fmtDay(r.date, lang)}</span>
           <span className="block whitespace-nowrap text-sm font-semibold tabular-nums">{r.start || "–"}</span>
@@ -464,7 +464,7 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
         <span className={cn("grid size-7 shrink-0 place-items-center self-center rounded-full", open ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground")}>
           <ChevronDownIcon className={cn("size-4 transition-transform", open && "rotate-180")} />
         </span>
-      </button>
+      </Button>
       {open && (
         <div className="space-y-2.5 border-t px-4 pb-4 pt-3">
           {/* no icons — one meta line, then the summary: a written one is a soft block (long text cut at 10 lines with an inline "...อ่านทั้งหมด"),
@@ -520,7 +520,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
   return (
     <article className={cn("rounded-lg bg-card shadow-sm ring-1 ring-foreground/5", c.cancelled && "opacity-60")}>
       {/* owner 2026-11-06: day over time on the left (fixed column) · subject (may wrap to 2 lines) with who / which course under it · the card grows with long text */}
-      <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
+      <Button variant="row" size="inline" type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
           <span className={cn("block truncate text-sm font-semibold", isToday && "text-danger")}>{dayText}</span>
           <span className="block whitespace-nowrap text-xs tabular-nums text-muted-foreground">{c.start}–{c.end}</span>
@@ -537,7 +537,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
           ) : null}
         </span>
         <ChevronDownIcon className={cn("size-4 shrink-0 self-center text-muted-foreground transition-transform", open && "rotate-180")} />
-      </button>
+      </Button>
       {msg && <p className={cn("mx-3 mb-2 rounded-lg p-2 text-xs", msg.ok ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger-ink")}>{msg.text}</p>}
       {open && (
         <div className="space-y-2.5 border-t px-3 pt-2.5 pb-3">
@@ -720,7 +720,7 @@ function ClampedParagraphs({ paras, showSubject, readAll, less, maxLines = 10, c
     return { ...x, shown: x.text.slice(0, take), visible: !collapsed || i === 0 || start < cut!, last: collapsed ? start + x.text.length >= cut! && start <= cut! : i === paras.length - 1 }
   })
   const lastIdx = collapsed ? view.findIndex((v) => v.visible && v.last) : paras.length - 1
-  const link = (label: string) => <button type="button" onClick={() => setExpanded((v) => !v)} className="inline-block whitespace-nowrap font-bold text-foreground">{label}</button>
+  const link = (label: string) => <Button variant="ghost" size="inline" type="button" onClick={() => setExpanded((v) => !v)} className="inline-block whitespace-nowrap font-bold text-foreground">{label}</Button>
   return (
     <div className={className}>
       <div ref={wrapRef} className="space-y-2 text-sm" style={{ lineHeight: "22px" }}>
@@ -747,7 +747,7 @@ function CourseSummaryCard({ cs, t, lang, prefix, fresh, onOpen, framed = true, 
     </>
   )
   const cls = framed ? "block w-full rounded-2xl bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5" : "block w-full px-1 text-left"
-  return onOpen ? <button type="button" onClick={onOpen} className={cls}>{inner}</button> : <section className={cls}>{inner}</section>
+  return onOpen ? <Button variant="ghost" size="inline" type="button" onClick={onOpen} className={cls}>{inner}</Button> : <section className={cls}>{inner}</section>
 }
 
 /** แจ้งลาหยุด / แจ้งลาออก (owner 2026-10-14) — goes to the office team in the ERP; the parent is told on LINE */
@@ -803,10 +803,10 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
           </div>
           {paid && (child.left ? [["return", t.returnReq, t.returnSub]] as const
             : [...(hasBus ? [["home", t.homeReq, t.homeReqSub]] as const : []), ["exit", t.exitReq, t.exitReqSub]] as const).map(([k, title, sub]) => (
-            <button key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex w-full items-center gap-3 px-3 py-3 text-left">
+            <Button variant="row" size="inline" key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex w-full items-center gap-3 px-3 py-3 text-left">
               <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block truncate text-xs text-muted-foreground">{sub}</span></span>
               <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-            </button>
+            </Button>
           ))}
         </div>
       )}

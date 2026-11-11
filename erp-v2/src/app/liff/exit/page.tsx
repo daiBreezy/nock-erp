@@ -190,7 +190,7 @@ function Card({ title, sub, error, children }: { title?: string; sub?: string; e
   )
 }
 
-function Pick({ on, onClick, children, block }: { on: boolean; onClick: () => void; children: React.ReactNode; block?: boolean }) {
+function Pick({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <Button variant="chip" size="inline" type="button" aria-pressed={on} onClick={onClick}
       className="min-h-11 px-4 py-2.5 text-sm">{children}</Button>

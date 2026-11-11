@@ -19,6 +19,8 @@ import { report } from "@/lib/feedback"
 import { toast } from "@/lib/toast"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 const PAGE_TOPICS: [string, string[]][] = [
   ["/billing", ["invoice_create", "invoice_approve", "invoice_memo"]],
@@ -120,7 +122,7 @@ export function NockWidget() {
       {/* owner 2026-10-13: Nock hides at the screen edge, tilted 45° and peeking with its eyes — hover (or keyboard focus)
           and it slides out; mouse leaves and it slides back. Stays out while the chat is open.
           owner 2026-10-15: it went back too fast — ease-in-out (no overshoot), 400 ms */}
-      <button ref={btn} type="button" aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP · ลากไปวางมุมไหนของจอก็ได้"
+      <Button variant="ghost" size="inline" ref={btn} type="button" aria-label={open ? "ปิด Nock" : "ถาม Nock"} title="ถาม Nock — ผู้ช่วยของ NockERP · ลากไปวางมุมไหนของจอก็ได้"
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
         onClick={() => { if (dragged.current) { dragged.current = false; return } setOpen((o) => !o) }}
         style={drag ? { left: drag.x - 32, top: drag.y - 32, right: "auto", bottom: "auto" } : undefined}
@@ -132,7 +134,7 @@ export function NockWidget() {
             : "translate-x-[38%] -rotate-45 hover:-translate-x-5 hover:rotate-0 focus-visible:-translate-x-5 focus-visible:rotate-0")}>
         <AiAvatar size="lg" followMouse />
         {open && <span className={cn("absolute -top-1 grid size-5 place-items-center rounded-full bg-background text-foreground shadow ring-1 ring-foreground/10", left ? "-left-1" : "-right-1")}><XIcon className="size-3" /></span>}
-      </button>
+      </Button>
     </>
   )
 }
@@ -222,7 +224,7 @@ function NockPanel({ onClose, corner }: { onClose: () => void; corner: Corner })
             </div>
             <div className="flex flex-col gap-1.5">
               {suggestionsFor(pathname).map((x) => (
-                <button key={x.text} type="button" onClick={() => { setLocs(x.locations); ask(x.text, x.locations) }} className="rounded-2xl bg-muted/60 px-3 py-2 text-left text-sm hover:bg-muted">{x.text}</button>
+                <Button variant="ghost" size="inline" key={x.text} type="button" onClick={() => { setLocs(x.locations); ask(x.text, x.locations) }} className="rounded-2xl bg-muted/60 px-3 py-2 text-left text-sm hover:bg-muted">{x.text}</Button>
               ))}
             </div>
           </div>
@@ -237,7 +239,7 @@ function NockPanel({ onClose, corner }: { onClose: () => void; corner: Corner })
 
       <form className="shrink-0 px-3 pb-3" onSubmit={(e) => { e.preventDefault(); ask(text) }}>
         <div className={cn("rounded-3xl bg-muted/60 px-1.5 pt-1.5 pb-1.5 focus-within:bg-muted focus-within:ring-2 focus-within:ring-ring/20")}>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} placeholder="ถาม Nock…" aria-label="คำถามถึง Nock"
+          <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} placeholder="ถาม Nock…" aria-label="คำถามถึง Nock"
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(text) } }}
             className="block max-h-28 min-h-8 w-full resize-none bg-transparent px-2.5 py-1.5 text-sm outline-none placeholder:text-muted-foreground" />
           <div className="flex items-center gap-1">
@@ -281,11 +283,11 @@ function DevTicketForm({ from, onDone, onLink }: { from?: NockQuestion | null; o
       <div className="grid grid-cols-2 gap-1.5">
         {(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => {
           const Icon = DEV_KIND_ICON[k]
-          return <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("flex items-center gap-1.5 rounded-2xl border px-2.5 py-2 text-left text-xs", kind === k ? "border-primary bg-primary/5 font-medium text-primary" : "hover:bg-muted")}><Icon className="size-4 shrink-0" />{DEV_KIND_LABEL[k]}</button>
+          return <Button variant="ghost" size="inline" key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("flex items-center gap-1.5 rounded-2xl border px-2.5 py-2 text-left text-xs", kind === k ? "border-primary bg-primary/5 font-medium text-primary" : "hover:bg-muted")}><Icon className="size-4 shrink-0" />{DEV_KIND_LABEL[k]}</Button>
         })}
       </div>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวเรื่องสั้นๆ" className="h-9 w-full rounded-2xl bg-muted/60 px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
-      <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={5} placeholder={kind === "bug" ? "ทำอะไรอยู่ แล้วเกิดอะไรขึ้น (ควรเป็นอย่างไร)" : kind === "idea" ? "อยากให้ระบบมีอะไร ช่วยงานแบบไหน" : "เล่ารายละเอียด"} className="w-full resize-none rounded-2xl bg-muted/60 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวเรื่องสั้นๆ" className="h-9 w-full rounded-2xl bg-muted/60 px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
+      <Textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={5} placeholder={kind === "bug" ? "ทำอะไรอยู่ แล้วเกิดอะไรขึ้น (ควรเป็นอย่างไร)" : kind === "idea" ? "อยากให้ระบบมีอะไร ช่วยงานแบบไหน" : "เล่ารายละเอียด"} className="w-full resize-none rounded-2xl bg-muted/60 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/20" />
       <LocationPicker value={locs} onChange={setLocs} placeholder="เลือก Part ของระบบ (จำเป็น)" />
       <p className="text-2xs text-muted-foreground">แนบให้อัตโนมัติ: หน้า {pageUrl} · สาขา{branch?.name} · {me.roles.map((r) => ROLE_LABEL[r]).join(", ")}</p>
       <div className="flex justify-end gap-2">
@@ -301,7 +303,7 @@ function LocationPicker({ value, onChange, placeholder = "Part (ไม่บั�
   const label = value.length ? value.map(Nock.locationLabel).join(", ") : placeholder
   return (
     <Popover>
-      <PopoverTrigger render={<button type="button" className={cn("flex max-w-57.5 items-center gap-1 rounded-full px-2.5 py-1 text-xs", value.length ? "bg-background font-medium ring-1 ring-foreground/10" : "text-muted-foreground hover:bg-background")} />}>
+      <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" className={cn("flex max-w-57.5 items-center gap-1 rounded-full px-2.5 py-1 text-xs", value.length ? "bg-background font-medium ring-1 ring-foreground/10" : "text-muted-foreground hover:bg-background")} />}>
         <MapPinIcon className="size-3.5 shrink-0" /><span className="truncate">{label}</span>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-64 p-2">
@@ -309,8 +311,8 @@ function LocationPicker({ value, onChange, placeholder = "Part (ไม่บั�
         <div className="flex flex-wrap gap-1">
           {Nock.NOCK_LOCATIONS.map((l) => {
             const on = value.includes(l.id)
-            return <button key={l.id} type="button" aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== l.id) : [...value, l.id])}
-              className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{l.label}</button>
+            return <Button variant="chip" size="inline" key={l.id} type="button" aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== l.id) : [...value, l.id])}
+              className="px-2.5 py-1 text-xs">{l.label}</Button>
           })}
         </div>
       </PopoverContent>
@@ -357,11 +359,11 @@ function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (help
       )}
       <div className="flex items-center gap-0.5 pl-8 text-xs text-muted-foreground">
         {q.aiAnswer && !inBank && (q.helpful === undefined ? <>
-          <button type="button" aria-label="ตอบตรง" title="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-success" /></button>
-          <button type="button" aria-label="ไม่ตรง" title="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-danger" /></button>
+          <Button variant="ghost" size="inline" type="button" aria-label="ตอบตรง" title="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-success" /></Button>
+          <Button variant="ghost" size="inline" type="button" aria-label="ไม่ตรง" title="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-danger" /></Button>
         </> : <span className="px-1">ขอบคุณที่บอก</span>)}
         <DropdownMenu>
-          <DropdownMenuTrigger render={<button type="button" aria-label="เพิ่มเติม" title="เพิ่มเติม" className="grid size-6 place-items-center rounded-full hover:bg-muted data-[popup-open]:bg-muted" />}>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="เพิ่มเติม" title="เพิ่มเติม" className="grid size-6 place-items-center rounded-full hover:bg-muted data-[popup-open]:bg-muted" />}>
             <EllipsisIcon className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="z-[60] w-72">
@@ -382,7 +384,7 @@ function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (help
         <div className="ml-8 space-y-1.5 rounded-2xl bg-muted/50 p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-muted-foreground">คำตอบใกล้เคียงจากคลังความรู้</p>
-            <button type="button" aria-label="ปิด" onClick={() => setOpen(null)} className="text-muted-foreground hover:text-foreground"><XIcon className="size-3.5" /></button>
+            <Button variant="ghost" size="inline" type="button" aria-label="ปิด" onClick={() => setOpen(null)} className="text-muted-foreground hover:text-foreground"><XIcon className="size-3.5" /></Button>
           </div>
           {similar.length ? similar.map(({ item, answer }) => (
             <details key={item.id} className="rounded-xl bg-background px-2.5 py-1.5">

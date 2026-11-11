@@ -226,8 +226,8 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
       return (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            {(f.options ?? []).map((o) => <button key={o} type="button" className={chip(list.includes(o))} onClick={() => toggle(o)}>{list.includes(o) && f.type === "multi" && <CheckIcon className="-ml-0.5 mr-1 inline size-3.5" />}{o}</button>)}
-            {f.allowOther && <button type="button" className={chip(!!other)} onClick={() => setOther(!other)}>{tx("อื่นๆ")}</button>}
+            {(f.options ?? []).map((o) => <Button variant="ghost" size="inline" key={o} type="button" className={chip(list.includes(o))} onClick={() => toggle(o)}>{list.includes(o) && f.type === "multi" && <CheckIcon className="-ml-0.5 mr-1 inline size-3.5" />}{o}</Button>)}
+            {f.allowOther && <Button variant="ghost" size="inline" type="button" className={chip(!!other)} onClick={() => setOther(!other)}>{tx("อื่นๆ")}</Button>}
           </div>
           {other !== undefined && <Input autoFocus value={other.slice(OTHER_PREFIX.length)} onChange={(e) => setOther(true, e.target.value)} placeholder={tx("โปรดระบุ")} />}
         </div>
@@ -236,15 +236,14 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
     case "yesno":
       return (
         <div className="flex gap-2">
-          {([[true, "ใช่"], [false, "ไม่ใช่"]] as const).map(([val, label]) => <button key={label} type="button" className={cn(chip(v === val), "min-w-20")} onClick={() => set(v === val ? null : val)}>{tx(label)}</button>)}
+          {([[true, "ใช่"], [false, "ไม่ใช่"]] as const).map(([val, label]) => <Button variant="ghost" size="inline" key={label} type="button" className={cn(chip(v === val), "min-w-20")} onClick={() => set(v === val ? null : val)}>{tx(label)}</Button>)}
         </div>
       )
     case "nps":
       return (
         <div>
           <div className="grid grid-cols-11 gap-1">{Array.from({ length: 11 }, (_, i) => (
-            <button key={i} type="button" onClick={() => set(v === i ? null : i)}
-              className={cn("aspect-square rounded-lg border text-sm tabular-nums", v === i ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{i}</button>
+            <Button variant="chip" size="inline" key={i} type="button" onClick={() => set(v === i ? null : i)} aria-pressed={v === i} className="text-sm tabular-nums">{i}</Button>
           ))}</div>
           <div className="mt-1 flex justify-between text-2xs text-muted-foreground"><span>{tx("ไม่แนะนำเลย")}</span><span>{tx("แนะนำแน่นอน")}</span></div>
         </div>
@@ -252,10 +251,9 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
     case "scale5":
       return (
         <div className="grid grid-cols-5 gap-1.5">{SCALE5_LABEL.map((label, i) => (
-          <button key={i} type="button" onClick={() => set(v === i + 1 ? null : i + 1)}
-            className={cn("flex flex-col items-center gap-0.5 rounded-xl border px-1 py-2 text-center", v === i + 1 ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>
+          <Button variant="chip" size="inline" key={i} type="button" onClick={() => set(v === i + 1 ? null : i + 1)} aria-pressed={v === i + 1} className="px-1 py-2">
             <span className="text-base font-semibold tabular-nums">{i + 1}</span><span className="text-2xs leading-tight">{tx(label)}</span>
-          </button>
+          </Button>
         ))}</div>
       )
     case "file": case "image": {
@@ -264,7 +262,7 @@ function FieldInput({ f, v, set, invalid }: { f: FormField; v: FormAnswer; set: 
         <label className={cn("flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-3 text-sm hover:bg-muted", invalid && "border-danger")}>
           <Icon className="size-4 text-muted-foreground" />
           <span className={v ? "font-medium" : "text-muted-foreground"}>{v ? String(v) : f.type === "image" ? tx("แตะเพื่อแนบรูป") : tx("แตะเพื่อแนบไฟล์")}</span>
-          <input type="file" className="sr-only" accept={f.type === "image" ? "image/*" : undefined} onChange={(e) => set(e.target.files?.[0]?.name ?? null)} />
+          <Input type="file" className="sr-only" accept={f.type === "image" ? "image/*" : undefined} onChange={(e) => set(e.target.files?.[0]?.name ?? null)} />
         </label>
       )
     }

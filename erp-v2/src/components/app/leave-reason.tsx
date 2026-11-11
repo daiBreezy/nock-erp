@@ -4,7 +4,6 @@
 import { useState } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { leaveReasonText, TEACHER_LEAVE_REASONS, type TeacherLeaveReason } from "@/domain/rules/scheduling"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 /** returns the reason text through `onChange` ("" until it is complete) */

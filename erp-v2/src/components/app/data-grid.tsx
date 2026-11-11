@@ -9,6 +9,8 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { HEAD, ROW, type SortState } from "./data-table"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 
 /**
  * Data table each person can arrange for themselves (owner 2026-10-12):
@@ -210,23 +212,23 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                     </span>
                     <span className={cn("flex min-w-0 items-center [contain:inline-size]", justify(c.align))}>
                       {c.sort && onSort ? (
-                        <button type="button" title={c.label} onClick={() => (onSort as (k: string) => void)(c.sort!)} className={cn("inline-flex min-w-0 items-center gap-1", active && "text-foreground")}>
+                        <Button variant="ghost" size="inline" type="button" title={c.label} onClick={() => (onSort as (k: string) => void)(c.sort!)} className={cn("inline-flex min-w-0 items-center gap-1", active && "text-foreground")}>
                           <span className="truncate">{c.label}</span><SortIcon className={cn("size-3 shrink-0", !active && "opacity-40")} />
-                        </button>
+                        </Button>
                       ) : <span className="truncate" title={c.label}>{c.label}</span>}
                       {c.info && (
                         <HoverCard>
-                          <HoverCardTrigger render={<button type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className="ml-1 grid size-4 shrink-0 place-items-center rounded-full hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
+                          <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className="ml-1 grid size-4 shrink-0 place-items-center rounded-full hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
                             <InfoIcon className="size-3.5" />
                           </HoverCardTrigger>
                           <HoverCardContent side="bottom" align="start" className="leading-relaxed">{c.info}</HoverCardContent>
                         </HoverCard>
                       )}
-                      <button type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked}
+                      <Button variant="ghost" size="inline" type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked}
                         title={isLocked ? "เลิกปักหมุด — กลับไปที่เดิม" : "ปักหมุดคอลัมน์ — ไว้ด้านหน้า ไม่เลื่อนตาม"} aria-label={isLocked ? `เลิกปักหมุด ${c.label}` : `ปักหมุด ${c.label}`}
                         className={cn("flex items-center hover:text-foreground", isLocked ? "w-4.5 shrink-0 text-primary" : SLIDE)}>
                         <span className="w-1 shrink-0" />{isLocked ? <PinIcon className="size-3.5 shrink-0" /> : <PinOffIcon className="size-3.5 shrink-0" />}
-                      </button>
+                      </Button>
                       <span draggable title="ลากเพื่อย้ายคอลัมน์" aria-label={`ย้ายคอลัมน์ ${c.label}`}
                         onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, c.id); e.dataTransfer.effectAllowed = "move" }}
                         onDragEnd={() => setOver(null)}
@@ -286,7 +288,7 @@ export function ColumnsMenu<R>({ id, columns }: { id: string; columns: Column<R>
     <Popover>
       {/* owner 2026-10-12: icon only — "การจัดการคอลัมน์" on hover */}
       <HoverCard>
-        <HoverCardTrigger render={<PopoverTrigger render={<button type="button" aria-label="การจัดการคอลัมน์" className={cn("relative grid size-9 shrink-0 place-items-center rounded-full", L.custom ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:text-foreground")} />} />}>
+        <HoverCardTrigger render={<PopoverTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="การจัดการคอลัมน์" className={cn("relative grid size-9 shrink-0 place-items-center rounded-full", L.custom ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:text-foreground")} />} />}>
           <Columns3Icon className="size-4" />
           {L.hidden.length > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-primary px-1 text-2xs leading-4 font-semibold text-primary-foreground tabular-nums">{L.hidden.length}</span>}
         </HoverCardTrigger>
@@ -308,22 +310,22 @@ export function ColumnsMenu<R>({ id, columns }: { id: string; columns: Column<R>
                 className={cn("flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm hover:bg-muted", over === c.id && "bg-primary/10 shadow-[inset_0_2px_0_var(--primary)]")}>
                 <GripVerticalIcon className="size-4 shrink-0 cursor-grab text-muted-foreground/60" aria-hidden />
                 <label className={cn("flex min-w-0 flex-1 items-center gap-2", c.required ? "cursor-default" : "cursor-pointer")}>
-                  <input type="checkbox" className="size-4 accent-primary" checked={isShown} disabled={c.required || (isShown && shown <= 1)} onChange={() => L.toggleHidden(c.id)} />
+                  <Checkbox checked={isShown} disabled={c.required || (isShown && shown <= 1)} onCheckedChange={() => L.toggleHidden(c.id)} />
                   <span className={cn("truncate", !isShown && "text-muted-foreground")}>{c.label}</span>
                 </label>
-                <button type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked} aria-label={isLocked ? `เลิกปักหมุด ${c.label}` : `ปักหมุด ${c.label}`}
+                <Button variant="ghost" size="inline" type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked} aria-label={isLocked ? `เลิกปักหมุด ${c.label}` : `ปักหมุด ${c.label}`}
                   title={isLocked ? "เลิกปักหมุด — กลับไปที่เดิม" : "ปักไว้ด้านหน้า"}
                   className={cn("grid size-6 shrink-0 place-items-center rounded-md hover:bg-background", isLocked ? "text-primary" : "text-muted-foreground/60")}>
                   {isLocked ? <PinIcon className="size-3.5" /> : <PinOffIcon className="size-3.5" />}
-                </button>
+                </Button>
               </li>
             )
           })}
         </ul>
-        <button type="button" disabled={!L.custom} onClick={L.reset}
+        <Button variant="row" size="inline" type="button" disabled={!L.custom} onClick={L.reset}
           className="mt-1 flex w-full items-center gap-2 rounded-lg border-t px-2 pt-2 pb-1 text-left text-xs text-muted-foreground hover:text-foreground disabled:opacity-40">
           <RotateCcwIcon className="size-3.5" />คืนค่าเริ่มต้น
-        </button>
+        </Button>
       </PopoverContent>
     </Popover>
   )

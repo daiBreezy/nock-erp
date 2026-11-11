@@ -4,12 +4,12 @@
 > **รอบนี้ = ไล่โค้ดเก่าให้เข้า DS จริง** จนกฎ eslint ทุกข้อเหลือ 0 แล้วเลื่อนจาก `warn` → `error` (ล็อกถาวร)
 > วิธีดูเลขสด: `npx eslint src` · ไฟล์นี้อัปเดตทุกครั้งที่ปิดรอบย่อย
 
-## ภาพรวม — มี **4 เรื่อง** รวม **~1,097 จุด** (ทำไปแล้ว 767 · เหลือ 329 (เรื่อง 2))
+## ภาพรวม — มี **4 เรื่อง** รวม **~1,097 จุด** (ทำครบทั้ง 4 เรื่อง (1,096 จุด) → ทุกกฎเป็น `error` แล้ว)
 
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
 | 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **0** | ✅ ครบ 2026-11-11 (กฎยังเป็น `warn` — ดูหมายเหตุท้ายเรื่องที่ 1) |
-| 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | **~230** | 🟡 รอบ 9a/9b เสร็จ (ไฟล์ละ 1–3 จุด) · เหลือไฟล์หนา (>3 จุด) |
+| 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | **0** | ✅ ครบ 2026-11-11 (รอบ 9a–9c) |
 | 3. px → text token / spacing scale | no-px-text | 44 | **0** | ✅ ครบ 2026-11-11 |
 | 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | **0** | ✅ ครบ 2026-11-11 (md→sm · xl→lg) |
 
@@ -35,7 +35,7 @@
 | 6.8 | ผู้ปกครอง / LIFF ฟอร์ม | parent-app (17), liff/form (13), liff/exit (11), liff/survey (9), catalog, form-renderer, form-builder, person-fields, parent-requests | 76 | ✅ เสร็จ |
 | 6.9 | ตั้งค่า / Nock / Inbox / แอปเชลล์ + เก็บตก | holiday-planner (16), nock/page (14), nock-widget, app-shell, ai, confirmation, day/week-sessions + ไฟล์ปลีกย่อย | 107 | ✅ เสร็จ |
 
-**ล็อกแล้ว (2026-11-11):** แยก no-raw-controls ไปเป็น `react/forbid-elements` (ยัง `warn`) → `no-restricted-syntax` (สีสถานะ · px · breakpoint · search icon) เป็น **`error`** ถาวร — เช็ค `npx eslint src` ก่อน commit
+**ล็อกครบแล้ว (2026-11-11):** `no-restricted-syntax` (สีสถานะ · px · breakpoint · search icon) และ `react/forbid-elements` (controls ดิบ) เป็น **`error`** ถาวร · eslint ทั้ง src = 0 warning — เช็ค `npx eslint src` ก่อน commit
 **ข้อที่ใช้ token `info` แทน AI_TONE (เพราะสีเดียวกัน = sky):** กล่องคำตอบ Nock (`nock/page`, `nock-widget`), การ์ดตัวอย่าง AI ใน `theme-tuner` — ถ้าวันหนึ่ง AI เปลี่ยนสีให้ย้าย 3 จุดนี้ไป `AI_TONE`
 **"วันนี้" ในปฏิทินสัปดาห์** (`week-sessions`) ใช้ token `today-soft` ที่รอบ 1 เตรียมไว้
 
@@ -43,7 +43,7 @@
 
 ## เรื่องที่ 2 — controls ดิบ → Button / Input / Textarea / NativeSelect (329)
 
-**รอบ 9a/9b (2026-11-11):** ไฟล์ละ 1–3 จุดทำแล้ว (~100 จุด) · `Button` มี variant ใหม่ `chip` (ชิปเลือกได้ — เลือกผ่าน `aria-pressed`/`aria-checked`) · `row` (ปุ่มทั้งแถว/การ์ดตัวเลือก ชิดซ้าย) · size `inline` (ไม่บังคับสูง/padding) · ปุ่มตกแต่งเองที่ไม่เข้า chip/row ใช้ `ghost`+`inline` คง className เดิม — ถ้าจะรวมให้เป็นหน้าตาเดียวค่อยไล่ทีหลัง · ⚠ ชิปที่เคยเลือกแล้วพื้นทึบ (liff/exit, notifications, seat-hours, bundle, issue-receipt) เปลี่ยนเป็นพื้นอ่อน `bg-primary/10` ตามมาตรฐานเดียว · ยังไม่แตะ select ใน `inline-edit`
+**รอบ 9a/9b (2026-11-11):** ไฟล์ละ 1–3 จุดทำแล้ว (~100 จุด) · `Button` มี variant ใหม่ `chip` (ชิปเลือกได้ — เลือกผ่าน `aria-pressed`/`aria-checked`) · `row` (ปุ่มทั้งแถว/การ์ดตัวเลือก ชิดซ้าย) · size `inline` (ไม่บังคับสูง/padding) · ปุ่มตกแต่งเองที่ไม่เข้า chip/row ใช้ `ghost`+`inline` คง className เดิม — ถ้าจะรวมให้เป็นหน้าตาเดียวค่อยไล่ทีหลัง · ⚠ ชิปที่เคยเลือกแล้วพื้นทึบ (liff/exit, notifications, seat-hours, bundle, issue-receipt) เปลี่ยนเป็นพื้นอ่อน `bg-primary/10` ตามมาตรฐานเดียว · `<select>` ใน `inline-edit` คงดิบ = ds-exception (ต้องใช้ native picker)
 
 แทน `<button>/<input>/<textarea>/<select>` ดิบ + Tailwind ด้วย component กลาง (ได้ focus/ปุ่ม/ช่องกรอกเหมือนกันทั้งแอป)
 ไฟล์หนาสุด: session-sheet (25), reports (17), parent-app (15), nock-widget (12), week-teacher-board (11), class-dialog (8), student-sheet (8), invoice-editor (8), driver-app (8)
@@ -67,8 +67,11 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 
 ---
 
+**รอบ 9c (2026-11-11):** ไฟล์หนาที่เหลือแปลงหมด · checkbox → `Checkbox` · color/range/time/file → `Input` · textarea → `Textarea` · select → `NativeSelect` · เก็บ warning ที่ไม่ใช่ DS ด้วย (unused imports, deps ของ useMemo) · ⚠ ปุ่มตกแต่งเอง ~190 จุดเป็น `ghost`+`inline` คง className เดิม — เปิดดูหน้าจอแล้วค่อยรวมเป็น chip/row เพิ่ม
+
 ## ข้อยกเว้นที่ตั้งใจ (ds-exception — ไม่ใช่สถานะ)
 
+- **ข้อยกเว้นเชิงเทคนิค:** `inline-edit` `<select>` (native picker) · `native-select.tsx` import `ui/select` (ตัว wrapper เอง) · `transport/labels.tsx` `<img>` รูปคนขับเป็น data URL
 - **สีประจำวันของไทย** (`week-teacher-board.tsx` `DAY_TONE`: อา.แดง จ.เหลือง อ.ชมพู พ.เขียว พฤ.ส้ม ศ.ฟ้า ส.ม่วง) — เป็นจานสี identity ไม่ใช่ success/danger → ครอบด้วย `/* eslint-disable … ds-exception */` คงสีเดิมไว้ (รอบ 6.3)
 - **ไอคอนหัวใจวิชาโปรด** (`form-app.tsx`) — เก็บ `fill-red-500` (fill ไม่โดนกฎ หัวใจคงแดงเสมอ) · ส่วน `text-*` ใช้ danger · สเกลหน้า NPS/ความพอใจ (แดง/ส้ม/เขียว) map danger/·/success, ส้มกลางสเกลคงไว้ (รอบ 6.8)
 - **แท็กสายรถ P/D/B** (`student-sheet.tsx` `BUS_TAG`: รับ ฟ้า · ส่ง ม่วง · ทั้งคู่ เขียว) — identity ของประเภทรับส่ง ไม่ใช่สถานะ → ds-exception (รอบ 6.7)

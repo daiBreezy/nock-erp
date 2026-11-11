@@ -134,7 +134,7 @@ function RefundDialog({ n, onClose }: { n: CreditNote; onClose: () => void }) {
               {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
               {slip ? <img src={slip} alt="สลิป" className="size-14 rounded-lg object-cover" /> : <span className="grid size-14 place-items-center rounded-lg border border-dashed"><ImageIcon className="size-5" /></span>}
               {slip ? "เปลี่ยนรูปสลิป" : "เลือกรูปสลิป"}
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
+              <Input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
             </label>
           </div>
           <div className="space-y-1"><Label className="text-xs">เลขอ้างอิงการโอน</Label><Input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="เลขอ้างอิง / เลขที่รายการ" /></div>
@@ -197,11 +197,11 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
 
         <div className="grid grid-cols-2 gap-2">
           {([["refund", "คืนเงิน", "โอนเงินคืนผู้ปกครอง", WalletIcon], ["credit", "เก็บเป็นเครดิต", "หักในใบถัดไปของคอร์สเดียวกัน", ReceiptIcon]] as const).map(([k, label, hint, Icon]) => (
-            <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)} disabled={k === "credit" && !hasCourse}
+            <Button variant="ghost" size="inline" key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)} disabled={k === "credit" && !hasCourse}
               className={cn("rounded-xl border p-2.5 text-left disabled:opacity-50", mode === k ? "border-primary ring-2 ring-primary/20" : "hover:bg-muted/40")}>
               <div className="flex items-center gap-1.5 text-sm font-medium"><Icon className="size-4" /> {label}</div>
               <div className="text-xs text-muted-foreground">{k === "credit" && !hasCourse ? "ใบนี้ไม่มีคอร์ส" : hint}</div>
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -210,8 +210,8 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
           <div className="flex flex-wrap gap-1.5">
             {Refund.REFUND_REASONS.map((r) => {
               const on = reasons.includes(r)
-              return <button key={r} type="button" aria-pressed={on} onClick={() => setReasons(on ? reasons.filter((x) => x !== r) : [...reasons, r])}
-                className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{r}</button>
+              return <Button variant="ghost" size="inline" key={r} type="button" aria-pressed={on} onClick={() => setReasons(on ? reasons.filter((x) => x !== r) : [...reasons, r])}
+                className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>{r}</Button>
             })}
           </div>
           <Textarea rows={2} value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="หรือพิมพ์เหตุผลเอง / รายละเอียดเพิ่มเติม" />
@@ -241,7 +241,7 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
                       <span className="block truncate">{i.label} <span className="text-xs font-normal text-muted-foreground">สูงสุด {fmtMoney(i.max)}</span></span>
                       {/* owner Row 50: per-course progress so the admin can judge how much of each course to give back */}
                       {l?.quote && <span className="block text-xs text-muted-foreground">{ses ? `ใช้ไปแล้ว ${ses.used}/${ses.total} คาบ (ตามเช็คชื่อ) · ค่าเรียนคาบละ ${fmtMoney(Math.round(ses.perSession))} · ถึง ${fmtDate(l.quote.to, { year: true })}` : `เรียนไปแล้ว ${l.quote.slots.filter((x) => x.date < today).length}/${l.quote.slots.length} คาบ · ถึง ${fmtDate(l.quote.to, { year: true })}`}</span>}
-                      {on && ses && <button type="button" className="mt-0.5 block text-left text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(ses.amount, i.max)) }))}>แนะนำ {fmtMoney(Math.round(ses.perSession))} × {ses.remaining} คาบที่เหลือ = {fmtMoney(ses.amount)}</button>}
+                      {on && ses && <Button variant="ghost" size="inline" type="button" className="mt-0.5 block text-left text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(ses.amount, i.max)) }))}>แนะนำ {fmtMoney(Math.round(ses.perSession))} × {ses.remaining} คาบที่เหลือ = {fmtMoney(ses.amount)}</Button>}
                     </span>
                   </label>
                   {on && (

@@ -149,15 +149,15 @@ function Survey() {
         </Card>
         <Card title={`${t.nps} *`} error={tried && missing.nps}>
           <div className="grid grid-cols-3">{NPS_CHOICES.map(({ value, Face, on }, i) => (
-            <button key={value} type="button" aria-pressed={npsV !== null && npsBucket(npsV) === i} onClick={() => setNps(value)} className="flex flex-col items-center gap-1.5">
+            <Button variant="ghost" size="inline" key={value} type="button" aria-pressed={npsV !== null && npsBucket(npsV) === i} onClick={() => setNps(value)} className="flex flex-col items-center gap-1.5">
               <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", npsV !== null && npsBucket(npsV) === i ? on : "border-border bg-background text-muted-foreground/50")}><Face className="size-7" strokeWidth={1} /></span>
               <span className={cn("text-sm leading-tight", npsV !== null && npsBucket(npsV) === i ? "font-semibold text-foreground" : "text-muted-foreground")}>{t.npsOpts[i]}</span>
-            </button>
+            </Button>
           ))}</div>
         </Card>
         <Card title={`${t.reasons} *`} error={tried && missing.reasons}>
           <div className="grid gap-2.5">{REASONS.map((k) => (
-            <button key={k} type="button" onClick={() => setReasons((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]))} className={chip(reasons.includes(k))}>{t.r[k]}</button>
+            <Button variant="ghost" size="inline" key={k} type="button" onClick={() => setReasons((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]))} className={chip(reasons.includes(k))}>{t.r[k]}</Button>
           ))}</div>
           {reasons.includes("other") && <Input className="mt-2" placeholder={t.otherPh} value={reasonOther} onChange={(e) => setReasonOther(e.target.value)} />}
         </Card>
@@ -168,10 +168,10 @@ function Survey() {
               <div className="grid grid-cols-5">{[1, 2, 3, 4, 5].map((n) => {
                 const Face = FACES[n], on = scores[k] === n
                 return (
-                  <button key={n} type="button" aria-pressed={on} onClick={() => setScores((x) => ({ ...x, [k]: n }))} className="flex flex-col items-center gap-1.5">
+                  <Button variant="ghost" size="inline" key={n} type="button" aria-pressed={on} onClick={() => setScores((x) => ({ ...x, [k]: n }))} className="flex flex-col items-center gap-1.5">
                     <span className={cn("grid size-14 place-items-center rounded-full border-2 transition-colors", on ? FACE_ON(n) : "border-border bg-background text-muted-foreground/50")}><Face className="size-7" strokeWidth={1} /></span>
                     <span className={cn("text-xs leading-tight", on ? "font-semibold text-foreground" : "text-muted-foreground")}>{t.scale[n]}</span>
-                  </button>
+                  </Button>
                 )
               })}</div>
             </div>
@@ -179,7 +179,7 @@ function Survey() {
         </Card>
         <Card title={`${t.improve} *`} error={tried && missing.improve}>
           <div className="grid gap-2.5">{IMPROVES.map((k) => (
-            <button key={k} type="button" onClick={() => setImprove(k)} className={chip(improve === k)}>{t.i[k]}</button>
+            <Button variant="ghost" size="inline" key={k} type="button" onClick={() => setImprove(k)} className={chip(improve === k)}>{t.i[k]}</Button>
           ))}</div>
           {improve === "other" && <Input className="mt-2" placeholder={t.otherPh} value={improveOther} onChange={(e) => setImproveOther(e.target.value)} />}
         </Card>

@@ -241,12 +241,12 @@ function SmartSearch() {
   }, [])
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} title={`${t("ค้นหา")} (⌘K)`}
+      <Button variant="ghost" size="inline" type="button" onClick={() => setOpen(true)} title={`${t("ค้นหา")} (⌘K)`}
         className="flex h-9 w-full items-center gap-2 rounded-full border bg-card px-3 text-sm text-muted-foreground shadow-xs hover:bg-muted group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         <SearchIcon className="size-4 shrink-0" />
         <span className="truncate group-data-[collapsible=icon]:hidden">{t("ค้นหานักเรียน / ครอบครัว / Lead")}</span>
         <kbd className="ml-auto rounded border px-1 text-2xs group-data-[collapsible=icon]:hidden">⌘K</kbd>
-      </button>
+      </Button>
       {open && (
         <CustomerPicker kinds={["student", "family", "lead"]} title="ค้นหา" onClose={() => setOpen(false)}
           onConfirm={(r) => {
@@ -308,7 +308,7 @@ function UserCard() {
       <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
         {mine.length > 1 ? (
           <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={<button type="button" className="flex w-full items-start gap-1.5 rounded-xl px-1 py-0.5 text-left text-sm font-medium text-primary hover:bg-primary/10" />}>
+            <PopoverTrigger render={<Button variant="row" size="inline" type="button" className="flex w-full items-start gap-1.5 rounded-xl px-1 py-0.5 text-left text-sm font-medium text-primary hover:bg-primary/10" />}>
               <MapPinIcon className="mt-0.5 size-4 shrink-0" /><span className="break-words">{branchShort(branch)}</span>
               <ArrowLeftRightIcon className="mt-0.5 ml-auto size-3.5 shrink-0" />
             </PopoverTrigger>
@@ -322,13 +322,13 @@ function UserCard() {
                     <ul>
                       {mine.filter((b) => b.province === r).sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code)).map((b) => (
                         <li key={b.id}>
-                          <button type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
+                          <Button variant="row" size="inline" type="button" onClick={() => { setBranch(b.id); setOpen(false) }}
                             className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", b.id === branchId && "bg-primary/10 font-medium text-primary")}>
                             <span className="min-w-0 flex-1 break-words">{BUSINESS_SHORT[b.brand]} · {nm(b.name)}</span>
                             {!b.active && <Pill className="px-1 py-0 text-2xs">{t("ปิด")}</Pill>}
                             <span className="text-2xs text-muted-foreground">{b.code}</span>
                             <CheckIcon className={cn("size-4", b.id !== branchId && "invisible")} />
-                          </button>
+                          </Button>
                         </li>
                       ))}
                     </ul>
@@ -383,7 +383,7 @@ function LanguageChip() {
   const cur = UI_LANGS.find((l) => l.key === lang)!
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<button type="button" aria-label={t("ภาษา")} className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
+      <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={t("ภาษา")} className="flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted" />}>
         <GlobeIcon className="size-3.5 text-muted-foreground" />{cur.short}<ChevronDownIcon className="size-3 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">

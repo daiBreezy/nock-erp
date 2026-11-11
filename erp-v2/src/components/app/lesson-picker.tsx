@@ -40,33 +40,33 @@ export function CatalogCombo({ label, items, value, onChange, onCreate, disabled
   return (
     <div className="relative">
       {/* shadcn field look: the label is the placeholder, no floating caption (owner 2026-09-30) */}
-      <button type="button" disabled={disabled} onClick={() => setOpen((o) => !o)} aria-label={label} title={current ? `${label}: ${current.name}` : undefined}
+      <Button variant="row" size="inline" type="button" disabled={disabled} onClick={() => setOpen((o) => !o)} aria-label={label} title={current ? `${label}: ${current.name}` : undefined}
         className="flex h-9 w-full items-center gap-2 rounded-3xl border border-transparent bg-input/50 px-3 text-left text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50">
         <span className={cn("flex-1 truncate", !current && "text-muted-foreground")}>{current?.name ?? placeholder ?? label}</span>
         <ChevronDownIcon className="size-4 text-muted-foreground" />
-      </button>
+      </Button>
       {open && (
         <div className="absolute inset-x-0 top-11 z-30 space-y-1 rounded-xl border bg-popover p-1.5 shadow-lg">
           <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหา หรือพิมพ์ชื่อใหม่"
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (same) pick(same.id); else if (q.trim() && !similar.length) create() } if (e.key === "Escape") setOpen(false) }} />
           <ul className="max-h-56 overflow-y-auto">
-            {current && <li><button type="button" className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted" onClick={() => pick(undefined)}>— ไม่ระบุ —</button></li>}
+            {current && <li><Button variant="row" size="inline" type="button" className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted" onClick={() => pick(undefined)}>— ไม่ระบุ —</Button></li>}
             {list.map((x) => (
-              <li key={x.id}><button type="button" onClick={() => pick(x.id)} className={cn("w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", x.id === value && "bg-primary/10 font-medium text-primary")}>{x.name}</button></li>
+              <li key={x.id}><Button variant="row" size="inline" type="button" onClick={() => pick(x.id)} className={cn("w-full rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", x.id === value && "bg-primary/10 font-medium text-primary")}>{x.name}</Button></li>
             ))}
             {!list.length && !q && <li className="px-2 py-1.5 text-xs text-muted-foreground">ยังไม่มีรายการ — พิมพ์ชื่อเพื่อสร้าง</li>}
           </ul>
           {similar.length > 0 && (
             <div className="rounded-lg bg-warning-soft/60 p-2 text-xs text-warning-ink">
-              ใช่อันนี้ไหม? {similar.map((x) => <button key={x.id} type="button" className="mr-1 font-semibold underline" onClick={() => pick(x.id)}>{x.name}</button>)}
+              ใช่อันนี้ไหม? {similar.map((x) => <Button variant="ghost" size="inline" key={x.id} type="button" className="mr-1 font-semibold underline" onClick={() => pick(x.id)}>{x.name}</Button>)}
             </div>
           )}
           {q.trim() && !same && (
-            <button type="button" onClick={create} className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/5">
+            <Button variant="row" size="inline" type="button" onClick={create} className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/5">
               <PlusIcon className="size-4" /> สร้าง &quot;{Les.cleanName(q)}&quot;{similar.length > 0 && " (ชื่อไม่ซ้ำจริง)"}
-            </button>
+            </Button>
           )}
-          {onManage && <button type="button" onClick={() => { setOpen(false); onManage() }} className="flex w-full items-center gap-1.5 border-t px-2 pt-1.5 text-xs text-muted-foreground hover:text-foreground"><Settings2Icon className="size-3.5" /> จัดการรายการ (แก้ชื่อ / รวมที่ซ้ำ)</button>}
+          {onManage && <Button variant="ghost" size="inline" type="button" onClick={() => { setOpen(false); onManage() }} className="flex w-full items-center gap-1.5 border-t px-2 pt-1.5 text-xs text-muted-foreground hover:text-foreground"><Settings2Icon className="size-3.5" /> จัดการรายการ (แก้ชื่อ / รวมที่ซ้ำ)</Button>}
         </div>
       )}
     </div>
@@ -107,8 +107,8 @@ export function CatalogManager({ kind, items, onClose }: { kind: "book" | "topic
                 <div className="flex flex-wrap gap-1.5 rounded-lg bg-muted/50 p-2 text-xs">
                   <span className="w-full text-muted-foreground">ย้ายทุกสรุปของ &quot;{x.name}&quot; ไปที่ แล้วลบอันนี้:</span>
                   {items.filter((y) => y.id !== x.id).map((y) => (
-                    <button key={y.id} type="button" className="rounded-full border bg-background px-2.5 py-1 hover:border-primary"
-                      onClick={() => report(merge(kind, x.id, y.id), (v) => `รวมแล้ว · ย้าย ${v.moved} สรุป`) && setMerging(null)}>{y.name}</button>
+                    <Button variant="ghost" size="inline" key={y.id} type="button" className="rounded-full border bg-background px-2.5 py-1 hover:border-primary"
+                      onClick={() => report(merge(kind, x.id, y.id), (v) => `รวมแล้ว · ย้าย ${v.moved} สรุป`) && setMerging(null)}>{y.name}</Button>
                   ))}
                 </div>
               )}

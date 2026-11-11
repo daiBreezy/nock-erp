@@ -5,7 +5,7 @@ import nextTs from "eslint-config-next/typescript";
 // Design System guard rails (2026-11-10, Design System › กฎหน้าจอและด่านกันพลาด). Warnings for now — the existing
 // code still has spots to clean up; turn them into "error" once a rule reaches zero.
 // 2026-11-11: status colours / px / breakpoints reached 0 → no-restricted-syntax is now "error" (don't let it regress).
-// no-raw-controls moved to react/forbid-elements (still "warn", 329 left) → becomes "error" when it reaches 0.
+// no-raw-controls lives in react/forbid-elements (also "error" now — reached 0 on 2026-11-11).
 // A real exception: `// eslint-disable-next-line no-restricted-syntax -- ds-exception: <why>` (count them with
 // `grep -rn ds-exception src`; the same exception on 3 pages → move it into the shared component instead).
 const PX = "/-\\[\\d+(\\.\\d+)?px\\]/"
@@ -30,8 +30,8 @@ const eslintConfig = defineConfig([
     rules: {
       // px / breakpoints / status colours / search icon reached 0 → locked as errors (2026-11-11)
       "no-restricted-syntax": ["error", ...dsRules],
-      // raw controls still being cleaned (DESIGN-SYSTEM.md topic 2) — own rule so it can stay "warn" until 0
-      "react/forbid-elements": ["warn", { forbid: ["button", "input", "textarea", "select"].map((element) => ({ element, message: `Design System: use Button / Input / Textarea / NativeSelect instead of raw <${element}> (no-raw-controls).` })) }],
+      // raw controls reached 0 (DESIGN-SYSTEM.md topic 2) → error. Real exceptions: `// eslint-disable-next-line react/forbid-elements -- ds-exception: <why>`
+      "react/forbid-elements": ["error", { forbid: ["button", "input", "textarea", "select"].map((element) => ({ element, message: `Design System: use Button / Input / Textarea / NativeSelect instead of raw <${element}> (no-raw-controls).` })) }],
       "no-restricted-imports": ["warn", { paths: [{ name: "@/components/ui/select", message: "Design System: use NativeSelect (components/app/native-select) — works better on iPad / phones." }] }],
     },
   },

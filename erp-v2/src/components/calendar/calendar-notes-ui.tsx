@@ -10,6 +10,8 @@ import type { CalendarNoteKind, ID, Session } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 /** add / edit one Note Calendar: text + ชั่วคราว | ถาวร. Enter or leaving the box saves, Esc cancels. */
 export function NoteEditor({ text: initialText = "", kind: initialKind, canPermanent, onDone, onDelete, className }: {
@@ -27,18 +29,18 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
   return (
     // owner 2026-10-15: the text gets its own line (room to type), the buttons sit under it on the right
     <div ref={box} className={cn("mt-1 space-y-1", className)} onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
-      <input autoFocus value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
+      <Input autoFocus value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") finish(text); if (e.key === "Escape") finish("") }}
         placeholder="Note เช่น MBook 1 (2-4)" className="h-8 w-full min-w-0 rounded-full border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
       <div className="flex items-center justify-end gap-1">
-      <button type="button" aria-pressed={pinned} disabled={!canPermanent && !pinned} onClick={() => setKind(pinned ? "temporary" : "permanent")}
+      <Button variant="ghost" size="inline" type="button" aria-pressed={pinned} disabled={!canPermanent && !pinned} onClick={() => setKind(pinned ? "temporary" : "permanent")}
         aria-label="Note ถาวร" title={pinned ? "ถาวร — แสดงทุกคาบของคลาสนี้ (กดเพื่อเป็นเฉพาะคาบนี้)" : canPermanent ? "กดเพื่อปักหมุด — แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ"}
         className={cn("grid size-7 shrink-0 place-items-center rounded-full disabled:opacity-40", pinned ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
         <PinIcon className="size-3.5" />
-      </button>
-      <button type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
-        className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></button>
-      <button type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></button>
+      </Button>
+      <Button variant="ghost" size="inline" type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
+        className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></Button>
+      <Button variant="ghost" size="inline" type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></Button>
       </div>
     </div>
   )
@@ -62,10 +64,10 @@ export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId
       ) : (
         <div key={n.id} className="group/note flex min-w-0 items-center gap-1 text-xs text-foreground/80">
           {n.kind === "permanent" ? <PinIcon className="size-3 shrink-0 text-primary" aria-label="Note ถาวร" /> : <StickyNoteIcon className="size-3 shrink-0 text-muted-foreground" aria-label="Note ชั่วคราว" />}
-          <button type="button" disabled={!canEdit} onClick={() => setEditing(n.id)} title={`Note ${NOTE_KIND_LABEL[n.kind]} · ${n.text}`} className={cn("min-w-0 truncate text-left", canEdit && "hover:underline")}>{n.text}</button>
+          <Button variant="row" size="inline" type="button" disabled={!canEdit} onClick={() => setEditing(n.id)} title={`Note ${NOTE_KIND_LABEL[n.kind]} · ${n.text}`} className={cn("min-w-0 truncate text-left", canEdit && "hover:underline")}>{n.text}</Button>
           {canEdit && (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<button type="button" aria-label="จัดการ Note" className="grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100" />}>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="จัดการ Note" className="grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100" />}>
                 <EllipsisIcon className="size-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44">
@@ -80,9 +82,9 @@ export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId
         <NoteEditor kind="temporary" canPermanent={canPermanent}
           onDone={(text, kind) => { setAdding(false); if (text) report(add(s.id, studentId, text, kind), `บันทึก Note ${NOTE_KIND_LABEL[kind]}แล้ว`) }} />
       ) : canEdit && (
-        <button type="button" onClick={() => setAdding(true)} className="inline-flex h-9 items-center gap-1 rounded-full border border-dashed px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground sm:h-auto sm:border-0 sm:px-0 sm:text-xs sm:italic">
+        <Button variant="ghost" size="inline" type="button" onClick={() => setAdding(true)} className="inline-flex h-9 items-center gap-1 rounded-full border border-dashed px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground sm:h-auto sm:border-0 sm:px-0 sm:text-xs sm:italic">
           <PlusIcon className="size-4 sm:size-3" />Note
-        </button>
+        </Button>
       )}
     </div>
   )

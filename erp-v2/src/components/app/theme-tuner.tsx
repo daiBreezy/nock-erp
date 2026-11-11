@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 import { CheckIcon, CopyIcon, PaletteIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
 
 export interface ThemeSettings {
   pageBg: string
@@ -142,9 +143,9 @@ export function ThemeTuner() {
 
       <div className="flex flex-wrap gap-1.5">
         {PRESETS.map((p) => (
-          <button key={p.name} type="button" onClick={() => p.name === "ปกติ" ? reset() : set({ ...DEFAULTS, ...p.t })} className="flex items-center gap-1.5 rounded-full border bg-background py-1 pr-2.5 pl-1 text-xs hover:bg-muted">
+          <Button variant="ghost" size="inline" key={p.name} type="button" onClick={() => p.name === "ปกติ" ? reset() : set({ ...DEFAULTS, ...p.t })} className="flex items-center gap-1.5 rounded-full border bg-background py-1 pr-2.5 pl-1 text-xs hover:bg-muted">
             <span className="size-4 rounded-full ring-1 ring-foreground/10" style={{ background: p.swatch }} />{p.name}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -165,12 +166,12 @@ export function ThemeTuner() {
         {/* owner 2026-11-10: tap a brand colour → the whole system re-themes */}
         <div className="flex flex-wrap items-center gap-1.5">
           {BRAND_SWATCHES.map((c) => (
-            <button key={c} type="button" aria-label={`สีแบรนด์ ${c}`} onClick={() => set({ primary: c })}
+            <Button variant="ghost" size="inline" key={c} type="button" aria-label={`สีแบรนด์ ${c}`} onClick={() => set({ primary: c })}
               className={cn("size-6 rounded-full ring-1 ring-foreground/10 transition hover:scale-110", (t.primary || "").toLowerCase() === c.toLowerCase() && "ring-2 ring-offset-2 ring-offset-popover ring-foreground")}
               style={{ background: c }} />
           ))}
-          <button type="button" aria-label="สีแบรนด์ค่าเดิม" onClick={() => set({ primary: "" })}
-            className={cn("grid size-6 place-items-center rounded-full border border-dashed text-muted-foreground transition hover:bg-muted", !t.primary && "ring-2 ring-offset-2 ring-offset-popover ring-foreground")}><RotateCcwIcon className="size-3" /></button>
+          <Button variant="ghost" size="inline" type="button" aria-label="สีแบรนด์ค่าเดิม" onClick={() => set({ primary: "" })}
+            className={cn("grid size-6 place-items-center rounded-full border border-dashed text-muted-foreground transition hover:bg-muted", !t.primary && "ring-2 ring-offset-2 ring-offset-popover ring-foreground")}><RotateCcwIcon className="size-3" /></Button>
         </div>
         <ColorRow label="สีแบรนด์ (หรือใส่เอง)" value={t.primary} optional placeholder="ค่าเดิม" onChange={(primary) => set({ primary })} />
         <Slider label="ฝ้าขาวบนการ์ด AI" value={t.aiWash} min={0} max={100} unit="%" onChange={(aiWash) => set({ aiWash })} />
@@ -197,9 +198,9 @@ function ColorRow({ label, value, onChange, optional, placeholder = "ไม่�
   return (
     <label className="flex items-center gap-2">
       <span className="w-24 shrink-0 text-xs">{label}</span>
-      <input type="color" value={value || "#ffffff"} onChange={(e) => onChange(e.target.value)} className={cn("h-7 w-9 cursor-pointer rounded-md border bg-transparent p-0.5", !value && "opacity-40")} />
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-7 min-w-0 flex-1 rounded-lg bg-background px-2 font-mono text-xs uppercase outline-none" />
-      {optional && value && <button type="button" onClick={() => onChange("")} className="text-xs text-muted-foreground underline">ล้าง</button>}
+      <Input type="color" value={value || "#ffffff"} onChange={(e) => onChange(e.target.value)} className={cn("h-7 w-9 cursor-pointer rounded-md border bg-transparent p-0.5", !value && "opacity-40")} />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-7 min-w-0 flex-1 rounded-lg bg-background px-2 font-mono text-xs uppercase outline-none" />
+      {optional && value && <Button variant="ghost" size="inline" type="button" onClick={() => onChange("")} className="text-xs text-muted-foreground underline">ล้าง</Button>}
     </label>
   )
 }
@@ -208,7 +209,7 @@ function Slider({ label, value, min, max, unit, onChange }: { label: string; val
   return (
     <label className="flex items-center gap-2">
       <span className="w-24 shrink-0 text-xs">{label}</span>
-      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="flex-1 accent-primary" />
+      <Input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="h-auto w-auto flex-1 border-0 bg-transparent p-0 accent-primary" />
       <span className="w-10 text-right text-xs tabular-nums">{value}{unit}</span>
     </label>
   )

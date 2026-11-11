@@ -25,6 +25,7 @@ import { periodHours } from "@/components/app/period-banner"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { HolidayPlanner } from "./holiday-planner"
 import { tx } from "@/lib/i18n"
+import { NativeSelect } from "@/components/app/native-select"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 
@@ -73,9 +74,7 @@ function OperatingHours({ branch }: { branch: Branch }) {
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 p-2 text-sm">
           
           {tx("คัดลอกเวลาของ")}
-          <select className="h-8 rounded-full border bg-background px-2" value={copyFrom} onChange={(e) => setCopyFrom(Number(e.target.value) as Weekday)}>
-            {WEEK.map((d) => <option key={d} value={d}>{weekdayLong(d)}</option>)}
-          </select>
+          <NativeSelect className="h-8 w-40" value={String(copyFrom)} onChange={(e) => setCopyFrom(Number(e.target.value) as Weekday)} options={WEEK.map((d) => ({ value: String(d), label: weekdayLong(d) }))} />
           
           {tx("ไปที่")}
           <Button size="xs" variant="outline" onClick={() => setB({ ...b, hours: copyHours(b.hours, copyFrom, "weekdays") })}>{tx("วันธรรมดา (จ.–ศ.)")}</Button>
@@ -106,7 +105,7 @@ export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch
     <div className="space-y-4">
       <div className="inline-flex rounded-full bg-muted p-1">
         {tabs.map((t) => (
-          <button key={t.id} onClick={() => setSub(t.id)} className={cn("rounded-full px-4 py-1 text-sm", sub === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{t.label}</button>
+          <Button variant="ghost" size="inline" key={t.id} onClick={() => setSub(t.id)} className={cn("rounded-full px-4 py-1 text-sm", sub === t.id ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{t.label}</Button>
         ))}
       </div>
       {sub === "operating" && <OperatingHours branch={branch} />}
@@ -248,14 +247,14 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
   return (
     <div className={cn("rounded-2xl border", !p.active && "bg-muted/30")}>
       <div className="flex flex-wrap items-center gap-2 p-3">
-        <button onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
+        <Button variant="row" size="inline" onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
           <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
           <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
             <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || tx("(ไม่มีชื่อ)")}</span>
             <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{p.pauseRegular ? (p.pauseCause === "other" ? tx(" · คลาสปกติหยุด (ไม่ยืดแพ็กเกจ)") : tx(" · คลาสปกติหยุด (ยืดแพ็กเกจ)")) : ""}</span>
           </span>
-        </button>
+        </Button>
         <Pill tone={status.tone}>{status.label}</Pill>
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Switch size="sm" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label={tx("เปิดใช้งานช่วงนี้")} />
@@ -270,9 +269,7 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
             <Field label={tx("ตั้งแต่")}><Input type="date" value={p.from} onChange={(e) => onChange({ from: e.target.value })} /></Field>
             <Field label={tx("ถึง")}><Input type="date" value={p.to} onChange={(e) => onChange({ to: e.target.value })} /></Field>
             <Field label={tx("Priority (ช่วงทับกัน → สูงกว่าชนะ)")}>
-              <select className="h-9 rounded-3xl border bg-input/50 px-3 text-sm" value={p.priority} onChange={(e) => onChange({ priority: e.target.value as PeriodPriority })}>
-                {(["high", "medium", "low"] as PeriodPriority[]).map((x) => <option key={x} value={x}>{tx(PRIORITY_LABEL[x])}</option>)}
-              </select>
+              <NativeSelect value={p.priority} onChange={(e) => onChange({ priority: e.target.value as PeriodPriority })} options={(["high", "medium", "low"] as PeriodPriority[]).map((x) => ({ value: x, label: tx(PRIORITY_LABEL[x]) }))} />
             </Field>
           </div>
           <Field label={tx("Memo ใบแจ้งหนี้ + ใบเสร็จ ของช่วงนี้")}>
@@ -283,10 +280,10 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
             <p className="text-sm font-medium">{tx("คลาสปกติระหว่างช่วงนี้")}</p>
             <div className="flex flex-wrap gap-1.5">
               {([[false, tx("เรียนต่อตามปกติ"), tx("คลาสพิเศษเพิ่มเข้ามาด้วย")], [true, tx("หยุดทั้งหมด"), tx("เหลือแต่คลาสพิเศษของช่วงนี้ · ปิดช่วงแล้วกลับมาเอง")]] as const).map(([v, t, d]) => (
-                <button key={t} type="button" aria-pressed={!!p.pauseRegular === v} onClick={() => onChange({ pauseRegular: v })}
+                <Button variant="ghost" size="inline" key={t} type="button" aria-pressed={!!p.pauseRegular === v} onClick={() => onChange({ pauseRegular: v })}
                   className={cn("rounded-xl border px-3 py-1.5 text-left text-sm", !!p.pauseRegular === v ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
                   {t}<span className="block text-xs font-normal text-muted-foreground">{d}</span>
-                </button>
+                </Button>
               ))}
             </div>
             {p.pauseRegular && (
@@ -294,10 +291,10 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
                 <p className="text-xs font-medium">{tx("สาเหตุที่หยุด")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {([["school", tx("เหตุจากโรงเรียน"), tx("โรงเรียนปิดเอง → ยืดแพ็กเกจให้นักเรียนทุกคนในคาบที่หยุด")], ["other", tx("เหตุอื่น"), tx("ไม่ยืดแพ็กเกจ")]] as const).map(([v, t, d]) => (
-                    <button key={v} type="button" aria-pressed={(p.pauseCause ?? "school") === v} onClick={() => onChange({ pauseCause: v })}
+                    <Button variant="ghost" size="inline" key={v} type="button" aria-pressed={(p.pauseCause ?? "school") === v} onClick={() => onChange({ pauseCause: v })}
                       className={cn("rounded-xl border bg-background px-3 py-1.5 text-left text-sm", (p.pauseCause ?? "school") === v ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
                       {t}<span className="block text-xs font-normal text-muted-foreground">{d}</span>
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>

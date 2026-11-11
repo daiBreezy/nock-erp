@@ -8,7 +8,6 @@ import { fmtMoney } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import type { Invoice } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
 /**

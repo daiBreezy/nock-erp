@@ -158,7 +158,7 @@ export function findOfferSlots(params: {
   minutes?: number
   courses?: Pick<Course, "id" | "maxStudents">[]
 }): FormOfferSlot[] {
-  const { branch, staff, sessions, classes, holidays, subject, from, to, now, courses } = params
+  const { branch, staff, sessions, classes, holidays, subject, from, to, now } = params
   const minutes = params.minutes ?? branch.defaultSessionMinutes
   const out: FormOfferSlot[] = []
 

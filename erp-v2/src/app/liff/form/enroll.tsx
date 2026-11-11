@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import type { EnrollClassOffer, EnrollCourseOption, EnrollPackage, EnrollPlan, FormLang } from "@/domain/types"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 export const ENROLL_DICT = {
   th: {
@@ -93,7 +94,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
             {classOffers.map((o) => {
               const on = ids.includes(o.id), full = o.seatsLeft === 0 && !on
               return (
-                <button key={o.id} type="button" disabled={full} onClick={() => onChange({ classIds: on ? ids.filter((x) => x !== o.id) : [...ids, o.id] })}
+                <Button variant="row" size="inline" key={o.id} type="button" disabled={full} onClick={() => onChange({ classIds: on ? ids.filter((x) => x !== o.id) : [...ids, o.id] })}
                   className={cn("flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm disabled:opacity-50", on ? "border-primary bg-primary/10" : "hover:bg-muted")}>
                   <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3.5" />}</span>
                   <span className="min-w-0 flex-1">
@@ -101,7 +102,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
                     <span className="block truncate text-xs text-muted-foreground">{o.subjects.map(subjectLabel).join(" + ")}{o.teacher ? ` · ${o.teacher}` : ""}</span>
                   </span>
                   <span className={cn("shrink-0 text-xs", o.seatsLeft === 0 ? "text-danger" : "text-muted-foreground")}>{o.seatsLeft === 0 ? t.full : `${t.seats} ${o.seatsLeft}`}</span>
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -113,7 +114,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
             {v.bus && (
               <div className="flex flex-wrap gap-1.5 pl-6">
                 {(["both", "pickup", "dropoff"] as const).map((k) => (
-                  <button key={k} type="button" onClick={() => onChange({ busLeg: k })} className={cn("rounded-full border px-3 py-1.5 text-xs", (v.busLeg ?? "both") === k ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{t.busLegs[k]}</button>
+                  <Button variant="ghost" size="inline" key={k} type="button" onClick={() => onChange({ busLeg: k })} className={cn("rounded-full border px-3 py-1.5 text-xs", (v.busLeg ?? "both") === k ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{t.busLegs[k]}</Button>
                 ))}
               </div>
             )}
@@ -143,11 +144,11 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
           <p className="mb-1.5 text-xs text-muted-foreground">{t.coursesSub}</p>
           <div className="space-y-1.5">
             {fit.map((c) => { const on = v.courseIds.includes(c.id); return (
-              <button key={c.id} type="button" onClick={() => toggle("courseIds", c.id)}
+              <Button variant="row" size="inline" key={c.id} type="button" onClick={() => toggle("courseIds", c.id)}
                 className={cn("flex w-full items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm", on ? "border-primary bg-primary/10" : "hover:bg-muted")}>
                 <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
                 <span className="min-w-0 flex-1"><span className="block truncate">{c.name}</span><span className="block text-xs text-muted-foreground">{courseLine(c, t)}</span></span>
-              </button>
+              </Button>
             ) })}
           </div>
         </div>
@@ -156,7 +157,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
         <p className="mb-1.5 text-sm font-semibold">{t.pkg}</p>
         <div className="flex flex-wrap gap-1.5">
           {(["month", "hour", "week", "unsure"] as EnrollPackage[]).map((k) => (
-            <button key={k} type="button" onClick={() => onChange({ pkg: k })} className={cn("rounded-full border px-3 py-1.5 text-sm", v.pkg === k ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}>{t.pkgs[k]}</button>
+            <Button variant="chip" size="inline" key={k} type="button" onClick={() => onChange({ pkg: k })} aria-pressed={v.pkg === k} className="px-3 py-1.5 text-sm">{t.pkgs[k]}</Button>
           ))}
         </div>
       </div>
@@ -170,8 +171,8 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
             <div key={p} className="contents">
               <span className="self-center text-left text-muted-foreground">{t.periods[p]}</span>
               {DAY_ORDER.map((d) => { const k = `${d}-${p}`, on = v.times.includes(k); return (
-                <button key={k} type="button" aria-label={timeLabel(k, t)} aria-pressed={on} onClick={() => toggle("times", k)}
-                  className={cn("grid h-9 place-items-center rounded-lg border", on ? "border-primary bg-primary text-primary-foreground" : "bg-background")}>{on && <CheckIcon className="size-3.5" />}</button>
+                <Button variant="chip" size="inline" key={k} type="button" aria-label={timeLabel(k, t)} aria-pressed={on} onClick={() => toggle("times", k)}
+                  className="h-9">{on && <CheckIcon className="size-3.5" />}</Button>
               ) })}
             </div>
           ))}

@@ -11,6 +11,7 @@ import { ArrowLeftIcon, BusIcon, CheckIcon, ChevronRightIcon, FlagIcon, LoaderCi
 import { cn } from "@/lib/utils"
 import { DEMO_DRIVER, demoTrips } from "@/data/driver-demo"
 import { today } from "@/lib/today"
+import { Button } from "@/components/ui/button"
 
 interface Stop { key: string; nickname: string; name: string; grade: string; leg: "pickup" | "dropoff"; adult: boolean; phone: string; address?: string; addressNote?: string; loc?: { lat: number; lng: number }; eta: string | null }
 interface Trip { tripId: string; driverName: string; branchName: string; date: string; kind: "pickup" | "dropoff" | "both"; time: string; name?: string; depart: string; finish: string; vehicle: { name: string; plate: string } | null; seats: number; used: number; km?: number; stops: Stop[] }
@@ -78,7 +79,7 @@ export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
           {(days.length ? days : [today()]).map((d) => (
-            <button key={d} type="button" onClick={() => setDay(d)} className={cn("h-9 shrink-0 rounded-full px-4 text-sm", d === day ? "bg-primary font-medium text-primary-foreground" : "bg-muted text-muted-foreground")}>{d === today() ? "วันนี้" : dayLabel(d)}</button>
+            <Button variant="ghost" size="inline" key={d} type="button" onClick={() => setDay(d)} className={cn("h-9 shrink-0 rounded-full px-4 text-sm", d === day ? "bg-primary font-medium text-primary-foreground" : "bg-muted text-muted-foreground")}>{d === today() ? "วันนี้" : dayLabel(d)}</Button>
           ))}
         </div>
       </header>
@@ -93,7 +94,7 @@ export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
         {list.map((t) => {
           const p = progress(t, events)
           return (
-            <button key={t.tripId} type="button" onClick={() => setOpenId(t.tripId)}
+            <Button variant="row" size="inline" key={t.tripId} type="button" onClick={() => setOpenId(t.tripId)}
               className={cn("block w-full space-y-3 rounded-3xl bg-background p-4 text-left shadow-sm ring-1 ring-foreground/10", p.finished && "bg-muted/60", p.started && !p.finished && "ring-2 ring-primary")}>
               {/* top row, centred: type · trip · status + chevron side by side (owner 2026-10-20) */}
               <span className="flex items-center gap-3">
@@ -116,7 +117,7 @@ export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
                 <span className="block text-sm text-foreground/65">{`${t.stops.length} จุด · ${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}${t.vehicle ? ` · ${t.vehicle.name} ${t.vehicle.plate}` : ""}`}</span>
                 {p.started && !p.finished && <span className="block h-2 overflow-hidden rounded-full bg-background"><span className="block h-full rounded-full bg-primary" style={{ width: `${(p.done / Math.max(1, t.stops.length)) * 100}%` }} /></span>}
               </span>
-            </button>
+            </Button>
           )
         })}
       </main>
@@ -199,7 +200,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
     <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-32">
       <header className="sticky top-0 z-30 bg-background/95 px-3 py-2.5 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={onBack} aria-label="กลับ" className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-muted"><ArrowLeftIcon className="size-5" /></button>
+          <Button variant="ghost" size="inline" type="button" onClick={onBack} aria-label="กลับ" className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{`${KIND[t.kind]} ${t.time}`}{t.name ? <span className="font-normal text-muted-foreground">{` · ${t.name}`}</span> : null}</p>
             <p className="truncate text-xs text-muted-foreground">{`${t.vehicle ? `${t.vehicle.name} · ${t.vehicle.plate} · ` : ""}${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}`}</p>
@@ -230,7 +231,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
             <div className={cn("grid gap-2", curIn ? "grid-cols-3" : "grid-cols-2")}>
               {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-info/40 bg-white/70 text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
               {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-info/40 bg-white/70 text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
-              {curIn && <button type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-warning/40 bg-warning-soft/60 text-sm font-medium text-warning-ink disabled:opacity-50"><RotateCcwIcon className="size-4 shrink-0" />ยังไม่ถึง</button>}
+              {curIn && <Button variant="ghost" size="inline" type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-warning/40 bg-warning-soft/60 text-sm font-medium text-warning-ink disabled:opacity-50"><RotateCcwIcon className="size-4 shrink-0" />ยังไม่ถึง</Button>}
             </div>
           </div>)}
         </section>
@@ -260,7 +261,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                       </span>
                       <Address className="text-sm text-foreground/75" text={[s.addressNote, s.address].filter(Boolean).join(" · ")} />
                     </span>
-                    {out && p.started && !p.finished && <button type="button" disabled={busy} onClick={() => onTap("undo", s.key)} className="flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs text-muted-foreground"><RotateCcwIcon className="size-3" />แก้</button>}
+                    {out && p.started && !p.finished && <Button variant="ghost" size="inline" type="button" disabled={busy} onClick={() => onTap("undo", s.key)} className="flex h-8 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs text-muted-foreground"><RotateCcwIcon className="size-3" />แก้</Button>}
                   </div>
                   <div className="mt-2 ml-11 grid grid-cols-3 divide-x text-center">
                     <TimeCell label="ประมาณ" value={s.eta ?? "—"} />
@@ -284,14 +285,14 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
       <footer className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-lg border-t bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         {/* owner 2026-10-20: left 30% · right 70% */}
         <div className={cn("grid gap-3", bar.right ? "grid-cols-[3fr_7fr]" : "grid-cols-1")}>
-          <button type="button" disabled={busy} onClick={bar.left.onClick}
+          <Button variant="ghost" size="inline" type="button" disabled={busy} onClick={bar.left.onClick}
             className={cn("flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 px-1 text-sm font-semibold disabled:opacity-50", bar.left.tone === "danger" ? "border-danger/40 text-danger" : "border-foreground/15")}>
             <bar.left.icon className="size-5 shrink-0" /><span className="max-w-full truncate">{bar.left.label}</span>
-          </button>
+          </Button>
           {bar.right && (
-            <button type="button" disabled={busy} onClick={bar.right.onClick} className={cn("flex h-16 min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-base font-semibold shadow-sm disabled:opacity-50", bar.right.tone)}>
+            <Button variant="ghost" size="inline" type="button" disabled={busy} onClick={bar.right.onClick} className={cn("flex h-16 min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-base font-semibold shadow-sm disabled:opacity-50", bar.right.tone)}>
               {busy ? <LoaderCircleIcon className="size-5 animate-spin" /> : <bar.right.icon className="size-5 shrink-0" />}<span className="truncate">{bar.right.label}</span>
-            </button>
+            </Button>
           )}
         </div>
       </footer>
@@ -333,7 +334,7 @@ function Address({ text, className }: { text: string; className?: string }) {
   return (
     <span className={cn("block", className)}>
       <span ref={ref} className={cn("block", !open && "line-clamp-2")}>{text}</span>
-      {(long || open) && <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open) }} className="mt-0.5 text-sm font-medium text-primary">{open ? "แสดงน้อยลง" : "แสดงเพิ่มเติม"}</button>}
+      {(long || open) && <Button variant="ghost" size="inline" type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open) }} className="mt-0.5 text-sm font-medium text-primary">{open ? "แสดงน้อยลง" : "แสดงเพิ่มเติม"}</Button>}
     </span>
   )
 }

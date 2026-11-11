@@ -181,8 +181,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         {/* real tabs — an underline bar hugging its labels (owner 2026-11-04: no full-width stretch) */}
         <div className="-mb-3 mt-2 flex gap-1">
           {([["students", `รายชื่อนักเรียน (${s.studentIds.length})`], ["info", "ข้อมูลคาบ"]] as const).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => setTab(k)}
-              className={cn("border-b-2 px-3 pb-2.5 pt-1 text-sm transition", tab === k ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>
+            <Button variant="ghost" size="inline" key={k} type="button" onClick={() => setTab(k)}
+              className={cn("border-b-2 px-3 pb-2.5 pt-1 text-sm transition", tab === k ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</Button>
           ))}
         </div>
       </SheetHeader>
@@ -205,7 +205,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             {s.studentIds.length > cap && !capHidden && (
               <div className="flex items-center gap-2 rounded-2xl bg-warning-soft/60 px-3 py-2.5 text-sm text-warning-ink">
                 <AlertTriangleIcon className="size-4 shrink-0" /> ไม่ควรเกิน {cap} คน/คลาส (ตอนนี้ {s.studentIds.length} คน)
-                <button type="button" className="ml-auto" aria-label="ปิด" onClick={() => setCapHidden(true)}><XIcon className="size-4" /></button>
+                <Button variant="ghost" size="inline" type="button" className="ml-auto" aria-label="ปิด" onClick={() => setCapHidden(true)}><XIcon className="size-4" /></Button>
               </div>
             )}
             {viewOnly && <p className="text-xs text-muted-foreground">ดูอย่างเดียว — ไม่ใช่คาบที่คุณสอน</p>}
@@ -395,7 +395,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </span>
         <div className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
-            <button type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</button>
+            <Button variant="ghost" size="inline" type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</Button>
             {/* grade sits next to the name so the right side carries only the ⋮ (owner 2026-11-02) */}
             {stu?.grade && <span className={cn("shrink-0 rounded-full px-1.5 py-px text-2xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
             {isNew && <Pill tone="red" className="shrink-0" title="เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ"><FlameIcon className="size-3" /> ใหม่</Pill>}
@@ -403,17 +403,17 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
             {/* default = the whole class (owner 2026-09-30); tap to set a part of it */}
             {(partial || (canManage && !locked && !s.cancelled)) && (
-              <button type="button" disabled={!canManage || locked || s.cancelled} onClick={() => setOpen("seat")}
+              <Button variant="ghost" size="inline" type="button" disabled={!canManage || locked || s.cancelled} onClick={() => setOpen("seat")}
                 title={partial ? `เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"} · กดเพื่อเปลี่ยน` : "กดเพื่อตั้งให้เรียนแค่บางชั่วโมง"}
                 className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200" : "border border-dashed text-muted-foreground hover:bg-muted")}>
                 {Seats.seatLabel(seat, s.minutes)}
-              </button>
+              </Button>
             )}
           </span>
           <p className="truncate text-xs text-muted-foreground">
             {asm ? `${FORM_TYPE_LABEL[asm.type]} (ไม่ใช้แพ็กเกจ)`
               : s.trial ? "ทดลองเรียน (ไม่ใช้แพ็กเกจ)"
-              : !ent ? <span className="text-warning">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <button type="button" onClick={() => setInvoice("new")} className="ml-1 underline">ออกใบแจ้งหนี้</button>}{invoice && <InvoiceSheet id={invoice} defaultStudentId={sid} onClose={() => setInvoice(null)} />}</span>
+              : !ent ? <span className="text-warning">ยังไม่ได้จ่ายค่าเรียน{can(me, "billing.manage") && <Button variant="ghost" size="inline" type="button" onClick={() => setInvoice("new")} className="ml-1 underline">ออกใบแจ้งหนี้</Button>}{invoice && <InvoiceSheet id={invoice} defaultStudentId={sid} onClose={() => setInvoice(null)} />}</span>
               : (() => {
                 const course = courses.find((c) => c.id === ent.courseId)
                 return <span title={`${course?.name ?? ""} · ถึง ${fmtDate(ent.to, { year: true })}${progress?.of ? ` · คาบที่ ${progress.n} จาก ${progress.of}` : ""}`}>
@@ -425,12 +425,12 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) ·
             phones: wraps to its own full-width row (order-last) so the buttons never run off the edge */}
         <span className="order-last flex w-full shrink-0 overflow-hidden rounded-full border sm:order-none sm:w-auto">
-          <button type="button" data-on={a?.status === "present"} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
-            className={pill + " data-[on=true]:bg-success data-[on=true]:text-white"}>มา</button>
-          <button type="button" data-on={a?.status === "leave"} disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
-            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-warning data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</button>
-          <button type="button" disabled={!canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
-            title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</button>
+          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present"} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
+            className={pill + " data-[on=true]:bg-success data-[on=true]:text-white"}>มา</Button>
+          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
+            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-warning data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>
+          <Button variant="ghost" size="inline" type="button" disabled={!canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
+            title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</Button>
         </span>
         {/* per-student ⋮ — teachers get it too (profile / re-schedule); managers also get seat + remove.
             44px trigger on phones so it's easy to tap (owner 2026-11-02) */}
@@ -463,12 +463,12 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
       {classMove && (
         <p className={cn(indent, "flex flex-wrap items-center gap-x-2 text-xs text-info")}>
           ย้ายคลาสถาวรมาจาก {classes.find((k) => k.id === classMove.fromClassId)?.name ?? "คลาสเดิม"} · {fmtDateTime(classMove.at)}
-          {canMove && canUndoClassMove(classMove, attendance).ok && <button type="button" className="underline" onClick={() => report(undoClassMove(classMove.id), "ย้อนกลับแล้ว — กลับไปคลาสเดิม")}>ย้อนกลับ</button>}
+          {canMove && canUndoClassMove(classMove, attendance).ok && <Button variant="ghost" size="inline" type="button" className="underline" onClick={() => report(undoClassMove(classMove.id), "ย้อนกลับแล้ว — กลับไปคลาสเดิม")}>ย้อนกลับ</Button>}
         </p>
       )}
       {movedFrom && (
         <p className={cn(indent, "text-xs text-info")}>
-          ย้ายมาจาก <button type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</button>
+          ย้ายมาจาก <Button variant="ghost" size="inline" type="button" className="underline" onClick={() => setOtherSession(movedFrom.id)}>{fmtDate(movedFrom.date, { weekday: true })} {movedFrom.start}–{endTime(movedFrom.start, movedFrom.minutes)}{classes.find((k) => k.id === movedFrom.classId) ? ` · ${classes.find((k) => k.id === movedFrom.classId)!.name}` : ""}</Button>
         </p>
       )}
       {a?.status === "leave" && raw && (
@@ -620,10 +620,10 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
         </DialogHeader>
         <div className="grid grid-cols-2 gap-2">
           {([[false, "ลา · หักโควตา", ent ? `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา` : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ลาพักยาว · ไม่หักโควตา", "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"]] as const).map(([k, label, hint]) => (
-            <button key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
+            <Button variant="ghost" size="inline" key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
               className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-warning bg-warning-soft/40" : "hover:bg-muted/50")}>
               <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
-            </button>
+            </Button>
           ))}
         </div>
         {/* owner 2026-10-12: ลาพักยาว here = the same form as the student's ⋯ › ลาพักยาว (LongLeaveFields) */}
@@ -674,10 +674,10 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
           <DialogDescription>คาบ {s.start}–{endTime(s.start, s.minutes)} · แพ็กชั่วโมงหักตามเวลาที่เรียนจริง ราคารายเดือนเท่าเดิม</DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
-          <button type="button" aria-pressed={!Seats.isPartial(pick, s.minutes)} onClick={() => setPick(Seats.fullSeat(s.minutes))}
+          <Button variant="ghost" size="inline" type="button" aria-pressed={!Seats.isPartial(pick, s.minutes)} onClick={() => setPick(Seats.fullSeat(s.minutes))}
             className={cn("flex items-center justify-between rounded-xl border px-3 py-2 text-sm", !Seats.isPartial(pick, s.minutes) ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
             <span>{Seats.seatLabel(Seats.fullSeat(s.minutes), s.minutes)}</span><span className="text-xs text-muted-foreground tabular-nums">{Seats.seatTime(s.start, Seats.fullSeat(s.minutes))}</span>
-          </button>
+          </Button>
           <div className="space-y-1.5 rounded-xl border px-3 py-2 text-sm">
             <p className="font-medium">เลือกตามชั่วโมง หรือกำหนดเอง (หลายช่วงได้)</p>
             <SeatHours classMinutes={s.minutes} start={s.start} value={Seats.isPartial(pick, s.minutes) ? pick : undefined} onChange={(v) => setPick(v ?? Seats.fullSeat(s.minutes))} onError={setError} />
@@ -686,8 +686,8 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
         {klass && (
           <div className="flex gap-1.5">
             {([["session", "เฉพาะคาบนี้"], ["class", "ทุกคาบของคลาสนี้"]] as const).map(([k, label]) => (
-              <button key={k} type="button" aria-pressed={scope === k} onClick={() => setScope(k)}
-                className={cn("flex-1 rounded-full border px-3 py-1.5 text-sm", scope === k ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>{label}</button>
+              <Button variant="chip" size="inline" key={k} type="button" aria-pressed={scope === k} onClick={() => setScope(k)}
+                className="flex-1 px-3 py-1.5 text-sm">{label}</Button>
             ))}
           </div>
         )}
@@ -722,10 +722,10 @@ function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; stu
       </div>
       <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
       {to && (
-        <button type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-warning hover:underline" title="เปิดคาบที่ย้ายไป">
+        <Button variant="ghost" size="inline" type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-warning hover:underline" title="เปิดคาบที่ย้ายไป">
           <span className="flex items-center justify-end gap-1 font-medium"><CalendarClockIcon className="size-4" /> ย้ายไป</span>
           <span className="text-2xs">{fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
-        </button>
+        </Button>
       )}
       {canManage ? (
         <DropdownMenu>
@@ -796,10 +796,10 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
         </DialogHeader>
         <div className="flex flex-wrap items-center gap-2">
           {(["once", "always"] as const).map((m) => (
-            <button key={m} type="button" disabled={m === "always" && !from.classId} onClick={() => { setMode(m); setPick(null); setToClass(null); setCreating(false) }}
+            <Button variant="ghost" size="inline" key={m} type="button" disabled={m === "always" && !from.classId} onClick={() => { setMode(m); setPick(null); setToClass(null); setCreating(false) }}
               className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10 disabled:opacity-40", mode === m ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>
               {m === "once" ? "ครั้งนี้ครั้งเดียว" : "ตั้งแต่ครั้งนี้เป็นต้นไป"}
-            </button>
+            </Button>
           ))}
           <InfoTip text={mode === "once" ? `ย้ายเฉพาะคาบ ${fmtDate(from.date, { weekday: true })} ไปคาบอื่นวิชาเดียวกัน ภายในสัปดาห์นี้และสัปดาห์หน้า (${fmtDate(monday)} – ${fmtDate(lastDay, { year: true })}) · ไกลกว่านั้นให้บันทึกเป็นการลา` : "ย้ายไปอยู่อีกคลาสถาวร ตั้งแต่คาบนี้ · แพ็กเกจจบวันเดิม คลาสใหม่ได้เท่าที่มีคาบก่อนวันจบ"} />
           {history.length > 0 && (
@@ -818,8 +818,8 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
           <div className="shrink-0 space-y-2 rounded-2xl bg-muted/50 p-3">
             <p className="text-sm font-medium">ย้ายกี่คาบ?</p>
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => setMoveAll(true)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>{`ทุกคาบที่เหลือ (${oldRemaining})`}</button>
-              <button type="button" onClick={() => setMoveAll(false)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", !moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>เลือกจำนวน</button>
+              <Button variant="ghost" size="inline" type="button" onClick={() => setMoveAll(true)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>{`ทุกคาบที่เหลือ (${oldRemaining})`}</Button>
+              <Button variant="ghost" size="inline" type="button" onClick={() => setMoveAll(false)} className={cn("h-9 rounded-full px-3.5 text-sm ring-1 ring-foreground/10", !moveAll ? "bg-primary/10 font-medium text-primary ring-primary/40" : "hover:bg-muted")}>เลือกจำนวน</Button>
               {!moveAll && <Input type="number" min={1} max={oldRemaining - 1} value={moveN} onChange={(e) => setMoveN(Math.max(1, Math.min(oldRemaining - 1, Number(e.target.value) || 1)))} className="h-9 w-20 text-center" aria-label="จำนวนคาบที่จะย้าย" />}
               {!moveAll && <span className="text-sm text-muted-foreground">/ {oldRemaining} คาบ</span>}
             </div>
@@ -848,7 +848,7 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
                 const cap = classCapacity(k)
                 const check = canRescheduleStudent(from, x, studentId, now, cap)
                 return (
-                  <button key={x.id} type="button" disabled={!check.ok} onClick={() => setPick(x.id)} title={check.ok ? undefined : check.error}
+                  <Button variant="row" size="inline" key={x.id} type="button" disabled={!check.ok} onClick={() => setPick(x.id)} title={check.ok ? undefined : check.error}
                     className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", pick === x.id ? "bg-primary/10 ring-2 ring-primary" : "bg-primary/5 hover:bg-primary/10", !check.ok && "cursor-not-allowed opacity-50")}>
                     <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", pick === x.id ? "border-primary" : "border-muted-foreground/50")}>{pick === x.id && <span className="size-2.5 rounded-full bg-primary" />}</span>
                     <span className="min-w-0 flex-1">
@@ -857,16 +857,16 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
                     </span>
                     <Pill tone={k?.type === "single" ? "gray" : "blue"}>{k?.type === "single" ? "เดี่ยว" : "กลุ่ม"}</Pill>
                     {k?.grades.slice(0, 2).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(g))}>{g}</span>)}
-                  </button>
+                  </Button>
                 )
               })}
             </section>
           ))}
           <section className={cn("rounded-2xl border border-dashed p-3", creating && "border-primary bg-primary/5")}>
-            <button type="button" onClick={() => { setCreating(!creating); setPick(null) }} className="flex w-full items-center gap-2 text-left text-sm font-medium">
+            <Button variant="row" size="inline" type="button" onClick={() => { setCreating(!creating); setPick(null) }} className="flex w-full items-center gap-2 text-left text-sm font-medium">
               <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", creating ? "border-primary" : "border-muted-foreground/50")}>{creating && <span className="size-2.5 rounded-full bg-primary" />}</span>
               สร้างคาบใหม่ {fmtDate(day, { weekday: true })} (วัน/เวลาที่ยังไม่มีคาบ)
-            </button>
+            </Button>
             {creating && (
               <div className="mt-3 space-y-2">
                 <div className="grid grid-cols-2 gap-2">
@@ -940,7 +940,7 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
         const check = canMoveToClass(from, k, studentId, now, L.student(studentId)?.grade)
         const cap = classCapacity(k)
         return (
-          <button key={k.id} type="button" disabled={!check.ok} onClick={() => onChange(k.id)} title={check.ok ? undefined : check.error}
+          <Button variant="row" size="inline" key={k.id} type="button" disabled={!check.ok} onClick={() => onChange(k.id)} title={check.ok ? undefined : check.error}
             className={cn("flex w-full items-center gap-3 rounded-2xl p-3 text-left transition", value === k.id ? "bg-primary/10 ring-2 ring-primary" : "bg-primary/5 hover:bg-primary/10", !check.ok && "cursor-not-allowed opacity-50")}>
             <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", value === k.id ? "border-primary" : "border-muted-foreground/50")}>{value === k.id && <span className="size-2.5 rounded-full bg-primary" />}</span>
             <span className="min-w-0 flex-1">
@@ -948,7 +948,7 @@ function ClassMovePicker({ from, studentId, value, onChange, entitlementTo }: { 
               <span className="block text-xs text-muted-foreground">ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} · {L.teacher(k.teacherId).label} · {k.studentIds.length}/{cap} คน{!check.ok ? ` · ${check.error}` : check.warnings?.length ? ` · ${check.warnings[0]}` : ""}</span>
             </span>
             {k.grades.slice(0, 2).map((g) => <span key={g} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(g))}>{g}</span>)}
-          </button>
+          </Button>
         )
       })}
       {picked && (
@@ -1011,13 +1011,13 @@ function DeleteDialog({ s, canCancel, onClose, onDone }: { s: Session; canCancel
           <DialogDescription>ระบบแจ้งทีมงานให้ติดต่อผู้ปกครอง · ประวัติที่เรียนไปแล้วยังอยู่</DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
-          <button type="button" disabled={!canCancel} onClick={() => setWhat("session")} className={cn("rounded-2xl border p-3 text-left text-sm disabled:opacity-40", what === "session" && "border-primary bg-primary/5 ring-1 ring-primary")}>
+          <Button variant="ghost" size="inline" type="button" disabled={!canCancel} onClick={() => setWhat("session")} className={cn("rounded-2xl border p-3 text-left text-sm disabled:opacity-40", what === "session" && "border-primary bg-primary/5 ring-1 ring-primary")}>
             <b>ยกเลิกคาบนี้</b> · {fmtDate(s.date, { weekday: true })} {s.start} · นักเรียน {s.studentIds.length} คน{!canCancel && " (คาบเริ่มไปแล้ว)"}
-          </button>
+          </Button>
           {klass?.active && (
-            <button type="button" onClick={() => setWhat("class")} className={cn("rounded-2xl border p-3 text-left text-sm", what === "class" && "border-danger bg-danger-soft/40 ring-1 ring-danger")}>
+            <Button variant="ghost" size="inline" type="button" onClick={() => setWhat("class")} className={cn("rounded-2xl border p-3 text-left text-sm", what === "class" && "border-danger bg-danger-soft/40 ring-1 ring-danger")}>
               <b>ลบทั้งคลาส {klass.name}</b> · ยกเลิกทุกคาบที่ยังไม่เริ่ม
-            </button>
+            </Button>
           )}
         </div>
         <div className="space-y-1"><Label>เหตุผล *</Label><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ครูป่วย / ปิดคลาสเพราะนักเรียนไม่พอ" /></div>
@@ -1105,10 +1105,10 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
           <Input style={{ fontSize: "0.875rem" }} className="h-9 rounded-3xl border-transparent bg-input/50" value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="Lesson Detail · เช่น หน้า 12–15 แบบฝึกหัด 2.1" aria-label="Lesson Detail" />
           {/* same lesson for the whole class in one tap — anyone different is edited on their own row (owner 2026-09-30) */}
           {others > 0 && (lesson.bookId || lesson.topicId || lesson.detail?.trim()) && (
-            <button type="button" className="text-xs text-primary underline"
+            <Button variant="ghost" size="inline" type="button" className="text-xs text-primary underline"
               onClick={() => report(applyLesson(sessionId, lesson), (v) => `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`)}>
               ใช้หนังสือ / บทเรียน / รายละเอียดนี้กับทุกคนที่มาเรียน ({others + 1} คน)
-            </button>
+            </Button>
           )}
           <Textarea style={{ fontSize: "0.875rem" }} className="rounded-2xl border-transparent bg-input/50" value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
           {/* owner 2026-11-02: the 1–5 "understanding" picker removed from the quick inline summary */}
@@ -1196,10 +1196,10 @@ function TeacherLeaveDialog({ s, onClose }: { s: Session; onClose: () => void })
         <LeaveReasonPicker onChange={setReason} />
         <div className="grid gap-2">
           {([["sub", "มีครูสอนแทน", "นักเรียนเรียนตามปกติ"], ["cancel", "ไม่มีครูสอนแทน — ยกเลิกคาบ", "วันเรียนจบของนักเรียนทุกคนเลื่อนออกไป 1 คาบ"]] as const).map(([k, label, hint]) => (
-            <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
+            <Button variant="ghost" size="inline" key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
               className={cn("rounded-xl border p-3 text-left", mode === k ? (k === "cancel" ? "border-danger bg-danger-soft/40" : "border-primary bg-primary/5") : "hover:bg-muted/50")}>
               <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
-            </button>
+            </Button>
           ))}
         </div>
         {mode === "sub" && (
@@ -1261,9 +1261,9 @@ function ScopePick({ value, onChange, hasClass, one, following }: { value: MoveS
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {([["one", one], ["following", following]] as const).map(([k, label]) => (
-        <button key={k} onClick={() => onChange(k)} className={cn("rounded-lg border p-2.5 text-left text-sm", value === k ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50")}>
+        <Button variant="ghost" size="inline" key={k} onClick={() => onChange(k)} className={cn("rounded-lg border p-2.5 text-left text-sm", value === k ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50")}>
           {label}
-        </button>
+        </Button>
       ))}
     </div>
   )

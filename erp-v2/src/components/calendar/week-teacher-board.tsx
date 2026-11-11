@@ -195,7 +195,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                         {canMenu && (
                           <DropdownMenu>
                             {/* owner 2026-10-12: takes no room until the header is hovered — then it slides in and pushes the count aside */}
-                            <DropdownMenuTrigger render={<button type="button" aria-label={`จัดการวันของ ${L.teacher(tid).label}`} className="-ml-3 grid h-7 w-0 shrink-0 place-items-center overflow-hidden rounded-full text-muted-foreground opacity-0 transition-[width,margin,opacity] duration-150 group-hover/head:ml-0 group-hover/head:w-7 group-hover/head:opacity-100 hover:bg-muted focus-visible:ml-0 focus-visible:w-7 focus-visible:opacity-100 data-[popup-open]:ml-0 data-[popup-open]:w-7 data-[popup-open]:opacity-100" />}>
+                            <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`จัดการวันของ ${L.teacher(tid).label}`} className="-ml-3 grid h-7 w-0 shrink-0 place-items-center overflow-hidden rounded-full text-muted-foreground opacity-0 transition-[width,margin,opacity] duration-150 group-hover/head:ml-0 group-hover/head:w-7 group-hover/head:opacity-100 hover:bg-muted focus-visible:ml-0 focus-visible:w-7 focus-visible:opacity-100 data-[popup-open]:ml-0 data-[popup-open]:w-7 data-[popup-open]:opacity-100" />}>
                               <EllipsisIcon className="size-4" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-64">
@@ -270,10 +270,10 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                 </div>
                               ))}
                               {cell.length === 0 && canCreate && (row.block || plain) && tid && !closed && !holiday && !past && (
-                                <button type="button" onClick={() => onSlot({ date, start: row.start, teacherId: tid })}
+                                <Button variant="ghost" size="inline" type="button" onClick={() => onSlot({ date, start: row.start, teacherId: tid })}
                                   className="absolute inset-0 flex items-center justify-center gap-1.5 text-sm text-transparent transition group-hover/cell:bg-card group-hover/cell:text-muted-foreground">
                                   <PlusIcon className="size-4" /> สร้างคลาส
-                                </button>
+                                </Button>
                               )}
                               {nowHere && <span className="pointer-events-none absolute inset-x-0 z-10 h-px bg-danger" style={{ top: `${nowPct(row)}%` }} />}
                             </div>
@@ -371,10 +371,10 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
         </DialogHeader>
         <div className="grid gap-2">
           {([["one", "เฉพาะคาบนี้", "ย้ายครั้งเดียว"], ["count", "หลายคาบ", "ย้ายคาบถัดไปของคลาสเดิม ไปเรียนคาบถัดไปของคลาสใหม่"], ["following", "ทุกคาบที่ตามมา (ย้ายคลาสถาวร)", "ออกจากคลาสเดิม เข้าคลาสใหม่ · แพ็กเกจย้ายตาม"]] as const).map(([v, t, h]) => (
-            <button key={v} type="button" disabled={v !== "one" && !both} aria-pressed={kind === v} onClick={() => setKind(v)}
+            <Button variant="ghost" size="inline" key={v} type="button" disabled={v !== "one" && !both} aria-pressed={kind === v} onClick={() => setKind(v)}
               className={cn("rounded-xl border p-2.5 text-left disabled:opacity-40", kind === v ? "border-primary bg-primary/5" : "hover:bg-muted/50")}>
               <p className="text-sm font-medium">{t}</p><p className="text-xs text-muted-foreground">{h}</p>
-            </button>
+            </Button>
           ))}
           {kind === "count" && <label className="flex items-center gap-2 text-sm">จำนวน <Input type="number" min={1} className="h-9 w-20" value={nText} onChange={(e) => setNText(e.target.value)} /> คาบ</label>}
         </div>
@@ -411,10 +411,10 @@ function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: S
         return (
           <div key={s.id} className="flex items-center gap-2.5 text-xs text-muted-foreground">
             {clash.includes(s.id) && (
-              <button type="button" disabled={!onResolve} onClick={() => onResolve?.(clash)} title="คาบชน · กดเพื่อแก้ปัญหา"
+              <Button variant="ghost" size="inline" type="button" disabled={!onResolve} onClick={() => onResolve?.(clash)} title="คาบชน · กดเพื่อแก้ปัญหา"
                 className="flex shrink-0 items-center gap-1 rounded-full bg-danger-soft px-1.5 py-0.5 text-2xs font-medium text-danger-ink hover:opacity-80">
                 <AlertTriangleIcon className="size-3" /><span className="hidden @[15rem]:inline">แก้ปัญหา</span>
-              </button>
+              </Button>
             )}
             {/* owner 2026-10-15: second line of the card = time on the left · room · students · class type (· co-teacher) on the right */}
             {inCell ? <span className="shrink-0 tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span> : <span className="truncate text-sm font-semibold text-foreground">{L.room(s.roomId)}</span>}
@@ -464,9 +464,9 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
       {dot && <span className="absolute top-2 right-2 size-2.5 rounded-full bg-danger ring-2 ring-card" title={`${s.changed!.what} · เปิดคาบเพื่อดู`} />}
       <div className="flex items-center gap-2">
         <span className={cn("size-2 shrink-0 rounded-full", c.bar)} />
-        <button type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
+        <Button variant="row" size="inline" type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
           {subjectsOf(s).join(" + ")}
-        </button>
+        </Button>
         {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-2xs font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
         {s.teacherLeave?.substituteId && (
           <span className="flex shrink-0 items-center gap-0.5 text-2xs text-warning" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
@@ -514,13 +514,13 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
       {(s.rescheduledOut ?? []).map((m) => {
         const to = allSessions.find((x) => x.id === m.toSessionId)
         return (
-          <button key={`out-${m.studentId}`} type="button" onClick={() => to && onOpen(to.id)} className="flex w-full items-center gap-2 text-left text-xs text-muted-foreground">
+          <Button variant="row" size="inline" key={`out-${m.studentId}`} type="button" onClick={() => to && onOpen(to.id)} className="flex w-full items-center gap-2 text-left text-xs text-muted-foreground">
             <span className="line-through">{L.student(m.studentId)?.nickname}</span>
             <span className="ml-auto shrink-0">→ {to ? `${dayDate(to.date)} ${to.start}` : "ย้ายแล้ว"}</span>
-          </button>
+          </Button>
         )
       })}
-      {s.studentIds.length === 0 && <button type="button" onClick={() => onOpen(s.id)} className="text-xs text-muted-foreground hover:underline">ยังไม่มีนักเรียน · เปิดคาบ</button>}
+      {s.studentIds.length === 0 && <Button variant="ghost" size="inline" type="button" onClick={() => onOpen(s.id)} className="text-xs text-muted-foreground hover:underline">ยังไม่มีนักเรียน · เปิดคาบ</Button>}
     </div>
   )
 }
@@ -554,12 +554,12 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
     <div className="group/line min-w-0">
       <div className="flex items-center gap-2">
         <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold", avatarTone(avatarKey))}>{initial(nickname)}</span>
-        <button type="button" onClick={onOpen} draggable={!!drag} onDragStart={(e) => { if (drag) { e.dataTransfer.setData("application/x-student", drag); e.dataTransfer.effectAllowed = "move" } }}
-          title={drag ? "ลากไปวางที่คาบอื่นเพื่อย้าย" : undefined} className={cn("shrink-0 truncate text-left font-medium hover:underline", drag && "cursor-grab active:cursor-grabbing")}>{nickname}</button>
+        <Button variant="ghost" size="inline" type="button" onClick={onOpen} draggable={!!drag} onDragStart={(e) => { if (drag) { e.dataTransfer.setData("application/x-student", drag); e.dataTransfer.effectAllowed = "move" } }}
+          title={drag ? "ลากไปวางที่คาบอื่นเพื่อย้าย" : undefined} className={cn("shrink-0 truncate text-left font-medium hover:underline", drag && "cursor-grab active:cursor-grabbing")}>{nickname}</Button>
         {canEdit && !adding ? (
-          <button type="button" onClick={() => setAdding(true)} className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left text-xs italic opacity-0 group-hover/line:opacity-100 focus-visible:opacity-100", muted)}>
+          <Button variant="row" size="inline" type="button" onClick={() => setAdding(true)} className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left text-xs italic opacity-0 group-hover/line:opacity-100 focus-visible:opacity-100", muted)}>
             <PlusIcon className="size-3 shrink-0" /><span className="truncate">Note</span>
-          </button>
+          </Button>
         ) : <span className="flex-1" />}
         {/* owner 2026-10-15: part of the class only — an icon here, the hours on hover (and in the panel) */}
         {time && (
@@ -581,13 +581,13 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
       ) : (
         <div key={n.id} className="group/note flex min-w-0 items-center gap-1 pl-8">
           {n.kind === "permanent" && <PinIcon className={cn("size-3 shrink-0", inverted ? "text-white/80" : "text-primary")} aria-label="Note ถาวร" />}
-          <button type="button" disabled={!canEdit} onClick={() => setEditing(n.id)} title={`${n.text}\nNote ${NOTE_KIND_LABEL[n.kind]}${n.kind === "permanent" ? " — แสดงทุกคาบของคลาสนี้" : " — เฉพาะคาบนี้"}`}
+          <Button variant="row" size="inline" type="button" disabled={!canEdit} onClick={() => setEditing(n.id)} title={`${n.text}\nNote ${NOTE_KIND_LABEL[n.kind]}${n.kind === "permanent" ? " — แสดงทุกคาบของคลาสนี้" : " — เฉพาะคาบนี้"}`}
             className={cn("min-w-0 truncate text-left text-xs", inverted ? "text-white/90" : "text-foreground/80", canEdit && "hover:underline")}>
             {n.text}{n.when && <span className={cn("ml-1 tabular-nums", muted)}>({n.when})</span>}
-          </button>
+          </Button>
           {canEdit && (
             <DropdownMenu>
-              <DropdownMenuTrigger render={<button type="button" aria-label="จัดการ Note" className={cn("ml-auto grid size-5 shrink-0 place-items-center rounded-full opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100", muted)} />}>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="จัดการ Note" className={cn("ml-auto grid size-5 shrink-0 place-items-center rounded-full opacity-0 group-hover/note:opacity-100 hover:bg-muted focus-visible:opacity-100 data-[popup-open]:opacity-100", muted)} />}>
                 <EllipsisIcon className="size-3.5" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">

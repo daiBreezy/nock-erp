@@ -245,7 +245,7 @@ function CalendarView() {
           <ul className="mt-1 list-disc pl-5">
             {conflicts.map((c, i) => {
               const s = branchSessions.find((x) => x.id === c.sessionIds[0])!
-              return <li key={i}><button className="underline" onClick={() => openDay(s.date)}>{fmtDate(s.date, { weekday: true })}</button> · {c.message}</li>
+              return <li key={i}><Button variant="ghost" size="inline" className="underline" onClick={() => openDay(s.date)}>{fmtDate(s.date, { weekday: true })}</Button> · {c.message}</li>
             })}
           </ul>
         </details>
@@ -297,7 +297,7 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
   const c = subjectColor(s.subject)
   const live = w.state === "live"
   return (
-    <button
+    <Button variant="ghost" size="inline"
       draggable={canMove(s)}
       onDragStart={(e) => { e.dataTransfer.setData("text/session", s.id); e.dataTransfer.effectAllowed = "move" }}
       onClick={(e) => { e.stopPropagation(); onOpen(s.id) }}
@@ -329,7 +329,7 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
           </div>
         </>
       )}
-    </button>
+    </Button>
   )
 }
 
@@ -421,9 +421,9 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
         if (p.col >= maxCols) {
           if (p.col === maxCols)
             return (
-              <button key={s.id} onClick={(e) => { e.stopPropagation(); onMore?.() }} className="absolute right-0.5 z-10 rounded bg-danger px-1 text-2xs font-semibold text-white" style={{ top }}>
+              <Button variant="ghost" size="inline" key={s.id} onClick={(e) => { e.stopPropagation(); onMore?.() }} className="absolute right-0.5 z-10 rounded bg-danger px-1 text-2xs font-semibold text-white" style={{ top }}>
                 +{p.cols - maxCols}
-              </button>
+              </Button>
             )
           return null
         }
@@ -456,10 +456,10 @@ function WeekView({ from, sessions, onDay, today, hideEmpty, ...ctx }: CardCtx &
       <div className="flex min-w-190 border-b text-xs">
         <div className="w-12 shrink-0" />
         {days.map((d) => (
-          <button key={d} onClick={() => onDay(d)} className={cn("flex-1 border-l py-2 text-center hover:bg-muted", d === today && "font-semibold text-primary")}>
+          <Button variant="ghost" size="inline" key={d} onClick={() => onDay(d)} className={cn("flex-1 border-l py-2 text-center hover:bg-muted", d === today && "font-semibold text-primary")}>
             {dayShort(weekdayOf(d))} {parseDate(d).getDate()}
             <span className="ml-1 text-muted-foreground">({sessions.filter((s) => s.date === d && !s.cancelled).length})</span>
-          </button>
+          </Button>
         ))}
       </div>
       <div className="flex min-w-190 pt-2">
@@ -488,7 +488,7 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
           const hol = isHoliday(d, branch.id, holidays)
           const conflict = list.some((s) => conflictIds.has(s.id))
           return (
-            <button key={d} onClick={() => onDay(d)} className={cn("flex min-h-24 flex-col justify-start border-t border-l p-1.5 text-left hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-warning-soft/50")}>
+            <Button variant="ghost" size="inline" key={d} onClick={() => onDay(d)} className={cn("flex min-h-24 flex-col justify-start border-t border-l p-1.5 text-left hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-warning-soft/50")}>
               <div className="flex items-center gap-1 text-xs">
                 <span className={cn("grid size-5 place-items-center rounded-full", d === today && "bg-primary text-primary-foreground")}>{parseDate(d).getDate()}</span>
                 {conflict && <span className="size-2 rounded-full bg-danger" title="มีคาบชนกัน" />}
@@ -500,7 +500,7 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
                 ))}
                 {list.length > 3 && <div className="text-2xs text-muted-foreground">+{list.length - 3} คาบ</div>}
               </div>
-            </button>
+            </Button>
           )
         })}
       </div>

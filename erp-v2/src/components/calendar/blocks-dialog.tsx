@@ -11,16 +11,17 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Input } from "@/components/ui/input"
 
 const DAY_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
 
 function Choice({ on, onClick, title, detail }: { on: boolean; onClick: () => void; title: string; detail?: string }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick}
+    <Button variant="ghost" size="inline" type="button" aria-pressed={on} onClick={onClick}
       className={cn("flex items-start gap-2 rounded-xl border p-2 text-left text-sm", on ? "border-primary bg-primary/5" : "hover:bg-muted/50")}>
       <span className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
       <span><span className="font-medium">{title}</span>{detail && <span className="block text-xs text-muted-foreground">{detail}</span>}</span>
-    </button>
+    </Button>
   )
 }
 
@@ -82,9 +83,9 @@ export function BlocksDialog({ branch, date, onClose, scope: initialScope = "day
           {blocks.map((b, i) => (
             <div key={i} className="flex items-center gap-2 text-sm">
               <span className="w-12 text-xs text-muted-foreground">ช่วง {i + 1}</span>
-              <input type="time" step={900} value={b.start} aria-label="เวลาเริ่ม" className="h-9 rounded-3xl bg-input/50 px-3" onChange={(e) => put(i, { start: e.target.value })} />
+              <Input type="time" step={900} value={b.start} aria-label="เวลาเริ่ม" className="h-9 rounded-3xl bg-input/50 px-3" onChange={(e) => put(i, { start: e.target.value })} />
               <span className="text-muted-foreground">–</span>
-              <input type="time" step={900} value={b.end} aria-label="เวลาจบ" className="h-9 rounded-3xl bg-input/50 px-3" onChange={(e) => put(i, { end: e.target.value })} />
+              <Input type="time" step={900} value={b.end} aria-label="เวลาจบ" className="h-9 rounded-3xl bg-input/50 px-3" onChange={(e) => put(i, { end: e.target.value })} />
               <span className="text-xs text-muted-foreground tabular-nums">{b.start && b.end && toMinutes(b.end) > toMinutes(b.start) ? `${(toMinutes(b.end) - toMinutes(b.start)) / 60} ชม.` : ""}</span>
               <Button size="icon-xs" variant="ghost" className="ml-auto" aria-label="ลบช่วง" onClick={() => setBlocks((x) => x.filter((_, j) => j !== i))}><TrashIcon /></Button>
             </div>
@@ -106,8 +107,8 @@ export function BlocksDialog({ branch, date, onClose, scope: initialScope = "day
           {scope === "following" && (
             <div className="flex flex-wrap gap-1.5">
               {([["same", `ทุกวัน${DAY_FULL[wd]}`], ["weekdays", "จ.–ศ. ทั้งหมด"], ["weekend", "ส.–อา."], ["all", "ทุกวัน"]] as const).map(([k, label]) => (
-                <button key={k} type="button" aria-pressed={days === k} onClick={() => setDays(k)}
-                  className={cn("rounded-full border px-3 py-1 text-xs", days === k ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{label}</button>
+                <Button variant="chip" size="inline" key={k} type="button" aria-pressed={days === k} onClick={() => setDays(k)}
+                  className="px-3 py-1 text-xs">{label}</Button>
               ))}
             </div>
           )}
