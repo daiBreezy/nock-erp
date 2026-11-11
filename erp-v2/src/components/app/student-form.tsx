@@ -121,8 +121,8 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
           <Field label="ครอบครัว">
             <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-1.5 text-sm">
               <span className={staffOnly.familyId ? "font-medium" : "text-muted-foreground"}>{families.find((x) => x.id === staffOnly.familyId)?.name ?? "ยังไม่ผูกครอบครัว"}</span>
-              <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPickingFamily(true)}>{staffOnly.familyId ? "เปลี่ยน" : "เลือกครอบครัว"}</button>
-              {staffOnly.familyId && <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setStaffOnly((x) => ({ ...x, familyId: null }))}>เอาออก</button>}
+              <Button variant="link" size="inline" type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPickingFamily(true)}>{staffOnly.familyId ? "เปลี่ยน" : "เลือกครอบครัว"}</Button>
+              {staffOnly.familyId && <Button variant="link" size="inline" type="button" className="text-xs text-muted-foreground underline" onClick={() => setStaffOnly((x) => ({ ...x, familyId: null }))}>เอาออก</Button>}
             </div>
             {pickingFamily && <CustomerPicker kinds={["family"]} title="เลือกครอบครัว" onClose={() => setPickingFamily(false)} onConfirm={(row) => { setStaffOnly((x) => ({ ...x, familyId: row.id })); setPickingFamily(false) }} />}
           </Field>

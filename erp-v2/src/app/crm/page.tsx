@@ -286,9 +286,9 @@ function LeadCard({ lead, now, staff, draggable, onOpen, onRestore, branchCode }
           <span className="truncate">{assignee?.nickname ?? "ยังไม่มอบหมาย"}</span>
         </span>
         {lead.stage === "archived" && onRestore ? (
-          <button type="button" onClick={(e) => { e.stopPropagation(); onRestore() }} className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline">
+          <Button variant="link" size="inline" type="button" onClick={(e) => { e.stopPropagation(); onRestore() }} className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline">
             <RotateCcwIcon className="size-3" /> กู้คืน
-          </button>
+          </Button>
         ) : lead.stage !== "archived" ? (
           <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
         ) : null}

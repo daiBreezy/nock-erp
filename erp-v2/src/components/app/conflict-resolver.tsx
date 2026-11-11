@@ -89,7 +89,7 @@ export function ConflictResolver({ sessionIds, onClose, onOpen }: { sessionIds: 
                 {involved.map((x) => (
                   <li key={x.id} className="flex items-center gap-2">
                     <span className="truncate">{label(x)}</span>
-                    {onOpen && <button type="button" className="ml-auto shrink-0 text-primary underline" onClick={() => onOpen(x.id)}>เปิดคาบ</button>}
+                    {onOpen && <Button variant="link" size="inline" type="button" className="ml-auto shrink-0 text-primary underline" onClick={() => onOpen(x.id)}>เปิดคาบ</Button>}
                   </li>
                 ))}
               </ul>

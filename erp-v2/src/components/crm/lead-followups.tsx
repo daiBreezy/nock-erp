@@ -154,7 +154,7 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
           </div>
         )}
         <div className="space-y-1.5">
-          <button type="button" className="text-xs text-primary" onClick={() => setMore((m) => !m)}>{more ? "▾" : "▸"} เหตุผลอื่นด้วย (เลือกได้หลายข้อ){others.length ? ` · ${others.length}` : ""}</button>
+          <Button variant="link" size="inline" type="button" className="text-xs text-primary" onClick={() => setMore((m) => !m)}>{more ? "▾" : "▸"} เหตุผลอื่นด้วย (เลือกได้หลายข้อ){others.length ? ` · ${others.length}` : ""}</Button>
           {more && (
             <div className="flex flex-wrap gap-1.5">
               {reasons.filter((r) => r.id !== reasonId).map((r) => <Chip key={r.id} on={others.includes(r.id)} onClick={() => setOthers((o) => (o.includes(r.id) ? o.filter((x) => x !== r.id) : [...o, r.id]))}>{r.label}</Chip>)}

@@ -120,7 +120,7 @@ export default function TransportPage() {
         : !hasBus ? (
           <div className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">
             <BusIcon className="mx-auto mb-2 size-8" />
-            {`สาขา${nm(branch.name)}ยังไม่มีรอบรถ — `}<button type="button" className="text-primary underline" onClick={() => setView("vehicles")}>เพิ่มรถและรอบรถ</button>
+            {`สาขา${nm(branch.name)}ยังไม่มีรอบรถ — `}<Button variant="link" size="inline" type="button" className="text-primary underline" onClick={() => setView("vehicles")}>เพิ่มรถและรอบรถ</Button>
           </div>
         ) : <>
           {view === "report" ? <TransportReportKpis rows={live} /> : <KpiRow>
@@ -186,7 +186,7 @@ export default function TransportPage() {
                     {!rows.length && !issues.length && (
                       <p className="rounded-2xl border border-dashed p-4 text-center text-sm text-muted-foreground">
                         ไม่มีเที่ยวรถวันนี้
-                        {nextDay && <> · <button type="button" className="text-primary underline" onClick={() => setDate(nextDay)}>{`ไปวันที่มีเที่ยวถัดไป ${fmtDate(nextDay, { weekday: true })}`}</button></>}
+                        {nextDay && <> · <Button variant="link" size="inline" type="button" className="text-primary underline" onClick={() => setDate(nextDay)}>{`ไปวันที่มีเที่ยวถัดไป ${fmtDate(nextDay, { weekday: true })}`}</Button></>}
                       </p>
                     )}
                   </section>

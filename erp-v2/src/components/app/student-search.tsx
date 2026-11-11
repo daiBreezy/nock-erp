@@ -7,6 +7,7 @@ import type { Student } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { gradeTone } from "./subject-color"
 import { SearchBox } from "./page-layout"
+import { Button } from "@/components/ui/button"
 
 /**
  * Search-as-you-type student picker. Only ever renders a handful of matches, so it stays usable with
@@ -35,7 +36,7 @@ export function StudentSearch({
           {selected.map((s) => (
             <span key={s.id} className="flex items-center gap-1 rounded-full bg-primary/10 py-0.5 pr-1 pl-2.5 text-xs text-primary">
               {s.nickname} · {s.grade}
-              {onRemove && <button type="button" aria-label={`เอา ${s.nickname} ออก`} onClick={() => onRemove(s)} className="rounded-full p-0.5 hover:bg-primary/20"><XIcon className="size-3" /></button>}
+              {onRemove && <Button variant="ghost" size="inline" type="button" aria-label={`เอา ${s.nickname} ออก`} onClick={() => onRemove(s)} className="rounded-full p-0.5 hover:bg-primary/20"><XIcon className="size-3" /></Button>}
             </span>
           ))}
         </div>

@@ -101,7 +101,7 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
           <div key={i} className="flex items-center gap-1.5 text-xs">
             <span>{pick.chosenSubject} · {fmtDate(pick.chosenSlot.date, { weekday: true })} {pick.chosenSlot.start} น. {pick.chosenSlot.source === "class" ? "(คลาสเดิม)" : ""}</span>
             {sub.status === "pending" && editingPick === null && (
-              <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="แก้ไขวิชานี้" onClick={() => startEdit(i)}><PencilIcon className="size-3" /></button>
+              <Button variant="ghost" size="inline" type="button" className="text-muted-foreground hover:text-foreground" aria-label="แก้ไขวิชานี้" onClick={() => startEdit(i)}><PencilIcon className="size-3" /></Button>
             )}
           </div>
         ))}

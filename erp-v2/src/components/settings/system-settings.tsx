@@ -224,7 +224,7 @@ function YearlySurvey() {
             {showLinks && (
               <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">{waiting.filter((x) => !x.viaLine).map((x) => (
                 <li key={x.token} className="flex items-center gap-2"><span className="w-40 truncate">{nm(families.find((f) => f.id === x.familyId)?.name)}</span>
-                  <button type="button" className="text-primary underline" onClick={() => { navigator.clipboard?.writeText(surveyLink(x.token)); report({ ok: true, value: undefined }, tx("คัดลอกลิงก์แล้ว")) }}>{tx("คัดลอกลิงก์")}</button></li>
+                  <Button variant="link" size="inline" type="button" className="text-primary underline" onClick={() => { navigator.clipboard?.writeText(surveyLink(x.token)); report({ ok: true, value: undefined }, tx("คัดลอกลิงก์แล้ว")) }}>{tx("คัดลอกลิงก์")}</Button></li>
               ))}</ul>
             )}
           </div>

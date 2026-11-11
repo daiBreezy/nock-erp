@@ -13,6 +13,7 @@ import { report } from "@/lib/feedback"
 import { slipDataUrl } from "@/lib/image"
 import { useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export interface PayableSibling { id: ID; number: string; nickname: string; owed: number }
 
@@ -62,7 +63,7 @@ export function PaySlipDialog({ inv, owed, siblings, initialSlip, onClose }: { i
             <p className="text-xs font-medium">จ่ายรวมกับใบของพี่น้อง (สลิปเดียว)</p>
             {siblings.map((x) => (
               <label key={x.id} className="flex cursor-pointer items-center gap-2 text-xs">
-                <input type="checkbox" checked={withIds.includes(x.id)} onChange={() => toggle(x.id)} />
+                <Checkbox checked={withIds.includes(x.id)} onCheckedChange={() => toggle(x.id)} />
                 <span className="font-mono">{x.number}</span><span>{x.nickname}</span>
                 <span className="ml-auto tabular-nums text-muted-foreground">ค้าง {fmtMoney(x.owed)}</span>
               </label>
@@ -81,7 +82,7 @@ export function PaySlipDialog({ inv, owed, siblings, initialSlip, onClose }: { i
               {/* eslint-disable-next-line @next/next/no-img-element -- data URL, nothing for next/image to optimise */}
               {slip ? <img src={slip} alt="สลิป" className="size-14 rounded-lg object-cover" /> : <span className="grid size-14 place-items-center rounded-lg border border-dashed"><ImageIcon className="size-5" /></span>}
               {slip ? "เปลี่ยนรูปสลิป" : "เลือกรูปสลิป"}
-              <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
+              <Input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
             </label>
           </div>
           <div className="space-y-1"><Label className="text-xs">เลขอ้างอิงการโอน</Label><Input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="เลขอ้างอิง / เลขที่รายการ" /></div>

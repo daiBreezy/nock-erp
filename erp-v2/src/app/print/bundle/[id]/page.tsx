@@ -5,6 +5,7 @@ import { useParams } from "next/navigation"
 import { PrinterIcon } from "lucide-react"
 import { PrintDocument } from "@/components/billing/print-document"
 import { useStore } from "@/store/store"
+import { Button } from "@/components/ui/button"
 
 /** Family set (owner 2026-11-05): every child's invoice in ONE PDF — one page each, each with its own number. */
 export default function BundlePrint() {
@@ -18,7 +19,7 @@ export default function BundlePrint() {
       <title>{members.map((m) => m.number).join(" + ")}</title>
       <div className={embed ? "hidden" : "mx-auto mb-4 flex max-w-[210mm] items-center gap-3 px-2 print:hidden"}>
         <span className="text-sm text-neutral-600">{members.length} ใบ · {members.map((m) => m.number).join(" + ")}</span>
-        <button onClick={() => window.print()} className="ml-auto inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white"><PrinterIcon className="size-4" /> พิมพ์ / บันทึก PDF</button>
+        <Button onClick={() => window.print()} className="ml-auto gap-2 bg-neutral-900 px-4 text-white hover:bg-neutral-800"><PrinterIcon className="size-4" /> พิมพ์ / บันทึก PDF</Button>
       </div>
       {members.map((m, i) => (
         // every paper is exactly A4 (210 × 297 mm) with a clear gap to the next one on screen; one page each when printed

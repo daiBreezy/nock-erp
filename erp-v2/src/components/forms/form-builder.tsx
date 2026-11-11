@@ -160,7 +160,7 @@ export function FormBuilder({ form }: { form: FormDef }) {
             <div className="max-h-[70vh] overflow-y-auto p-4">
               <FormRenderer key={`${run}${checks}`} form={d} answers={answers} highlight={sel} onPick={setSel} onChange={setAnswers} skipChecks={!checks}
                 onSubmit={() => report({ ok: true, value: undefined }, checks ? tx("ลองส่งผ่าน — ครบทุกข้อ (ไม่ได้ส่งจริง)") : tx("ลองส่งแล้ว (ไม่ได้ส่งจริง)"))} />
-              <button type="button" className="mt-3 w-full text-center text-xs text-muted-foreground hover:underline" onClick={() => { setAnswers({}); setRun((n) => n + 1) }}>{tx("ล้างคำตอบที่ลองกรอก")}</button>
+              <Button variant="link" size="inline" type="button" className="mt-3 w-full text-center text-xs text-muted-foreground hover:underline" onClick={() => { setAnswers({}); setRun((n) => n + 1) }}>{tx("ล้างคำตอบที่ลองกรอก")}</Button>
             </div>
           </div>
         </div>
@@ -443,7 +443,7 @@ function TextAnswers({ samples }: { samples: string[] }) {
   return (
     <div>
       <ul className="space-y-1.5 text-sm">{(all ? samples : samples.slice(0, 6)).map((t, i) => <li key={i} className="rounded-xl bg-muted/60 px-3 py-1.5">{t}</li>)}</ul>
-      {samples.length > 6 && <button type="button" onClick={() => setAll((a) => !a)} className="mt-2 text-xs text-primary hover:underline">{all ? tx("ย่อ") : tx("ดูทั้งหมด {0} รายการ", [samples.length])}</button>}
+      {samples.length > 6 && <Button variant="link" size="inline" type="button" onClick={() => setAll((a) => !a)} className="mt-2 text-xs text-primary hover:underline">{all ? tx("ย่อ") : tx("ดูทั้งหมด {0} รายการ", [samples.length])}</Button>}
     </div>
   )
 }

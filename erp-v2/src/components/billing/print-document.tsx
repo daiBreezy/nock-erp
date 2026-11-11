@@ -7,6 +7,7 @@ import { invoiceTotals, invoicesOnReceipt } from "@/domain/rules/billing"
 import * as Doc from "@/domain/rules/documents"
 import { creditNoteTotal } from "@/domain/rules/refunds"
 import { useStore } from "@/store/store"
+import { Button } from "@/components/ui/button"
 
 export type Kind = "invoice" | "receipt" | "credit-note"
 
@@ -85,7 +86,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
       <style>{`@page { size: A4; margin: 12mm } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact } }`}</style>
       <div className={embed ? "hidden" : "mx-auto mb-4 flex max-w-[210mm] items-center gap-3 px-2 print:hidden"}>
         <span className="text-sm text-neutral-600">{Doc.documentFileName(number!, customer.name)}.pdf</span>
-        <button onClick={() => window.print()} className="ml-auto inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white"><PrinterIcon className="size-4" /> พิมพ์ / บันทึก PDF</button>
+        <Button onClick={() => window.print()} className="ml-auto gap-2 bg-neutral-900 px-4 text-white hover:bg-neutral-800"><PrinterIcon className="size-4" /> พิมพ์ / บันทึก PDF</Button>
       </div>
 
       {/* Layout follows the owner's template (Invocie asset/INV Test.jpg · RE Test.jpg): logo on top, company name + addresses

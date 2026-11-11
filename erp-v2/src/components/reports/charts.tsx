@@ -37,6 +37,7 @@ export function Delta({ value, invert, className }: { value: number | null; inve
 export { InfoTip } from "@/components/app/info-tip"
 import { InfoTip } from "@/components/app/info-tip"
 import { Empty as SharedEmpty } from "@/components/app/empty"
+import { Button } from "@/components/ui/button"
 
 export function Panel({ title, sub, hint, action, children, className, center, fill }: { title: string
   /** owner 2026-10-22: a short note on the title's line (e.g. "รวม 23") instead of a line of its own */
@@ -213,7 +214,7 @@ export function DonutLegend({ title, parts, center, sub, top = 5, keepOrder, col
               ))}
             </ul>
             {sorted.length > top + 1 && (
-              <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-4.5 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ ") + top + tx(" อันดับ") : tx("ดูทั้งหมด {0} รายการ", [sorted.length])}</button>
+              <Button variant="link" size="inline" type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-4.5 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ ") + top + tx(" อันดับ") : tx("ดูทั้งหมด {0} รายการ", [sorted.length])}</Button>
             )}
           </div>
         </div>
@@ -255,7 +256,7 @@ export function TopList({ title, hint, icon, rows, top = 5, color, wide, fill }:
           </li>
         ))}</ul>
       ) : <p className="text-xs text-muted-foreground">{tx("ไม่มี")}</p>}
-      {rows.length > top && <button type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-8 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ {0} อันดับ", [top]) : tx("ดูทั้งหมด {0} รายการ", [rows.length])}</button>}
+      {rows.length > top && <Button variant="link" size="inline" type="button" onClick={() => setOpen((o) => !o)} className="mt-2 pl-8 text-xs text-primary hover:underline">{open ? tx("ย่อเหลือ {0} อันดับ", [top]) : tx("ดูทั้งหมด {0} รายการ", [rows.length])}</Button>}
     </div>
   )
 }

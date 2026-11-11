@@ -140,10 +140,10 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
             {members.map((m) => (
               <div key={m.id} className="px-3 py-2">
                 <p className="text-xs font-medium text-muted-foreground">{stu(m.studentId)?.nickname}</p>
-                <textarea rows={1} value={notes[m.id] ?? ""} disabled={!manage || m.status === "paid"} placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค."
+                <Textarea rows={1} value={notes[m.id] ?? ""} disabled={!manage || m.status === "paid"} placeholder="เช่น ค่าเรียนเดือนตุลาคม ชำระภายใน 5 ต.ค."
                   onChange={(e) => setNotes((n) => ({ ...n, [m.id]: e.target.value }))}
                   onBlur={() => { if (manage && m.status !== "paid" && (notes[m.id] ?? "").trim() !== (m.noteToParent || "")) report(act.setNote(m.id, notes[m.id] ?? ""), "บันทึกข้อความแล้ว") }}
-                  className="field-sizing-content min-h-8 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60" />
+                  className="min-h-8 rounded-none border-0 bg-transparent px-0 py-0 text-sm disabled:opacity-60" />
               </div>
             ))}
           </div>

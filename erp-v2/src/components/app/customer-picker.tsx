@@ -65,7 +65,7 @@ export function CustomerPicker({
           ))}
           <NativeSelect className="h-8 w-28" value={grade} onChange={(e) => { setGrade(e.target.value); page.setPage(0) }} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
           <NativeSelect className="h-8 w-32" value={sort} onChange={(e) => setSort(e.target.value as CustomerSort)} options={[{ value: "name", label: "เรียงตามชื่อ" }, { value: "grade", label: "เรียงตามชั้น" }, { value: "recent", label: "เพิ่มล่าสุด" }]} />
-          {filtered && <button type="button" className="ml-auto text-sm text-primary" onClick={() => { setQ(""); setGrade(""); setOn(kinds); page.setPage(0) }}>ล้างทั้งหมด</button>}
+          {filtered && <Button variant="link" size="inline" type="button" className="ml-auto text-sm text-primary" onClick={() => { setQ(""); setGrade(""); setOn(kinds); page.setPage(0) }}>ล้างทั้งหมด</Button>}
         </div>
         <ul className="-mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1">
           {page.rows.map((r) => {

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { ChevronDownIcon, PencilIcon } from "lucide-react"
 import type { Option } from "@/components/app/native-select"
 import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
 
 /**
  * Edit right in the table (owner 2026-10-07; back 2026-10-12 after a day without it): hovering an editable cell shows it as a field (outline + pencil);
@@ -55,7 +56,7 @@ function TextEditor({ value, kind, placeholder, className, onDone }: { value: st
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => { ref.current?.focus(); ref.current?.select() }, [])
   return (
-    <input
+    <Input
       ref={ref} type={kind} value={v} placeholder={placeholder}
       onChange={(e) => setV(e.target.value)}
       onClick={(e) => e.stopPropagation()}

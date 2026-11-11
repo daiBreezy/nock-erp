@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { CrosshairIcon, XIcon } from "lucide-react"
 import { useQueryState } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
+import { Button } from "@/components/ui/button"
 
 /**
  * "เด้งมาเพื่อทำอะไร" (owner 2026-10-07): a Dashboard topic links to its page with `?focus=<key>`. This banner
@@ -83,7 +84,7 @@ export function FocusBanner() {
         {text && <span className="text-muted-foreground"> · {tx(text.hint)}</span>}
         {found !== null && found > 0 && <span className="text-muted-foreground"> · {tx("ไฮไลต์ไว้ {0} จุด", [found])}</span>}
       </span>
-      <button type="button" onClick={close} aria-label={tx("ปิด")} className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-foreground"><XIcon className="size-4" /></button>
+      <Button variant="ghost" size="inline" type="button" onClick={close} aria-label={tx("ปิด")} className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-foreground"><XIcon className="size-4" /></Button>
     </div>
   )
 }
