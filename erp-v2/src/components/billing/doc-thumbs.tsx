@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable no-restricted-syntax -- ds-exception: document thumbnails sit on a paper-grey backdrop */
 
 import { useRef, useState } from "react"
 import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, PlusIcon, Share2Icon } from "lucide-react"

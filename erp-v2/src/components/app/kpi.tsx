@@ -4,22 +4,22 @@ import { cn } from "@/lib/utils"
  *  copies); shared here so a style change doesn't need to be repeated across every list page. */
 export const KPI_TONE = {
   primary: "bg-primary/10 text-primary",
-  emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  red: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  amber: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  emerald: "bg-success-soft text-success-ink",
+  red: "bg-danger-soft text-danger-ink",
+  amber: "bg-warning-soft text-warning-ink",
   special: "bg-special-soft text-special-ink",
-  sky: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  sky: "bg-info-soft text-info-ink",
 } as const
 export type KpiTone = keyof typeof KPI_TONE
 
 /** the number's colour when `emphasis` is on (a count that needs attention) — the tone's own ink */
 const KPI_INK: Record<KpiTone, string> = {
   primary: "text-primary",
-  emerald: "text-emerald-700 dark:text-emerald-300",
-  red: "text-red-700 dark:text-red-300",
-  amber: "text-amber-700 dark:text-amber-300",
+  emerald: "text-success-ink",
+  red: "text-danger-ink",
+  amber: "text-warning-ink",
   special: "text-special-ink",
-  sky: "text-sky-700 dark:text-sky-300",
+  sky: "text-info-ink",
 }
 
 /** Design System › Kpi: phones show 100,000+ as K and 1,000,000+ as M (1.25M) — the font never shrinks */

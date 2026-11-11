@@ -114,6 +114,16 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 2. **สีบทบาทพนักงาน** (`tags.ts` `role`): admin amber · driver lime · director rose ใกล้สีระบบ — เลือกสีใหม่
 3. **`customer-picker` เลือกแล้วเป็นม่วง** → เปลี่ยนเป็น primary (ตามกฎ "ตัวเลือกที่เลือก") โอเคไหม
 
+## รอบ 12 — Pill/KPI ผูก token สถานะ + กฎ no-raw-palette (2026-11-11)
+
+- `HUE.red/amber/emerald.chip` (tags.ts → `Pill` + แท็กทั้งหมด) และ `KPI_TONE` (red/amber/emerald/sky) **ดึงจาก token** `danger-/warning-/success-/info-soft/-ink` แล้ว → แก้สีสถานะที่ `globals.css` ที่เดียว ป้ายและ KPI ตามทั้งแอป (ส่วน `hex` ของกราฟยังเป็นสีตรง — ค้างไว้)
+- **สีบทบาทพนักงาน (ผมเลือกเอง ตามกฎ "ไม่ชน system colour"):** super_admin เทาเข้มทึบ · director ชมพู · area_manager คราม · manager ม่วง · admin teal · teacher ฟ้า · developer เทา · driver slate (เดิม admin amber / driver lime / director rose / area_manager orange)
+- **`customer-picker`:** ตัวเลือกที่เลือก = สีหลัก (primary) ตามกฎ "ตัวเลือกที่เลือก" (เดิมม่วง) · ชิปประเภทลูกค้าใช้ `Button variant="chip"`
+- **กฎ eslint ใหม่ `no-raw-palette`** (ใน `no-restricted-syntax` = `error`): ห้าม violet/indigo/purple/pink/orange/lime/teal/cyan/fuchsia/neutral/slate/gray/zinc/stone แบบดิบใน `app/**/*.tsx` + `components/**/*.tsx` — ใช้ token (`primary`/`special`/`muted`/สถานะ) หรือแท็กใน `tags.ts` · identity จริงต้อง `ds-exception`
+- แปลง: slate/zinc → `muted` (work-state · session-meta · week-teacher-board · zone dots · reports) · ช่วงพิเศษ/นาฬิกา → `special` · ฝั่ง Dev ใน tickets → `info` · ดาวกลางสเกล → `warning` · อวาตาร์คนขับ → `muted`
+- **ds-exception เพิ่ม:** กระดาษพิมพ์ (`print-document`, `print/bundle`) · กรอบมือถือ (`preview-layout`) · `doc-thumbs` · `noti` (ชนิดแจ้งเตือน) · `start-date-picker` (วันที่ผ่านไปแล้ว = ส้ม ตามเจ้าของ 2026-11-09) · ไอคอนผู้ปกครองของคนขับ · สัญลักษณ์วันหยุดแบรนด์
+- **ไม่ถูกตรวจ:** ไฟล์ `.ts` (`tags.ts` · `subject-color.ts` · `transport/zone-map` ฯลฯ — เป็นจานสี identity ตั้งใจ) และ `components/ui/**`
+
 ## รอบ 11 — token `special` (2026-11-11)
 
 - `globals.css`: `--special` / `--special-soft` / `--special-ink` (ม่วง) + `bg-/text-/border-special…` ใน `@theme` · light `#ede9fe`/`#5b21b6` · dark `#2e1065`/`#ddd6fe` (ตรวจ computed style ทั้งสองธีมแล้ว)

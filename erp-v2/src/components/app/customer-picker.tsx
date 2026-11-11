@@ -58,8 +58,8 @@ export function CustomerPicker({
         <SearchBox value={q} onChange={(v) => { setQ(v); page.setPage(0) }} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" block autoFocus />
         <div className="flex flex-wrap items-center gap-1.5">
           {kinds.length > 1 && kinds.map((k) => (
-            <Button variant="ghost" size="inline" key={k} type="button" onClick={() => { toggle(k); page.setPage(0) }}
-              className={cn("inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-sm", on.includes(k) ? "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200" : "border text-muted-foreground")}>
+            <Button variant="chip" size="inline" key={k} type="button" aria-pressed={on.includes(k)} onClick={() => { toggle(k); page.setPage(0) }}
+              className="h-8 px-2.5 text-sm">
               {on.includes(k) && <CheckIcon className="size-3.5" />}{CUSTOMER_KIND_LABEL[k]}
             </Button>
           ))}
@@ -72,9 +72,9 @@ export function CustomerPicker({
             const sel = picked?.kind === r.kind && picked.id === r.id
             return (
               <li key={`${r.kind}-${r.id}`}>
-                <Button variant="row" size="inline" type="button" onClick={() => setPicked(r)} onDoubleClick={() => onConfirm(r)}
-                  className={cn("flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors", sel ? "bg-violet-100 dark:bg-violet-950" : "hover:bg-muted/60")}>
-                  <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", sel ? "border-violet-700" : "border-muted-foreground/50")}>{sel && <span className="size-2.5 rounded-full bg-violet-700" />}</span>
+                <Button variant="row" size="inline" type="button" aria-pressed={sel} onClick={() => setPicked(r)} onDoubleClick={() => onConfirm(r)}
+                  className="flex w-full items-center gap-3 rounded-2xl p-2.5 transition-colors">
+                  <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", sel ? "border-primary" : "border-muted-foreground/50")}>{sel && <span className="size-2.5 rounded-full bg-primary" />}</span>
                   <span className={cn("grid size-10 shrink-0 place-items-center rounded-full font-semibold", avatarTone(r.id))}>{initial(r.short)}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{r.title}</span>

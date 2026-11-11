@@ -55,7 +55,7 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
               <div className="flex flex-wrap gap-1.5">
                 {o.zones.map((z, i) => (
                   <span key={i} className={cn("inline-flex items-center gap-1.5 rounded-full bg-background px-2 py-0.5 text-xs ring-1 ring-foreground/10", z.peak > o.seats && "text-danger ring-danger/40")}>
-                    <span className={cn("size-2 rounded-full", ZONE_DOT[z.zone.color] ?? "bg-slate-400")} />
+                    <span className={cn("size-2 rounded-full", ZONE_DOT[z.zone.color] ?? "bg-muted-foreground/60")} />
                     {`${z.zone.name} · ${z.homes} บ้าน · ไกลสุด ${z.farthestKm} กม. · ~${z.minutes} นาที · ${z.peak}/${o.seats} ที่`}
                   </span>
                 ))}

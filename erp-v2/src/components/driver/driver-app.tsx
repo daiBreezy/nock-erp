@@ -254,6 +254,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                       <span className="flex items-center gap-1.5 font-medium">
                                                 <span className={cn("shrink-0 rounded-full px-1.5 text-2xs", tagChip("busLeg", s.leg === "pickup" ? "pickup" : "dropoff"))}>{verb(s)}</span>
                         <span className="truncate">{s.nickname}</span>
+                        {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: guardian-rides-along icon = busLeg.adult teal */}
                         {s.adult && <UserIcon className="size-3.5 shrink-0 text-teal-700" />}
                         {out?.type === "noshow" && <span className="shrink-0 rounded-full bg-danger-soft/60 px-1.5 text-2xs text-danger">ไม่มา</span>}
                       </span>

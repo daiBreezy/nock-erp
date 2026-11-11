@@ -25,12 +25,12 @@ export function WorkIcon({ w, students, className }: { w: WorkInfo; students: nu
 }
 
 export const WORK_CHIP: Record<WorkState, string> = {
-  scheduled: "bg-white/80 text-slate-700 ring-1 ring-slate-200",
+  scheduled: "bg-card/80 text-muted-foreground ring-1 ring-border",
   live: "bg-white text-success",
   needs_attendance: "bg-danger text-white",
   needs_summary: "bg-warning text-warning-ink",
   done: "bg-success text-white",
-  cancelled: "bg-slate-200 text-slate-600",
+  cancelled: "bg-muted text-muted-foreground",
 }
 
 /** Text that says the state *and* what is left to do */

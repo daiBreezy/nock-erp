@@ -158,12 +158,12 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
             <div className="min-w-fit">
               <div className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
                 <span>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
-                {periodsOn(branch, date)[0] && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-2xs font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200">ช่วง {periodsOn(branch, date)[0].name}</span>}
+                {periodsOn(branch, date)[0] && <span className="rounded-full bg-special-soft px-2 py-0.5 text-2xs font-medium text-special-ink">ช่วง {periodsOn(branch, date)[0].name}</span>}
               </div>
               {rows.length === 0 || teacherIds.length === 0 ? (
                 <p className="p-6 text-center text-sm text-muted-foreground">{closed || holiday ? "ไม่มีคลาส" : "ยังไม่มีคลาสวันนี้"}</p>
               ) : (
-                <div className="grid bg-zinc-50 text-sm dark:bg-zinc-900/40" style={{ gridTemplateColumns: cols }}>
+                <div className="grid bg-muted/40 text-sm" style={{ gridTemplateColumns: cols }}>
                   {/* teacher headers: avatar · name · subjects · classes that day */}
                   <div className="sticky left-0 z-10 border-b bg-card" />
 
@@ -249,7 +249,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                           const liveHere = cell.some((x) => workState(x, now, attendance, summaries).state === "live")
                           return (
                             <div key={`c-${tid}`} className={cn("group/cell relative divide-y border-b border-l", plain ? "min-h-14" : "min-h-28",
-                              hasStudents ? "bg-card" : cell.length ? "bg-zinc-100 dark:bg-zinc-800/60" : "",
+                              hasStudents ? "bg-card" : cell.length ? "bg-muted/60" : "",
                               past && cell.length > 0 && "opacity-75",
                               liveHere && "shadow-[inset_3px_0_0_0_var(--color-primary)]",
                               cell.some((x) => clashIds.has(x.id)) && "ring-2 ring-danger ring-inset")}>
@@ -399,10 +399,10 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
  */
 function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: Session[]; classes: Klass[]; clash: string[]; onResolve?: (ids: string[]) => void; inCell?: boolean }) {
   const L = useLookup()
-  if (!sessions.length) return <div className="border-b border-l bg-zinc-100 px-3 py-1.5 text-center text-xs text-muted-foreground dark:bg-zinc-800">-</div>
+  if (!sessions.length) return <div className="border-b border-l bg-muted px-3 py-1.5 text-center text-xs text-muted-foreground">-</div>
   // owner 2026-10-15: inside a class cell the room line takes the cell's own colour — no grey band, no divider
   return (
-    <div className={cn("@container", inCell ? "" : "border-b border-l bg-zinc-100 px-3 py-1.5 dark:bg-zinc-800")}>
+    <div className={cn("@container", inCell ? "" : "border-b border-l bg-muted px-3 py-1.5")}>
       {sessions.map((s) => {
         const k = classes.find((c) => c.id === s.classId)
         const kind = kindOf(s, k)
@@ -467,7 +467,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
         <Button variant="row" size="inline" type="button" onClick={() => onOpen(s.id)} className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:underline">
           {subjectsOf(s).join(" + ")}
         </Button>
-        {klass?.periodId && <span className="shrink-0 rounded-full bg-violet-100 px-1.5 text-2xs font-medium text-violet-900 dark:bg-violet-950 dark:text-violet-200" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
+        {klass?.periodId && <span className="shrink-0 rounded-full bg-special-soft px-1.5 text-2xs font-medium text-special-ink" title="คลาสพิเศษของช่วงนี้">{periodName(klass.periodId)}</span>}
         {s.teacherLeave?.substituteId && (
           <span className="flex shrink-0 items-center gap-0.5 text-2xs text-warning" title={`สอนแทน${L.teacher(s.teacherLeave.teacherId).label} · ${s.teacherLeave.reason}`}>
             <ArrowLeftRightIcon className="size-3" />แทน{L.teacher(s.teacherLeave.teacherId).label}
@@ -565,7 +565,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
         {time && (
           <HoverCard>
             <HoverCardTrigger render={<span tabIndex={0} aria-label={`เรียนเฉพาะ ${time}`} className="inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
-              <Clock3Icon className={cn("size-4", inverted ? "text-white" : "text-violet-600 dark:text-violet-300")} />
+              <Clock3Icon className={cn("size-4", inverted ? "text-white" : "text-special-ink")} />
             </HoverCardTrigger>
             <HoverCardContent>{`เรียนเฉพาะช่วง ${time}`}</HoverCardContent>
           </HoverCard>

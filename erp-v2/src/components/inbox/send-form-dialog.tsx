@@ -269,7 +269,7 @@ function Legend() {
   return (
     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border bg-background" />ว่าง — เปิดคาบใหม่</span>
-      <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-violet-200 bg-violet-50 dark:border-violet-900 dark:bg-violet-950" />เข้าคลาสที่มีอยู่</span>
+      <span className="inline-flex items-center gap-1.5"><span className="size-3 rounded border border-special/30 bg-special-soft/50" />เข้าคลาสที่มีอยู่</span>
     </div>
   )
 }
@@ -306,9 +306,9 @@ export function SlotDays({ title, color, items, picked, onToggle, empty, tall }:
                   return (
                     <Button variant="ghost" size="inline" key={it.key} type="button" onClick={() => onToggle(it.key)} title={it.label}
                       className={cn("relative flex h-11 flex-col justify-center rounded-xl border px-2.5 text-left text-xs tabular-nums transition-colors",
-                        on ? "border-foreground bg-foreground text-background" : it.kind === "class" ? "border-violet-200 bg-violet-50/60 hover:bg-violet-50 dark:border-violet-900 dark:bg-violet-950/40" : "bg-background hover:bg-muted")}>
+                        on ? "border-foreground bg-foreground text-background" : it.kind === "class" ? "border-special/30 bg-special-soft/40 hover:bg-special-soft/60" : "bg-background hover:bg-muted")}>
                       <span className="block font-medium">{it.start}–{it.end}</span>
-                      {it.label ? <span className={cn("block truncate text-2xs", on ? "text-background/75" : "text-violet-700 dark:text-violet-300")}>{it.label}</span> : <span className={cn("block text-2xs", on ? "text-background/75" : "text-muted-foreground")}>ว่าง</span>}
+                      {it.label ? <span className={cn("block truncate text-2xs", on ? "text-background/75" : "text-special-ink")}>{it.label}</span> : <span className={cn("block text-2xs", on ? "text-background/75" : "text-muted-foreground")}>ว่าง</span>}
                       {on && <CheckIcon className="absolute right-1.5 top-1.5 size-3" />}
                     </Button>
                   )

@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable no-restricted-syntax -- ds-exception: phone frame mock-up, not themed UI */
 
 // One layout for both tabs of ฟอร์มผู้ปกครอง (owner 2026-11-06, so it's the same wherever you open it):
 // the picker as a switch + its controls + เริ่มใหม่ on one row; the phone on the left, what it is on the right.

@@ -1205,7 +1205,7 @@ function ExitPanelReport({ d }: { d: ReportData }) {
             <div className="px-2">
               <p className="mb-1.5 text-xs text-muted-foreground">{tx("จะกลับมาเรียนไหม")}</p>
               <div className="flex h-3 overflow-hidden rounded-full bg-muted">
-                <span className="bg-success" style={{ width: `${(e.comeBack.yes / back) * 100}%` }} /><span className="bg-warning" style={{ width: `${(e.comeBack.maybe / back) * 100}%` }} /><span className="bg-slate-300" style={{ width: `${(e.comeBack.no / back) * 100}%` }} />
+                <span className="bg-success" style={{ width: `${(e.comeBack.yes / back) * 100}%` }} /><span className="bg-warning" style={{ width: `${(e.comeBack.maybe / back) * 100}%` }} /><span className="bg-muted-foreground/40" style={{ width: `${(e.comeBack.no / back) * 100}%` }} />
               </div>
               <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs"><span className="text-success">{tx("จะกลับมา")} {e.comeBack.yes}</span><span className="text-warning">{tx("อาจจะ")} {e.comeBack.maybe}</span><span className="text-muted-foreground">{tx("คงไม่")} {e.comeBack.no}</span></div>
             </div>

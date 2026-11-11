@@ -27,7 +27,7 @@ export const KIND_ICON = {
   test: { icon: ListChecksIcon, label: "สอบวัดระดับ", tone: "bg-special-soft text-special-ink" },
   trial: { icon: FlaskConicalIcon, label: "ทดลองเรียน", tone: "bg-info-soft text-info-ink" },
   interview: { icon: MessagesSquareIcon, label: "สัมภาษณ์", tone: "bg-warning-soft text-warning-ink" },
-  other: { icon: ShapesIcon, label: "อื่นๆ", tone: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  other: { icon: ShapesIcon, label: "อื่นๆ", tone: "bg-muted text-muted-foreground" },
 } as const
 
 /** What kind of session this is, for the Room line (normal learning sessions show nothing). */

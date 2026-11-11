@@ -220,7 +220,7 @@ function TicketPanel({ id }: { id: ID }) {
           {t.thread.map((m) => {
             const fromDev = who(m.by)?.roles.includes("developer")
             return (
-              <div key={m.id} className={cn("max-w-[85%] space-y-1.5 rounded-2xl p-3 text-sm", fromDev ? "bg-teal-50 ring-1 ring-teal-200 dark:bg-teal-950/40 dark:ring-teal-900" : "ml-auto bg-muted")}>
+              <div key={m.id} className={cn("max-w-[85%] space-y-1.5 rounded-2xl p-3 text-sm", fromDev ? "bg-info-soft/60 ring-1 ring-info/30" : "ml-auto bg-muted")}>
                 <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><b className="text-foreground">{who(m.by)?.nickname}</b>{fromDev && <RoleChip role="developer" />}<span>{fmtDate(toDateStr(new Date(m.at)))} {timeOf(m.at)} น.</span>{m.status && <Pill tone={STATUS_TONE[m.status]}>→ {DEV_STATUS_LABEL[m.status]}</Pill>}</p>
                 {m.text && <p className="whitespace-pre-line">{m.text}</p>}
                 <ImageGallery images={m.images} size="sm" />

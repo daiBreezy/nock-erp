@@ -179,7 +179,7 @@ function ExitForm() {
 }
 
 // the stars share one colour, by the score given (owner 2026-11-06): 1 red · 2–3 orange · 4–5 green
-const STAR_TONE = (n: number) => (n <= 1 ? "border-danger bg-danger text-white" : n <= 3 ? "border-orange-500 bg-orange-500 text-white" : "border-success bg-success text-white") // orange = mid star (identity scale)
+const STAR_TONE = (n: number) => (n <= 1 ? "border-danger bg-danger text-white" : n <= 3 ? "border-warning bg-warning text-white" : "border-success bg-success text-white")
 
 function Card({ title, sub, error, children }: { title?: string; sub?: string; error?: string; children: React.ReactNode }) {
   return (

@@ -11,11 +11,11 @@ export const HUE = {
   violet: { chip: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200", hex: "#8b5cf6" },
   pink: { chip: "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200", hex: "#ec4899" },
   rose: { chip: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200", hex: "#f43f5e" },
-  red: { chip: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200", hex: "#ef4444" },
+  red: { chip: "bg-danger-soft text-danger-ink", hex: "#ef4444" },
   orange: { chip: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200", hex: "#f97316" },
-  amber: { chip: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200", hex: "#f59e0b" },
+  amber: { chip: "bg-warning-soft text-warning-ink", hex: "#f59e0b" },
   lime: { chip: "bg-lime-100 text-lime-800 dark:bg-lime-950 dark:text-lime-200", hex: "#84cc16" },
-  emerald: { chip: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200", hex: "#10b981" },
+  emerald: { chip: "bg-success-soft text-success-ink", hex: "#10b981" },
   teal: { chip: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200", hex: "#14b8a6" },
 } as const
 export type Hue = keyof typeof HUE
@@ -25,7 +25,7 @@ export const TAG_HUE = {
   /** CRM stage groups (board columns / stage chips) */
   leadStage: { contact: "sky", test: "violet", trial: "amber", closing: "orange", enrolled: "emerald", archived: "gray" },
   /** staff roles */
-  role: { super_admin: "slate", director: "rose", area_manager: "orange", manager: "violet", admin: "amber", teacher: "sky", developer: "teal", driver: "lime" },
+  role: { super_admin: "slate", director: "pink", area_manager: "indigo", manager: "violet", admin: "teal", teacher: "sky", developer: "gray", driver: "slate" },
   /** a student's status (students list) */
   studentStatus: { active: "emerald", renewal: "amber", inactive: "gray", archived: "red" },
   /** a session by time */

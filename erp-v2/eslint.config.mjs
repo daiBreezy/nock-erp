@@ -11,12 +11,15 @@ import nextTs from "eslint-config-next/typescript";
 const PX = "/-\\[\\d+(\\.\\d+)?px\\]/"
 const ADHOC_BP = "/(^|\\s|:)(md|xl|2xl):/"
 const STATUS = "/\\b(bg|text|border|ring)-(emerald|green|red|rose|amber|yellow|sky|blue)-\\d{2,3}\\b/"
+const PALETTE = "/\\b(bg|text|border|ring|from|to|via|fill|stroke|outline|divide|accent|shadow|decoration)-(violet|indigo|purple|pink|orange|lime|teal|cyan|fuchsia|neutral|slate|gray|zinc|stone)-\\d{2,3}\\b/"
 const dsRules = [
   { selector: `Literal[value=${PX}]`, message: "Design System: no px sizes — text-2xs / text-xs / … and the spacing scale (no-px-text)." },
   { selector: `TemplateElement[value.raw=${PX}]`, message: "Design System: no px sizes — text-2xs / text-xs / … and the spacing scale (no-px-text)." },
   { selector: `Literal[value=${ADHOC_BP}]`, message: "Design System: three breakpoints only — base / sm: / lg: (no md: or xl:) (no-adhoc-breakpoints)." },
   { selector: `TemplateElement[value.raw=${ADHOC_BP}]`, message: "Design System: three breakpoints only — base / sm: / lg: (no md: or xl:) (no-adhoc-breakpoints)." },
   { selector: `Literal[value=${STATUS}]`, message: "Design System: status colours come from Pill tone / tagChip() / success-·warning-·danger-·info- tokens (no-hardcoded-status-color)." },
+  { selector: `Literal[value=${PALETTE}]`, message: "Design System: no raw palette colours — use a token (primary / special / muted / status) or a tag from tags.ts; a real identity palette needs a ds-exception (no-raw-palette)." },
+  { selector: `TemplateElement[value.raw=${PALETTE}]`, message: "Design System: no raw palette colours — use a token (primary / special / muted / status) or a tag from tags.ts; a real identity palette needs a ds-exception (no-raw-palette)." },
   { selector: "JSXOpeningElement[name.name='SearchIcon'] JSXAttribute[name.name='className'] Literal[value=/absolute/]", message: "Design System: use <SearchBox> — no hand-placed search icon (no-search-icon)." },
 ]
 

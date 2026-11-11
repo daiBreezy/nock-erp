@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable no-restricted-syntax -- ds-exception: printed paper — fixed black/white, never themed */
 
 import { useSyncExternalStore } from "react"
 import { PrinterIcon } from "lucide-react"

@@ -112,7 +112,7 @@ export function ZonesView({ branch }: { branch: Branch }) {
             return (
               <section key={z.id} className="rounded-3xl bg-card p-3 shadow-sm ring-1 ring-foreground/5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn("size-3 shrink-0 rounded-full", ZONE_DOT[z.color] ?? "bg-slate-400")} />
+                  <span className={cn("size-3 shrink-0 rounded-full", ZONE_DOT[z.color] ?? "bg-muted-foreground/60")} />
                   <Input className="h-8 min-w-28 flex-1 font-medium" defaultValue={z.name} onBlur={(e) => e.target.value.trim() && e.target.value !== z.name && putZone(z.id, { name: e.target.value.trim() })} />
                   <NativeSelect className="h-8 w-36" value={z.vehicleId ?? ""} placeholder="รถที่วิ่ง" onChange={(e) => putZone(z.id, { vehicleId: e.target.value || undefined })}
                     options={vans.map((v) => ({ value: v.id, label: `${v.name} · ${v.driverName}` }))} />
@@ -174,7 +174,7 @@ function BusHomesTable({ homes, zones, onZone }: { homes: Home[]; zones: BusZone
       ) },
     { id: "zone", label: "โซน", width: "280px", cell: (h) => zones.length === 0 ? <span className="text-xs text-muted-foreground">ยังไม่แบ่งโซน</span> : (
       <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        <span className={cn("size-2.5 shrink-0 rounded-full", h.zone ? ZONE_DOT[h.zone.color] ?? "bg-slate-400" : "bg-muted-foreground/30")} />
+        <span className={cn("size-2.5 shrink-0 rounded-full", h.zone ? ZONE_DOT[h.zone.color] ?? "bg-muted-foreground/60" : "bg-muted-foreground/30")} />
         <NativeSelect className="h-8 w-60" value={h.byHand ? h.fam.busZoneId ?? "" : ""} placeholder={h.zone && !h.byHand ? `อัตโนมัติ · ${h.zone.name}` : "อัตโนมัติ (ตามทิศบ้าน)"} onChange={(e) => onZone(h, e.target.value || null)}
           options={zones.map((z) => ({ value: z.id, label: z.name }))} />
         {h.byHand && <span title="Admin ตั้งโซนเอง"><PinIcon className="size-3.5 text-muted-foreground" /></span>}

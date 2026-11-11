@@ -223,9 +223,12 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
           {!isBranch && <>
             {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-sky-200" />{BRAND_LABEL.nockacademy}</span>
+            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (tags.ts holidayBrand) */}
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-violet-200" />{BRAND_LABEL.liclass}</span>
+            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (tags.ts holidayBrand) */}
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-indigo-200" />{BRAND_LABEL.nockacademy} + {BRAND_LABEL.liclass}</span>
           </>}
+          {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (tags.ts holidayBrand) */}
           {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-indigo-200" />  {tx("หยุด")}</span>}
           {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-warning/60" />  {tx("ช่วงเวลาพิเศษ")}</span>}
           {isBranch && <span className="line-through">{tx("ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ")}</span>}
