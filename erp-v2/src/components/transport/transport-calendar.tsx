@@ -6,6 +6,7 @@ import { fmtDate, toMinutes, weekdayShort } from "@/domain/dates"
 import { cn } from "@/lib/utils"
 import type { WeekRow } from "@/app/transport/page"
 import { TripTypeChip, vanTone } from "./labels"
+import { Button } from "@/components/ui/button"
 
 const HOUR_PX = 80
 
@@ -47,13 +48,13 @@ export function TransportCalendar({ rows, days, today, onPick }: { rows: WeekRow
                 const l = lane.get(r.trip.id)!
                 const off = r.trip.status === "cancelled"
                 return (
-                  <button key={r.trip.id} type="button" onClick={() => onPick(r.trip.id)} title={`${r.trip.depart} → ${r.trip.finish}`}
+                  <Button variant="row" size="inline" key={r.trip.id} type="button" onClick={() => onPick(r.trip.id)} title={`${r.trip.depart} → ${r.trip.finish}`}
                     className={cn("absolute overflow-hidden rounded-xl p-1.5 text-left text-xs shadow-sm ring-1 ring-black/5 hover:ring-primary", vanTone(vi), off && "opacity-40 line-through")}
                     style={{ top: (a - from) / 60 * HOUR_PX + 1, height: Math.max(58, (b - a) / 60 * HOUR_PX - 2), left: `calc(${(l / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)` }}>
                     <span className="flex justify-between gap-1 truncate font-semibold tabular-nums"><span>{r.trip.depart}</span><span className="font-normal">{`${r.trip.used}/${r.trip.seats}`}</span></span>
                     <span className="block truncate">{r.trip.vehicle?.name ?? "—"}</span>
                     <span className="mt-0.5 block"><TripTypeChip kind={r.trip.round.kind} short /></span>
-                  </button>
+                  </Button>
                 )
               })}
             </div>

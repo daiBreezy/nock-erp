@@ -2,6 +2,7 @@
 
 import type { ID, Staff } from "@/domain/types"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 export interface TeacherSelection {
   ids: ID[]
@@ -23,14 +24,14 @@ export function TeacherPicker({ teachers, subject, value, onChange }: { teachers
           }
           return (
             <span key={t.id} className={cn("inline-flex items-center overflow-hidden rounded-full border text-xs", on ? "border-primary bg-primary/10" : "hover:bg-muted")}>
-              <button type="button" onClick={toggle} className="px-2.5 py-1">
+              <Button variant="ghost" size="inline" type="button" onClick={toggle} className="px-2.5 py-1">
                 {t.nickname}
                 {subject && !t.subjects.includes(subject) && <span className="text-muted-foreground"> · ไม่ได้สอน{subject}</span>}
-              </button>
+              </Button>
               {on && (
-                <button type="button" onClick={() => onChange({ ids, primaryId: t.id })} title="ตั้งเป็นครูหลัก" className={cn("border-l px-2 py-1", primary ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+                <Button variant="ghost" size="inline" type="button" onClick={() => onChange({ ids, primaryId: t.id })} title="ตั้งเป็นครูหลัก" className={cn("border-l px-2 py-1", primary ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
                   {primary ? "★ ครูหลัก" : "☆"}
-                </button>
+                </Button>
               )}
             </span>
           )

@@ -93,9 +93,9 @@ function ClassView({ id, onEdit, onClose }: { id: ID; onEdit: () => void; onClos
               const st = L.student(sid)
               return (
                 <li key={sid} className="flex items-center gap-2 p-2">
-                  <button onClick={() => setStudentOpen(sid)} className="min-w-0 flex-1 truncate text-left text-sm hover:underline">
+                  <Button variant="row" size="inline" onClick={() => setStudentOpen(sid)} className="min-w-0 flex-1 truncate text-left text-sm hover:underline">
                     {st?.nickname} <span className={cn("rounded px-1 text-2xs font-semibold", gradeTone(st?.grade ?? ""))}>{st?.grade}</span>
-                  </button>
+                  </Button>
                   {k.active && manage && (removing === sid ? (
                     <span className="flex items-center gap-1 text-xs">
                       ออกจากคลาส + คาบที่ยังไม่เริ่ม?

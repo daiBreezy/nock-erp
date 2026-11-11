@@ -1,6 +1,7 @@
 import { BanIcon, CalendarIcon, CheckIcon, ClipboardCheckIcon, PencilLineIcon, PlayIcon, type RadioIcon } from "lucide-react"
 import { WORK_LABEL, type WorkInfo, type WorkState } from "@/domain/rules/scheduling"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 // owner 2026-10-15: one set of state icons for every calendar view (board, week, list) — and the chips
 export const WORK_ICON: Record<WorkState, typeof RadioIcon> = {
@@ -69,7 +70,7 @@ export function WorkLegend({ counts, active, onToggle }: { counts: Partial<Recor
         const Icon = WORK_ICON[s]
         const n = counts[s] ?? 0
         return (
-          <button
+          <Button variant="ghost" size="inline"
             key={s}
             onClick={() => onToggle(active === s ? null : s)}
             className={cn(
@@ -83,7 +84,7 @@ export function WorkLegend({ counts, active, onToggle }: { counts: Partial<Recor
             title="กดเพื่อไฮไลต์เฉพาะสถานะนี้"
           >
             <Icon className="size-3" /> {WORK_LABEL[s]} <b>{n}</b>
-          </button>
+          </Button>
         )
       })}
     </div>

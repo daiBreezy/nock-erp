@@ -13,6 +13,7 @@ import type { ID, Session } from "@/domain/types"
 import { useBranch, useLookup } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { Button } from "@/components/ui/button"
 
 const fmtHours = (min: number) => `${Math.round((min / 60) * 10) / 10} ชม.`
 
@@ -92,9 +93,9 @@ export function SummaryPanel({ open, onClose, title, sessions, conflicts, now, o
                 <h3 className="text-sm font-semibold">คลาสทั้งหมด</h3>
                 <div className="ml-auto inline-flex rounded-full bg-muted p-1">
                   {(["teacher", "subject"] as const).map((x) => (
-                    <button key={x} onClick={() => setBy(x)} className={cn("rounded-full px-3 py-0.5 text-xs", by === x ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
+                    <Button variant="ghost" size="inline" key={x} onClick={() => setBy(x)} className={cn("rounded-full px-3 py-0.5 text-xs", by === x ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>
                       {x === "teacher" ? "ตามครู" : "ตามวิชา"}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -150,24 +151,24 @@ function IssueItem({ issue, sessions, onOpenSession }: { issue: SummaryIssue; se
   const list = issue.sessionIds.map((id) => sessions.find((s) => s.id === id)).filter((s): s is Session => !!s).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   return (
     <li className={cn("rounded-2xl border", L.box)}>
-      <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <Button variant="row" size="inline" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm" onClick={() => setOpen(!open)} aria-expanded={open}>
         <L.icon className="size-4 shrink-0" />
         <span className="font-medium">{issue.title}</span>
         <span className="rounded-full bg-background/70 px-1.5 text-xs font-semibold tabular-nums">{list.length}</span>
         <span className="ml-auto hidden truncate text-xs opacity-80 sm:block">{issue.hint}</span>
         <ChevronDownIcon className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")} />
-      </button>
+      </Button>
       {open && (
         <ul className="space-y-0.5 border-t border-current/10 px-2 py-1.5">
           <li className="px-1 pb-1 text-xs opacity-80 sm:hidden">{issue.hint}</li>
           {list.slice(0, 30).map((s) => (
             <li key={s.id}>
-              <button className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs hover:bg-background/60" onClick={() => onOpenSession(s.id)}>
+              <Button variant="row" size="inline" className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs hover:bg-background/60" onClick={() => onOpenSession(s.id)}>
                 <span className="w-24 shrink-0 tabular-nums">{fmtDate(s.date, { weekday: true })}</span>
                 <span className="w-20 shrink-0 tabular-nums">{s.start}–{endTime(s.start, s.minutes)}</span>
                 <span className="truncate font-medium">{classes.find((k) => k.id === s.classId)?.name ?? s.subject}</span>
                 <span className="ml-auto shrink-0 opacity-80">{look.teacher(s.teacherId).label}</span>
-              </button>
+              </Button>
             </li>
           ))}
           {list.length > 30 && <li className="px-1.5 py-1 text-xs opacity-80">+{list.length - 30} คาบ</li>}

@@ -191,8 +191,7 @@ function BusSetup({ b, setB }: { b: Branch; setB: (b: Branch) => void }) {
               <Input type="time" className="w-28" value={r.time} onChange={(e) => put(r.id, { time: e.target.value })} />
               <span className="flex gap-1">
                 {([1, 2, 3, 4, 5, 6, 0] as Weekday[]).map((d) => { const on = r.weekdays.includes(d); return (
-                  <button key={d} type="button" onClick={() => put(r.id, { weekdays: on ? r.weekdays.filter((x) => x !== d) : [...r.weekdays, d] })}
-                    className={on ? "h-7 min-w-8 rounded-full border border-primary bg-primary/10 px-1.5 text-xs font-medium text-primary" : "h-7 min-w-8 rounded-full border px-1.5 text-xs text-muted-foreground hover:bg-muted"}>{weekdayShort(d)}</button>
+                  <Button variant="chip" size="inline" key={d} type="button" onClick={() => put(r.id, { weekdays: on ? r.weekdays.filter((x) => x !== d) : [...r.weekdays, d] })} aria-pressed={on} className="h-7 min-w-8 px-1.5 text-xs">{weekdayShort(d)}</Button>
                 ) })}
               </span>
               <span className="flex items-center gap-1 text-xs text-muted-foreground"><Input className="w-16 text-right tabular-nums" type="number" min={1} value={r.seats} onChange={(e) => put(r.id, { seats: Number(e.target.value) })} />{tx("ที่นั่ง")}</span>

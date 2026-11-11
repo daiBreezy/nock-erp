@@ -58,12 +58,12 @@ export function FamilyForms({ family }: { family: Family }) {
           const form = forms.find((f) => f.id === r.formId)
           return (
             <li key={r.id}>
-              <button type="button" onClick={() => setOpen(open === r.id ? null : r.id)} className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-muted/40">
+              <Button variant="row" size="inline" type="button" onClick={() => setOpen(open === r.id ? null : r.id)} className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-muted/40">
                 <ClipboardListIcon className="size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate font-medium">{form?.name ?? tx("ฟอร์มที่ถูกลบแล้ว")}</span>
                 <span className="text-xs text-muted-foreground">{fmtDate(r.submittedAt.slice(0, 10))}</span>
                 <ChevronDownIcon className={cn("size-4 text-muted-foreground transition-transform", open === r.id && "rotate-180")} />
-              </button>
+              </Button>
               {open === r.id && form && <div className="border-t bg-muted/30 px-3 py-3"><ResponseAnswers form={form} r={r} /></div>}
             </li>
           )

@@ -27,10 +27,10 @@ const RESULTS_FOR: Record<ContactChannel, ContactResult[]> = {
 
 function Chip({ on, onClick, children, tone }: { on: boolean; onClick: () => void; children: React.ReactNode; tone?: "red" | "green" }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick}
+    <Button variant="ghost" size="inline" type="button" aria-pressed={on} onClick={onClick}
       className={cn("rounded-full border px-2.5 py-1 text-xs", on ? (tone === "red" ? "border-danger bg-danger-soft/40 font-medium text-danger" : tone === "green" ? "border-success bg-success-soft/40 font-medium text-success" : "border-primary bg-primary/10 font-medium text-primary") : "hover:bg-muted")}>
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -165,7 +165,7 @@ export function LeadLostDialog({ lead, onClose }: { lead: Lead; onClose: () => v
           <div className="space-y-1">
             <Label>ติดต่ออีกครั้งวันที่</Label>
             <Input type="date" min={today} value={followUpOn} onChange={(e) => setFollowUpOn(e.target.value)} />
-            <div className="flex gap-1">{[30, 90, 180].map((d) => <button key={d} type="button" className="rounded-full border px-2 text-2xs hover:bg-muted" onClick={() => setFollowUpOn(addDays(today, d))}>{d === 30 ? "1 เดือน" : d === 90 ? "3 เดือน" : "6 เดือน"}</button>)}</div>
+            <div className="flex gap-1">{[30, 90, 180].map((d) => <Button variant="ghost" size="inline" key={d} type="button" className="rounded-full border px-2 text-2xs hover:bg-muted" onClick={() => setFollowUpOn(addDays(today, d))}>{d === 30 ? "1 เดือน" : d === 90 ? "3 เดือน" : "6 เดือน"}</Button>)}</div>
           </div>
           <div className="space-y-1">
             <Label>หมายเหตุ{reasonId === "lr_other" ? " *" : ""}</Label>

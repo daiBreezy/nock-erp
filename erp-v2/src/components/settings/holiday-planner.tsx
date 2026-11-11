@@ -211,9 +211,9 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                   <p key={h.id} className={cn("mt-0.5 truncate text-2xs", closed(h) ? SCOPE_TEXT[scopeOf(h)] : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
                 ))}
                 {canAdd && (
-                  <button onClick={() => openAdd(d)} className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-center gap-1 rounded-lg border border-dashed border-primary/40 py-0.5 text-2xs text-primary group-hover:flex">
+                  <Button variant="ghost" size="inline" onClick={() => openAdd(d)} className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-center gap-1 rounded-lg border border-dashed border-primary/40 py-0.5 text-2xs text-primary group-hover:flex">
                     <PlusIcon className="size-3" />  {tx("เพิ่ม")}
-                  </button>
+                  </Button>
                 )}
               </div>
             )

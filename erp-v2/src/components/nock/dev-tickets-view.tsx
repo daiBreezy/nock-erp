@@ -148,7 +148,7 @@ function CreateTicketPanel({ onSent }: { onSent: (id: ID) => void }) {
           <div className="grid gap-1.5 sm:grid-cols-4">
             {(Object.keys(DEV_KIND_LABEL) as DevTicketKind[]).map((k) => {
               const Icon = DEV_KIND_ICON[k]
-              return <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("flex items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm", kind === k ? "border-primary bg-primary/5 font-medium text-primary" : "hover:bg-muted")}><Icon className="size-4 shrink-0" />{DEV_KIND_LABEL[k]}</button>
+              return <Button variant="row" size="inline" key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={cn("flex items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm", kind === k ? "border-primary bg-primary/5 font-medium text-primary" : "hover:bg-muted")}><Icon className="size-4 shrink-0" />{DEV_KIND_LABEL[k]}</Button>
             })}
           </div>
         </Field>
@@ -161,7 +161,7 @@ function CreateTicketPanel({ onSent }: { onSent: (id: ID) => void }) {
           <div className="flex flex-wrap gap-1.5">
             {NOCK_LOCATIONS.map((l) => {
               const on = locs.includes(l.id)
-              return <button key={l.id} type="button" aria-pressed={on} onClick={() => setLocs(on ? locs.filter((x) => x !== l.id) : [...locs, l.id])} className={cn("rounded-full border px-3 py-1 text-sm", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{l.label}</button>
+              return <Button variant="chip" size="inline" key={l.id} type="button" aria-pressed={on} onClick={() => setLocs(on ? locs.filter((x) => x !== l.id) : [...locs, l.id])} className="px-3 py-1 text-sm">{l.label}</Button>
             })}
           </div>
         </Field>
@@ -243,8 +243,8 @@ function TicketPanel({ id }: { id: ID }) {
                   <span className="text-xs text-muted-foreground">สถานะ:</span>
                   {DEV_SET_STATUSES.map((x) => {
                     const on = (next || t.status) === x
-                    return <button key={x} type="button" aria-pressed={on} disabled={x === t.status} onClick={() => setNext(next === x ? "" : x)}
-                      className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted", x === t.status && "cursor-default")}>{DEV_STATUS_LABEL[x]}</button>
+                    return <Button variant="chip" size="inline" key={x} type="button" aria-pressed={on} disabled={x === t.status} onClick={() => setNext(next === x ? "" : x)}
+                      className={cn("px-2.5 py-1 text-xs", x === t.status && "cursor-default")}>{DEV_STATUS_LABEL[x]}</Button>
                   })}
                 </span>
               )}

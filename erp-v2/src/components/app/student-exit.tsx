@@ -18,7 +18,7 @@ import { useStore } from "@/store/store"
 import { InfoTip } from "./info-tip"
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" aria-pressed={on} onClick={onClick} className={cn("rounded-full border px-2.5 py-1 text-xs", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{children}</button>
+  return <Button variant="chip" size="inline" type="button" aria-pressed={on} onClick={onClick} className="px-2.5 py-1 text-xs">{children}</Button>
 }
 
 const COME_BACK = { yes: "กลับมาแน่นอน", maybe: "อาจจะกลับ", no: "คงไม่กลับ" } as const

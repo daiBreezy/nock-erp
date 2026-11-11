@@ -192,8 +192,8 @@ function Card({ title, sub, error, children }: { title?: string; sub?: string; e
 
 function Pick({ on, onClick, children, block }: { on: boolean; onClick: () => void; children: React.ReactNode; block?: boolean }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick}
-      className={cn("min-h-11 rounded-full border px-4 py-2.5 text-sm transition-colors", block && "w-full", on ? "border-primary bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{children}</button>
+    <Button variant="chip" size="inline" type="button" aria-pressed={on} onClick={onClick}
+      className="min-h-11 px-4 py-2.5 text-sm">{children}</Button>
   )
 }
 

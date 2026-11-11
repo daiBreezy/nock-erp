@@ -127,7 +127,7 @@ export function ZonesView({ branch }: { branch: Branch }) {
                   <Input key={`t${z.id}${z.to}`} type="number" min={0} max={360} className="h-8 w-16 text-right tabular-nums" defaultValue={z.to} onBlur={(e) => Number(e.target.value) !== z.to && putZone(z.id, { to: ((Number(e.target.value) % 360) + 360) % 360 || 360 })} />
                   <span>° (0 = เหนือ · 90 = ตะวันออก · 180 = ใต้ · 270 = ตะวันตก)</span>
                   <span className="ml-auto flex gap-1">
-                    {ZONE_COLORS.map((c) => <button key={c} type="button" aria-label={c} onClick={() => putZone(z.id, { color: c })} className={cn("size-5 rounded-full ring-offset-2", ZONE_DOT[c], z.color === c && "ring-2 ring-foreground/40")} />)}
+                    {ZONE_COLORS.map((c) => <Button variant="ghost" size="inline" key={c} type="button" aria-label={c} onClick={() => putZone(z.id, { color: c })} className={cn("size-5 rounded-full ring-offset-2", ZONE_DOT[c], z.color === c && "ring-2 ring-foreground/40")} />)}
                   </span>
                 </div>
                 <p className="mt-2 flex flex-wrap gap-1 text-xs">

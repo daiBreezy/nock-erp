@@ -69,12 +69,12 @@ export function BroadcastDialog({ conversations, onClose }: { conversations: Con
 
         <div className="grid grid-cols-2 gap-2">
           {([["survey", HeartHandshakeIcon, "แบบสอบถามความพึงพอใจ", "1 ลิงก์ต่อครอบครัว · ทุกสาขา"], ["text", MessageSquareTextIcon, "ข้อความ", "ประกาศ / แจ้งวันหยุด / โปรโมชัน"]] as const).map(([k, Icon, title, sub]) => (
-            <button key={k} type="button" onClick={() => setWhat(k)}
+            <Button variant="row" size="inline" key={k} type="button" onClick={() => setWhat(k)}
               className={cn("rounded-2xl border p-3 text-left text-sm", what === k ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted")}>
               <Icon className={cn("mb-1.5 size-5", what === k ? "text-primary" : "text-muted-foreground")} />
               <p className="font-medium">{title}</p>
               <p className="text-xs text-muted-foreground">{sub}</p>
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -95,8 +95,7 @@ export function BroadcastDialog({ conversations, onClose }: { conversations: Con
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">ส่งถึง</p>
               <div className="flex flex-wrap gap-1.5">
                 {(Object.keys(AUDIENCE) as Audience[]).map((a) => (
-                  <button key={a} type="button" onClick={() => setAudience(a)}
-                    className={cn("rounded-full border px-3 py-1 text-xs", audience === a ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{AUDIENCE[a]}</button>
+                  <Button variant="chip" size="inline" key={a} type="button" onClick={() => setAudience(a)} aria-pressed={audience === a} className="px-3 py-1 text-xs">{AUDIENCE[a]}</Button>
                 ))}
               </div>
               <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">{targets.length} แชท{live > 0 && <> · <RadioIcon className="size-3 text-info" /> LINE จริง {live}</>}</p>

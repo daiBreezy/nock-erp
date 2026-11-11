@@ -22,10 +22,10 @@ const RESULTS_FOR: Record<ContactChannel, ContactResult[]> = {
 
 function Chip({ on, onClick, children, tone }: { on: boolean; onClick: () => void; children: React.ReactNode; tone?: "red" | "green" }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick}
+    <Button variant="ghost" size="inline" type="button" aria-pressed={on} onClick={onClick}
       className={cn("rounded-full border px-2.5 py-1 text-xs", on ? (tone === "red" ? "border-danger bg-danger-soft/40 font-medium text-danger" : tone === "green" ? "border-success bg-success-soft/40 font-medium text-success" : "border-primary bg-primary/10 font-medium text-primary") : "hover:bg-muted")}>
       {children}
-    </button>
+    </Button>
   )
 }
 

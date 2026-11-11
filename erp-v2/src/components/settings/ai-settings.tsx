@@ -68,11 +68,11 @@ export function AiSettings() {
       <Field label="ผู้ให้บริการ">
         <div className="grid gap-2 sm:grid-cols-2">
           {PROVIDERS.map((x) => (
-            <button key={x.id} type="button" aria-pressed={provider === x.id} onClick={() => { setProvider(x.id); setModel("") }}
+            <Button variant="row" size="inline" key={x.id} type="button" aria-pressed={provider === x.id} onClick={() => { setProvider(x.id); setModel("") }}
               className={cn("flex items-center gap-3 rounded-2xl border p-3 text-left", provider === x.id ? "border-primary bg-primary/5" : "hover:bg-muted/50")}>
               <span className={cn("grid size-9 place-items-center rounded-xl", provider === x.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}><SparklesIcon className="size-4" /></span>
               <span><span className="block text-sm font-medium">{x.name}</span><span className="block text-xs text-muted-foreground">{x.hint}</span></span>
-            </button>
+            </Button>
           ))}
         </div>
       </Field>
@@ -82,7 +82,7 @@ export function AiSettings() {
         </Field>
         <Field label="รุ่น (Model)" hint="เว้นว่าง = รุ่นแนะนำ">
           <div className="flex flex-wrap gap-1.5">
-            {p.models.map((m) => <button key={m} type="button" aria-pressed={(model || p.models[0]) === m} onClick={() => setModel(m)} className={cn("rounded-full border px-3 py-1.5 text-sm", (model || p.models[0]) === m ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{m}</button>)}
+            {p.models.map((m) => <Button variant="chip" size="inline" key={m} type="button" aria-pressed={(model || p.models[0]) === m} onClick={() => setModel(m)} className="px-3 py-1.5 text-sm">{m}</Button>)}
           </div>
         </Field>
       </div>

@@ -50,7 +50,7 @@ function OfferDialog({ form, branchId, onClose, onSend }: { form: FormDef; branc
                   {choices.map((o) => <li key={o}><label className="flex items-center gap-2 text-sm"><Checkbox checked={mine.includes(o)} onCheckedChange={() => toggle(x.id, o)} />{o}</label></li>)}
                   {!choices.length && <li className="text-xs text-muted-foreground">{tx("สาขานี้ยังไม่มีคลาส — พิมพ์เวลาเองด้านล่าง")}</li>}
                 </ul>
-                {extra.length > 0 && <div className="flex flex-wrap gap-1.5">{extra.map((o) => <span key={o} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">{o}<button type="button" aria-label={tx("ลบ")} onClick={() => toggle(x.id, o)}><XIcon className="size-3" /></button></span>)}</div>}
+                {extra.length > 0 && <div className="flex flex-wrap gap-1.5">{extra.map((o) => <span key={o} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">{o}<Button variant="ghost" size="inline" type="button" aria-label={tx("ลบ")} onClick={() => toggle(x.id, o)}><XIcon className="size-3" /></Button></span>)}</div>}
                 <div className="flex gap-2">
                   <Input placeholder={tx("พิมพ์เวลา / คลาสเอง เช่น ส. 10:00–12:00")} value={typing[x.id] ?? ""} onChange={(e) => setTyping((t) => ({ ...t, [x.id]: e.target.value }))}
                     onKeyDown={(e) => { const v = (typing[x.id] ?? "").trim(); if (e.key === "Enter" && v && !mine.includes(v)) { toggle(x.id, v); setTyping((t) => ({ ...t, [x.id]: "" })) } }} />

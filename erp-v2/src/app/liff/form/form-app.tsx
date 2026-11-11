@@ -284,11 +284,11 @@ export function LiffForm() {
             <li key={label} className="flex items-center gap-1.5">
               {i > 0 && <span className="h-px w-3 bg-border" />}
               {/* owner 2026-10-15: in a preview the steps are buttons — jump anywhere, no typing needed */}
-              <button type="button" disabled={!(preview || previewEnroll) || phase === "done"} onClick={() => setStep(STEP_KEYS[i])}
+              <Button variant="ghost" size="inline" type="button" disabled={!(preview || previewEnroll) || phase === "done"} onClick={() => setStep(STEP_KEYS[i])}
                 className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 disabled:cursor-default", (preview || previewEnroll) && phase !== "done" && "hover:ring-2 hover:ring-primary/30",
                   phase === "done" || i < stepIndex ? "bg-primary/10 text-primary" : i === stepIndex ? "bg-primary text-primary-foreground" : "border text-muted-foreground")}>
                 {phase === "done" || i < stepIndex ? <CheckIcon className="size-3" /> : <PencilIcon className="size-3" />}{label}
-              </button>
+              </Button>
             </li>
           ))}
         </ol>
@@ -444,14 +444,14 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
             {(offers.find((o) => o.subject === subject)?.slots ?? []).toSorted((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).map((x) => {
               const active = s.chosen[subject]?.id === x.id
               return (
-                <button key={x.id} type="button" onClick={() => onChange({ chosen: { ...s.chosen, [subject]: x } })}
+                <Button variant="row" size="inline" key={x.id} type="button" onClick={() => onChange({ chosen: { ...s.chosen, [subject]: x } })}
                   className={cn("flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition", active ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted")}>
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded-full border-2", active ? "border-primary" : "border-muted-foreground/50")}>{active && <span className="size-2 rounded-full bg-primary" />}</span>
                   <span>
                     <span className="block text-sm font-medium tabular-nums">{x.start}–{endTime(x.start, x.minutes)}</span>
                     <span className="block text-xs text-muted-foreground">{fmtFormDate(x.date, lang)}</span>
                   </span>
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -468,14 +468,14 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
             {times.map((x) => {
               const active = picked?.date === x.date && picked.start === x.start
               return (
-                <button key={x.date + x.start} type="button" onClick={() => onChange({ chosen: x.bySubject })}
+                <Button variant="row" size="inline" key={x.date + x.start} type="button" onClick={() => onChange({ chosen: x.bySubject })}
                   className={cn("flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition", active ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted")}>
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded-full border-2", active ? "border-primary" : "border-muted-foreground/50")}>{active && <span className="size-2 rounded-full bg-primary" />}</span>
                   <span>
                     <span className="block text-sm font-medium tabular-nums">{x.start}–{endTime(x.start, x.minutes)}</span>
                     <span className="block text-xs text-muted-foreground">{fmtFormDate(x.date, lang)}</span>
                   </span>
-                </button>
+                </Button>
               )
             })}
           </div>

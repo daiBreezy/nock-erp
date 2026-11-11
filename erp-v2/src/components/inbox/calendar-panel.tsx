@@ -49,7 +49,7 @@ export function CalendarPanel({ branchId, subject: initialSubject, onInsert, onC
       <div className="flex items-center gap-2 border-b px-3 py-2.5">
         <div className="flex rounded-full bg-muted p-0.5 text-sm">
           {([["free", "หาเวลาว่าง"], ["week", "ตารางสัปดาห์"]] as const).map(([v, label]) => (
-            <button key={v} type="button" onClick={() => setTab(v)} className={cn("rounded-full px-3 py-1", tab === v ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{label}</button>
+            <Button variant="ghost" size="inline" key={v} type="button" onClick={() => setTab(v)} className={cn("rounded-full px-3 py-1", tab === v ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{label}</Button>
           ))}
         </div>
         <Button size="icon-sm" variant="ghost" className="ml-auto" aria-label="ปิด" onClick={onClose}><XIcon /></Button>
@@ -60,10 +60,10 @@ export function CalendarPanel({ branchId, subject: initialSubject, onInsert, onC
           <div className="space-y-2 border-b px-3 py-2.5">
             <div className="flex flex-wrap gap-1.5">
               {branch.subjects.map((s) => (
-                <button key={s} type="button" onClick={() => { setSubject(s); setPicked(new Set()) }}
+                <Button variant="ghost" size="inline" key={s} type="button" onClick={() => { setSubject(s); setPicked(new Set()) }}
                   className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm", subject === s ? "border-foreground/40 bg-muted font-medium" : "text-muted-foreground hover:bg-muted/60")}>
                   <span className="size-2 rounded-full" style={{ background: subjectHex(s) }} />{s}
-                </button>
+                </Button>
               ))}
             </div>
             <DateRangePicker plain from={from} to={to} min={today} onChange={(r) => { setFrom(r.from); setTo(r.to); setPicked(new Set()) }} />

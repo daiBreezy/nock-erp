@@ -10,6 +10,7 @@ import { Pill } from "../app/badges"
 import { DateRangePicker } from "../app/date-range-picker"
 import { NativeSelect } from "../app/native-select"
 import { Label } from "../ui/label"
+import { Button } from "@/components/ui/button"
 
 /**
  * One subject + date-range + candidate-slot list. Agnostic to single vs multi select — the
@@ -67,7 +68,7 @@ export function SlotPicker({
               {daySlots.map((slot) => {
                 const active = selected.has(slot.id)
                 return (
-                  <button
+                  <Button variant="ghost" size="inline"
                     key={slot.id}
                     type="button"
                     onClick={() => onToggle(slot)}
@@ -86,7 +87,7 @@ export function SlotPicker({
                         {slot.fits2h === false ? "ว่าง · 1 ชม." : "ว่าง"}
                       </Pill>
                     )}
-                  </button>
+                  </Button>
                 )
               })}
             </div>

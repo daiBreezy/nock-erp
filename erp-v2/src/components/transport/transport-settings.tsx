@@ -70,8 +70,7 @@ export function TransportSettings({ branch }: { branch: Branch }) {
               <Input type="time" className="w-28" value={r.time} onChange={(e) => putR(r.id, { time: e.target.value })} />
               <span className="flex gap-1">
                 {([1, 2, 3, 4, 5, 6, 0] as Weekday[]).map((d) => { const on = r.weekdays.includes(d); return (
-                  <button key={d} type="button" onClick={() => putR(r.id, { weekdays: on ? r.weekdays.filter((x) => x !== d) : [...r.weekdays, d] })}
-                    className={on ? "h-7 min-w-8 rounded-full border border-primary bg-primary/10 px-1.5 text-xs font-medium text-primary" : "h-7 min-w-8 rounded-full border px-1.5 text-xs text-muted-foreground hover:bg-muted"}>{weekdayShort(d)}</button>
+                  <Button variant="chip" size="inline" key={d} type="button" onClick={() => putR(r.id, { weekdays: on ? r.weekdays.filter((x) => x !== d) : [...r.weekdays, d] })} aria-pressed={on} className="h-7 min-w-8 px-1.5 text-xs">{weekdayShort(d)}</Button>
                 ) })}
               </span>
               <NativeSelect className="h-9 w-40" value={r.vehicleId ?? ""} placeholder="เลือกรถ" onChange={(e) => putR(r.id, { vehicleId: e.target.value || undefined })}

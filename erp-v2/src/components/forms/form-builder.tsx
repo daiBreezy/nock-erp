@@ -230,7 +230,7 @@ function FieldCard({ f, open, error, before, inGroup, dragging, dropHere, dropBe
       {dropHere && <span className={cn("absolute inset-x-2 h-0.5 rounded-full bg-foreground/60", dropBelow ? "-bottom-1.5" : "-top-1.5")} />}
       <div className="flex items-center gap-2 px-2 py-2.5">
         <span onMouseDown={() => setHandle(true)} onMouseUp={() => setHandle(false)} className="grid h-8 w-5 shrink-0 cursor-grab place-items-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-muted-foreground active:cursor-grabbing" aria-label={tx("ลากเพื่อจัดลำดับ")}><GripVerticalIcon className="size-4" /></span>
-        <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+        <Button variant="row" size="inline" type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><Icon className="size-4" /></span>
           <span className="min-w-0">
             <span className={cn("block truncate text-sm", f.type === "section" || f.type === "page" ? "font-semibold" : "font-medium", !f.label && "text-muted-foreground")}>{f.label || tx(f.type === "section" || f.type === "page" ? "หัวข้อ (ยังไม่ใส่)" : "คำถาม (ยังไม่ใส่)")}{f.required && FB.answerable(f) && <span className="text-danger"> *</span>}</span>
@@ -244,7 +244,7 @@ function FieldCard({ f, open, error, before, inGroup, dragging, dropHere, dropBe
               {error && <span className="text-danger">· {tx(error)}</span>}
             </span>
           </span>
-        </button>
+        </Button>
         {FB.canHide(f) && <Switch checked={!f.hidden} onCheckedChange={(v) => onChange({ hidden: !v })} aria-label={tx("แสดงในฟอร์ม")} />}
       </div>
       {open && !locked && (

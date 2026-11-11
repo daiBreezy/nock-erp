@@ -9,7 +9,7 @@
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
 | 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **0** | ✅ ครบ 2026-11-11 (กฎยังเป็น `warn` — ดูหมายเหตุท้ายเรื่องที่ 1) |
-| 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | 329 | ⬜ ยังไม่เริ่ม |
+| 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | **~230** | 🟡 รอบ 9a/9b เสร็จ (ไฟล์ละ 1–3 จุด) · เหลือไฟล์หนา (>3 จุด) |
 | 3. px → text token / spacing scale | no-px-text | 44 | **0** | ✅ ครบ 2026-11-11 |
 | 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | **0** | ✅ ครบ 2026-11-11 (md→sm · xl→lg) |
 
@@ -42,6 +42,8 @@
 ---
 
 ## เรื่องที่ 2 — controls ดิบ → Button / Input / Textarea / NativeSelect (329)
+
+**รอบ 9a/9b (2026-11-11):** ไฟล์ละ 1–3 จุดทำแล้ว (~100 จุด) · `Button` มี variant ใหม่ `chip` (ชิปเลือกได้ — เลือกผ่าน `aria-pressed`/`aria-checked`) · `row` (ปุ่มทั้งแถว/การ์ดตัวเลือก ชิดซ้าย) · size `inline` (ไม่บังคับสูง/padding) · ปุ่มตกแต่งเองที่ไม่เข้า chip/row ใช้ `ghost`+`inline` คง className เดิม — ถ้าจะรวมให้เป็นหน้าตาเดียวค่อยไล่ทีหลัง · ⚠ ชิปที่เคยเลือกแล้วพื้นทึบ (liff/exit, notifications, seat-hours, bundle, issue-receipt) เปลี่ยนเป็นพื้นอ่อน `bg-primary/10` ตามมาตรฐานเดียว · ยังไม่แตะ select ใน `inline-edit`
 
 แทน `<button>/<input>/<textarea>/<select>` ดิบ + Tailwind ด้วย component กลาง (ได้ focus/ปุ่ม/ช่องกรอกเหมือนกันทั้งแอป)
 ไฟล์หนาสุด: session-sheet (25), reports (17), parent-app (15), nock-widget (12), week-teacher-board (11), class-dialog (8), student-sheet (8), invoice-editor (8), driver-app (8)

@@ -68,10 +68,10 @@ export function LeadDialog({ onClose, initialName, initial, onSaved, lead: editi
               {branch.subjects.map((x) => {
                 const on = subjects.includes(x)
                 return (
-                  <button key={x} type="button" aria-pressed={on} onClick={() => toggleSubject(x)}
+                  <Button variant="ghost" size="inline" key={x} type="button" aria-pressed={on} onClick={() => toggleSubject(x)}
                     className={cn("rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset", on ? cn(subjectColor(x).chip, "ring-transparent") : "text-muted-foreground ring-border hover:bg-muted")}>
                     {x}
-                  </button>
+                  </Button>
                 )
               })}
             </div>

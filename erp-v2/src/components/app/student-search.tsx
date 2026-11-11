@@ -46,12 +46,12 @@ export function StudentSearch({
         <ul className="divide-y overflow-hidden rounded-xl border">
           {items.map((s) => (
             <li key={s.id}>
-              <button type="button" onClick={() => { onPick(s); setQ("") }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/60">
+              <Button variant="row" size="inline" type="button" onClick={() => { onPick(s); setQ("") }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/60">
                 <span className="text-sm font-medium">{s.nickname}</span>
                 <span className={cn("rounded px-1 text-2xs font-semibold", gradeTone(s.grade))}>{s.grade}</span>
                 <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{s.name}{s.school ? ` · ${s.school}` : ""}</span>
                 {renderMeta?.(s)}
-              </button>
+              </Button>
             </li>
           ))}
           {items.length === 0 && <li className="px-3 py-3 text-center text-xs text-muted-foreground">ไม่พบนักเรียน</li>}

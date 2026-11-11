@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { tx } from "@/lib/i18n"
+import { Button } from "@/components/ui/button"
 
 /**
  * A form from LINE whose phone / LINE account matches a family on file (owner 2026-10-29): the system suggests,
@@ -13,8 +14,8 @@ export function FamilyMatchChoice({ familyName, reason, newFamily, onChange, cla
     <div className={cn("space-y-1.5 rounded-lg bg-warning-soft/60 p-2 text-warning-ink", className)}>
       <p className="text-xs">{tx("พบครอบครัว \"{0}\" ที่อาจเป็นครอบครัวเดียวกัน ({1}) — เลือกก่อนอนุมัติ", [familyName, tx(reason)])}</p>
       <div className="flex gap-1.5" role="radiogroup" aria-label="ครอบครัว">
-        <button type="button" role="radio" aria-checked={!newFamily} className={opt(!newFamily)} onClick={() => onChange(false)}>รวม — ใช้ครอบครัวนี้</button>
-        <button type="button" role="radio" aria-checked={newFamily} className={opt(newFamily)} onClick={() => onChange(true)}>ไม่ใช่ — สร้างครอบครัวใหม่</button>
+        <Button variant="ghost" size="inline" type="button" role="radio" aria-checked={!newFamily} className={opt(!newFamily)} onClick={() => onChange(false)}>รวม — ใช้ครอบครัวนี้</Button>
+        <Button variant="ghost" size="inline" type="button" role="radio" aria-checked={newFamily} className={opt(newFamily)} onClick={() => onChange(true)}>ไม่ใช่ — สร้างครอบครัวใหม่</Button>
       </div>
     </div>
   )

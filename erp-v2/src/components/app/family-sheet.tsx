@@ -101,11 +101,11 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
                   <ul className="divide-y rounded-2xl border">
                     {kids.map((s) => (
                       <li key={s.id}>
-                        <button onClick={() => setStudentOpen(s.id)} className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-muted/40">
+                        <Button variant="row" size="inline" onClick={() => setStudentOpen(s.id)} className="flex w-full items-center gap-2 p-2.5 text-left text-sm hover:bg-muted/40">
                           <span className="font-medium">{s.nickname}</span>
                           <span className={cn("rounded px-1 text-2xs", gradeTone(s.grade))}>{s.grade}</span>
                           <span className="truncate text-xs text-muted-foreground">{s.name}</span>
-                        </button>
+                        </Button>
                       </li>
                     ))}
                     {kids.length === 0 && <li className="p-4 text-center text-xs text-muted-foreground">ยังไม่มีลูกในครอบครัวนี้</li>}

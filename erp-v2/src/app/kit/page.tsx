@@ -10,6 +10,7 @@ import { MoonIcon, SunIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useEdgeDrag } from "@/components/ui/sheet"
 import { Page, PageHeader, Segmented, type SegmentOption } from "@/components/app/page-layout"
+import { Button } from "@/components/ui/button"
 
 const SECTIONS: { key: string; title: string; tall?: boolean }[] = [
   { key: "buttons", title: "Button — ทุก variant / size" },
@@ -85,11 +86,9 @@ function Frame({ title, section, tall, dark }: { title: string; section: string;
           {PRESETS.map((p) => {
             const active = w === p.w
             return (
-              <button key={p.label} type="button" onClick={() => setW(p.w)}
-                className={cn("rounded-full border px-2.5 py-1 text-xs transition-colors",
-                  active ? "border-primary bg-primary/10 font-medium text-primary" : "border-transparent bg-muted text-muted-foreground hover:text-foreground")}>
+              <Button variant="chip" size="inline" key={p.label} type="button" onClick={() => setW(p.w)} aria-pressed={active} className="px-2.5 py-1 text-xs">
                 {p.label}
-              </button>
+              </Button>
             )
           })}
         </div>

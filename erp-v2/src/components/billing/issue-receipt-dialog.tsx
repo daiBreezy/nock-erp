@@ -45,8 +45,8 @@ export function IssueReceiptDialog({ invoices, onClose }: { invoices: Invoice[];
         {many && (
           <div className="flex gap-1.5">
             {([["combined", "ใบเสร็จรวมทุกใบ"], ["separate", "ใบเสร็จแยกรายนักเรียน"]] as const).map(([k, label]) => (
-              <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
-                className={cn("flex-1 rounded-full border px-3 py-1.5 text-sm", mode === k ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>{label}</button>
+              <Button variant="chip" size="inline" key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)}
+                className="flex-1 px-3 py-1.5 text-sm">{label}</Button>
             ))}
           </div>
         )}

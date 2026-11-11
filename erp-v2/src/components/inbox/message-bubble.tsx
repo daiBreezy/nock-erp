@@ -6,6 +6,7 @@ import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { fmtDateTime } from "@/domain/dates"
 import type { ChatMessage, Conversation, Staff } from "@/domain/types"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 /**
  * Plain text message / internal note — the default rendering for any message without a `kind`.
@@ -35,9 +36,9 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { m
               {/* eslint-disable-next-line @next/next/no-img-element -- parent's LINE photo served by our own route */}
               <img src={`/api/line/media/${(message.meta as { mediaId: string }).mediaId}`} alt={isStaff ? "รูปที่ส่ง" : "รูปจากผู้ปกครอง"} className="max-h-72 rounded-2xl" />
               {onUseAsSlip && !isStaff && (
-                <button type="button" onClick={() => onUseAsSlip((message.meta as { mediaId: string }).mediaId)} className="mt-1.5 inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10">
+                <Button variant="ghost" size="inline" type="button" onClick={() => onUseAsSlip((message.meta as { mediaId: string }).mediaId)} className="mt-1.5 inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10">
                   🧾 ใช้เป็นสลิป → บันทึกรับเงิน
-                </button>
+                </Button>
               )}
             </>
           ) : message.text}

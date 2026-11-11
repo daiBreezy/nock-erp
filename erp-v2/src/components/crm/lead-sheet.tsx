@@ -189,7 +189,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
                 <div className="flex flex-wrap items-center gap-1 pt-0.5">
                   <span className="text-xs text-muted-foreground">ลูก</span>
                   {familyChildren.map((c) => (
-                    <button key={c.id} type="button" onClick={() => setOpenStudentId(c.id)} className="rounded-full border bg-background px-2 py-0.5 text-xs hover:bg-muted">{c.nickname} · {c.grade}</button>
+                    <Button variant="ghost" size="inline" key={c.id} type="button" onClick={() => setOpenStudentId(c.id)} className="rounded-full border bg-background px-2 py-0.5 text-xs hover:bg-muted">{c.nickname} · {c.grade}</Button>
                   ))}
                 </div>
               )}

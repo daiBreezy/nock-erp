@@ -94,12 +94,12 @@ export function MoveDialog({ sessionId, target, onClose }: { sessionId: string; 
 
 function ScopeOption({ active, onClick, title, detail }: { active: boolean; onClick: () => void; title: string; detail: string }) {
   return (
-    <button onClick={onClick} className={cn("flex w-full items-start gap-3 rounded-lg border p-3 text-left", active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50")}>
+    <Button variant="row" size="inline" onClick={onClick} className={cn("flex w-full items-start gap-3 rounded-lg border p-3 text-left", active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50")}>
       <span className={cn("mt-0.5 grid size-4 place-items-center rounded-full border", active && "border-primary")}>{active && <span className="size-2 rounded-full bg-primary" />}</span>
       <span>
         <span className="block text-sm font-medium">{title}</span>
         <span className="block text-xs text-muted-foreground">{detail}</span>
       </span>
-    </button>
+    </Button>
   )
 }

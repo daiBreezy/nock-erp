@@ -145,10 +145,10 @@ export default function NockPage() {
 function Chips<T extends string>({ all, value, onChange, emptyLabel }: { all: { id: T; label: string }[]; value: T[]; onChange: (v: T[]) => void; emptyLabel?: string }) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      {emptyLabel && <button type="button" aria-pressed={!value.length} onClick={() => onChange([])} className={cn("rounded-full border px-3 py-1 text-sm", !value.length ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{emptyLabel}</button>}
+      {emptyLabel && <Button variant="chip" size="inline" type="button" aria-pressed={!value.length} onClick={() => onChange([])} className="px-3 py-1 text-sm">{emptyLabel}</Button>}
       {all.map((o) => {
         const on = value.includes(o.id)
-        return <button key={o.id} type="button" aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== o.id) : [...value, o.id])} className={cn("rounded-full border px-3 py-1 text-sm", on ? "border-primary bg-primary/10 font-medium text-primary" : "hover:bg-muted")}>{o.label}</button>
+        return <Button variant="chip" size="inline" key={o.id} type="button" aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== o.id) : [...value, o.id])} className="px-3 py-1 text-sm">{o.label}</Button>
       })}
     </div>
   )

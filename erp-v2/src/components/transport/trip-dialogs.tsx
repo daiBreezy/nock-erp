@@ -53,7 +53,7 @@ export function TripCancelDialog({ t, onClose }: { t: TripPlan; onClose: () => v
           <DialogDescription>{`${fmtDate(t.date, { weekday: true })} · เด็ก ${t.stops.length} คนบนเที่ยวนี้จะย้ายไปกล่อง "ต้องตัดสินใจ" ให้เลือกรอบอื่น — กู้คืนได้ภายหลัง`}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap gap-1.5">
-          {REASONS.map((r) => <button key={r} type="button" onClick={() => setReason(r)} className={reason === r ? "h-8 rounded-full border border-primary bg-primary/10 px-3 text-sm font-medium text-primary" : "h-8 rounded-full border px-3 text-sm text-muted-foreground hover:bg-muted"}>{r}</button>)}
+          {REASONS.map((r) => <Button variant="chip" size="inline" key={r} type="button" onClick={() => setReason(r)} aria-pressed={reason === r} className="h-8 px-3 text-sm">{r}</Button>)}
         </div>
         <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เหตุผล (จำเป็น)" />
         <DialogFooter>
@@ -92,15 +92,15 @@ export function AddRiderDialog({ t, branch, onClose }: { t: TripPlan; branch: Br
         <SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อเล่น / ชื่อ / ชั้น" block autoFocus />
         <ul className="max-h-60 divide-y overflow-y-auto rounded-2xl border text-sm">
           {list.map((s) => (
-            <li key={s.id}><button type="button" onClick={() => setPick(s.id)} className={pick === s.id ? "flex w-full items-center gap-2 bg-primary/10 px-3 py-2 text-left" : "flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"}>
+            <li key={s.id}><Button variant="row" size="inline" type="button" onClick={() => setPick(s.id)} className={pick === s.id ? "flex w-full items-center gap-2 bg-primary/10 px-3 py-2 text-left" : "flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"}>
               <span className="font-medium">{s.nickname}</span><span className="text-xs text-muted-foreground">{`${s.grade} · ${s.name}`}</span>
-            </button></li>
+            </Button></li>
           ))}
           {list.length === 0 && <li className="px-3 py-4 text-center text-xs text-muted-foreground">ไม่พบนักเรียน</li>}
         </ul>
         {t.round.kind === "both" && (
           <div className="flex gap-1.5">
-            {(["dropoff", "pickup"] as const).map((k) => <button key={k} type="button" onClick={() => setLeg(k)} className={leg === k ? "h-8 rounded-full border border-primary bg-primary/10 px-3 text-sm font-medium text-primary" : "h-8 rounded-full border px-3 text-sm text-muted-foreground hover:bg-muted"}>{k === "pickup" ? "รับมาเรียน (P)" : "ส่งกลับบ้าน (D)"}</button>)}
+            {(["dropoff", "pickup"] as const).map((k) => <Button variant="chip" size="inline" key={k} type="button" onClick={() => setLeg(k)} aria-pressed={leg === k} className="h-8 px-3 text-sm">{k === "pickup" ? "รับมาเรียน (P)" : "ส่งกลับบ้าน (D)"}</Button>)}
           </div>
         )}
         <label className="flex items-center gap-2 text-sm"><Checkbox checked={charge} onCheckedChange={(v) => setCharge(!!v)} />{`คิดค่ารถ ${fmtMoney(rate)} (ถ้ายังไม่ได้ซื้อรอบนี้)`}</label>

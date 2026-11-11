@@ -53,10 +53,10 @@ function ClearAll() {
   if (toasts.length < 2) return null
   return (
     <div className="pointer-events-none mb-2 flex justify-end">
-      <button type="button" onClick={() => notiManager.close()}
+      <Button variant="ghost" size="inline" type="button" onClick={() => notiManager.close()}
         className="pointer-events-auto inline-flex items-center gap-1 rounded-full border bg-popover/90 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground">
         <XIcon className="size-3.5" />ล้างทั้งหมด<span className="tabular-nums">({toasts.length})</span>
-      </button>
+      </Button>
     </div>
   )
 }

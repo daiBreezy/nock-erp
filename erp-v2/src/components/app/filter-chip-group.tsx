@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 type ChipOption<T extends string> = { value: T; label: string; count?: number }
 
@@ -17,11 +18,10 @@ export function FilterChipGroup<T extends string>({ value, onChange, options, cl
       className,
     )}>
       {options.map((o) => (
-        <button key={o.value} type="button" onClick={() => onChange(o.value)}
-          className={cn("shrink-0 rounded-full border px-2.5 py-0.5 text-xs whitespace-nowrap", value === o.value ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card text-muted-foreground hover:bg-muted")}>
+        <Button variant="chip" size="inline" key={o.value} type="button" onClick={() => onChange(o.value)} aria-pressed={value === o.value} className="shrink-0 px-2.5 py-0.5 text-xs whitespace-nowrap">
           {o.label}
           {o.count !== undefined && <span className="ml-1 tabular-nums opacity-70">{o.count}</span>}
-        </button>
+        </Button>
       ))}
     </div>
   )

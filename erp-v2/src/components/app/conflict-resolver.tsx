@@ -97,11 +97,11 @@ export function ConflictResolver({ sessionIds, onClose, onOpen }: { sessionIds: 
                 {opts.map((o) => {
                   const on = chosen(i, opts)?.key === o.key
                   return (
-                    <button key={o.key} type="button" aria-pressed={on} onClick={() => setPick((p) => ({ ...p, [i]: o.key }))}
+                    <Button variant="row" size="inline" key={o.key} type="button" aria-pressed={on} onClick={() => setPick((p) => ({ ...p, [i]: o.key }))}
                       className={cn("flex items-start gap-2 rounded-xl border p-2 text-left text-sm", on ? "border-primary bg-primary/5" : "hover:bg-muted/50")}>
                       <span className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
                       <span><span className="font-medium">{o.label}</span><span className="block text-xs text-muted-foreground">{o.detail}</span></span>
-                    </button>
+                    </Button>
                   )
                 })}
               </div>

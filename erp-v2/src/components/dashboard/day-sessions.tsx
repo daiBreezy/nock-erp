@@ -17,6 +17,7 @@ import type { Attendance, Session } from "@/domain/types"
 import { useLookup } from "@/lib/hooks"
 import { tx, nm, sj } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 export function DaySessions({ todays, now, attendance, mineOnly, progress, onOpen }: {
   todays: Session[]; now: Date; attendance: Attendance[]; mineOnly: boolean
@@ -59,9 +60,9 @@ export function DaySessions({ todays, now, attendance, mineOnly, progress, onOpe
           {open.map((s) => <Row key={s.id} s={s} now={now} L={L} attendance={attendance} onOpen={() => onOpen(s.id)} />)}
           {past.length > 0 && (
             <>
-              <button onClick={() => setShowPast((v) => !v)} className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/40">
+              <Button variant="ghost" size="inline" onClick={() => setShowPast((v) => !v)} className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/40">
                 <ChevronRightIcon className={cn("size-3.5 transition-transform", showPast && "rotate-90")} /> {tx("จบแล้ว")} {past.length} {tx("คาบ")}
-              </button>
+              </Button>
               {showPast && past.map((s) => <Row key={s.id} s={s} now={now} L={L} attendance={attendance} onOpen={() => onOpen(s.id)} muted />)}
             </>
           )}
@@ -92,7 +93,7 @@ function Row({ s, now, L, attendance, onOpen, muted }: { s: Session; now: Date; 
   const marked = attendance.filter((a) => a.sessionId === s.id).length
   const t = L.teacher(s.teacherId)
   return (
-    <button onClick={onOpen} className={cn("flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/50", muted && "opacity-60")}>
+    <Button variant="row" size="inline" onClick={onOpen} className={cn("flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted/50", muted && "opacity-60")}>
       <span className={cn("h-8 w-1 shrink-0 rounded-full", subjectColor(s.subject).bar)} />
       <div className="w-24 shrink-0 text-xs tabular-nums text-muted-foreground"><span className="text-sm font-semibold text-foreground">{s.start}</span>–{endTime(s.start, s.minutes)}</div>
       <div className="min-w-0 flex-1">
@@ -100,6 +101,6 @@ function Row({ s, now, L, attendance, onOpen, muted }: { s: Session; now: Date; 
         <div className="truncate text-xs text-muted-foreground"><span className={cn(t.missing && "text-warning")}>{nm(t.label)}</span> · {nm(L.room(s.roomId))} {tx("· เช็คชื่อแล้ว")} {marked}/{s.studentIds.length}</div>
       </div>
       {st === "live" ? <SessionStateBadge state={st} /> : <span className="shrink-0 text-xs text-muted-foreground">{tx(STATE_LABEL[st])}</span>}
-    </button>
+    </Button>
   )
 }

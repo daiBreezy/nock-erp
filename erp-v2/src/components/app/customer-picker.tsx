@@ -58,10 +58,10 @@ export function CustomerPicker({
         <SearchBox value={q} onChange={(v) => { setQ(v); page.setPage(0) }} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" block autoFocus />
         <div className="flex flex-wrap items-center gap-1.5">
           {kinds.length > 1 && kinds.map((k) => (
-            <button key={k} type="button" onClick={() => { toggle(k); page.setPage(0) }}
+            <Button variant="ghost" size="inline" key={k} type="button" onClick={() => { toggle(k); page.setPage(0) }}
               className={cn("inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-sm", on.includes(k) ? "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200" : "border text-muted-foreground")}>
               {on.includes(k) && <CheckIcon className="size-3.5" />}{CUSTOMER_KIND_LABEL[k]}
-            </button>
+            </Button>
           ))}
           <NativeSelect className="h-8 w-28" value={grade} onChange={(e) => { setGrade(e.target.value); page.setPage(0) }} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
           <NativeSelect className="h-8 w-32" value={sort} onChange={(e) => setSort(e.target.value as CustomerSort)} options={[{ value: "name", label: "เรียงตามชื่อ" }, { value: "grade", label: "เรียงตามชั้น" }, { value: "recent", label: "เพิ่มล่าสุด" }]} />
@@ -72,7 +72,7 @@ export function CustomerPicker({
             const sel = picked?.kind === r.kind && picked.id === r.id
             return (
               <li key={`${r.kind}-${r.id}`}>
-                <button type="button" onClick={() => setPicked(r)} onDoubleClick={() => onConfirm(r)}
+                <Button variant="row" size="inline" type="button" onClick={() => setPicked(r)} onDoubleClick={() => onConfirm(r)}
                   className={cn("flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-colors", sel ? "bg-violet-100 dark:bg-violet-950" : "hover:bg-muted/60")}>
                   <span className={cn("grid size-5 shrink-0 place-items-center rounded-full border-2", sel ? "border-violet-700" : "border-muted-foreground/50")}>{sel && <span className="size-2.5 rounded-full bg-violet-700" />}</span>
                   <span className={cn("grid size-10 shrink-0 place-items-center rounded-full font-semibold", avatarTone(r.id))}>{initial(r.short)}</span>
@@ -82,7 +82,7 @@ export function CustomerPicker({
                   </span>
                   {kinds.length > 1 && <Pill tone={r.kind === "lead" ? "amber" : r.kind === "family" ? "blue" : "gray"}>{CUSTOMER_KIND_LABEL[r.kind]}</Pill>}
                   {r.grade && <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(r.grade))}>{r.grade}</span>}
-                </button>
+                </Button>
               </li>
             )
           })}

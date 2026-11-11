@@ -50,15 +50,15 @@ export function SeatHours({ classMinutes, start, value, onChange, onError, class
     <div className={cn("space-y-1.5", className)}>
       <div className="flex flex-wrap items-center gap-1.5">
         {!custom && hourBlocks(classMinutes).map((b, i) => (
-          <button key={b.offset} type="button" aria-pressed={picked.includes(i)} onClick={() => toggle(i)}
-            className={cn("rounded-full border px-3 py-1 text-xs tabular-nums", picked.includes(i) ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted")}>
+          <Button variant="chip" size="inline" key={b.offset} type="button" aria-pressed={picked.includes(i)} onClick={() => toggle(i)}
+            className="px-3 py-1 text-xs tabular-nums">
             ชม.ที่ {i + 1} · {seatTime(start, b)}
-          </button>
+          </Button>
         ))}
-        <button type="button" aria-pressed={custom} onClick={() => { if (!custom) setRows(seatWindows(seat).map((w) => ({ from: fromMinutes(toMinutes(start) + w.offset), mins: String(w.minutes) }))); setCustom(!custom) }}
-          className={cn("rounded-full border px-3 py-1 text-xs", custom ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>
+        <Button variant="chip" size="inline" type="button" aria-pressed={custom} onClick={() => { if (!custom) setRows(seatWindows(seat).map((w) => ({ from: fromMinutes(toMinutes(start) + w.offset), mins: String(w.minutes) }))); setCustom(!custom) }}
+          className="px-3 py-1 text-xs">
           {custom ? "กลับไปเลือกตามชั่วโมง" : "กำหนดเอง"}
-        </button>
+        </Button>
       </div>
       {custom && (
         <div className="space-y-1.5">

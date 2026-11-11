@@ -12,6 +12,7 @@ import { fmtDate, parseDate, toDateStr } from "@/domain/dates"
 import type { DateStr } from "@/domain/types"
 import { tx, useUiLang } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 const LOCALES = { th, en: enUS, ja } as const
 
@@ -50,7 +51,7 @@ export function DateRangePicker({ from, to, min, max, active, onChange, classNam
   if (isMobile) {
     return (
       <>
-        <button type="button" aria-pressed={!!active} className={triggerClass} onClick={() => setOpen(true)}>{triggerInner}</button>
+        <Button variant="ghost" size="inline" type="button" aria-pressed={!!active} className={triggerClass} onClick={() => setOpen(true)}>{triggerInner}</Button>
         {open && createPortal(
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={close}>
             <div className="w-full rounded-3xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10" onClick={(e) => e.stopPropagation()}>
@@ -63,7 +64,7 @@ export function DateRangePicker({ from, to, min, max, active, onChange, classNam
   }
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setDraft(undefined) }}>
-      <PopoverTrigger render={<button type="button" aria-pressed={!!active} className={triggerClass} />}>{triggerInner}</PopoverTrigger>
+      <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" aria-pressed={!!active} className={triggerClass} />}>{triggerInner}</PopoverTrigger>
       <PopoverContent align="end" className="w-auto p-0">
         <Calendar mode="range" numberOfMonths={2} locale={LOCALES[lang]} defaultMonth={parseDate(from)} selected={selected} disabled={disabled} onSelect={() => {}} onDayClick={onDayClick} />
         <p className="border-t px-3 py-2 text-2xs text-muted-foreground">{draft?.from ? tx("เลือกวันสุดท้าย") : tx("เลือกวันแรก แล้วเลือกวันสุดท้าย · เทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน")}</p>

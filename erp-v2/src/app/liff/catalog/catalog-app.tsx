@@ -98,17 +98,17 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
     )
   }
   const fav = (id: ID, className?: string) => (
-    <button type="button" aria-pressed={favs.includes(id)} aria-label={tx("สนใจ")} onClick={(e) => { e.stopPropagation(); toggleFav(id) }}
+    <Button variant="ghost" size="inline" type="button" aria-pressed={favs.includes(id)} aria-label={tx("สนใจ")} onClick={(e) => { e.stopPropagation(); toggleFav(id) }}
       className={cn("grid size-8 place-items-center rounded-full bg-background/90 shadow-sm", className)}>
       <HeartIcon className={cn("size-4", favs.includes(id) ? "fill-primary text-primary" : "text-muted-foreground")} />
-    </button>
+    </Button>
   )
 
   return (
     <main className={cn("mx-auto max-w-md bg-background", embedded ? "pb-4" : "min-h-dvh pb-10")}>
       {open ? (
         <div className="space-y-4 px-4 pt-4">
-          {!(embedded && onDetail) && <button type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</button>}
+          {!(embedded && onDetail) && <Button variant="ghost" size="inline" type="button" onClick={() => setOpenId(null)} className="flex items-center gap-1 text-sm text-muted-foreground"><ArrowLeftIcon className="size-4" />{tx("กลับ")}</Button>}
           <div className="relative overflow-hidden rounded-2xl">
             {cover(open, "aspect-[16/9]")}
             {fav(open.id, "absolute top-2 right-2")}
@@ -167,9 +167,9 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
             <div className="flex gap-2">
               <NativeSelect className="min-w-0 flex-1" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={tx("ทุกระดับชั้น")} options={t.grades.map((g) => ({ value: g, label: g }))} />
               <NativeSelect className="min-w-0 flex-1" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tx("ทุกวิชา")} options={t.subjects.map((s) => ({ value: s, label: subjectName(s) }))} />
-              <button type="button" aria-pressed={onlyFav} aria-label={tx("สนใจ")} onClick={() => setOnlyFav(!onlyFav)} className={cn("grid size-9 shrink-0 place-items-center rounded-full border", onlyFav ? "border-primary bg-primary/10" : "")}>
+              <Button variant="ghost" size="inline" type="button" aria-pressed={onlyFav} aria-label={tx("สนใจ")} onClick={() => setOnlyFav(!onlyFav)} className={cn("grid size-9 shrink-0 place-items-center rounded-full border", onlyFav ? "border-primary bg-primary/10" : "")}>
                 <HeartIcon className={cn("size-4", onlyFav ? "fill-primary text-primary" : "text-muted-foreground")} />
-              </button>
+              </Button>
             </div>
           </header>
 

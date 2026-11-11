@@ -151,7 +151,7 @@ export default function NotificationsPage() {
           {history.map((n) => {
             const unreadForMe = isUnread(n, me)
             return (
-            <button key={n.id} onClick={() => s.markNotificationsRead([n.id])} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-muted/40", unreadForMe && "bg-primary/5", n.kind === "force_approved" && "border-l-4 border-warning")}>
+            <Button variant="row" size="inline" key={n.id} onClick={() => s.markNotificationsRead([n.id])} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-muted/40", unreadForMe && "bg-primary/5", n.kind === "force_approved" && "border-l-4 border-warning")}>
               <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", unreadForMe ? "bg-primary" : "bg-transparent")} />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
@@ -163,7 +163,7 @@ export default function NotificationsPage() {
                 <span className="block text-xs whitespace-pre-wrap text-muted-foreground">{n.body}</span>
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">{fmtDateTime(n.at)}</span>
-            </button>
+            </Button>
             )
           })}
         </div>
@@ -174,10 +174,10 @@ export default function NotificationsPage() {
 
 function Chip({ on, onClick, label, count, icon: Icon }: { on: boolean; onClick: () => void; label: string; count: number; icon?: typeof BellIcon }) {
   return (
-    <button type="button" onClick={onClick} className={cn("flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors", on ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted")}>
+    <Button variant="chip" size="inline" type="button" onClick={onClick} aria-pressed={on} className="h-8 px-3 text-sm">
       {Icon && <Icon className="size-3.5" />}{label}
       <span className={cn("rounded-full px-1.5 text-xs tabular-nums", on ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground")}>{count}</span>
-    </button>
+    </Button>
   )
 }
 

@@ -9,6 +9,7 @@ import { isCurrent, periodRange, shiftPeriod, type PeriodMode, type PeriodRange 
 import type { DateStr } from "@/domain/types"
 import { useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 const MODES: { key: Exclude<PeriodMode, "custom">; label: string }[] = [
   { key: "day", label: "วันนี้" }, { key: "week", label: "สัปดาห์นี้" }, { key: "month", label: "เดือนนี้" },
@@ -40,8 +41,8 @@ export function usePeriod(initial: PeriodMode = "week", opts?: { modes?: Exclude
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
       <div role="group" aria-label="ช่วงเวลา" className="flex h-9 w-full items-center rounded-full bg-muted p-1 sm:inline-flex sm:w-auto">
         {shownModes.map((m) => (
-          <button key={m.key} type="button" aria-pressed={mode === m.key} onClick={() => pick(m.key)}
-            className={cn("h-7 flex-1 rounded-full px-3 text-sm whitespace-nowrap sm:flex-none", mode === m.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>{m.label}</button>
+          <Button variant="ghost" size="inline" key={m.key} type="button" aria-pressed={mode === m.key} onClick={() => pick(m.key)}
+            className={cn("h-7 flex-1 rounded-full px-3 text-sm whitespace-nowrap sm:flex-none", mode === m.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>{m.label}</Button>
         ))}
         <DateRangePicker segment from={range.from} to={range.to} active={mode === "custom"} onChange={setCustom} />
       </div>

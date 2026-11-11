@@ -152,10 +152,10 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
         <section className="divide-y rounded-lg border">
           {rows.map(({ inv, total }) => (
             <div key={inv.id} className="flex items-center gap-2 p-2.5 text-sm">
-              <button type="button" onClick={() => onOpen(inv.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline">
+              <Button variant="row" size="inline" type="button" onClick={() => onOpen(inv.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline">
                 <span className="font-medium">{stu(inv.studentId)?.nickname}</span>
                 <span className="truncate font-mono text-xs text-muted-foreground">{inv.number ?? "ร่าง"}</span>
-              </button>
+              </Button>
               <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
               <span className="w-24 text-right tabular-nums">{fmtMoney(total)}</span>
               {allDraft && manage && members.length > 2 && <Button size="icon-xs" variant="ghost" aria-label="ถอดออกจากชุด" onClick={() => report(act.unlink(inv.id), "ถอดออกจากชุดแล้ว")}><UnlinkIcon /></Button>}
@@ -203,8 +203,8 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
             <div className="flex gap-1.5">
               {([["combined", "รวมทุกใบ", group.map((x) => x.id)], ["separate", "แยกรายนักเรียน", [] as ID[]]] as const).map(([k, label, ids]) => {
                 const on = k === "combined" ? combinedCount === group.length : combinedCount === 0
-                return <button key={k} type="button" disabled={!manage} aria-pressed={on} onClick={() => !on && report(act.regroup(first.id, [...ids]), k === "combined" ? "รวมเป็นใบเสร็จเดียวแล้ว" : "แยกใบเสร็จรายนักเรียนแล้ว")}
-                  className={cn("flex-1 rounded-full border px-3 py-1 text-xs disabled:opacity-60", on ? "border-foreground bg-foreground text-background" : "hover:bg-muted")}>{label}</button>
+                return <Button variant="chip" size="inline" key={k} type="button" disabled={!manage} aria-pressed={on} onClick={() => !on && report(act.regroup(first.id, [...ids]), k === "combined" ? "รวมเป็นใบเสร็จเดียวแล้ว" : "แยกใบเสร็จรายนักเรียนแล้ว")}
+                  className="flex-1 px-3 py-1 text-xs disabled:opacity-60">{label}</Button>
               })}
             </div>
           </section>

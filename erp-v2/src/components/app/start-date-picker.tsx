@@ -12,6 +12,7 @@ import { fmtDate, parseDate, toDateStr } from "@/domain/dates"
 import type { DateStr, Holiday } from "@/domain/types"
 import { tx, useUiLang } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 const LOCALES = { th, en: enUS, ja } as const
 
@@ -77,7 +78,7 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
   if (isMobile) {
     return (
       <>
-        <button type="button" className={trigger} onClick={() => setOpen(true)}>{label}</button>
+        <Button variant="ghost" size="inline" type="button" className={trigger} onClick={() => setOpen(true)}>{label}</Button>
         {open && createPortal(
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6" onClick={() => setOpen(false)}>
             <div className="w-full rounded-3xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10" onClick={(e) => e.stopPropagation()}>{calendar}{legend}</div>
@@ -87,7 +88,7 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<button type="button" className={trigger} />}>{label}</PopoverTrigger>
+      <PopoverTrigger render={<Button variant="ghost" size="inline" type="button" className={trigger} />}>{label}</PopoverTrigger>
       {/* as wide as the field it opens from — the days fill the popup, no empty strip on the right */}
       <PopoverContent align="start" className="w-(--anchor-width) min-w-72 p-0">{calendar}{legend}</PopoverContent>
     </Popover>

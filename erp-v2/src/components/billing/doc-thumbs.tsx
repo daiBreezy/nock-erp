@@ -48,7 +48,7 @@ export function DocThumbs({ docs, onAdd, addLabel }: { docs: DocItem[]; /** not 
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">
       {docs.length > 0 && <HoverCard>
-        <HoverCardTrigger render={<button type="button" onClick={() => setOpen(0)} className="shrink-0 rounded-lg p-1 hover:bg-muted/50" aria-label={docs.map((d) => d.label).join(", ")} />}>
+        <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" onClick={() => setOpen(0)} className="shrink-0 rounded-lg p-1 hover:bg-muted/50" aria-label={docs.map((d) => d.label).join(", ")} />}>
           {/* one document = a thumbnail · several = a stack, front card −2°, the one behind +2° */}
           <span className="relative block" style={{ width: W + (stacked ? 12 : 0), height: W + (stacked ? 6 : 0) }}>
             {stacked && <Thumb doc={docs[1]} w={W} className="absolute left-3 top-0 rotate-2" />}
@@ -62,7 +62,7 @@ export function DocThumbs({ docs, onAdd, addLabel }: { docs: DocItem[]; /** not 
       </HoverCard>}
       {onAdd && (
         <HoverCard>
-          <HoverCardTrigger render={<button type="button" onClick={onAdd} aria-label={addLabel} className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted/50 hover:text-foreground" style={{ width: W, height: W }} />}>
+          <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" onClick={onAdd} aria-label={addLabel} className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted/50 hover:text-foreground" style={{ width: W, height: W }} />}>
             <PlusIcon className="size-5" />
           </HoverCardTrigger>
           <HoverCardContent side="left" className="w-auto text-xs">{addLabel}</HoverCardContent>
