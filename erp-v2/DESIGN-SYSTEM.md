@@ -104,7 +104,7 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 |---|---|---|
 | ใช้ `ListPage` | students · classes · courses · families · staff · crm | ✅ |
 | ใช้ `Page`/`PageHeader`/`KpiRow` | attendance · sessions · summaries · transport · reports · nock · notifications · dashboard · settings | ✅ ต้องไล่ดู KPI/toolbar/empty ว่าตรงมาตรฐาน |
-| ใช้ `PageHeader` แต่ไม่ใช้ `Page` | billing · calendar | 🟡 เช็คว่าตรงมาตรฐานไหม |
+| ใช้ `Page` + `PageHeader` | billing (ใช้อยู่แล้ว ผ่าน alias `PageShell`) · calendar (รอบ 14b — `<Page className="max-w-none">` คงความกว้างเต็มจอของบอร์ด) | ✅ |
 | layout เฉพาะ (ตั้งใจ) | inbox (แชท) · calendar (บอร์ด) · `/liff/*` (ฟอร์มผู้ปกครอง ใช้ "มาตรฐานฟอร์ม" ใน CLAUDE.md) · print | ตรวจกับมาตรฐานของตัวเอง |
 | ว่าง (Coming soon) | logs · tasks | ไม่ต้องทำ |
 | `Empty` ใช้จริง | ทุกหน้า/แผงที่แสดงสถานะว่างเป็นกล่องเส้นประ (รอบ 14a) · ตาราง `DataTable` ยังใช้ข้อความในเซลล์ (`empty=`) | ✅ เหลือ `inbox/cards` Outcome (ไม่ใช่สถานะว่าง) · parent-app ย่อหน้าเล็ก |
@@ -118,6 +118,10 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 
 - ย้ายกล่องเส้นประ `<p className="… border-dashed … text-center">` ที่เขียนเองทุกหน้า (~35 จุด: attendance · sessions · summaries · notifications · crm · transport · settings · calendar summary · session/student sheet · liff ฯลฯ) เป็น `<Empty>` เดียว → ระยะ/ขอบ/สีตัวอักษรเหมือนกันทั้งแอป · ตัดไอคอนเล็กในกล่องว่างของ settings/transport ออก
 - ยังไม่แตะ: `DataTable empty=` (อยู่ในเซลล์ตาราง) · `Outcome` ใน inbox/cards (ไม่ใช่สถานะว่าง) · ข้อความว่างบรรทัดเดียวไม่มีกล่อง (เช่น `py-6 text-center`)
+
+## รอบ 14b — billing/calendar ใช้ `Page` (2026-11-11)
+
+- ตรวจแล้ว **billing ใช้ `Page` อยู่แล้ว** (import เป็น `PageShell` เพราะชื่อ `Page` ชนกับ default export) — ตารางสถานะในเอกสารล้าสมัย · calendar เปลี่ยน `div.space-y-4` → `Page` + `className="max-w-none"` (บอร์ดต้องเต็มความกว้าง ตามข้อ "layout เฉพาะ") · ระยะห่างเท่าเดิม (`space-y-4`)
 
 ## รอบ 13 — รวมปุ่ม ghost เข้า variant กลาง (2026-11-11) — **ทำบางส่วน**
 

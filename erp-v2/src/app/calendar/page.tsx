@@ -2,7 +2,7 @@
 
 import { staffAt } from "@/domain/rules/permissions"
 import { PeriodBanner } from "@/components/app/period-banner"
-import { RangeStepper, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
+import { RangeStepper, Page, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
 import { createContext, Suspense, useContext, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AlertTriangleIcon, ClipboardListIcon, ListCollapseIcon, PalmtreeIcon, PlusIcon, Settings2Icon } from "lucide-react"
@@ -174,7 +174,7 @@ function CalendarView() {
   }
 
   return (
-    <div className="space-y-4">
+    <Page className="max-w-none">
       {/* owner 2026-10-09: same structure as every page — header (name · what's in view · CTA), then one toolbar */}
       <PageHeader title="ปฏิทิน"
         description={<span className="flex flex-wrap items-center gap-1.5">
@@ -264,7 +264,7 @@ function CalendarView() {
         onOpenSession={(id) => { setSummaryOpen(false); setOpenId(id) }} />
       {prefill && <ClassDialog prefill={prefill} onClose={() => setPrefill(null)} />}
       {moving && <MoveDialog sessionId={moving.id} target={moving.target} onClose={() => setMoving(null)} />}
-    </div>
+    </Page>
   )
 }
 
