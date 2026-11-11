@@ -65,8 +65,8 @@ export function ImageGallery({ images, size = "md" }: { images?: string[]; size?
               {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
               <img src={images[open]} alt={`รูป ${open + 1}`} className="max-h-[78vh] w-auto rounded-xl object-contain" />
               {n > 1 && <>
-                <Button variant="ghost" size="inline" type="button" aria-label="รูปก่อนหน้า" onClick={() => setOpen((open - 1 + n) % n)} className="absolute top-1/2 left-2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-background/90 shadow"><ChevronLeftIcon className="size-5" /></Button>
-                <Button variant="ghost" size="inline" type="button" aria-label="รูปถัดไป" onClick={() => setOpen((open + 1) % n)} className="absolute top-1/2 right-2 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-background/90 shadow"><ChevronRightIcon className="size-5" /></Button>
+                <Button variant="ghost" size="icon" type="button" aria-label="รูปก่อนหน้า" onClick={() => setOpen((open - 1 + n) % n)} className="absolute top-1/2 left-2 -translate-y-1/2 rounded-full bg-background/90 shadow"><ChevronLeftIcon className="size-5" /></Button>
+                <Button variant="ghost" size="icon" type="button" aria-label="รูปถัดไป" onClick={() => setOpen((open + 1) % n)} className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-background/90 shadow"><ChevronRightIcon className="size-5" /></Button>
               </>}
             </div>
           )}

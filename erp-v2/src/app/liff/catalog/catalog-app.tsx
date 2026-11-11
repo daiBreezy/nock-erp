@@ -168,7 +168,7 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
             <div className="flex gap-2">
               <NativeSelect className="min-w-0 flex-1" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder={tx("ทุกระดับชั้น")} options={t.grades.map((g) => ({ value: g, label: g }))} />
               <NativeSelect className="min-w-0 flex-1" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tx("ทุกวิชา")} options={t.subjects.map((s) => ({ value: s, label: subjectName(s) }))} />
-              <Button variant="ghost" size="inline" type="button" aria-pressed={onlyFav} aria-label={tx("สนใจ")} onClick={() => setOnlyFav(!onlyFav)} className={cn("grid size-9 shrink-0 place-items-center rounded-full border", onlyFav ? "border-primary bg-primary/10" : "")}>
+              <Button variant="ghost" size="icon" type="button" aria-pressed={onlyFav} aria-label={tx("สนใจ")} onClick={() => setOnlyFav(!onlyFav)} className={cn("shrink-0 rounded-full border", onlyFav ? "border-primary bg-primary/10" : "")}>
                 <HeartIcon className={cn("size-4", onlyFav ? "fill-primary text-primary" : "text-muted-foreground")} />
               </Button>
             </div>

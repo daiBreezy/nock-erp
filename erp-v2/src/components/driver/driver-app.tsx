@@ -200,7 +200,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
     <div className="mx-auto min-h-dvh max-w-lg bg-muted/40 pb-32">
       <header className="sticky top-0 z-30 bg-background/95 px-3 py-2.5 shadow-sm backdrop-blur">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="inline" type="button" onClick={onBack} aria-label="กลับ" className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
+          <Button variant="ghost" size="icon-lg" type="button" onClick={onBack} aria-label="กลับ" className="shrink-0 rounded-full hover:bg-muted"><ArrowLeftIcon className="size-5" /></Button>
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{`${KIND[t.kind]} ${t.time}`}{t.name ? <span className="font-normal text-muted-foreground">{` · ${t.name}`}</span> : null}</p>
             <p className="truncate text-xs text-muted-foreground">{`${t.vehicle ? `${t.vehicle.name} · ${t.vehicle.plate} · ` : ""}${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}`}</p>

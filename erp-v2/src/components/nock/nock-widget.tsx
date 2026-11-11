@@ -359,11 +359,11 @@ function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (help
       )}
       <div className="flex items-center gap-0.5 pl-8 text-xs text-muted-foreground">
         {q.aiAnswer && !inBank && (q.helpful === undefined ? <>
-          <Button variant="ghost" size="inline" type="button" aria-label="ตอบตรง" title="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-success" /></Button>
-          <Button variant="ghost" size="inline" type="button" aria-label="ไม่ตรง" title="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-danger" /></Button>
+          <Button variant="ghost" size="icon-xs" type="button" aria-label="ตอบตรง" title="ตอบตรง" onClick={() => onRate(true)} className="rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-success" /></Button>
+          <Button variant="ghost" size="icon-xs" type="button" aria-label="ไม่ตรง" title="ไม่ตรง" onClick={() => onRate(false)} className="rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-danger" /></Button>
         </> : <span className="px-1">ขอบคุณที่บอก</span>)}
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="เพิ่มเติม" title="เพิ่มเติม" className="grid size-6 place-items-center rounded-full hover:bg-muted data-[popup-open]:bg-muted" />}>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" type="button" aria-label="เพิ่มเติม" title="เพิ่มเติม" className="rounded-full hover:bg-muted data-[popup-open]:bg-muted" />}>
             <EllipsisIcon className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="z-[60] w-72">

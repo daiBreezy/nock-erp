@@ -123,6 +123,11 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 
 - ตรวจแล้ว **billing ใช้ `Page` อยู่แล้ว** (import เป็น `PageShell` เพราะชื่อ `Page` ชนกับ default export) — ตารางสถานะในเอกสารล้าสมัย · calendar เปลี่ยน `div.space-y-4` → `Page` + `className="max-w-none"` (บอร์ดต้องเต็มความกว้าง ตามข้อ "layout เฉพาะ") · ระยะห่างเท่าเดิม (`space-y-4`)
 
+## รอบ 15 — ปุ่มไอคอนล้วน → `size="icon-*"` (2026-11-11) — **ทำบางส่วน**
+
+- แปลง 8 จุดที่ขนาดตรงกับ token ปุ่ม: ย้อนกลับ driver-app (`icon-lg`) · ตอบตรง/ไม่ตรง/เพิ่มเติม ใน nock-widget (`icon-xs`) · จัดการคอลัมน์ data-grid · เลื่อนรูป images ×2 · ปุ่มสนใจใน liff/catalog (`icon`) — ตัด `grid size-N place-items-center` ออกจาก className
+- **ยังเหลือ** (ขนาดไม่มี token เช่น size-5/7 หรือเป็นปุ่มทึบ): ปุ่มปิด/ลบ X ขนาดเล็กราว 15 จุด · ถ้าจะรวมต้องเพิ่ม size ใหม่ (เช่น `icon-2xs` 20px, `icon-md` 28px) ให้เจ้าของตัดสินก่อน
+
 ## รอบ 14c — `DataTable` แสดงว่างด้วย `Empty` (2026-11-11)
 
 - แถวว่างของ `DataTable` (`empty=` หรือ "ไม่มีข้อมูล") ห่อด้วย `<Empty>` ใน cell → ทุกตารางหน้าตาเดียวกับกล่องว่างอื่น · `summaries` เลิกส่ง `<p>` เอง ส่งข้อความล้วน
