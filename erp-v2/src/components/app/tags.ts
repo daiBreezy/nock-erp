@@ -51,3 +51,39 @@ const hueOf = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & 
 export const tagChip = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string) => HUE[hueOf(family, key)].chip
 /** a tag's solid colour — for chart marks that stand for that tag */
 export const tagHex = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string) => HUE[hueOf(family, key)].hex
+
+// ── identity palettes (DS round 16) ─ colours that tell things apart (which van · which bundle · which weekday ·
+// whose brand), not status. They live here, next to the tag families, so no page needs a `ds-exception` for them.
+
+/** a solid dot / bar per hue — zone dots, legend swatches */
+export const HUE_DOT: Record<Hue, string> = {
+  gray: "bg-muted-foreground/60", slate: "bg-slate-500", sky: "bg-sky-500", indigo: "bg-indigo-500", violet: "bg-violet-500", pink: "bg-pink-500",
+  rose: "bg-rose-500", red: "bg-danger", orange: "bg-orange-500", amber: "bg-warning", lime: "bg-lime-500", emerald: "bg-success", teal: "bg-teal-500",
+}
+
+/** "one colour each" cycle for things that have no meaning of their own (vans, sibling invoice bundles) */
+const CYCLE: Hue[] = ["sky", "violet", "emerald", "amber", "rose", "teal"]
+/** the n-th item's chip classes (wraps around) */
+export const cycleChip = (n: number) => HUE[CYCLE[((n % CYCLE.length) + CYCLE.length) % CYCLE.length]].chip
+/** a stable colour for an id — the same id is always the same chip */
+export const idChip = (id: string) => cycleChip([...id].reduce((a, c) => a + c.charCodeAt(0), 0))
+
+/** how a holiday shows on the calendar, by whom it closes (tags.ts `holidayBrand` hues; slate = one branch only) */
+export const HOLIDAY_TONE = {
+  na: { text: "text-sky-700", bg: "bg-sky-50", bar: "bg-sky-400", swatch: "bg-sky-200" },
+  li: { text: "text-violet-700", bg: "bg-violet-50", bar: "bg-violet-400", swatch: "bg-violet-200" },
+  both: { text: "text-indigo-700", bg: "bg-indigo-50", bar: "bg-indigo-400", swatch: "bg-indigo-200" },
+  branch: { text: "text-slate-700", bg: "bg-slate-100", bar: "bg-slate-400", swatch: "bg-indigo-200" },
+} as const
+
+/** Thai weekday colours, Sunday first (อา. แดง · จ. เหลือง · อ. ชมพู · พ. เขียว · พฤ. ส้ม · ศ. ฟ้า · ส. ม่วง) — light normally,
+ *  strong for today, lighter still once the day has passed (owner 2026-09-30) */
+export const WEEKDAY_TONE: { soft: string; strong: string; faded: string }[] = [
+  { soft: "bg-red-100 text-red-900", strong: "bg-red-600 text-white", faded: "bg-red-50 text-red-900/50" },
+  { soft: "bg-yellow-100 text-yellow-900", strong: "bg-yellow-500 text-yellow-950", faded: "bg-yellow-50 text-yellow-900/50" },
+  { soft: "bg-pink-100 text-pink-900", strong: "bg-pink-600 text-white", faded: "bg-pink-50 text-pink-900/50" },
+  { soft: "bg-green-100 text-green-900", strong: "bg-green-600 text-white", faded: "bg-green-50 text-green-900/50" },
+  { soft: "bg-orange-100 text-orange-900", strong: "bg-orange-500 text-white", faded: "bg-orange-50 text-orange-900/50" },
+  { soft: "bg-sky-100 text-sky-900", strong: "bg-sky-600 text-white", faded: "bg-sky-50 text-sky-900/50" },
+  { soft: "bg-purple-100 text-purple-900", strong: "bg-purple-600 text-white", faded: "bg-purple-50 text-purple-900/50" },
+]

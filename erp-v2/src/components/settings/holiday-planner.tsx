@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, RepeatIcon, TrashIcon } from "lucide-react"
 import { Segmented } from "@/components/app/page-layout"
-import { HUE, TAG_HUE } from "@/components/app/tags"
+import { HOLIDAY_TONE, HUE, TAG_HUE } from "@/components/app/tags"
 import { NativeSelect } from "@/components/app/native-select"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -42,11 +42,6 @@ type Draft = { id?: string; name: string; date: string; category: HolidayCategor
 const BRAND_LABEL: Record<Brand, string> = { nockacademy: "NA", liclass: "LI" }
 type Scope = "na" | "li" | "both" | "branch"
 const scopeOf = (h: Holiday): Scope => (h.branchId !== null ? "branch" : h.brand === "nockacademy" ? "na" : h.brand === "liclass" ? "li" : "both")
-/* eslint-disable no-restricted-syntax -- ds-exception: whose brand a holiday closes (tags.ts holidayBrand: na ฟ้า · li ม่วง · both คราม) — identity, not status */
-const SCOPE_TEXT: Record<Scope, string> = { na: "text-sky-700", li: "text-violet-700", both: "text-indigo-700", branch: "text-slate-700" }
-const SCOPE_BG: Record<Scope, string> = { na: "bg-sky-50", li: "bg-violet-50", both: "bg-indigo-50", branch: "bg-slate-100" }
-const SCOPE_BAR: Record<Scope, string> = { na: "bg-sky-400", li: "bg-violet-400", both: "bg-indigo-400", branch: "bg-slate-400" }
-/* eslint-enable no-restricted-syntax */
 const BRAND_CHIP: Record<Brand, string> = { nockacademy: HUE[TAG_HUE.holidayBrand.na].chip, liclass: HUE[TAG_HUE.holidayBrand.li].chip }
 /** the day when several holidays fall on it: both brands if they together close both */
 const dayScope = (hs: Holiday[]): Scope => {
@@ -147,7 +142,7 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
                 return (
                   <div key={h.id} onClick={() => setAnchor(monthStart(h.date))}
                     className={cn("group/row flex cursor-pointer items-center gap-2.5 rounded-xl py-1.5 pr-2 pl-2 transition-colors hover:bg-muted/50", !isClosed && "opacity-50", h.date < today && "opacity-50")}>
-                    <span className={cn("h-8 w-1 shrink-0 rounded-full", SCOPE_BAR[sc])} />
+                    <span className={cn("h-8 w-1 shrink-0 rounded-full", HOLIDAY_TONE[sc].bar)} />
                     <span className="w-12 shrink-0 text-xs text-muted-foreground tabular-nums"><span className="block">{weekdayShort(weekdayOf(h.date))}</span><span className="block text-sm font-semibold text-foreground">{d.getDate()}</span></span>
                     <span className={cn("min-w-0 flex-1 truncate text-sm font-medium", !isClosed && "line-through")} title={h.name}>{h.name}{h.seriesId && <RepeatIcon className="ml-1 inline size-3 text-muted-foreground" aria-label={tx("ทุกปี")} />}</span>
                     {brandsOf(h).length > 0 && <span className="flex shrink-0 gap-1">{brandsOf(h).map((b) => <span key={b} className={cn("rounded px-1.5 py-0.5 text-2xs font-semibold", BRAND_CHIP[b])}>{BRAND_LABEL[b]}</span>)}</span>}
@@ -201,15 +196,15 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             const n = isBranch ? sessions.filter((s) => !s.cancelled && s.date === d && s.branchId === branch.id).length : 0
             const sp = periodOf(d)
             return (
-              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", sp && inMonth && "bg-warning-soft/50", shut && inMonth && SCOPE_BG[sc], d === today && "ring-2 ring-primary ring-inset")}>
+              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", sp && inMonth && "bg-warning-soft/50", shut && inMonth && HOLIDAY_TONE[sc].bg, d === today && "ring-2 ring-primary ring-inset")}>
                 {sp && <span className="absolute inset-x-0 top-0 h-1 bg-warning" />}
                 <div className="flex items-center justify-between">
-                  <span className={cn("text-xs", shut && cn("font-semibold", SCOPE_TEXT[sc]))}>{parseDate(d).getDate()}</span>
+                  <span className={cn("text-xs", shut && cn("font-semibold", HOLIDAY_TONE[sc].text))}>{parseDate(d).getDate()}</span>
                   {n > 0 && inMonth && <span className="text-2xs text-muted-foreground">{n}  {tx("คาบ")}</span>}
                 </div>
                 {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-2xs font-medium text-warning">☀ {sp.name}</p>}
                 {hs.map((h) => (
-                  <p key={h.id} className={cn("mt-0.5 truncate text-2xs", closed(h) ? SCOPE_TEXT[scopeOf(h)] : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
+                  <p key={h.id} className={cn("mt-0.5 truncate text-2xs", closed(h) ? HOLIDAY_TONE[scopeOf(h)].text : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
                 ))}
                 {canAdd && (
                   <Button variant="dashed" size="inline" onClick={() => openAdd(d)} className="absolute inset-x-1.5 bottom-1.5 hidden items-center justify-center gap-1 rounded-lg border border-dashed border-primary/40 py-0.5 text-2xs text-primary group-hover:flex">
@@ -222,15 +217,11 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         </div>
         <p className="mt-2 flex flex-wrap gap-3 text-2xs text-muted-foreground">
           {!isBranch && <>
-            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
-            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-sky-200" />{BRAND_LABEL.nockacademy}</span>
-            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (tags.ts holidayBrand) */}
-            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-violet-200" />{BRAND_LABEL.liclass}</span>
-            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (tags.ts holidayBrand) */}
-            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-indigo-200" />{BRAND_LABEL.nockacademy} + {BRAND_LABEL.liclass}</span>
+            <span className="flex items-center gap-1"><span className={cn("size-2.5 rounded-sm", HOLIDAY_TONE.na.swatch)} />{BRAND_LABEL.nockacademy}</span>
+            <span className="flex items-center gap-1"><span className={cn("size-2.5 rounded-sm", HOLIDAY_TONE.li.swatch)} />{BRAND_LABEL.liclass}</span>
+            <span className="flex items-center gap-1"><span className={cn("size-2.5 rounded-sm", HOLIDAY_TONE.both.swatch)} />{BRAND_LABEL.nockacademy} + {BRAND_LABEL.liclass}</span>
           </>}
-          {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (tags.ts holidayBrand) */}
-          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-indigo-200" />  {tx("หยุด")}</span>}
+          {isBranch && <span className="flex items-center gap-1"><span className={cn("size-2.5 rounded-sm", HOLIDAY_TONE.both.swatch)} />  {tx("หยุด")}</span>}
           {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-warning/60" />  {tx("ช่วงเวลาพิเศษ")}</span>}
           {isBranch && <span className="line-through">{tx("ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ")}</span>}
           <span>{tx("เอาเมาส์ชี้ช่องว่างเพื่อเพิ่มวันหยุด")}</span>

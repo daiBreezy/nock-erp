@@ -1,5 +1,6 @@
 "use client"
 
+import { WEEKDAY_TONE } from "@/components/app/tags"
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useState } from "react"
 import { AlertTriangleIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, RotateCcwIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, UserIcon, UsersIcon } from "lucide-react"
@@ -31,20 +32,7 @@ import { cn } from "@/lib/utils"
 import { unseenChange, useStore } from "@/store/store"
 
 const DAY_FULL = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"]
-/** Thai day colours (อา. แดง · จ. เหลือง · อ. ชมพู · พ. เขียว · พฤ. ส้ม · ศ. ฟ้า · ส. ม่วง) — light normally, strong for
- *  today, lighter still once the day has passed (owner 2026-09-30). Full class strings so Tailwind keeps them. */
-/* eslint-disable no-restricted-syntax -- ds-exception: Thai weekday colours (อา.แดง จ.เหลือง …), an identity palette, not status */
-const DAY_TONE: { soft: string; strong: string; faded: string }[] = [
-  { soft: "bg-red-100 text-red-900", strong: "bg-red-600 text-white", faded: "bg-red-50 text-red-900/50" },
-  { soft: "bg-yellow-100 text-yellow-900", strong: "bg-yellow-500 text-yellow-950", faded: "bg-yellow-50 text-yellow-900/50" },
-  { soft: "bg-pink-100 text-pink-900", strong: "bg-pink-600 text-white", faded: "bg-pink-50 text-pink-900/50" },
-  { soft: "bg-green-100 text-green-900", strong: "bg-green-600 text-white", faded: "bg-green-50 text-green-900/50" },
-  { soft: "bg-orange-100 text-orange-900", strong: "bg-orange-500 text-white", faded: "bg-orange-50 text-orange-900/50" },
-  { soft: "bg-sky-100 text-sky-900", strong: "bg-sky-600 text-white", faded: "bg-sky-50 text-sky-900/50" },
-  { soft: "bg-purple-100 text-purple-900", strong: "bg-purple-600 text-white", faded: "bg-purple-50 text-purple-900/50" },
-]
-/* eslint-enable no-restricted-syntax */
-const dayTone = (date: DateStr, today: DateStr) => { const t = DAY_TONE[weekdayOf(date)]; return date === today ? t.strong : date < today ? t.faded : t.soft }
+const dayTone = (date: DateStr, today: DateStr) => { const t = WEEKDAY_TONE[weekdayOf(date)]; return date === today ? t.strong : date < today ? t.faded : t.soft }
 
 const MARK_TEXT = { present: "มา", absent: "ขาด", leave: "ลา" } as const
 const MARK_TONE = { present: "text-success", absent: "text-danger", leave: "text-info" } as const

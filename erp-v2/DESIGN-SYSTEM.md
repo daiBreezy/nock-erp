@@ -89,7 +89,7 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 | กลุ่ม | จุด | ไฟล์หลัก | แนวทาง |
 |---|---:|---|---|
 | **มีที่รวมศูนย์แล้ว (ปล่อย)** | ~100 | `subject-color.ts` (71) · `tags.ts` (28) | เป็นจานสี identity ที่ตั้งใจ |
-| **identity ที่ตั้ง `ds-exception` แล้ว** | ~65 | `week-teacher-board` DAY_TONE (33) · `holiday-planner` (12) · `transport/labels` VAN_TONES (9) · `billing/page` BUNDLE_TONES · `zone-map` | คงไว้ — รอบ 16 ทบทวนว่าย้ายเข้า `tags.ts` ได้ไหม |
+| **identity ที่ตั้ง `ds-exception` แล้ว** | ~65 | `week-teacher-board` DAY_TONE (33) · `holiday-planner` (12) · `transport/labels` VAN_TONES (9) · `billing/page` BUNDLE_TONES · `zone-map` | ย้ายเข้า `tags.ts` แล้ว (รอบ 16) |
 | **กระดาษพิมพ์/กรอบเครื่อง (ปล่อย)** | ~25 | `print-document` · `print/bundle` · `preview-layout` (กรอบมือถือ) · `doc-thumbs` | พื้นขาว/เทากลาง ไม่ผูกธีม |
 | **หลุดมาเอง ต้องแปลงเป็น token** | ~100 | ดูหัวข้อถัดไป | รอบ 12 |
 
@@ -122,6 +122,13 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 ## รอบ 14b — billing/calendar ใช้ `Page` (2026-11-11)
 
 - ตรวจแล้ว **billing ใช้ `Page` อยู่แล้ว** (import เป็น `PageShell` เพราะชื่อ `Page` ชนกับ default export) — ตารางสถานะในเอกสารล้าสมัย · calendar เปลี่ยน `div.space-y-4` → `Page` + `className="max-w-none"` (บอร์ดต้องเต็มความกว้าง ตามข้อ "layout เฉพาะ") · ระยะห่างเท่าเดิม (`space-y-4`)
+
+## รอบ 16 — จานสี identity ย้ายเข้า `tags.ts` (2026-11-11)
+
+- เพิ่มใน `tags.ts`: `HUE_DOT` (จุด/แถบทึบต่อ hue) · `cycleChip(n)` / `idChip(id)` (วนสีให้ของที่ไม่มีความหมายในตัว) · `HOLIDAY_TONE` (วันหยุดตามแบรนด์: text/bg/bar/swatch) · `WEEKDAY_TONE` (สีวัน อา.–ส.)
+- ใช้แทนของเดิม + **ตัด `ds-exception` ออก 4 กลุ่ม:** `BUNDLE_TONES` (billing) · `VAN_TONES` (transport/labels) · `ZONE_DOT` (zone-map) · `SCOPE_*` + legend (holiday-planner, 5 จุด) · `DAY_TONE` (week-teacher-board)
+- ⚠ **สีรถเปลี่ยนเล็กน้อย:** รถใช้วงจรเดียวกับ bundle (ฟ้า ม่วง เขียว เหลือง กุหลาบ teal) แทนวงจรเดิมที่เรียงต่างกัน + ได้ dark mode จาก chip กลาง
+- **ยังเป็น `ds-exception` (ตั้งใจ):** กระดาษพิมพ์ · กรอบมือถือ · doc-thumbs · `ai.tsx` (AI = ฟ้า) · noti · start-date-picker (ส้มตามเจ้าของ) · ไอคอนผู้ปกครองของคนขับ
 
 ## รอบ 15 — ปุ่มไอคอนล้วน → `size="icon-*"` (2026-11-11) — **ทำบางส่วน**
 

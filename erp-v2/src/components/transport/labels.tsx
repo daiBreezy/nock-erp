@@ -2,7 +2,7 @@
 
 // Bus Route chips (owner 2026-10-19 ref): trip type P / D / Both, trip status (Pending → Approved → OTW → Done),
 // stop status (Done / OTW / Next / Cancel), the van badge and the driver — one look everywhere on the page.
-import { tagChip } from "@/components/app/tags"
+import { cycleChip, tagChip } from "@/components/app/tags"
 import { ArrowLeftRightIcon, BanIcon, BusIcon, CheckCheckIcon, ClockIcon, FlagIcon, MapPinCheckIcon, MapPinIcon, PencilIcon, UserXIcon } from "lucide-react"
 import type { StopStatus, TripPlan, DriverInfo } from "@/domain/rules/transport"
 import type { BusRound, BusZone } from "@/domain/types"
@@ -45,18 +45,16 @@ export function StopStatusChip({ s }: { s: StopStatus }) {
   return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", c.tone)}>{c.Icon && <c.Icon className="size-3" />}{c.l}</span>
 }
 
-// eslint-disable-next-line no-restricted-syntax -- ds-exception: one colour per vehicle (identity cycle), not status
-const VAN_TONES = ["bg-amber-100 text-amber-700", "bg-rose-100 text-rose-700", "bg-teal-100 text-teal-700", "bg-violet-100 text-violet-700", "bg-sky-100 text-sky-700"]
 /** each van its own colour (by its position in the fleet) */
 export function VanBadge({ index, name, plate }: { index: number; name: string; plate?: string }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", VAN_TONES[index % VAN_TONES.length])}><BusIcon className="size-4" /></span>
+      <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", cycleChip(index))}><BusIcon className="size-4" /></span>
       <span className="min-w-0"><span className="block truncate text-sm font-medium">{name}</span>{plate && <span className="block truncate text-xs text-muted-foreground">{plate}</span>}</span>
     </span>
   )
 }
-export const vanTone = (index: number) => VAN_TONES[index % VAN_TONES.length]
+export const vanTone = (index: number) => cycleChip(index)
 
 /** zone as its letter (A, B …) in the zone colour — the full name on hover */
 export function ZoneChip({ zone, index }: { zone?: BusZone; index: number }) {

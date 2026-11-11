@@ -1,5 +1,6 @@
 "use client"
 
+import { idChip } from "@/components/app/tags"
 import { FilterBar, Page as PageShell, PageHeader, KpiRow, ShowChip, Segmented, SearchBox } from "@/components/app/page-layout"
 import { Kpi, kpiMoney } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
@@ -254,9 +255,7 @@ function InvThumb({ id }: { id: string }) {
   )
 }
 
-// eslint-disable-next-line no-restricted-syntax -- ds-exception: one colour per sibling bundle (identity cycle), not status
-const BUNDLE_TONES = ["bg-sky-100 text-sky-800", "bg-violet-100 text-violet-800", "bg-emerald-100 text-emerald-800", "bg-amber-100 text-amber-900", "bg-rose-100 text-rose-800", "bg-teal-100 text-teal-800"]
-const bundleTone = (id: string) => BUNDLE_TONES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % BUNDLE_TONES.length]
+const bundleTone = idChip
 
 /** link chip on a row: the colour is the bundle's (every linked invoice shares it) · hover lists the linked invoices */
 function BundleChip({ inv, members, students }: { inv: Invoice; members: Invoice[]; students: Student[] }) {
