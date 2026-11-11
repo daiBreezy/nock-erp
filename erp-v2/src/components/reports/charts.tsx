@@ -26,7 +26,7 @@ export function Delta({ value, invert, className }: { value: number | null; inve
   const up = value >= 0
   const good = invert ? !up : up
   return (
-    <span className={cn("inline-flex items-center gap-0.5 text-xs font-medium tabular-nums", good ? "text-emerald-600" : "text-red-600", className)}>
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-medium tabular-nums", good ? "text-success" : "text-danger", className)}>
       {up ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />}{Math.abs(value)}%
     </span>
   )
@@ -126,7 +126,7 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, for
           <p className="text-2xs text-muted-foreground">{tx("ปีนี้")}</p>
           <p className="text-sm font-semibold tabular-nums">{thisYear === null ? "—" : `${fmt(thisYear)}${unit}`}</p>
         </div>
-        {pct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums", pct >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300")}>{pct >= 0 ? "+" : ""}{pct}%</span>}
+        {pct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums", pct >= 0 ? "bg-success-soft text-success-ink" : "bg-danger-soft text-danger-ink")}>{pct >= 0 ? "+" : ""}{pct}%</span>}
       </div>
       {forecast !== undefined && (
         <div className="mt-2 flex items-start gap-2 border-t border-dashed pt-2">
@@ -135,7 +135,7 @@ function MonthTip({ month, thisYear, lastYear, fmt, unit, side, top, toDate, for
             <p className="text-2xs text-primary">{tx("คาดการณ์ทั้งเดือน")}</p>
             <p className="text-sm font-semibold text-primary tabular-nums">{fmt(forecast)}{unit}</p>
           </div>
-          {fpct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums", fpct >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{fpct >= 0 ? "+" : ""}{fpct}%</span>}
+          {fpct !== null && <span className={cn("rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums", fpct >= 0 ? "bg-success-soft text-success-ink" : "bg-danger-soft text-danger-ink")}>{fpct >= 0 ? "+" : ""}{fpct}%</span>}
         </div>
       )}
       {lastYear !== null && (

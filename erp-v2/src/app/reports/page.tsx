@@ -35,11 +35,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { HUE, tagChip, tagHex } from "@/components/app/tags"
 import { RoleChip, type ROLE_TONE } from "@/components/app/badges"
 import { subjectHex } from "@/components/app/subject-color"
+import { AI_TONE } from "@/components/app/ai"
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
 
 type Tab = "summary" | "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
 /** the sky-blue sparkle that marks AI-written content */
-const AiSparkles = ({ className }: { className?: string }) => <SparklesIcon className={cn(className, "text-sky-600 dark:text-sky-400")} />
+const AiSparkles = ({ className }: { className?: string }) => <SparklesIcon className={cn(className, AI_TONE.text)} />
 const TABS: { id: Tab; label: string; soon?: string }[] = [
   { id: "summary", label: "สรุป" },
   { id: "overview", label: "ภาพรวม" },
@@ -225,11 +226,11 @@ function StudentStats({ d }: { d: ReportData }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
       <Stat label={tx("Active วันนี้")} value={fmtNum(d.kpi.active)} />
-      <Stat label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="text-amber-600" />
-      <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-emerald-600" sub={<Delta value={d.comparable && f.newPrev ? Math.round(((f.newCount - f.newPrev) / f.newPrev) * 1000) / 10 : null} />} />
-      <Stat label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-emerald-600" />
-      <Stat label="Lost" value={`−${f.lost}`} tone="text-red-600" sub={<Delta value={d.comparable && f.lostPrev ? Math.round(((f.lost - f.lostPrev) / f.lostPrev) * 1000) / 10 : null} invert />} />
-      <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-red-600" : undefined} />
+      <Stat label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="text-warning" />
+      <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-success" sub={<Delta value={d.comparable && f.newPrev ? Math.round(((f.newCount - f.newPrev) / f.newPrev) * 1000) / 10 : null} />} />
+      <Stat label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-success" />
+      <Stat label="Lost" value={`−${f.lost}`} tone="text-danger" sub={<Delta value={d.comparable && f.lostPrev ? Math.round(((f.lost - f.lostPrev) / f.lostPrev) * 1000) / 10 : null} invert />} />
+      <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-danger" : undefined} />
       <Stat label={tx("อัตราต่อคอร์ส")} value={fmtPct(f.renewal)} sub={<span>{tx("ก่อนหน้า")} {d.comparable ? fmtPct(f.renewalPrev) : "—"}</span>} />
     </div>
   )
@@ -292,7 +293,7 @@ function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flo
           heads={[
             head(periodLabel, flow.total, tx(unit), tx("ต้นช่วง {0} · เข้ามา {1}", [fmtNum(flow.left.get("start") ?? 0), fmtNum(came)])),
             head(today ? tx("วันนี้") : tx("สิ้นช่วง"), flow.right.get("active") ?? 0, tx("เรียนอยู่"),
-              <span className={cn("rounded-full px-2 py-0.5 font-semibold", flow.net < 0 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>Net {flow.net > 0 ? "+" : flow.net < 0 ? "−" : ""}{Math.abs(flow.net)}</span>, true),
+              <span className={cn("rounded-full px-2 py-0.5 font-semibold", flow.net < 0 ? "bg-danger-soft text-danger-ink" : "bg-success-soft text-success-ink")}>Net {flow.net > 0 ? "+" : flow.net < 0 ? "−" : ""}{Math.abs(flow.net)}</span>, true),
           ]}
           columns={[
             { title: "", nodes: (["start", "new", "returning"] as const).map((k) => node(k, flow.left)).filter((n) => n.value) },
@@ -314,9 +315,9 @@ function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: strin
   const ok = d.comparable
   return (
     <StockSection unit="คน" periodLabel={periodLabel} flow={fl.now.student} stats={[
-      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.student.churn), tone: "text-red-600", sub: ptsSub(fl.now.student.churn, fl.before.student.churn, ok), info: churnInfo("คน") },
+      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.student.churn), tone: "text-danger", sub: ptsSub(fl.now.student.churn, fl.before.student.churn, ok), info: churnInfo("คน") },
       { label: tx("นักเรียนต่อ"), full: tx("อัตรานักเรียนต่อ"), value: fmtPct(f.renewal), sub: ptsSub(f.renewal, f.renewalPrev, ok), info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
-      { label: "Returning", full: "Returning Student", value: fmtNum(f.backStudents), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok)), info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
+      { label: "Returning", full: "Returning Student", value: fmtNum(f.backStudents), tone: "text-info", sub: deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok)), info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
     ]} />
   )
 }
@@ -329,9 +330,9 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
   const ok = d.comparable
   return (
     <StockSection unit="คอร์ส" periodLabel={periodLabel} flow={fl.now.course} stats={[
-      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.course.churn), tone: "text-red-600", sub: ptsSub(fl.now.course.churn, fl.before.course.churn, ok), info: churnInfo("คอร์ส") },
+      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.course.churn), tone: "text-danger", sub: ptsSub(fl.now.course.churn, fl.before.course.churn, ok), info: churnInfo("คอร์ส") },
       { label: tx("คอร์สต่อ"), full: tx("อัตราคอร์สต่อ"), value: fmtPct(c.renewal), sub: ptsSub(c.renewal, c.prev.renewal, ok), info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
-      { label: "Returning", full: "Returning Course", value: fmtNum(f.backCourses), tone: "text-sky-700", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
+      { label: "Returning", full: "Returning Course", value: fmtNum(f.backCourses), tone: "text-info", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
       { label: "Act buy", full: "Course Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
       { label: tx("คอร์ส/คน"), full: tx("คอร์ส / นักเรียน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
     ]} />
@@ -436,7 +437,7 @@ function MembersConversion({ d }: { d: ReportData }) {
                       <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={c * half + i + 1} />{m.staff ? <span className="truncate font-medium">{m.staff.nickname}</span> : <span className="truncate text-muted-foreground">{tx("ยังไม่มีผู้ดูแล")}</span>}</span></td>
                       <td className="py-1.5"><span className="flex flex-wrap gap-1">{(m.staff?.roles ?? []).filter((r) => r !== "developer" && r !== "driver").map((r) => <RoleChip key={r} role={r as keyof typeof ROLE_TONE} className="text-2xs" />)}</span></td>
                       <td className="text-right tabular-nums">{m.leads}</td>
-                      <td className="text-right text-emerald-600 tabular-nums">{m.enrolled}</td>
+                      <td className="text-right text-success tabular-nums">{m.enrolled}</td>
                       <td className="pl-4"><span className="flex items-center gap-2"><ShareBar value={m.conversion ?? 0} color="#be123c" /><span className="w-10 shrink-0 text-right tabular-nums">{fmtPct(m.conversion)}</span></span></td>
                     </tr>
                   ))}</tbody>
@@ -553,7 +554,7 @@ function RevenueParts({ d }: { d: ReportData }) {
       {parts.map(([label, now, before]) => (
         <li key={label} className="flex items-center gap-2 py-2">
           <span className="flex-1">{label}</span>
-          <span className={cn("tabular-nums", now < 0 && "text-red-600")}>{fmtMoney(now)}</span>
+          <span className={cn("tabular-nums", now < 0 && "text-danger")}>{fmtMoney(now)}</span>
           <span className="w-16 text-right"><Delta value={d.comparable && before ? Math.round(((now - before) / Math.abs(before)) * 1000) / 10 : null} invert={label.startsWith("ใบลดหนี้")} /></span>
         </li>
       ))}
@@ -768,9 +769,9 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
               return (
                 <tr key={b.id} className="border-t">
                   <td className="py-1.5">{nm(b.name)}</td><td className="text-right tabular-nums">{b.active}</td>
-                  <td className="text-right text-emerald-600 tabular-nums">+{b.newCount}</td><td className="text-right text-emerald-600 tabular-nums">+{b.returning}</td>
-                  <td className="text-right text-red-600 tabular-nums">−{b.lost}</td><td className="text-right text-amber-600 tabular-nums">{b.pauses}</td>
-                  <td className={cn("text-right font-medium tabular-nums", n < 0 && "text-red-600")}>{n > 0 ? "+" : ""}{n}</td>
+                  <td className="text-right text-success tabular-nums">+{b.newCount}</td><td className="text-right text-success tabular-nums">+{b.returning}</td>
+                  <td className="text-right text-danger tabular-nums">−{b.lost}</td><td className="text-right text-warning tabular-nums">{b.pauses}</td>
+                  <td className={cn("text-right font-medium tabular-nums", n < 0 && "text-danger")}>{n > 0 ? "+" : ""}{n}</td>
                 </tr>
               )
             })}</tbody>
@@ -783,7 +784,7 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
           <div className="grid gap-6 md:grid-cols-3 md:gap-0 md:divide-x">
             {(["new", "returning", "lost"] as const).map((kind, c) => (
               <div key={kind} className={cn(c > 0 && "md:pl-6", c < 2 && "md:pr-6")}>
-                <MoveList title={kind === "new" ? tx("ใหม่") : kind === "returning" ? tx("กลับมาซื้อใหม่") : "Lost"} tone={kind === "lost" ? "text-red-600" : "text-emerald-600"}
+                <MoveList title={kind === "new" ? tx("ใหม่") : kind === "returning" ? tx("กลับมาซื้อใหม่") : "Lost"} tone={kind === "lost" ? "text-danger" : "text-success"}
                   rows={events.filter((e) => e.kind === kind).map((e) => ({ id: e.studentId, date: e.date, name: nm(name(e.studentId)?.nickname ?? "—"), grade: name(e.studentId)?.grade ?? "" }))} onOpen={(id) => { setListOpen(false); onOpen(id) }} />
               </div>
             ))}
@@ -808,7 +809,7 @@ function SchoolWhere({ row, branches }: { row: SchoolRow; branches: Branch[] }) 
   return (
     <HoverCard>
       <HoverCardTrigger render={<span className="block cursor-default truncate" />}>
-        {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-sky-100 px-1 text-2xs font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{r}</span>)}
+        {row.regions.map((r) => <span key={r} className="mr-1 rounded bg-info-soft px-1 text-2xs font-semibold text-info-ink">{r}</span>)}
         {list.map((b, i) => <span key={b.id}>{i > 0 && " · "}{b.br?.code ?? "?"} <span className="tabular-nums">{b.count}</span></span>)}
       </HoverCardTrigger>
       <HoverCardContent side="bottom" align="start" className="p-2.5">
@@ -853,7 +854,7 @@ function SchoolsPanel({ d }: { d: ReportData }) {
         <div className="grid grid-cols-3 gap-4 lg:grid-cols-1 lg:content-center lg:pr-6">
           <div><p className="text-xs text-muted-foreground">{tx("จำนวนโรงเรียน")}</p><p className="text-2xl font-semibold tabular-nums">{fmtNum(x.schools)}</p></div>
           <div><p className="text-xs text-muted-foreground">{tx("3 โรงเรียนแรก")}</p><p className="text-2xl font-semibold tabular-nums">{pct(x.rows.slice(0, 3).reduce((n, r) => n + r.value, 0))}%</p><p className="truncate text-xs text-muted-foreground" title={top?.label}>{top ? tx("มากสุด {0}", [top.label]) : "—"}</p></div>
-          <div><p className="text-xs text-muted-foreground">{tx("ยังไม่ระบุโรงเรียน")}</p><p className={cn("text-2xl font-semibold tabular-nums", x.unknown > 0 && "text-amber-600")}>{fmtNum(x.unknown)}</p><p className="text-xs text-muted-foreground">{tx("จาก {0} คน", [fmtNum(x.students)])}</p></div>
+          <div><p className="text-xs text-muted-foreground">{tx("ยังไม่ระบุโรงเรียน")}</p><p className={cn("text-2xl font-semibold tabular-nums", x.unknown > 0 && "text-warning")}>{fmtNum(x.unknown)}</p><p className="text-xs text-muted-foreground">{tx("จาก {0} คน", [fmtNum(x.students)])}</p></div>
         </div>
         <div className="min-w-0 lg:pl-6">
           {use === "school" && (
@@ -866,7 +867,7 @@ function SchoolsPanel({ d }: { d: ReportData }) {
               {byRegion.map((g, i) => (
                 <div key={g.key} className={cn("min-w-0", byRegion.length > 1 && (i === 0 ? "md:pr-6" : "md:pl-6"))}>
                   <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className="rounded bg-sky-100 px-1.5 text-xs font-semibold text-sky-800 dark:bg-sky-950 dark:text-sky-200">{g.key}</span>
+                    <span className="rounded bg-info-soft px-1.5 text-xs font-semibold text-info-ink">{g.key}</span>
                     <span className="text-sm">{tx("{0} คน · {1} โรงเรียน", [fmtNum(g.students), fmtNum(g.rows.length)])}</span>
                     <Top3 share={g.top3} />
                   </div>
@@ -883,7 +884,7 @@ function SchoolsPanel({ d }: { d: ReportData }) {
 
 /** "3 แรก 72%" — amber when over 60%: the group leans on a few schools (one school changing its hours hurts) */
 function Top3({ share, bare }: { share: number; bare?: boolean }) {
-  return <span className={cn("text-xs tabular-nums", share > 0.6 ? "font-medium text-amber-600" : "text-muted-foreground")} title={tx("สัดส่วนนักเรียนจาก 3 โรงเรียนแรก — เกิน 60% = พึ่งไม่กี่โรงเรียน")}>{bare ? fmtPct(share) : tx("3 แรก {0}", [fmtPct(share)])}</span>
+  return <span className={cn("text-xs tabular-nums", share > 0.6 ? "font-medium text-warning" : "text-muted-foreground")} title={tx("สัดส่วนนักเรียนจาก 3 โรงเรียนแรก — เกิน 60% = พึ่งไม่กี่โรงเรียน")}>{bare ? fmtPct(share) : tx("3 แรก {0}", [fmtPct(share)])}</span>
 }
 
 /** Branch → School: one row per branch — its students, schools, top 3 schools; click a row for the whole list */
@@ -960,7 +961,7 @@ function MovementBars({ months, current }: { months: ReportData["movementMonthly
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[1] }} />{tx("กลับมาซื้อใหม่")} <b className="tabular-nums">+{m.returning}</b></span>
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[3] }} />Lost <b className="tabular-nums">−{m.lost}</b></span>
           <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: MOVE_COLORS[2] }} />Pause <b className="tabular-nums">{m.pauses}</b></span>
-          <span className="ml-auto">{tx("สุทธิ")} <b className={cn("tabular-nums", m.newCount + m.returning - m.lost < 0 ? "text-red-600" : "text-emerald-600")}>{m.newCount + m.returning - m.lost > 0 ? "+" : ""}{m.newCount + m.returning - m.lost}</b></span>
+          <span className="ml-auto">{tx("สุทธิ")} <b className={cn("tabular-nums", m.newCount + m.returning - m.lost < 0 ? "text-danger" : "text-success")}>{m.newCount + m.returning - m.lost > 0 ? "+" : ""}{m.newCount + m.returning - m.lost}</b></span>
         </> : <span className="text-muted-foreground">{tx("ยังไม่ถึงเดือนนี้")}</span>}
       </div>
     </div>
@@ -999,7 +1000,7 @@ function RateRows({ rows, plain }: { rows: { key: string; label: React.ReactNode
         <li key={r.key} className="grid grid-cols-[minmax(0,10rem)_1fr_3rem] items-center gap-3">
           <span className="truncate">{r.label}</span>
           <span className="flex items-center gap-2"><ShareBar value={r.rate ?? 0} color={r.tone ?? (plain ? undefined : r.rate !== null && r.rate < 0.8 ? "#dc2626" : "#10b981")} />{r.sub && <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">{r.sub}</span>}</span>
-          <span className={cn("text-right tabular-nums", !plain && r.rate !== null && r.rate < 0.8 && "font-medium text-red-600")}>{fmtPct(r.rate)}</span>
+          <span className={cn("text-right tabular-nums", !plain && r.rate !== null && r.rate < 0.8 && "font-medium text-danger")}>{fmtPct(r.rate)}</span>
         </li>
       ))}
     </ul>
@@ -1014,11 +1015,11 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">{tx("ข้อมูลการเข้าเรียนเริ่ม")} {fmtDate(a.since, { year: true })}  {tx("(คาบแรกในระบบ) · อัตรา = มา ÷ (มา + ลา) · เขียว = 80% ขึ้นไป · แดง = ต่ำกว่า 80%")}</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-        <Stat label={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)} tone={a.total.rate !== null && a.total.rate < 0.8 ? "text-red-600" : undefined} />
-        <Stat label={tx("มา")} value={fmtNum(a.total.present)} tone="text-emerald-600" />
-        <Stat label={tx("ลา")} value={fmtNum(a.total.leave)} tone="text-amber-600" sub={<span>{tx("ไม่หักโควตา")} {a.noQuota}</span>} />
+        <Stat label={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)} tone={a.total.rate !== null && a.total.rate < 0.8 ? "text-danger" : undefined} />
+        <Stat label={tx("มา")} value={fmtNum(a.total.present)} tone="text-success" />
+        <Stat label={tx("ลา")} value={fmtNum(a.total.leave)} tone="text-warning" sub={<span>{tx("ไม่หักโควตา")} {a.noQuota}</span>} />
         <Stat label={tx("คาบยกเลิก")} value={fmtNum(a.cancelled.total)} sub={<span>{tx("นักเรียนได้รับผล")} {a.cancelled.students}</span>} />
-        <Stat label={tx("ยกเลิกเพราะครูลา")} value={fmtNum(a.cancelled.teacher)} tone={a.cancelled.teacher ? "text-red-600" : undefined} />
+        <Stat label={tx("ยกเลิกเพราะครูลา")} value={fmtNum(a.cancelled.teacher)} tone={a.cancelled.teacher ? "text-danger" : undefined} />
         <Stat label={tx("หยุดช่วงพิเศษ / อื่นๆ")} value={`${a.cancelled.period} / ${a.cancelled.other}`} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -1051,9 +1052,9 @@ function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean
                   <td className="py-1.5"><button type="button" className="hover:underline" onClick={() => onOpen(x.studentId)}>{nm(name(x.studentId)?.nickname ?? "—")}</button></td>
                   <td className="text-muted-foreground">{nm(name(x.studentId)?.grade)}</td>
                   <td className="text-right tabular-nums">{x.present}</td>
-                  <td className="text-right text-amber-600 tabular-nums">{x.leave}</td>
+                  <td className="text-right text-warning tabular-nums">{x.leave}</td>
                   <td className="text-right text-muted-foreground tabular-nums">{x.noQuota}</td>
-                  <td className={cn("text-right tabular-nums", x.rate < 0.8 && "text-red-600")}>{fmtPct(x.rate)}</td>
+                  <td className={cn("text-right tabular-nums", x.rate < 0.8 && "text-danger")}>{fmtPct(x.rate)}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -1103,10 +1104,10 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
                   <td className="text-right tabular-nums">{t.sessions}</td>
                   <td className="text-right font-medium tabular-nums">{hrs(t.minutes)}</td>
                   <td className="text-right tabular-nums">{t.students}</td>
-                  <td className={cn("text-right tabular-nums", t.rate !== null && t.rate < 0.8 && "text-red-600")}>{fmtPct(t.rate)}</td>
-                  <td className={cn("text-right tabular-nums", t.unmarked && "font-medium text-red-600")}>{t.unmarked || "—"}</td>
-                  <td className={cn("text-right tabular-nums", t.summariesPending && "font-medium text-amber-600")}>{t.summariesPending || "—"}</td>
-                  <td className={cn("text-right tabular-nums", t.summariesOnTime !== null && t.summariesOnTime < 0.8 && "text-red-600")}>{fmtPct(t.summariesOnTime)}</td>
+                  <td className={cn("text-right tabular-nums", t.rate !== null && t.rate < 0.8 && "text-danger")}>{fmtPct(t.rate)}</td>
+                  <td className={cn("text-right tabular-nums", t.unmarked && "font-medium text-danger")}>{t.unmarked || "—"}</td>
+                  <td className={cn("text-right tabular-nums", t.summariesPending && "font-medium text-warning")}>{t.summariesPending || "—"}</td>
+                  <td className={cn("text-right tabular-nums", t.summariesOnTime !== null && t.summariesOnTime < 0.8 && "text-danger")}>{fmtPct(t.summariesOnTime)}</td>
                   <td className="text-right tabular-nums">{t.coverFor || "—"}</td>
                   <td className="text-right tabular-nums">{t.awaySessions || "—"}</td>
                 </tr>
@@ -1127,7 +1128,7 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
             key: c.id, label: <span title={nm(c.name)}>{nm(c.name)}{compare && <span className="text-xs text-muted-foreground"> · {branchOf(c.branchId)}</span>}</span>,
             rate: Math.min(1, c.fill), sub: `${c.students}/${c.capacity}`, tone: c.fill > 1 ? "#dc2626" : c.students <= 1 ? "#f59e0b" : undefined,
           }))} />
-          <p className="mt-2 text-2xs text-muted-foreground"><span className="text-amber-600">■</span>  {tx("คนน้อย (≤ 1 คน) ·")} <span className="text-red-600">■</span>  {tx("เกินขนาดแนะนำ (แสดงบนสุด)")}</p>
+          <p className="mt-2 text-2xs text-muted-foreground"><span className="text-warning">■</span>  {tx("คนน้อย (≤ 1 คน) ·")} <span className="text-danger">■</span>  {tx("เกินขนาดแนะนำ (แสดงบนสุด)")}</p>
         </Panel>
       </div>
     </div>
@@ -1197,15 +1198,15 @@ function ExitPanelReport({ d }: { d: ReportData }) {
         {e.answered ? (
           <button type="button" onClick={() => setOpen(true)} className="flex flex-1 flex-col justify-center gap-5 rounded-2xl text-left hover:bg-muted/40">
             <div className="flex items-end gap-6 px-2">
-              <div><p className="text-xs text-muted-foreground">NPS</p><p className={cn("text-5xl font-semibold tabular-nums", e.nps !== null && e.nps < 0 ? "text-red-600" : "text-emerald-600")}>{e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`}</p></div>
+              <div><p className="text-xs text-muted-foreground">NPS</p><p className={cn("text-5xl font-semibold tabular-nums", e.nps !== null && e.nps < 0 ? "text-danger" : "text-success")}>{e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`}</p></div>
               <div className="pb-1.5 text-sm text-muted-foreground">{tx("จาก {0} ครอบครัวที่ตอบ · เฉลี่ยทุกหัวข้อ {1}/5", [e.answered, avgScore === null ? "—" : avgScore.toFixed(1)])}</div>
             </div>
             <div className="px-2">
               <p className="mb-1.5 text-xs text-muted-foreground">{tx("จะกลับมาเรียนไหม")}</p>
               <div className="flex h-3 overflow-hidden rounded-full bg-muted">
-                <span className="bg-emerald-500" style={{ width: `${(e.comeBack.yes / back) * 100}%` }} /><span className="bg-amber-400" style={{ width: `${(e.comeBack.maybe / back) * 100}%` }} /><span className="bg-slate-300" style={{ width: `${(e.comeBack.no / back) * 100}%` }} />
+                <span className="bg-success" style={{ width: `${(e.comeBack.yes / back) * 100}%` }} /><span className="bg-warning" style={{ width: `${(e.comeBack.maybe / back) * 100}%` }} /><span className="bg-slate-300" style={{ width: `${(e.comeBack.no / back) * 100}%` }} />
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs"><span className="text-emerald-700">{tx("จะกลับมา")} {e.comeBack.yes}</span><span className="text-amber-700">{tx("อาจจะ")} {e.comeBack.maybe}</span><span className="text-muted-foreground">{tx("คงไม่")} {e.comeBack.no}</span></div>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs"><span className="text-success">{tx("จะกลับมา")} {e.comeBack.yes}</span><span className="text-warning">{tx("อาจจะ")} {e.comeBack.maybe}</span><span className="text-muted-foreground">{tx("คงไม่")} {e.comeBack.no}</span></div>
             </div>
           </button>
         ) : <Empty>{tx("ยังไม่มีผู้ปกครองตอบฟอร์มแจ้งออกในช่วงนี้")}</Empty>}
@@ -1214,12 +1215,12 @@ function ExitPanelReport({ d }: { d: ReportData }) {
         <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-2xl">
           <DialogHeader><DialogTitle>{tx("คะแนนจากผู้ปกครองที่ออก")}</DialogTitle><DialogDescription>{tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")}</DialogDescription></DialogHeader>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {(Object.keys(SC) as (keyof typeof SC)[]).map((k) => <Stat key={k} label={SC[k]} value={e.scores[k] === null ? "—" : e.scores[k]!.toFixed(1)} tone={e.scores[k] !== null && e.scores[k]! < 3.5 ? "text-red-600" : undefined} />)}
+          {(Object.keys(SC) as (keyof typeof SC)[]).map((k) => <Stat key={k} label={SC[k]} value={e.scores[k] === null ? "—" : e.scores[k]!.toFixed(1)} tone={e.scores[k] !== null && e.scores[k]! < 3.5 ? "text-danger" : undefined} />)}
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Stat label="NPS" value={e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`} tone={e.nps !== null && e.nps < 0 ? "text-red-600" : "text-emerald-600"} />
-          <Stat label={tx("จะกลับมา")} value={String(e.comeBack.yes)} tone="text-emerald-600" />
-          <Stat label={tx("อาจจะ")} value={String(e.comeBack.maybe)} tone="text-amber-600" />
+          <Stat label="NPS" value={e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`} tone={e.nps !== null && e.nps < 0 ? "text-danger" : "text-success"} />
+          <Stat label={tx("จะกลับมา")} value={String(e.comeBack.yes)} tone="text-success" />
+          <Stat label={tx("อาจจะ")} value={String(e.comeBack.maybe)} tone="text-warning" />
           <Stat label={tx("คงไม่")} value={String(e.comeBack.no)} />
         </div>
         {e.comments.length > 0 && (
@@ -1294,7 +1295,7 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <Stat label={tx("Lead ใหม่")} value={fmtNum(c.funnel[0].count)} />
-        <Stat label={tx("สมัครแล้ว")} value={fmtNum(enrolled.count)} tone="text-emerald-600" />
+        <Stat label={tx("สมัครแล้ว")} value={fmtNum(enrolled.count)} tone="text-success" />
         <Stat label="Conversion" value={fmtPct(enrolled.ofAll)} />
         <Stat label={tx("วันถึงสมัคร (มัธยฐาน)")} value={days.length ? tx("{0} วัน", [days[Math.floor(days.length / 2)]]) : "—"} />
         <Stat label={tx("Lead ที่ยังเปิดอยู่")} value={fmtNum(c.open)} sub={<Link href="/crm" className="text-primary">{tx("ตอนนี้ · ไปหน้า CRM ›")}</Link>} />
@@ -1323,7 +1324,7 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
               <tr key={x.source} className="border-t">
                 <td className="py-1.5"><span className="flex items-center gap-2"><Rank n={i + 1} />{tx(LEAD_SOURCE_LABEL[x.source as keyof typeof LEAD_SOURCE_LABEL] ?? x.source)}</span></td>
                 <td className="text-right tabular-nums">{x.leads}</td>
-                <td className="text-right text-emerald-600 tabular-nums">{x.enrolled}</td>
+                <td className="text-right text-success tabular-nums">{x.enrolled}</td>
                 <td className="px-2"><span className="flex items-center gap-2"><ShareBar value={x.conversion ?? 0} /><span className="w-10 text-right text-xs tabular-nums">{fmtPct(x.conversion)}</span></span></td>
                 <td className="text-right text-muted-foreground tabular-nums">{x.medianDays === null ? "—" : tx("{0} วัน", [x.medianDays])}</td>
                 <td className="text-right tabular-nums">{fmtShort(x.revenue)}</td>
@@ -1336,7 +1337,7 @@ function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
         <Panel title={tx("แยกตามสาขา")} hint={tx("Lead · สมัคร · Conversion")}>
           <SplitRanks rows={[...c.perBranch].sort((a, b) => b.enrolled - a.enrolled)} cols={[
             { label: "Lead", cell: (b) => b.leads },
-            { label: tx("สมัคร"), cell: (b) => <span className="text-emerald-600">{b.enrolled}</span> },
+            { label: tx("สมัคร"), cell: (b) => <span className="text-success">{b.enrolled}</span> },
             { label: "%", cell: (b) => fmtPct(b.conversion) },
           ]} />
         </Panel>
@@ -1356,8 +1357,8 @@ function NpsScore({ nps, prev, responses }: { nps: number | null; prev: number |
   return (
     <div className="space-y-3">
       <div className="flex items-end gap-3">
-        <p className={cn("text-4xl font-semibold tabular-nums", nps !== null && nps < 0 ? "text-red-600" : "text-emerald-600")}>{nps === null ? "—" : `${nps > 0 ? "+" : ""}${nps}`}</p>
-        <p className="pb-1 text-xs text-muted-foreground">{dNps === null ? tx("ปีก่อน —") : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} {tx("จากปีก่อน")}</span>}<span className="block">{tx("ตอบ {0} ครอบครัว", [responses.length])}</span></p>
+        <p className={cn("text-4xl font-semibold tabular-nums", nps !== null && nps < 0 ? "text-danger" : "text-success")}>{nps === null ? "—" : `${nps > 0 ? "+" : ""}${nps}`}</p>
+        <p className="pb-1 text-xs text-muted-foreground">{dNps === null ? tx("ปีก่อน —") : <span className={dNps >= 0 ? "text-success" : "text-danger"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)} {tx("จากปีก่อน")}</span>}<span className="block">{tx("ตอบ {0} ครอบครัว", [responses.length])}</span></p>
       </div>
       <NpsSplit responses={responses} />
     </div>
@@ -1476,11 +1477,11 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-        <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-red-600" : "text-emerald-600"} sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-emerald-600" : "text-red-600"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />
+        <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-danger" : "text-success"} sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-success" : "text-danger"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />
         <Stat label={tx("ตอบแล้ว")} value={group ? String(s.responses) : `${s.responses}/${s.sent}`} sub={s.rate !== null ? <span>{fmtPct(s.rate)}</span> : undefined} />
         <Stat label={tx("พอใจเฉลี่ย 5 ด้าน")} value={s.overall === null ? "—" : s.overall.toFixed(1)} sub={<span>{tx("ปีก่อน")} {p.overall === null ? "—" : p.overall.toFixed(1)}</span>} />
-        <Stat label={tx("ไม่แนะนำ (0–6)")} value={String(s.unhappy)} tone={s.unhappy ? "text-red-600" : undefined} sub={<span>{tx("โทรคุยภายใน 3 วัน")}</span>} />
-        <Stat label={tx("ยังไม่ได้โทร")} value={String(toCall.length)} tone={toCall.some((x) => x.overdue) ? "text-red-600" : undefined} sub={<span>{tx("เกิน 3 วัน")} {toCall.filter((x) => x.overdue).length}</span>} />
+        <Stat label={tx("ไม่แนะนำ (0–6)")} value={String(s.unhappy)} tone={s.unhappy ? "text-danger" : undefined} sub={<span>{tx("โทรคุยภายใน 3 วัน")}</span>} />
+        <Stat label={tx("ยังไม่ได้โทร")} value={String(toCall.length)} tone={toCall.some((x) => x.overdue) ? "text-danger" : undefined} sub={<span>{tx("เกิน 3 วัน")} {toCall.filter((x) => x.overdue).length}</span>} />
       </div>
       {/* owner 2026-10-22: the NPS card is the Overview's own card (NPS · reasons · improve), filtered here */}
       <NpsCard year={year} responses={rs} s={s} p={p} />
@@ -1497,7 +1498,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
       {compare && !group && (
         <Panel title={tx("NPS ตามสาขา")} hint={tx("ตัวเลขเล็ก = ปีก่อน · (ตอบ/ส่ง)")} fill>
           <SplitRanks rows={[...curAll.byBranch].sort((a, b) => (b.nps ?? -999) - (a.nps ?? -999))} cols={[
-            { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-red-600")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-2xs font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
+            { label: "NPS", cell: (b) => <span className={cn("font-medium", b.nps !== null && b.nps < 0 && "text-danger")}>{b.nps === null ? "—" : `${b.nps > 0 ? "+" : ""}${b.nps}`}<span className="ml-1 text-2xs font-normal text-muted-foreground">{prevAll.byBranch.find((x) => x.id === b.id)?.nps ?? "—"}</span></span> },
             { label: tx("ตอบ"), cell: (b) => <span className="text-xs text-muted-foreground">{b.n}/{b.sent}</span> },
           ]} />
         </Panel>
@@ -1515,7 +1516,7 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
                   <tr key={r.id} className="border-t align-middle [&>td]:py-2">
                     <td>{fam(r.familyId)}</td>
                     {compare && <td className="px-3 text-muted-foreground">{branches.find((b) => b.id === r.branchId)?.code}</td>}
-                    <td className="px-3 text-right text-red-600 tabular-nums">{r.answers.nps ?? "—"}/10</td>
+                    <td className="px-3 text-right text-danger tabular-nums">{r.answers.nps ?? "—"}/10</td>
                     <td className="px-3">{improveText(r)}</td>
                     <td className="px-3 whitespace-nowrap">
                       <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium", r.followUp ? HUE.emerald.chip : overdue ? HUE.red.chip : HUE.amber.chip)}>

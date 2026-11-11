@@ -8,7 +8,7 @@
 
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
-| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **441** | 🟡 กำลังทำ (ทำไป 253) |
+| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **359** | 🟡 กำลังทำ (ทำไป 335 · เกินครึ่ง) |
 | 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | 329 | ⬜ ยังไม่เริ่ม |
 | 3. px → text token / spacing scale | no-px-text | 44 | 44 | ⬜ ยังไม่เริ่ม |
 | 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | 29 | ⬜ ยังไม่เริ่ม |
@@ -29,7 +29,7 @@
 | 6.2 | ใบแจ้งหนี้ / ใบเสร็จ | invoice-editor (34), invoice-sheet (12), renewal-drafts, bundle, course-picker, credit-notes, sales-tax | 61 | ✅ เสร็จ |
 | 6.3 | ปฏิทิน | week-teacher-board (25), calendar/page (12), summary-panel (10), class-card (9), move/blocks/meta | 63 | ✅ เสร็จ |
 | 6.4 | คาบ / เช็คชื่อ / สรุป | session-sheet (30), work-state, class-dialog, summaries, force-approve, period-banner | 68 | ✅ เสร็จ |
-| 6.5 | Reports | reports/page (66), summary-tab, charts, attention-dialog | ~82 | ⬜ |
+| 6.5 | Reports | reports/page (66), summary-tab, charts, attention-dialog | 82 | ✅ เสร็จ |
 | 6.6 | รถรับส่ง / คนขับ | driver-app (32), labels (18), trip-row (13), zone-analysis, zone-map, trip-sheet | ~79 | ⬜ |
 | 6.7 | CRM / นักเรียน / บุคลากร | staff-panel (18), lead-sheet (10), student-exit, renewal-followup, lead-followups, survey-calls, student-sheet | ~80 | ⬜ |
 | 6.8 | ผู้ปกครอง / LIFF ฟอร์ม | parent-app (17), liff/form (13), liff/exit (11), liff/survey (9), form-renderer, form-builder, person-fields | ~76 | ⬜ |

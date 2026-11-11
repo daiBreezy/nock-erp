@@ -94,9 +94,9 @@ const AREA: Record<InsightArea, { label: string; icon: LucideIcon }> = {
   satisfaction: { label: "ความพึงพอใจ", icon: HeartHandshakeIcon },
 }
 const TONE: Record<InsightTone, { label: string; pill: string; bar: string }> = {
-  bad: { label: "ต้องแก้", pill: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200", bar: "bg-red-500" },
-  watch: { label: "เฝ้าดู", pill: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200", bar: "bg-amber-400" },
-  good: { label: "ดี", pill: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200", bar: "bg-emerald-500" },
+  bad: { label: "ต้องแก้", pill: "bg-danger-soft text-danger-ink", bar: "bg-danger" },
+  watch: { label: "เฝ้าดู", pill: "bg-warning-soft text-warning-ink", bar: "bg-warning" },
+  good: { label: "ดี", pill: "bg-success-soft text-success-ink", bar: "bg-success" },
 }
 
 /**
@@ -117,7 +117,7 @@ export function SummaryTab({ d, period, periodLabel, scopeLabel }: { d: ReportDa
         </div>
         {headline.length ? (
           <div className="mt-4">
-            <p className="mb-2 flex items-center gap-2 text-sm font-medium"><AlertTriangleIcon className="size-4 text-red-600" />  {tx("ทำก่อนสัปดาห์นี้")}</p>
+            <p className="mb-2 flex items-center gap-2 text-sm font-medium"><AlertTriangleIcon className="size-4 text-danger" />  {tx("ทำก่อนสัปดาห์นี้")}</p>
             <ol className="space-y-2 text-sm">
               {headline.map((h, i) => (
                 <li key={h.area} className="grid grid-cols-[1.5rem_6.5rem_1fr] items-baseline gap-2">
@@ -128,7 +128,7 @@ export function SummaryTab({ d, period, periodLabel, scopeLabel }: { d: ReportDa
               ))}
             </ol>
           </div>
-        ) : <p className="mt-3 flex items-center gap-2 text-sm text-emerald-700"><CheckCircle2Icon className="size-4" />  {tx("ทุกหัวข้ออยู่ในเกณฑ์ดี")}</p>}
+        ) : <p className="mt-3 flex items-center gap-2 text-sm text-success"><CheckCircle2Icon className="size-4" />  {tx("ทุกหัวข้ออยู่ในเกณฑ์ดี")}</p>}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">

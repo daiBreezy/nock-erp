@@ -24,7 +24,7 @@ export function AttentionDialog({ open, onClose, items }: { open: boolean; onClo
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-5 text-red-600" /> Need Attention</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><AlertTriangleIcon className="size-5 text-danger" /> Need Attention</DialogTitle>
           <DialogDescription>{items.length ? tx("{0} เรื่องที่ควรดู · กดเพื่อไปหน้าที่แก้ได้", [items.length]) : tx("ไม่มีเรื่องที่ต้องดูตอนนี้")}</DialogDescription>
         </DialogHeader>
         {(Object.keys(GROUP_LABEL) as AttentionItem["group"][]).map((g) => {
@@ -36,7 +36,7 @@ export function AttentionDialog({ open, onClose, items }: { open: boolean; onClo
               {list.map((x) => (
                 <Link key={x.key} href={x.href} onClick={onClose} className="flex items-center gap-3 rounded-xl border p-2.5 hover:bg-muted/50">
                   <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{x.title}</span><span className="block text-xs text-muted-foreground">{x.detail}</span></span>
-                  {x.group !== "trend" && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 tabular-nums dark:bg-red-950 dark:text-red-200">{x.count}</span>}
+                  {x.group !== "trend" && <span className="rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger-ink tabular-nums">{x.count}</span>}
                   <ChevronRightIcon className="size-4 text-muted-foreground" />
                 </Link>
               ))}
