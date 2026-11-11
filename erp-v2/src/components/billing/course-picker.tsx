@@ -106,7 +106,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
                           <span className="min-w-0">
                             <span className="block truncate font-medium">{c.name}</span>
                             {already ? <span className="block text-xs text-muted-foreground">อยู่ในใบแล้ว</span>
-                              : gradeOff ? <span className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> อาจไม่ตรงชั้น {studentGrade}</span> : null}
+                              : gradeOff ? <span className="flex items-center gap-1 text-xs text-warning"><AlertTriangleIcon className="size-3" /> อาจไม่ตรงชั้น {studentGrade}</span> : null}
                           </span>
                         </span>
                       </td>
@@ -116,7 +116,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
                       <td className="whitespace-nowrap text-xs text-muted-foreground">{c.from || c.to ? `${c.from ? fmtDate(c.from) : "…"} – ${c.to ? fmtDate(c.to) : "…"}` : "เปิดตลอด"}</td>
                       <td className="text-right tabular-nums">{nClasses || <span className="text-muted-foreground">—</span>}</td>
                       <td className="text-right whitespace-nowrap tabular-nums">
-                        {seats.max === null ? seats.enrolled : <span className={cn(seats.full && "font-medium text-red-700")}>{seats.enrolled}/{seats.max}{seats.full && " · เต็ม"}</span>}
+                        {seats.max === null ? seats.enrolled : <span className={cn(seats.full && "font-medium text-danger")}>{seats.enrolled}/{seats.max}{seats.full && " · เต็ม"}</span>}
                       </td>
                       <td className="text-right whitespace-nowrap"><span className="font-semibold tabular-nums">{fmtMoney(c.price)}</span> <span className="text-xs text-muted-foreground">{priceUnitSuffix(c)}</span></td>
                     </tr>
@@ -136,7 +136,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
             {(() => {
               const off = studentGrade ? picked.map((id) => allCourses.find((c) => c.id === id)).filter((c) => c && c.grades.length > 0 && !c.grades.includes(studentGrade)) : []
               return off.length > 0 && (
-                <p className="mr-auto flex items-center gap-1.5 text-xs text-amber-700">
+                <p className="mr-auto flex items-center gap-1.5 text-xs text-warning">
                   <AlertTriangleIcon className="size-3.5 shrink-0" />
                   {off.length === 1 ? `คอร์ส ${off[0]!.name}` : `${off.length} คอร์สที่เลือก`} อาจไม่ตรงกับชั้น {studentGrade} ของนักเรียน
                 </p>

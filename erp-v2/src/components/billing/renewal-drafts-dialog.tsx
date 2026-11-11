@@ -65,12 +65,12 @@ export function RenewalDraftsDialog({ branchIds, onClose, onCreated }: { branchI
             const left = Math.round((new Date(`${end}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86_400_000)
             const err = failed.find((f) => f.id === inv.id)?.error
             return (
-              <label key={inv.id} className={cn("flex cursor-pointer items-center gap-3 p-2.5 text-sm hover:bg-muted/40", err && "bg-red-50 dark:bg-red-950/20")}>
+              <label key={inv.id} className={cn("flex cursor-pointer items-center gap-3 p-2.5 text-sm hover:bg-muted/40", err && "bg-danger-soft/50")}>
                 <Checkbox checked={picked.includes(inv.id)} onCheckedChange={() => toggle(inv.id)} />
                 <span className="w-20 shrink-0 font-medium">{s?.nickname}</span>
                 {s && <GradeCell grade={s.grade} tone={gradeTone(s.grade)} />}
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ")}{err && <span className="block text-xs text-red-700">{err}</span>}</span>
-                <span className={cn("shrink-0 text-xs tabular-nums", left < 0 ? "text-red-700" : left <= 14 ? "text-amber-700" : "text-muted-foreground")}>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ")}{err && <span className="block text-xs text-danger">{err}</span>}</span>
+                <span className={cn("shrink-0 text-xs tabular-nums", left < 0 ? "text-danger" : left <= 14 ? "text-warning" : "text-muted-foreground")}>
                   {left < 0 ? `หมดแล้ว ${fmtDate(end)}` : `จบ ${fmtDate(end)} (อีก ${left} วัน)`}
                 </span>
                 <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">เริ่ม {fmtDate(addDays(end, 1) > today ? addDays(end, 1) : today)}</span>

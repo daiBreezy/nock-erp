@@ -70,7 +70,7 @@ export function SalesTaxDialog() {
           <div className="space-y-1"><Label className="text-xs">ตั้งแต่เดือน</Label><Input type="month" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
           <div className="space-y-1"><Label className="text-xs">ถึงเดือน</Label><Input type="month" value={to} onChange={(e) => setTo(e.target.value)} /></div>
         </div>
-        {from > to && <p className="text-xs text-red-700">เดือนเริ่มต้องไม่หลังเดือนสุดท้าย</p>}
+        {from > to && <p className="text-xs text-danger">เดือนเริ่มต้องไม่หลังเดือนสุดท้าย</p>}
         <div className="space-y-2">
           {months.map(({ month, rows }) => (
             <details key={month} className="rounded-xl border" open={months.length === 1}>
@@ -85,7 +85,7 @@ export function SalesTaxDialog() {
                     <tr key={r.number} className="border-b last:border-0 [&>td]:px-3 [&>td]:py-1">
                       <td className="w-8 text-muted-foreground">{i + 1}</td><td>{fmtDate(r.date)}</td><td className="font-mono">{r.number}</td><td>{r.customer}</td>
                       <td className="text-muted-foreground">{BUSINESS_LABEL[r.business]}</td>
-                      <td className={r.amount < 0 ? "text-right text-red-700 tabular-nums" : "text-right tabular-nums"}>{fmtMoney(r.amount)}</td>
+                      <td className={r.amount < 0 ? "text-right text-danger tabular-nums" : "text-right tabular-nums"}>{fmtMoney(r.amount)}</td>
                     </tr>
                   ))}
                   {!rows.length && <tr><td className="px-3 py-3 text-center text-muted-foreground" colSpan={6}>ไม่มีรายการในเดือนนี้</td></tr>}

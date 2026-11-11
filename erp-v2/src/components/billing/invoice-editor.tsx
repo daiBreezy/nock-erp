@@ -211,7 +211,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     <FormShell className="max-h-[92vh] sm:max-w-3xl" onClose={onClose} title={invoice ? `แก้ใบแจ้งหนี้ ${invoice.number ?? ""}` : "สร้างใบแจ้งหนี้"}
       description="ราคาและจำนวนคาบคำนวณจากตารางเรียนจริง (ข้ามวันหยุด) — ตัวเลขชุดเดียวกับที่จะอยู่ใน PDF"
       footer={<>
-        {errors.length > 0 && <span className="mr-auto text-xs text-red-700">{errors[0]}</span>}
+        {errors.length > 0 && <span className="mr-auto text-xs text-danger">{errors[0]}</span>}
         <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
         <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
       </>}>
@@ -222,7 +222,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {student ? (
             <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm">
               <span className="font-medium">{student.nickname}</span><span className="text-xs text-muted-foreground">{student.grade} · {student.name}</span>
-              {student.imported && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-2xs text-sky-800 dark:bg-sky-950 dark:text-sky-200">นักเรียนเก่า</span>}
+              {student.imported && <span className="rounded-full bg-info-soft px-2 py-0.5 text-2xs text-info-ink">นักเรียนเก่า</span>}
               {!invoice && <button type="button" className="ml-auto text-xs text-primary underline" onClick={() => setPicking(true)}>เปลี่ยน</button>}
             </div>
           ) : (
@@ -243,7 +243,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {student && (
             <p className="text-xs text-muted-foreground">
               {family ? `${family.name} · ${family.parents.find((p) => p.primary)?.name}` : "ยังไม่ผูกครอบครัว"}
-              {family && !family.parents.some((p) => p.lineLinked) && <span className="text-amber-700"> · ยังไม่ผูก LINE</span>}
+              {family && !family.parents.some((p) => p.lineLinked) && <span className="text-warning"> · ยังไม่ผูก LINE</span>}
             </p>
           )}
         </div>
@@ -255,7 +255,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           <p className="text-xs text-muted-foreground">ยังไม่มีโปรโมชันที่ใช้กับใบนี้ — โปรโมชันของสาขา (ลด % / ลดบาท / แถมชม.) จะใส่ให้อัตโนมัติตามคอร์สที่เลือก · ส่วนลดพิเศษใส่ได้ด้านล่าง</p>
         )}
         {totals.lines.some((l) => l.promotion > 0 || l.bonusMinutes > 0) && (
-          <ul className="space-y-0.5 text-sm text-emerald-700">
+          <ul className="space-y-0.5 text-sm text-success">
             {totals.lines.filter((l) => l.promotion > 0 || l.bonusMinutes > 0).map((l) => (
               <li key={l.line.id} className="flex justify-between gap-2"><span>{l.course?.name} · {l.promotionName ?? l.bonusName}{l.bonusMinutes > 0 && l.promotion === 0 ? ` — แถม ${l.bonusMinutes / 60} ชม.` : ""}</span>{l.promotion > 0 && <span className="tabular-nums">−{fmtMoney(l.promotion)}</span>}</li>
             ))}
@@ -263,7 +263,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
         {/* siblings (owner 2026-11-05): suggest asking the parent about the other children today — they share the Family Promotion */}
         {student?.familyId && brothers.length > 0 && (
-          <div className="space-y-1.5 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800">
+          <div className="space-y-1.5 rounded-xl border border-info/40 p-3 text-sm">
             <p className={cn("flex items-center gap-2 font-semibold", AI_TONE.text)}><AiIcon className="size-6" /> ถามผู้ปกครองว่าจะต่อคอร์สของลูกอีกคนด้วยไหม — ได้รับ Family Promotion</p>
             {brothers.map((b) => {
               const has = siblingInvoices.some((i) => i.studentId === b.id)
@@ -271,7 +271,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               return (
                 <div key={b.id} className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="font-medium">{b.nickname}</span><span className="text-muted-foreground">{b.grade}</span>
-                  {has ? <span className="ml-auto text-emerald-700">มีใบวันนี้แล้ว ✓</span>
+                  {has ? <span className="ml-auto text-success">มีใบวันนี้แล้ว ✓</span>
                     : last ? <Button size="xs" variant="outline" className="ml-auto" onClick={() => report(duplicate(last.id), (v) => `สร้าง Draft ให้ ${b.nickname} แล้ว · ${v.number}`)}>สร้าง Draft ให้ {b.nickname} จากใบเดิม</Button>
                       : <span className="ml-auto text-muted-foreground">ยังไม่มีใบเดิม — สร้างใบใหม่เอง</span>}
                 </div>
@@ -281,7 +281,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
 
         {familyTier && (
-          <div className={cn("flex flex-wrap items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
+          <div className={cn("flex flex-wrap items-center gap-3 rounded-xl border border-info/40 p-3 text-sm", AI_TONE.soft)}>
             <AiIcon />
             <div className="min-w-0 flex-1">
               <p className={cn("font-semibold", AI_TONE.text)}>Family Promotion −{familyTier.pct}% — ใส่ให้พี่น้องทุกคนที่ออกใบวันนี้</p>
@@ -295,7 +295,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
 
         {!familyTier && siblingHours.length > 0 && (
-          <div className={cn("flex items-center gap-3 rounded-xl border border-sky-300 p-3 text-sm dark:border-sky-800", AI_TONE.soft)}>
+          <div className={cn("flex items-center gap-3 rounded-xl border border-info/40 p-3 text-sm", AI_TONE.soft)}>
             <AiIcon />
             <p className="min-w-0 flex-1 text-xs text-muted-foreground">
               <span className={cn("font-semibold", AI_TONE.text)}>พี่น้องในครอบครัวเดียวกันออกใบวันนี้ — ยังไม่เข้า Family Promotion</span>{" "}
@@ -392,7 +392,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               })}
             </div>
             {waiver?.reason === "imported" && (
-              <p className="flex items-start gap-1.5 rounded-lg bg-sky-50 p-2 text-xs text-sky-900 dark:bg-sky-950 dark:text-sky-200">
+              <p className="flex items-start gap-1.5 rounded-lg bg-info-soft/60 p-2 text-xs text-info-ink">
                 <HistoryIcon className="mt-0.5 size-3.5 shrink-0" />
                 <span><b>นักเรียนเก่า</b> — นำเข้าจาก{waiver.source} ({fmtDate(waiver.at.slice(0, 10), { year: true })}) เคยซื้อคอร์สกับเราแล้ว <b>ไม่ต้องเก็บค่าแรกเข้า</b></span>
               </p>
@@ -431,7 +431,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
                 <BusDistance km={homeKm} zone={zone} feeId={feeId} onUse={setBusFeeId} />
               </div>
               <FamilyPin family={family} branchLoc={branch.location} radiusKm={zone?.maxKm} />
-              {problemDays > 0 && <p className="flex items-center gap-1.5 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-800 dark:bg-red-950/30 dark:text-red-200"><AlertTriangleIcon className="size-3.5 shrink-0" />{`ไม่มีรอบรถ / รถเต็ม ${problemDays} วัน — แจ้งผู้ปกครองก่อนส่งใบ`}</p>}
+              {problemDays > 0 && <p className="flex items-center gap-1.5 rounded-lg bg-danger-soft/60 px-2 py-1.5 text-xs text-danger-ink"><AlertTriangleIcon className="size-3.5 shrink-0" />{`ไม่มีรอบรถ / รถเต็ม ${problemDays} วัน — แจ้งผู้ปกครองก่อนส่งใบ`}</p>}
               <div className="flex gap-2">
                 <Button size="xs" variant="outline" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: true, dropoff: true }))) }}>ติ๊กทุกรอบ</Button>
                 <Button size="xs" variant="ghost" onClick={() => { setBusTouched(true); setBus(legs.map((l) => ({ ...l, pickup: false, dropoff: false }))) }}>ไม่ใช้รถ</Button>
@@ -455,7 +455,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
         )}
 
         {pendingExtras.length > 0 && (
-          <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:bg-amber-950/20">
+          <div className="space-y-1.5 rounded-lg border border-warning/40 bg-warning-soft/40 p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <BusIcon className="size-4" /> ค่ารถเพิ่ม (รอบก่อน · รอเรียกเก็บ) <InfoTip text="ติ๊กออกเพื่อเก็บไว้เรียกเก็บในใบหลัง" />
               <span className="ml-auto tabular-nums">{fmtMoney(busExtras.reduce((a, x) => a + x.amount, 0))}</span>
@@ -481,11 +481,11 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
           {[["ค่าเรียน", totals.course], ["Course fee", totals.courseFee], ["ค่ารถ", totals.bus], ["ค่ารถเพิ่ม (รอบก่อน)", totals.busExtra], ["ค่าหนังสือ", totals.book], ["Advance (ค่าแรกเข้า/สอบ)", totals.advance]].filter(([, v]) => (v as number) > 0).map(([l, v]) => (
             <div key={l as string} className="flex justify-between"><span>{l}</span><span>{fmtMoney(v as number)}</span></div>
           ))}
-          {totals.promotion > 0 && <div className="flex justify-between text-emerald-700"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}
+          {totals.promotion > 0 && <div className="flex justify-between text-success"><span>โปรโมชัน</span><span>−{fmtMoney(totals.promotion)}</span></div>}
           {totals.rounding > 0 && <div className="flex justify-between text-muted-foreground"><span>ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</span><span>+{fmtMoney(totals.rounding)}</span></div>}
           {totals.credit > 0 && <div className="flex justify-between text-violet-700"><span>หักเครดิตคอร์ส</span><span>−{fmtMoney(totals.credit)}</span></div>}
-          {totals.concession > 0 && <div className="flex justify-between text-emerald-700"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
-          <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-red-700")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
+          {totals.concession > 0 && <div className="flex justify-between text-success"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
+          <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-danger")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
         </div>
         </Section>
 
@@ -530,7 +530,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
             {fmtMoney(course.price)} {priceUnitSuffix(course)}
             {course.courseFee > 0 && ` · Course fee ${fmtMoney(course.courseFee)}`} · {course.kind === "bundle" ? "Bundle" : "Single"} · เรียน{COURSE_FORMAT_LABEL[course.format]}
           </p>
-          {mismatch && <p className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangleIcon className="size-3" /> เกรด {studentGrade} ไม่ตรงกับคอร์ส ({course.grades.join(", ")})</p>}
+          {mismatch && <p className="flex items-center gap-1 text-xs text-warning"><AlertTriangleIcon className="size-3" /> เกรด {studentGrade} ไม่ตรงกับคอร์ส ({course.grades.join(", ")})</p>}
         </div>
         <Button size="icon-xs" variant="ghost" aria-label="เอาคอร์สนี้ออก" onClick={onRemove}><XIcon /></Button>
       </div>
@@ -568,7 +568,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                   <span className="min-w-0 flex-1 truncate"><span className="font-medium">{WEEKDAY_SHORT[k.weekday]} {k.start}</span> · {k.name}</span>
                   <span className="hidden shrink-0 text-xs text-muted-foreground @md:inline @3xl:hidden @4xl:inline">{t?.active ? `ครู${t.nickname}` : "ยังไม่มีครู"} · {k.minutes} นาที · {k.studentIds.length} คน</span>
                   {/* the icon slot is ALWAYS there (empty when no warning) so the meta text ends at the same x in every row */}
-                  <span className="grid size-4 shrink-0 place-items-center text-amber-600">
+                  <span className="grid size-4 shrink-0 place-items-center text-warning">
                     {notes.length > 0 && (
                       <HoverCard>
                         <HoverCardTrigger render={<span className="grid place-items-center" />}><AlertTriangleIcon className="size-4" /></HoverCardTrigger>
@@ -608,21 +608,21 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
       </div>
 
       {isBackdated(draft.startDate, today) && (
-        <div className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
-          <p className="text-xs text-amber-900 dark:text-amber-200">ใบแจ้งหนี้ย้อนหลัง — เริ่มเรียนก่อนวันนี้ ใส่เหตุผลได้เลย</p>
+        <div className="space-y-1 rounded-lg border border-warning/40 bg-warning-soft/60 p-2">
+          <p className="text-xs text-warning-ink">ใบแจ้งหนี้ย้อนหลัง — เริ่มเรียนก่อนวันนี้ ใส่เหตุผลได้เลย</p>
           <Input value={draft.backdateRemark ?? ""} onChange={(e) => onChange({ backdateRemark: e.target.value })} placeholder="เช่น ลูกค้าจ่ายแล้ว ออกใบตามหลัง" />
         </div>
       )}
 
       {overlapTo && (
-        <div className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-2 dark:bg-amber-950/30">
-          <p className="text-xs text-amber-900 dark:text-amber-200">นักเรียนมีแพ็กเกจคอร์สนี้อยู่แล้วถึง {fmtDate(overlapTo)} — ซื้อซ้ำได้แต่ต้องใส่เหตุผล</p>
+        <div className="space-y-1 rounded-lg border border-warning/40 bg-warning-soft/60 p-2">
+          <p className="text-xs text-warning-ink">นักเรียนมีแพ็กเกจคอร์สนี้อยู่แล้วถึง {fmtDate(overlapTo)} — ซื้อซ้ำได้แต่ต้องใส่เหตุผล</p>
           <Input value={draft.overlapRemark} onChange={(e) => onChange({ overlapRemark: e.target.value })} placeholder="เช่น ต่อคอร์สล่วงหน้า" />
         </div>
       )}
 
       {q && course.unit === "hour" && (quote!.line.carryIn || q.leftoverMinutes > 0) && (
-        <div className="space-y-1.5 rounded-lg border border-sky-200 bg-sky-50 p-2 text-xs text-sky-950 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
+        <div className="space-y-1.5 rounded-lg border border-info/30 bg-info-soft/50 p-2 text-xs text-info-ink">
           {!!quote!.line.carryIn && <p>รวมเศษ <b>{quote!.line.carryIn} นาที</b> ที่เก็บไว้จากแพ็กก่อนของคอร์สนี้ให้แล้ว</p>}
           {q.leftoverMinutes > 0 && (
             <>
@@ -630,7 +630,7 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
               <div className="flex flex-wrap gap-1.5">
                 {LEFTOVER_CHOICES.map(([v, label]) => (
                   <button key={v} type="button" aria-pressed={draft.leftover === v} onClick={() => onChange({ leftover: v })}
-                    className={cn("rounded-full border px-2.5 py-1", draft.leftover === v ? "border-sky-700 bg-sky-700 text-white" : "border-sky-300 bg-background hover:bg-sky-100 dark:hover:bg-sky-900")}>
+                    className={cn("rounded-full border px-2.5 py-1", draft.leftover === v ? "border-info bg-info text-white" : "border-info/40 bg-background hover:bg-info-soft")}>
                     {label}
                   </button>
                 ))}
@@ -671,10 +671,10 @@ function LineCard({ index, draft, quote, studentId, studentGrade, choices, overl
                 </tr>
               ))}
               {quote!.promotion > 0 && (
-                <tr className="text-emerald-700"><td className="px-3 py-1.5" colSpan={3}>โปรโมชัน · {quote!.promotionName}</td><td className="px-3 py-1.5 text-right tabular-nums">−{fmtMoney(quote!.promotion)}</td></tr>
+                <tr className="text-success"><td className="px-3 py-1.5" colSpan={3}>โปรโมชัน · {quote!.promotionName}</td><td className="px-3 py-1.5 text-right tabular-nums">−{fmtMoney(quote!.promotion)}</td></tr>
               )}
               {quote!.bonusMinutes > 0 && (
-                <tr className="text-emerald-700"><td className="px-3 py-1.5" colSpan={4}>โปรโมชัน · {quote!.bonusName} — แถมเวลาเรียนเพิ่ม {quote!.bonusMinutes / 60} ชม. (ราคาเท่าเดิม)</td></tr>
+                <tr className="text-success"><td className="px-3 py-1.5" colSpan={4}>โปรโมชัน · {quote!.bonusName} — แถมเวลาเรียนเพิ่ม {quote!.bonusMinutes / 60} ชม. (ราคาเท่าเดิม)</td></tr>
               )}
             </tbody>
           </table>
@@ -689,10 +689,10 @@ function FamilyPin({ family, branchLoc, radiusKm }: { family?: Family; branchLoc
   if (!family) return <p className="self-end text-xs text-muted-foreground">เลือกนักเรียนก่อน เพื่อดูหมุดบ้าน</p>
   const loc = family.location
   return (
-    <div className={cn("rounded-lg p-2 text-xs", loc ? "bg-muted/60" : "border border-amber-300 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200")}>
+    <div className={cn("rounded-lg p-2 text-xs", loc ? "bg-muted/60" : "border border-warning/40 bg-warning-soft/60 text-warning-ink")}>
       {loc ? (
         <>
-          <div className="flex items-center gap-1 font-medium"><MapPinIcon className="size-3.5 text-rose-600" /> ปักหมุดบ้านแล้ว
+          <div className="flex items-center gap-1 font-medium"><MapPinIcon className="size-3.5 text-danger" /> ปักหมุดบ้านแล้ว
             <a href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`} target="_blank" rel="noreferrer" className="ml-auto text-primary underline">เปิดแผนที่</a>
           </div>
           {family.addressNote && <p className="mt-0.5 text-muted-foreground">ทาง: {family.addressNote}</p>}
@@ -711,11 +711,11 @@ function FamilyPin({ family, branchLoc, radiusKm }: { family?: Family; branchLoc
 function BusDistance({ km, zone, feeId, onUse }: { km: number | null; zone: ReturnType<typeof busZone> | null; feeId: string; onUse: (id: string) => void }) {
   if (km === null || !zone) return <p className="self-end text-xs text-muted-foreground">ยังวัดระยะไม่ได้ — ต้องมีหมุดบ้าน + หมุดสาขา (Settings › สาขา › ค่าธรรมเนียม)</p>
   const dist = `ห่างสาขา ${km.toFixed(1)} กม.`
-  if (zone.outside) return <p className="flex items-start gap-1.5 self-end rounded-lg bg-red-50 p-2 text-xs text-red-800 dark:bg-red-950/30 dark:text-red-200"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />{`${dist} — นอกพื้นที่รับส่ง (ไกลสุด ${zone.maxKm} กม.)`}</p>
+  if (zone.outside) return <p className="flex items-start gap-1.5 self-end rounded-lg bg-danger-soft/60 p-2 text-xs text-danger-ink"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />{`${dist} — นอกพื้นที่รับส่ง (ไกลสุด ${zone.maxKm} กม.)`}</p>
   if (!zone.fee) return <p className="self-end text-xs text-muted-foreground">{`${dist} (เส้นตรง) — ยังไม่ได้ตั้งระยะของประเภทค่ารถ`}</p>
   const other = zone.fee.id !== feeId
   return (
-    <p className={cn("flex flex-wrap items-center gap-1.5 self-end rounded-lg p-2 text-xs", other ? "bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200" : "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200")}>
+    <p className={cn("flex flex-wrap items-center gap-1.5 self-end rounded-lg p-2 text-xs", other ? "bg-warning-soft/60 text-warning-ink" : "bg-success-soft/60 text-success-ink")}>
       <MapPinIcon className="size-3.5 shrink-0" />
       <span>{`${dist} (เส้นตรง) → ${zone.fee.name} (ไม่เกิน ${zone.fee.maxKm} กม.)`}</span>
       {other && <Button size="xs" variant="outline" className="ml-auto" onClick={() => onUse(zone.fee!.id)}>ใช้ประเภทนี้</Button>}
@@ -725,8 +725,8 @@ function BusDistance({ km, zone, feeId, onUse }: { km: number | null; zone: Retu
 
 /** One ride's bus run next to its tick: the run time + seats taken, red when full, grey when there's no run. */
 function RoundChip({ check, on }: { check: RoundCheck; on: boolean }) {
-  if (!check.round) return <span className={cn("rounded-full px-1.5 py-0.5 text-2xs", on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-muted text-muted-foreground")}>ไม่มีรอบ</span>
+  if (!check.round) return <span className={cn("rounded-full px-1.5 py-0.5 text-2xs", on ? "bg-danger-soft font-medium text-danger-ink" : "bg-muted text-muted-foreground")}>ไม่มีรอบ</span>
   const r = check.round
   const label = check.full ? `${r.time} เต็ม ${check.taken}/${r.seats}` : `${r.time} · ${check.taken}/${r.seats}`
-  return <span title={r.name} className={cn("rounded-full px-1.5 py-0.5 text-2xs whitespace-nowrap tabular-nums", check.full ? (on ? "bg-red-100 font-medium text-red-800 dark:bg-red-950/40 dark:text-red-200" : "bg-red-50 text-red-700") : "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200")}>{label}</span>
+  return <span title={r.name} className={cn("rounded-full px-1.5 py-0.5 text-2xs whitespace-nowrap tabular-nums", check.full ? (on ? "bg-danger-soft font-medium text-danger-ink" : "bg-danger-soft/50 text-danger") : "bg-success-soft/60 text-success-ink")}>{label}</span>
 }

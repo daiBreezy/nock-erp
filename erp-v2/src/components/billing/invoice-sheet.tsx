@@ -287,7 +287,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       {tabs}
 
       <PanelBody>
-        {inv.status === "void" && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800">ยกเลิกแล้ว: {inv.voidReason}</p>}
+        {inv.status === "void" && <p className="rounded-lg bg-danger-soft/60 p-3 text-sm text-danger-ink">ยกเลิกแล้ว: {inv.voidReason}</p>}
         {/* Billing info as an accordion (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */}
         {/* the message to the parent (owner 2026-11-05): remembered per student — the last one comes back on the next invoice, editable until it is sent */}
         {inv.status !== "void" && (noteEditable || inv.noteToParent) && (
@@ -297,7 +297,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
                 <span className="block">ใส่ข้อความถึงผู้ปกครองที่จะไปพร้อมใบแจ้งหนี้ — บันทึกให้อัตโนมัติเมื่อพิมพ์เสร็จ แก้ได้จนกว่าใบจะชำระแล้ว</span>
                 <span className="mt-1 block">ข้อความของ{stu?.nickname}ในครั้งก่อนจะขึ้นมาให้เสมอ แก้หรือลบได้ก่อนส่ง</span>
                 {canSendNote && <span className="mt-1 block">กด “ส่งผู้ปกครอง” ที่ปุ่มด้านล่าง — ยอด รายการ และเลขบัญชีจะอยู่ในข้อความ{fam?.lineUserId ? ` (ส่งเข้าแชท LINE ของ${fam.name}จริง)` : ""}</span>}
-                {canSendNote && !fam?.parents.some((p) => p.lineLinked) && <span className="mt-1 block text-amber-700">ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ “ยังไม่ถึงผู้ปกครอง” ต้องส่งทางอื่น</span>}
+                {canSendNote && !fam?.parents.some((p) => p.lineLinked) && <span className="mt-1 block text-warning">ผู้ปกครองยังไม่ผูก LINE — ระบบจะบันทึกว่าส่งแล้วแต่ “ยังไม่ถึงผู้ปกครอง” ต้องส่งทางอื่น</span>}
               </>} />
             </Label>
             <Textarea rows={2} value={note} disabled={!noteEditable} onChange={(e) => setNote(e.target.value)}
@@ -318,7 +318,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             <div className="space-y-3 border-t py-3">
               <table className="w-full text-xs tabular-nums"><tbody>
                 {([["ค่าเรียน", totals.course + totals.courseFee], ["Advance / ค่าหนังสือ", totals.advance + totals.book], ["ค่ารถ", totals.bus + totals.busExtra]] as const).filter(([, v]) => v > 0).map(([l, v]) => <tr key={l}><td className="py-0.5">{l}</td><td className="py-0.5 text-right">{fmtMoney(v)}</td></tr>)}
-                {totals.promotion + totals.credit + totals.concession > 0 && <tr className="text-emerald-700"><td className="py-0.5">ส่วนลด / โปรโมชัน</td><td className="py-0.5 text-right">−{fmtMoney(totals.promotion + totals.credit + totals.concession)}</td></tr>}
+                {totals.promotion + totals.credit + totals.concession > 0 && <tr className="text-success"><td className="py-0.5">ส่วนลด / โปรโมชัน</td><td className="py-0.5 text-right">−{fmtMoney(totals.promotion + totals.credit + totals.concession)}</td></tr>}
                 {totals.rounding > 0 && <tr className="text-muted-foreground"><td className="py-0.5">ปัดเศษ (Liclass ปัดขึ้นหลักสิบ)</td><td className="py-0.5 text-right">+{fmtMoney(totals.rounding)}</td></tr>}
                 <tr className="border-t font-semibold"><td className="py-1">ยอดรวม</td><td className="py-1 text-right text-sm">{fmtMoney(totals.total)}</td></tr>
               </tbody></table>
@@ -334,10 +334,10 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
           </Block>
           <Block title="Promotion" hint="ส่วนลด / โปรโมชัน">
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
-              {totals.lines.filter((l) => l.promotion > 0).map((l) => <tr key={l.line.id} className="text-emerald-700"><td className="py-1">{l.course?.name} · {l.promotionName}</td><td className="py-1 text-right">−{fmtMoney(l.promotion)}</td></tr>)}
-              {totals.lines.filter((l) => l.bonusMinutes > 0).map((l) => <tr key={`b${l.line.id}`} className="text-emerald-700"><td className="py-1" colSpan={2}>{l.course?.name} · {l.bonusName} — แถมเวลาเรียนเพิ่ม {l.bonusMinutes / 60} ชม. (ไม่เพิ่มราคา)</td></tr>)}
+              {totals.lines.filter((l) => l.promotion > 0).map((l) => <tr key={l.line.id} className="text-success"><td className="py-1">{l.course?.name} · {l.promotionName}</td><td className="py-1 text-right">−{fmtMoney(l.promotion)}</td></tr>)}
+              {totals.lines.filter((l) => l.bonusMinutes > 0).map((l) => <tr key={`b${l.line.id}`} className="text-success"><td className="py-1" colSpan={2}>{l.course?.name} · {l.bonusName} — แถมเวลาเรียนเพิ่ม {l.bonusMinutes / 60} ชม. (ไม่เพิ่มราคา)</td></tr>)}
               {totals.credit > 0 && <tr className="text-violet-700"><td className="py-1">หักเครดิตคอร์ส</td><td className="py-1 text-right">−{fmtMoney(totals.credit)}</td></tr>}
-              {totals.concession > 0 && <tr className="text-emerald-700"><td className="py-1">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="py-1 text-right">−{fmtMoney(totals.concession)}</td></tr>}
+              {totals.concession > 0 && <tr className="text-success"><td className="py-1">ส่วนลดพิเศษ · {inv.concession?.remark}</td><td className="py-1 text-right">−{fmtMoney(totals.concession)}</td></tr>}
             </tbody></table>
             {totals.promotion + totals.credit + totals.concession === 0 && !totals.lines.some((l) => l.bonusMinutes > 0) && <p className="text-xs text-muted-foreground">ไม่มีส่วนลด / โปรโมชันในใบนี้</p>}
           </Block>
@@ -393,8 +393,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             {steps.map((s, i) => (
               <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
                 {/* the line joining this status icon to the next one — it is a stepper */}
-                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-[9.5px] top-6 -bottom-0.5 w-px", s.state === "done" ? "bg-emerald-600" : "bg-border")} />}
-                <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-emerald-600 text-white" : s.state === "current" ? "bg-sky-600 text-white" : s.state === "warn" ? "bg-amber-500 text-white" : "border text-muted-foreground")}>
+                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-[9.5px] top-6 -bottom-0.5 w-px", s.state === "done" ? "bg-success" : "bg-border")} />}
+                <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-success text-white" : s.state === "current" ? "bg-info text-white" : s.state === "warn" ? "bg-warning text-white" : "border text-muted-foreground")}>
                   {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -429,10 +429,10 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         <CreditNotes inv={inv} />
 
         {voiding && (
-          <section className="space-y-2 rounded-lg border border-red-200 p-3">
+          <section className="space-y-2 rounded-lg border border-danger/30 p-3">
             <Label className="text-xs">เหตุผลการยกเลิก *</Label>
             <Textarea rows={2} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ใส่คอร์สผิด จะออกใบใหม่" />
-            {inv.payments.length > 0 && <p className="text-xs text-red-700">มีการรับเงินแล้ว ยกเลิกไม่ได้</p>}
+            {inv.payments.length > 0 && <p className="text-xs text-danger">มีการรับเงินแล้ว ยกเลิกไม่ได้</p>}
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setVoiding(false)}>ไม่ยกเลิก</Button>
               <Button size="sm" variant="destructive" disabled={!reason.trim() || inv.payments.length > 0} onClick={() => report(act.void(inv.id, reason), "ยกเลิกใบแจ้งหนี้แล้ว") && setVoiding(false)}>ยืนยันยกเลิก</Button>

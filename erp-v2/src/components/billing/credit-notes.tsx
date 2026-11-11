@@ -77,7 +77,7 @@ function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => str
           {check.ok ? <Button size="xs" onClick={() => report(act.approve(n.id), "อนุมัติใบลดหนี้แล้ว")}><CheckIcon /> อนุมัติ</Button>
             : <span className="text-xs text-muted-foreground">{check.error}</span>}
           {canForce && <ForceApprove onForce={(remark) => act.approve(n.id, remark)} success="Force Approve ใบลดหนี้แล้ว — แจ้งทั้งสาขา + Director" />}
-          {manage && !voiding && <Button size="xs" variant="ghost" className="ml-auto text-red-700" onClick={() => setVoiding(true)}>ยกเลิกใบลดหนี้</Button>}
+          {manage && !voiding && <Button size="xs" variant="ghost" className="ml-auto text-danger" onClick={() => setVoiding(true)}>ยกเลิกใบลดหนี้</Button>}
           {voiding && (
             <div className="flex w-full gap-2">
               <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เหตุผลการยกเลิก" />
@@ -89,7 +89,7 @@ function NoteCard({ n, who, manage }: { n: CreditNote; who: (id?: string) => str
 
       {n.mode === "refund" && n.status === "approved" && (
         n.refund ? (
-          <div className="flex items-start gap-2 rounded-md bg-emerald-50 p-2 text-xs text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+          <div className="flex items-start gap-2 rounded-md bg-success-soft/60 p-2 text-xs text-success-ink">
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL */}
             {n.refund.slip && <img src={n.refund.slip} alt="สลิปโอนคืน" className="size-12 shrink-0 rounded-lg object-cover" />}
             <p>โอนคืนแล้ว {fmtDate(n.refund.date, { year: true })} · จาก {n.refund.fromAccount} · {n.refund.reference}{n.refund.remark && ` · ${n.refund.remark}`} · บันทึกโดย {who(n.refund.recordedBy)}</p>

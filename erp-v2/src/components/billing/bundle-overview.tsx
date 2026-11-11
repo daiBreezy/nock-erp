@@ -181,8 +181,8 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
               const state = s.done === members.length ? "done" : s.done > 0 ? "current" : "todo"
               return (
                 <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
-                  {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-[9.5px] top-6 -bottom-0.5 w-px", state === "done" ? "bg-emerald-600" : "bg-border")} />}
-                  <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", state === "done" ? "bg-emerald-600 text-white" : state === "current" ? "bg-sky-600 text-white" : "border text-muted-foreground")}>
+                  {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-[9.5px] top-6 -bottom-0.5 w-px", state === "done" ? "bg-success" : "bg-border")} />}
+                  <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", state === "done" ? "bg-success text-white" : state === "current" ? "bg-info text-white" : "border text-muted-foreground")}>
                     {state === "done" ? <CheckIcon className="size-3" /> : <span className="size-1.5 rounded-full bg-current" />}
                   </span>
                   <div className="min-w-0 flex-1"><div className="text-sm font-medium">{s.label}</div><div className="text-xs text-muted-foreground">{s.done}/{members.length} ใบ</div>{s.detail && <div className="text-xs text-muted-foreground">{s.detail}</div>}{s.extra}</div>
@@ -211,7 +211,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
         )}
 
         {voiding && (
-          <section className="space-y-2 rounded-lg border border-red-200 p-3">
+          <section className="space-y-2 rounded-lg border border-danger/30 p-3">
             <Label className="text-xs">เหตุผลการยกเลิกทั้งชุด *</Label>
             <Textarea rows={2} autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น ใส่คอร์สผิด จะสร้างชุดใหม่" />
             <div className="flex justify-end gap-2">
