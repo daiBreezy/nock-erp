@@ -89,14 +89,14 @@ export default function AttendancePage() {
     { id: "name", label: "ชื่อ-นามสกุล", width: "170px", className: "text-muted-foreground", cell: (r) => r.s.name },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: (r) => <GradeCell grade={r.s.grade} tone={gradeTone(r.s.grade)} /> },
     { id: "booked", label: "นัด", width: "70px", sort: "booked", align: "right", className: "tabular-nums", cell: (r) => r.booked },
-    { id: "present", label: "มา", width: "70px", sort: "present", align: "right", className: "tabular-nums text-emerald-700", cell: (r) => r.present },
-    { id: "absent", label: "ขาด", width: "70px", sort: "absent", align: "right", className: "tabular-nums text-red-700", cell: (r) => r.absent },
-    { id: "leave", label: "ลา", width: "70px", sort: "leave", align: "right", className: "tabular-nums text-amber-700", cell: (r) => r.leave },
+    { id: "present", label: "มา", width: "70px", sort: "present", align: "right", className: "tabular-nums text-success", cell: (r) => r.present },
+    { id: "absent", label: "ขาด", width: "70px", sort: "absent", align: "right", className: "tabular-nums text-danger", cell: (r) => r.absent },
+    { id: "leave", label: "ลา", width: "70px", sort: "leave", align: "right", className: "tabular-nums text-warning", cell: (r) => r.leave },
     { id: "rate", label: "อัตราเข้าเรียน", width: "200px", sort: "rate", cell: (r) => {
       const rate = rateOf(r)
       return (
         <span className="flex items-center gap-2">
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full", rate < 0.6 ? "bg-red-500" : rate < 0.8 ? "bg-amber-500" : "bg-emerald-500")} style={{ width: `${rate * 100}%` }} /></span>
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full", rate < 0.6 ? "bg-danger" : rate < 0.8 ? "bg-warning" : "bg-success")} style={{ width: `${rate * 100}%` }} /></span>
           <span className="w-10 text-right text-xs tabular-nums">{Math.round(rate * 100)}%</span>
         </span>
       )
@@ -112,7 +112,7 @@ export default function AttendancePage() {
       <KpiRow>
         <Kpi icon={CalendarDaysIcon} label="คาบที่เรียนไปแล้ว" value={inRange.length} />
         <Kpi icon={UserCheckIcon} label="มาเรียน" value={count("present")} tone="emerald" sub={marked ? `${Math.round((count("present") / marked) * 100)}% ของที่เช็คชื่อแล้ว` : undefined} />
-        <Kpi icon={UserXIcon} label="ขาด / ลา" value={<><span className="text-red-700">{count("absent")}</span> <span className="text-base text-muted-foreground">/</span> <span className="text-amber-700">{count("leave")}</span></>} tone="red" />
+        <Kpi icon={UserXIcon} label="ขาด / ลา" value={<><span className="text-danger">{count("absent")}</span> <span className="text-base text-muted-foreground">/</span> <span className="text-warning">{count("leave")}</span></>} tone="red" />
         <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" emphasis={!!(notMarked)} />
       </KpiRow>
       <div className="space-y-3">
@@ -169,10 +169,10 @@ function ByDay({ sessions, attendance, multi, code, onOpen }: { sessions: Sessio
                   title={<>{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{multi && <span className="ml-1.5 align-middle"><BranchCode code={code(s.branchId)} /></span>}</>}
                   sub={<>{L.teacher(s.teacherId).label} · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
                   status={<span className="flex flex-wrap justify-end gap-1 text-xs">
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">มา {n(s.id, "present")}</span>
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800">ขาด {n(s.id, "absent")}</span>
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-900">ลา {n(s.id, "leave")}</span>
-                    {left > 0 && <span className="rounded-full border border-red-300 px-2 py-0.5 text-red-700">ยังไม่เช็ค {left}</span>}
+                    <span className="rounded-full bg-success-soft px-2 py-0.5 text-success-ink">มา {n(s.id, "present")}</span>
+                    <span className="rounded-full bg-danger-soft px-2 py-0.5 text-danger-ink">ขาด {n(s.id, "absent")}</span>
+                    <span className="rounded-full bg-warning-soft px-2 py-0.5 text-warning-ink">ลา {n(s.id, "leave")}</span>
+                    {left > 0 && <span className="rounded-full border border-danger/40 px-2 py-0.5 text-danger">ยังไม่เช็ค {left}</span>}
                   </span>} />
               )
             })}

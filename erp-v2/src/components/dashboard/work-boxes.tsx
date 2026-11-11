@@ -42,7 +42,7 @@ export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?:
         {/* right: the breakdown, flat with hairline dividers (gap-px over the border colour) */}
         {open.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center">
-            <span className="grid size-10 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><CheckIcon className="size-5" /></span>
+            <span className="grid size-10 place-items-center rounded-full bg-success-soft text-success-ink"><CheckIcon className="size-5" /></span>
             <p className="text-sm text-muted-foreground">{tx("เคลียร์หมดแล้ว — ไม่มีงานค้าง")}</p>
           </div>
         ) : (
@@ -51,9 +51,9 @@ export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?:
               const red = URGENT_KEYS.has(t.key) || !!t.urgent
               return (
                 <Link key={t.key} href={focusHref(t.href, t.key)} className="flex flex-col bg-card p-3 transition-colors hover:bg-muted/40">
-                  <div className={cn("text-3xl font-semibold leading-none tabular-nums", red ? "text-red-600 dark:text-red-400" : "text-primary")}>{t.count}</div>
+                  <div className={cn("text-3xl font-semibold leading-none tabular-nums", red ? "text-danger" : "text-primary")}>{t.count}</div>
                   <div className="mt-1.5 text-xs leading-snug text-muted-foreground">
-                    {t.title}{!!t.urgent && <span className="font-medium text-red-600 dark:text-red-400"> · {tx("ด่วน {0}", [t.urgent])}</span>}
+                    {t.title}{!!t.urgent && <span className="font-medium text-danger"> · {tx("ด่วน {0}", [t.urgent])}</span>}
                   </div>
                 </Link>
               )
@@ -62,8 +62,8 @@ export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?:
         )}
       </div>
       {aiLine && open.length > 0 && (
-        <div className="mt-3 flex items-start gap-2 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:bg-sky-950/60 dark:text-sky-200">
-          <SparklesIcon className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+        <div className="mt-3 flex items-start gap-2 rounded-xl bg-info-soft/60 px-3 py-2 text-sm text-info-ink">
+          <SparklesIcon className="mt-0.5 size-4 shrink-0 text-info" />
           <span className="min-w-0">{aiLine}</span>
         </div>
       )}
@@ -77,7 +77,7 @@ export function AlertBox({ topics }: { topics: Topic[] }) {
   return (
     <section className={cn("flex flex-col", DASH_BOX)}>
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        <AlertTriangleIcon className="size-4 text-amber-500 dark:text-amber-400" /> {tx("ต้องรู้ไว้")}
+        <AlertTriangleIcon className="size-4 text-warning" /> {tx("ต้องรู้ไว้")}
         {open.length > 0 && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{open.length}</span>}
       </h2>
       {open.length === 0 ? (
@@ -89,9 +89,9 @@ export function AlertBox({ topics }: { topics: Topic[] }) {
             return (
               <li key={t.key}>
                 <Link href={focusHref(t.href, t.key)} className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-muted/60">
-                  <span className={cn("size-1.5 shrink-0 rounded-full", red ? "bg-red-500" : "bg-amber-500")} />
+                  <span className={cn("size-1.5 shrink-0 rounded-full", red ? "bg-danger" : "bg-warning")} />
                   <span className="min-w-0 flex-1 truncate text-sm">{t.title}</span>
-                  <span className={cn("shrink-0 font-semibold tabular-nums", red ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300")}>{t.count}</span>
+                  <span className={cn("shrink-0 font-semibold tabular-nums", red ? "text-danger" : "text-warning")}>{t.count}</span>
                   <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
                 </Link>
               </li>

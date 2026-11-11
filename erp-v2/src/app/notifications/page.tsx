@@ -69,24 +69,24 @@ export default function NotificationsPage() {
   const w = recent.map((x) => ({ x, w: workState(x, now, s.attendance, s.summaries) }))
   const needAtt = w.filter((r) => r.w.state === "needs_attendance")
   const needSum = w.filter((r) => r.w.state === "needs_summary")
-  if (needAtt.length) alerts.push({ topic: "teaching", key: "att", icon: ClipboardListIcon, tone: "text-red-600", title: `ยังไม่เช็คชื่อ ${needAtt.length} คาบ`, detail: needAtt.slice(0, 3).map((r) => `${fmtDate(r.x.date)} ${r.x.start} ${r.x.subject}`).join(" · "), href: "/sessions" })
-  if (needSum.length) alerts.push({ topic: "teaching", key: "sum", icon: NotebookPenIcon, tone: "text-amber-600", title: `รอเขียนสรุป ${needSum.length} คาบ`, detail: "สรุปที่ยังไม่ส่งอนุมัติ", href: "/summaries" })
+  if (needAtt.length) alerts.push({ topic: "teaching", key: "att", icon: ClipboardListIcon, tone: "text-danger", title: `ยังไม่เช็คชื่อ ${needAtt.length} คาบ`, detail: needAtt.slice(0, 3).map((r) => `${fmtDate(r.x.date)} ${r.x.start} ${r.x.subject}`).join(" · "), href: "/sessions" })
+  if (needSum.length) alerts.push({ topic: "teaching", key: "sum", icon: NotebookPenIcon, tone: "text-warning", title: `รอเขียนสรุป ${needSum.length} คาบ`, detail: "สรุปที่ยังไม่ส่งอนุมัติ", href: "/summaries" })
   if (can(me, "summary.approve")) {
     const n = s.summaries.filter((x) => x.status === "submitted" && x.authorId !== me.id && recent.some((r) => r.id === x.sessionId)).length
-    if (n) alerts.push({ topic: "approval", key: "sa", icon: NotebookPenIcon, tone: "text-sky-600", title: `สรุปรออนุมัติ ${n} รายการ`, detail: "อนุมัติแล้วส่งผู้ปกครองได้", href: "/summaries" })
+    if (n) alerts.push({ topic: "approval", key: "sa", icon: NotebookPenIcon, tone: "text-info", title: `สรุปรออนุมัติ ${n} รายการ`, detail: "อนุมัติแล้วส่งผู้ปกครองได้", href: "/summaries" })
   }
   if (can(me, "billing.approve")) {
     const inv = s.invoices.filter((i) => i.branchId === branch.id && canApprove(i, me).ok)
-    if (inv.length) alerts.push({ topic: "approval", key: "inv", icon: ReceiptIcon, tone: "text-sky-600", title: `ใบแจ้งหนี้รออนุมัติ ${inv.length} ใบ`, detail: inv.map((i) => i.number).join(", "), href: "/billing" })
+    if (inv.length) alerts.push({ topic: "approval", key: "inv", icon: ReceiptIcon, tone: "text-info", title: `ใบแจ้งหนี้รออนุมัติ ${inv.length} ใบ`, detail: inv.map((i) => i.number).join(", "), href: "/billing" })
     const pay = s.invoices.filter((i) => i.branchId === branch.id && i.payments.some((p) => !p.confirmedBy && p.recordedBy !== me.id))
     if (pay.length) alerts.push({ topic: "approval", key: "pay", icon: WalletIcon, tone: "text-violet-600", title: `ยอดเงินรอยืนยัน ${pay.length} ใบ`, detail: "คนบันทึกยืนยันเองไม่ได้", href: "/billing" })
   }
   if (!mineOnly) {
     const noTeacher = s.sessions.filter((x) => x.branchId === branch.id && !x.cancelled && x.date >= today && x.date <= addDays(today, 7) && !s.staff.find((t) => t.id === x.teacherId)?.active)
-    if (noTeacher.length) alerts.push({ topic: "schedule", key: "nt", icon: UserXIcon, tone: "text-amber-600", title: `${noTeacher.length} คาบใน 7 วันยังไม่มีครู`, detail: noTeacher.slice(0, 3).map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · "), href: "/calendar" })
+    if (noTeacher.length) alerts.push({ topic: "schedule", key: "nt", icon: UserXIcon, tone: "text-warning", title: `${noTeacher.length} คาบใน 7 วันยังไม่มีครู`, detail: noTeacher.slice(0, 3).map((x) => `${fmtDate(x.date, { weekday: true })} ${x.start}`).join(" · "), href: "/calendar" })
     // owner 2026-10-14: students who gave notice and are still open — talk to the family, then close it
     const exiting = s.students.filter((x) => x.branchId === branch.id && Att.exitPending(x, today))
-    if (exiting.length) alerts.push({ topic: "renewal", key: "exit", icon: AlertTriangleIcon, tone: "text-red-600", title: `นักเรียนแจ้งออก ${exiting.length} คน — รอคุย / ปิดเรื่อง`,
+    if (exiting.length) alerts.push({ topic: "renewal", key: "exit", icon: AlertTriangleIcon, tone: "text-danger", title: `นักเรียนแจ้งออก ${exiting.length} คน — รอคุย / ปิดเรื่อง`,
       detail: exiting.slice(0, 4).map((x) => `${x.nickname} (วันสุดท้าย ${fmtDate(x.exit!.lastDate)}${x.exit!.lastDate < today ? " · เลยแล้ว" : ""})`).join(" · "), href: "/students?status=exiting" })
     // F4: session packs running low, subscriptions expiring — each a renewal opportunity
     entitlements.forEach((e) => {
@@ -94,7 +94,7 @@ export default function NotificationsPage() {
       if (!stu || stu.branchId !== branch.id || e.to < today) return
       const msg = Att.lowBalanceAlert(e, Att.balance(e, s.sessions, s.attendance, s.classes), today)
       const course = s.courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"
-      if (msg) alerts.push({ topic: "renewal", key: e.id, icon: AlertTriangleIcon, tone: "text-amber-600", title: `${studentLabel(stu, s.families.find((f) => f.id === stu.familyId)?.name)}: ${msg}`, detail: `${course} · กดเพื่อออกใบต่ออายุคอร์สนี้`, href: renewHref(stu.id, e.id) })
+      if (msg) alerts.push({ topic: "renewal", key: e.id, icon: AlertTriangleIcon, tone: "text-warning", title: `${studentLabel(stu, s.families.find((f) => f.id === stu.familyId)?.name)}: ${msg}`, detail: `${course} · กดเพื่อออกใบต่ออายุคอร์สนี้`, href: renewHref(stu.id, e.id) })
     })
   }
 
@@ -151,12 +151,12 @@ export default function NotificationsPage() {
           {history.map((n) => {
             const unreadForMe = isUnread(n, me)
             return (
-            <button key={n.id} onClick={() => s.markNotificationsRead([n.id])} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-muted/40", unreadForMe && "bg-primary/5", n.kind === "force_approved" && "border-l-4 border-amber-400")}>
+            <button key={n.id} onClick={() => s.markNotificationsRead([n.id])} className={cn("flex w-full items-start gap-3 p-3 text-left hover:bg-muted/40", unreadForMe && "bg-primary/5", n.kind === "force_approved" && "border-l-4 border-warning")}>
               <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", unreadForMe ? "bg-primary" : "bg-transparent")} />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
-                  {n.kind === "force_approved" && <ShieldAlertIcon className="size-4 text-amber-600" />}
-                  {n.kind === "message" && <MessageSquareIcon className="size-4 text-sky-600" />}
+                  {n.kind === "force_approved" && <ShieldAlertIcon className="size-4 text-warning" />}
+                  {n.kind === "message" && <MessageSquareIcon className="size-4 text-info" />}
                   {n.title}
                   {n.fromId && <span className="text-xs font-normal text-muted-foreground">· จาก {who(n.fromId) ?? "?"}</span>}
                 </span>

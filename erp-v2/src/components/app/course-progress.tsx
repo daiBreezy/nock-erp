@@ -59,8 +59,8 @@ export function AiInsightBox({ rows, aiInsights }: { rows: Sum.ProgressRow[]; ai
         <ul className="space-y-1.5">
           {insights.map((x, i) => (
             <li key={i} className={cn("flex items-start gap-2 rounded-xl px-2.5 py-1.5 text-sm", AI_TONE.soft)}>
-              {x.tone === "good" ? <TrendingUpIcon className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                : x.tone === "watch" ? <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-amber-600" />
+              {x.tone === "good" ? <TrendingUpIcon className="mt-0.5 size-4 shrink-0 text-success" />
+                : x.tone === "watch" ? <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
                   : <InfoIcon className={cn("mt-0.5 size-4 shrink-0", AI_TONE.text)} />}
               <span>{x.text}</span>
             </li>
@@ -74,7 +74,7 @@ function Stat({ label, value, sub, tone, icon }: { label: string; value: string;
   return (
     <div className="rounded-2xl border p-2.5">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn("flex items-center gap-1 text-xl font-semibold tabular-nums", tone === "good" && "text-emerald-700", tone === "watch" && "text-amber-700")}>{value}{icon}</p>
+      <p className={cn("flex items-center gap-1 text-xl font-semibold tabular-nums", tone === "good" && "text-success", tone === "watch" && "text-warning")}>{value}{icon}</p>
       <p className="truncate text-2xs text-muted-foreground">{sub}</p>
     </div>
   )
@@ -148,9 +148,9 @@ function AttendanceBars({ rows }: { rows: Sum.ProgressRow[] }) {
             <div key={k} className="flex h-full flex-1 flex-col items-center justify-end gap-1" title={`มา ${m.present} · ลา ${m.leave} · ขาด ${m.absent}`}>
               <span className="text-2xs tabular-nums text-muted-foreground">{total}</span>
               <div className="flex w-full max-w-8 flex-col-reverse overflow-hidden rounded-md" style={{ height: `${(total / max) * 90}px` }}>
-                <div className="bg-emerald-500" style={{ flex: m.present }} />
-                <div className="bg-amber-400" style={{ flex: m.leave }} />
-                <div className="bg-rose-500" style={{ flex: m.absent }} />
+                <div className="bg-success" style={{ flex: m.present }} />
+                <div className="bg-warning" style={{ flex: m.leave }} />
+                <div className="bg-danger" style={{ flex: m.absent }} />
               </div>
               <span className="text-2xs text-muted-foreground">{MONTHS[Number(k.slice(5, 7)) - 1]}</span>
             </div>
@@ -158,9 +158,9 @@ function AttendanceBars({ rows }: { rows: Sum.ProgressRow[] }) {
         })}
       </div>
       <div className="mt-2 flex justify-center gap-3 text-2xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-emerald-500" />มา</span>
-        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-amber-400" />ลา</span>
-        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-rose-500" />ขาด</span>
+        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-success" />มา</span>
+        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-warning" />ลา</span>
+        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-danger" />ขาด</span>
       </div>
     </div>
   )

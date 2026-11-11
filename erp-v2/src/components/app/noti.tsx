@@ -16,11 +16,11 @@ export type NotiKind = "exit" | "leave" | "return" | "bus" | "home" | "message" 
 // `tone` = the round icon chip · `card` = the whole card (tinted bg + coloured border + thick left accent) so each
 // kind reads at a glance and never blends into the page.
 const KIND: Record<NotiKind, { icon: typeof BellIcon; tone: string; card: string }> = {
-  exit: { icon: DoorOpenIcon, tone: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300", card: "border-red-300 border-l-4 border-l-red-500 bg-red-50 dark:border-red-900/60 dark:border-l-red-500 dark:bg-red-950/50" },
-  leave: { icon: CalendarOffIcon, tone: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300", card: "border-amber-300 border-l-4 border-l-amber-500 bg-amber-50 dark:border-amber-900/60 dark:border-l-amber-500 dark:bg-amber-950/50" },
-  bus: { icon: BusIcon, tone: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300", card: "border-sky-300 border-l-4 border-l-sky-500 bg-sky-50 dark:border-sky-900/60 dark:border-l-sky-500 dark:bg-sky-950/50" },
-  home: { icon: MapPinHouseIcon, tone: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300", card: "border-sky-300 border-l-4 border-l-sky-500 bg-sky-50 dark:border-sky-900/60 dark:border-l-sky-500 dark:bg-sky-950/50" },
-  return: { icon: UndoDotIcon, tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300", card: "border-emerald-300 border-l-4 border-l-emerald-500 bg-emerald-50 dark:border-emerald-900/60 dark:border-l-emerald-500 dark:bg-emerald-950/50" },
+  exit: { icon: DoorOpenIcon, tone: "bg-danger-soft text-danger-ink", card: "border-danger/40 border-l-4 border-l-danger bg-danger-soft/60" },
+  leave: { icon: CalendarOffIcon, tone: "bg-warning-soft text-warning-ink", card: "border-warning/40 border-l-4 border-l-warning bg-warning-soft/60" },
+  bus: { icon: BusIcon, tone: "bg-info-soft text-info-ink", card: "border-info/40 border-l-4 border-l-info bg-info-soft/60" },
+  home: { icon: MapPinHouseIcon, tone: "bg-info-soft text-info-ink", card: "border-info/40 border-l-4 border-l-info bg-info-soft/60" },
+  return: { icon: UndoDotIcon, tone: "bg-success-soft text-success-ink", card: "border-success/40 border-l-4 border-l-success bg-success-soft/60" },
   message: { icon: MessageCircleIcon, tone: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300", card: "border-indigo-300 border-l-4 border-l-indigo-500 bg-indigo-50 dark:border-indigo-900/60 dark:border-l-indigo-500 dark:bg-indigo-950/50" },
   note: { icon: StickyNoteIcon, tone: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300", card: "border-violet-300 border-l-4 border-l-violet-500 bg-violet-50 dark:border-violet-900/60 dark:border-l-violet-500 dark:bg-violet-950/50" },
   info: { icon: BellIcon, tone: "bg-primary/10 text-primary", card: "border-primary/40 border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10" },
