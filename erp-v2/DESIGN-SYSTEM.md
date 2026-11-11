@@ -80,8 +80,13 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 - **สีแบรนด์ที่วันหยุดปิด** (`holiday-planner.tsx` `SCOPE_TEXT/BG/BAR` + legend = tag `holidayBrand` na ฟ้า · li ม่วง · both ชมพู) → ds-exception (รอบ 6.9)
 - **AI_TONE ทั้งไฟล์** (`components/app/ai.tsx`) — AI = ฟ้า ตามกฎเจ้าของ เป็น identity palette → ds-exception ระดับไฟล์ (รอบ 6.9)
 
-## ค้างให้เจ้าของตัดสิน
+## เจ้าของตัดสินแล้ว (2026-11-11) — ปิดข้อ F ทั้ง 3
 
-- **การ์ดเลือกย้ายคาบ (session-sheet 6.4):** เดิมพื้น `rose` (ชมพู hardcode) → เปลี่ยนเป็น `bg-primary/5` + `ring-primary` ตามคอนเวนชัน "ตัวเลือกที่เลือก" ของแอป → ตามสีแบรนด์ (NA ชมพู / Liclass ฟ้า) ไม่ fix ชมพูตายตัว
-- **สีวันหยุดบริษัท:** calendar ใช้เหลือง (warning) · start-date-picker เดิมใช้ rose → รอบ 6.7 ทำเป็น danger (คงโทนแดง) · ยังไม่ตรงกันทั้งแอป — ควรเลือกสีเดียว
-- **สีลา (attendance.leave):** `tags.ts` กำหนด `sky` (ฟ้า) แต่ทุกหน้าจริงใช้ **เหลือง** มาตลอด → รอบ 6.1 คงเหลือง (`warning`) ไว้ ไม่แอบเปลี่ยน · ถ้าจะให้ตรง tags.ts ต้องเปลี่ยนเป็นฟ้าทั้งแอป
+- **F1 สีวันหยุดบริษัท = เหลือง (`warning`) ทั้งแอป** — `start-date-picker` เปลี่ยนจากแดงเป็นเหลือง ตรงกับปฏิทิน
+- **F2 สีลา = เหลือง (`warning`)** — "ลา" เป็น negative แบบ warning · `tags.ts` `attendance.leave` เปลี่ยนจาก `sky` เป็น `amber` (หน้าจริงใช้เหลืองอยู่แล้ว)
+- **F3 ป้ายรับ/ส่งรถ = ห้ามชน system colour (แดง/เหลือง/เขียว)** — ใหม่: tag family `busLeg` ใน `tags.ts`: รับ=ฟ้า (sky) · ส่ง=ม่วง (violet) · ทั้งคู่=เทาเข้ม (slate) · ผู้ปกครองนั่งไปด้วย=teal · ใช้ร่วมกันที่ student-sheet, transport/labels, trip-sheet, driver-app (ตัด ds-exception ของ BUS_TAG/LegTag ออกหมดแล้ว) · เหตุที่ตัด "เขียว" ของ ทั้งคู่: ชน success
+- **ผลข้างเคียง:** ป้ายวันหยุด "ทั้งสองแบรนด์" (`holidayBrand.both`) จากกุหลาบ (ใกล้แดง) → คราม (indigo)
+
+## ยังต้องทบทวน (พบตอนทำ F3 — ยังไม่ได้แก้)
+
+`tags.ts` `role` ใช้สีที่ใกล้ system colour: `admin`=amber (ใกล้เหลือง) · `driver`=lime (ใกล้เขียว) · `director`=rose (ใกล้แดง) · `area_manager`=orange — ถ้าจะใช้กฎ "ไม่ชน system colour" กับป้ายบทบาทด้วย ต้องให้เจ้าของเลือกสีใหม่

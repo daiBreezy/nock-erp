@@ -45,7 +45,7 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
         isToday: "[&_button]:font-bold [&_button]:ring-2 [&_button]:ring-primary [&_button]:ring-inset",
         // days already gone: orange TEXT only, no background (owner 2026-11-09)
         gone: "[&_button]:text-orange-600 dark:[&_button]:text-orange-400",
-        shut: "[&_button]:bg-danger-soft [&_button]:text-danger-ink",
+        shut: "[&_button]:bg-warning-soft [&_button]:text-warning-ink",
       }}
       components={{
         DayButton: (props) => {
@@ -55,7 +55,7 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
           return (
             <HoverCard>
               <HoverCardTrigger render={<span className="block" />}>{btn}</HoverCardTrigger>
-              <HoverCardContent className="w-auto max-w-56 px-3 py-2 text-xs"><b className="text-danger">{tx("วันหยุดบริษัท")}</b><br />{name}</HoverCardContent>
+              <HoverCardContent className="w-auto max-w-56 px-3 py-2 text-xs"><b className="text-warning-ink">{tx("วันหยุดบริษัท")}</b><br />{name}</HoverCardContent>
             </HoverCard>
           )
         },
@@ -66,13 +66,13 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-1"><i className="size-3 rounded-full ring-2 ring-primary ring-inset" />{tx("วันนี้")}</span>
         <span className="flex items-center gap-1"><b className="w-3 text-center text-orange-600">1</b>{tx("ผ่านไปแล้ว — เลือกได้ แต่ต้องใส่เหตุผล")}</span>
-        <span className="flex items-center gap-1"><i className="size-3 rounded-full bg-danger/40" />{tx("วันหยุดบริษัท")}</span>
+        <span className="flex items-center gap-1"><i className="size-3 rounded-full bg-warning/40" />{tx("วันหยุดบริษัท")}</span>
       </div>
-      {holidayName && <p className="text-danger">{tx("วันที่เลือกเป็นวันหยุดบริษัท — ระบบข้ามไปคาบถัดไปให้")}</p>}
+      {holidayName && <p className="text-warning-ink">{tx("วันที่เลือกเป็นวันหยุดบริษัท — ระบบข้ามไปคาบถัดไปให้")}</p>}
     </div>
   )
   const trigger = cn("flex h-9 w-full items-center gap-2 rounded-3xl border px-3 text-sm tabular-nums",
-    holidayName ? "border-danger/40 bg-danger-soft/60 text-danger-ink" : past ? "border-orange-300 bg-orange-50 text-orange-900" : "bg-card hover:bg-muted", className)
+    holidayName ? "border-warning/40 bg-warning-soft/60 text-warning-ink" : past ? "border-orange-300 bg-orange-50 text-orange-900" : "bg-card hover:bg-muted", className)
   const label = <><CalendarIcon className="size-4 shrink-0" /><span className="truncate">{fmtDate(value, { weekday: true, year: true })}</span>{past && <span className="ml-auto shrink-0 text-xs">{tx("ย้อนหลัง")}</span>}</>
 
   if (isMobile) {

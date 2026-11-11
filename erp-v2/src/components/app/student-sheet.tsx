@@ -1,5 +1,6 @@
 "use client"
 
+import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { BusAddOns } from "@/components/billing/bus-addons"
@@ -457,8 +458,7 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   )
 }
 
-// eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity tags (P=รับ ฟ้า · D=ส่ง ม่วง · B=ทั้งคู่ เขียว), not status
-const BUS_TAG = { P: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200", D: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200", B: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" } as const
+const BUS_TAG = { P: tagChip("busLeg", "pickup"), D: tagChip("busLeg", "dropoff"), B: tagChip("busLeg", "both") } as const
 
 /** P = pickup · D = drop · B = both (owner 2026-10-29) — click to change that day's rides: added legs are charged on the
  *  next invoice, removed ones stop the bus (paid rides are not refunded) — same as a parent's request in LINE. */

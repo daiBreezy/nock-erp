@@ -6,6 +6,7 @@
 // order, where it ends — with the stop to go to now on top. The action is a big two-button bar at the bottom, easy to
 // reach while driving: left = the negative one (ไม่มา / กลับ / แก้), right = the next step (เริ่มวิ่ง → ถึงแล้ว →
 // รับแล้ว / ส่งแล้ว → จบเที่ยว).
+import { tagChip } from "@/components/app/tags"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeftIcon, BusIcon, CheckIcon, ChevronRightIcon, FlagIcon, LoaderCircleIcon, MapIcon, MapPinCheckIcon, NavigationIcon, PhoneIcon, PlayIcon, RotateCcwIcon, SchoolIcon, UserIcon, UserXIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -98,8 +99,7 @@ export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
               className={cn("block w-full space-y-3 rounded-3xl bg-background p-4 text-left shadow-sm ring-1 ring-foreground/10", p.finished && "bg-muted/60", p.started && !p.finished && "ring-2 ring-primary")}>
               {/* top row, centred: type · trip · status + chevron side by side (owner 2026-10-20) */}
               <span className="flex items-center gap-3">
-                {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity tile (P ฟ้า · D เหลือง · P+D เขียว), same family as transport/labels */}
-                <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl text-lg font-bold", t.kind === "dropoff" ? "bg-amber-200 text-amber-950" : t.kind === "pickup" ? "bg-sky-200 text-sky-950" : "bg-emerald-200 text-emerald-950")}>{t.kind === "pickup" ? "P" : t.kind === "dropoff" ? "D" : "P+D"}</span>
+                                <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl text-lg font-bold", tagChip("busLeg", t.kind === "dropoff" ? "dropoff" : t.kind === "pickup" ? "pickup" : "both"))}>{t.kind === "pickup" ? "P" : t.kind === "dropoff" ? "D" : "P+D"}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-lg leading-tight font-semibold">{`${KIND[t.kind]} ${t.time}`}</span>
                   {t.name && <span className="block truncate text-sm text-foreground/70">{t.name}</span>}
@@ -219,10 +219,9 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
             <p className="text-sm font-medium text-info-ink">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
             <div>
               <p className="flex flex-wrap items-center gap-1.5 text-xl font-semibold">
-                {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity pill (รับ/ส่ง) */}
-                <span className={cn("rounded-full px-2 py-0.5 text-xs", cur.leg === "pickup" ? "bg-white text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(cur)}</span>
+                                <span className={cn("rounded-full px-2 py-0.5 text-xs", tagChip("busLeg", cur.leg === "pickup" ? "pickup" : "dropoff"))}>{verb(cur)}</span>
                 {cur.nickname} <span className="text-sm font-normal text-info-ink">{cur.grade}</span>
-                {cur.adult && <span className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 text-xs font-normal text-violet-800"><UserIcon className="size-3" />+ผู้ปกครอง</span>}
+                {cur.adult && <span className={cn("flex items-center gap-0.5 rounded-full px-1.5 text-xs font-normal", tagChip("busLeg", "adult"))}><UserIcon className="size-3" />+ผู้ปกครอง</span>}
               </p>
               <Address className="mt-1 text-base text-info-ink [&_button]:text-info-ink [&_button]:underline" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
               <p className="mt-1 text-base font-medium tabular-nums">{`ประมาณ ${cur.eta ?? "—"}`}</p>
@@ -253,10 +252,9 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 font-medium">
-                        {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity pill (รับ/ส่ง) */}
-                        <span className={cn("shrink-0 rounded-full px-1.5 text-2xs", s.leg === "pickup" ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(s)}</span>
+                                                <span className={cn("shrink-0 rounded-full px-1.5 text-2xs", tagChip("busLeg", s.leg === "pickup" ? "pickup" : "dropoff"))}>{verb(s)}</span>
                         <span className="truncate">{s.nickname}</span>
-                        {s.adult && <UserIcon className="size-3.5 shrink-0 text-violet-700" />}
+                        {s.adult && <UserIcon className="size-3.5 shrink-0 text-teal-700" />}
                         {out?.type === "noshow" && <span className="shrink-0 rounded-full bg-danger-soft/60 px-1.5 text-2xs text-danger">ไม่มา</span>}
                       </span>
                       <Address className="text-sm text-foreground/75" text={[s.addressNote, s.address].filter(Boolean).join(" · ")} />

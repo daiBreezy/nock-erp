@@ -2,6 +2,8 @@
 
 // The driver's sheet for one trip (owner 2026-10-19, from v1 "ตารางคนขับ"): the map, then every stop in order with the
 // time, child, parent's phone and how to find the house. Copy as text for LINE, print, or mark it sent.
+import { tagChip } from "@/components/app/tags"
+import { cn } from "@/lib/utils"
 import { CopyIcon, PrinterIcon, SendIcon, UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -49,10 +51,9 @@ export function TripSheet({ t, branch, onClose }: { t: TripPlan; branch: Branch;
             <li key={s.rider.studentId} className="flex items-start gap-3 px-3 py-2">
               <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{i + 1}</span>
               <span className="w-11 shrink-0 font-medium tabular-nums">{s.eta ?? "—"}</span>
-              {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity tags (รับ ฟ้า · ส่ง เหลือง), same as transport/labels */}
-              <span className={s.rider.leg === "pickup" ? "shrink-0 rounded-full bg-sky-100 px-1.5 text-2xs text-sky-800" : "shrink-0 rounded-full bg-amber-100 px-1.5 text-2xs text-amber-900"}>{s.rider.leg === "pickup" ? "รับ" : "ส่ง"}</span>
+                            <span className={cn("shrink-0 rounded-full px-1.5 text-2xs", tagChip("busLeg", s.rider.leg === "pickup" ? "pickup" : "dropoff"))}>{s.rider.leg === "pickup" ? "รับ" : "ส่ง"}</span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 font-medium">{s.rider.nickname} <span className="text-xs font-normal text-muted-foreground">{s.rider.grade}</span>{s.rider.adult && <span className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 text-2xs text-violet-800"><UserIcon className="size-3" />ผู้ปกครองไปด้วย</span>}</span>
+                <span className="flex items-center gap-1.5 font-medium">{s.rider.nickname} <span className="text-xs font-normal text-muted-foreground">{s.rider.grade}</span>{s.rider.adult && <span className={cn("flex items-center gap-0.5 rounded-full px-1.5 text-2xs", tagChip("busLeg", "adult"))}><UserIcon className="size-3" />ผู้ปกครองไปด้วย</span>}</span>
                 <span className="block text-xs text-muted-foreground">{[s.rider.phone, s.rider.addressNote, s.rider.address].filter(Boolean).join(" · ") || "ยังไม่มีที่อยู่"}</span>
               </span>
               {s.rider.loc && <a className="shrink-0 text-xs text-primary underline" href={`https://www.google.com/maps/dir/?api=1&destination=${s.rider.loc.lat},${s.rider.loc.lng}`} target="_blank" rel="noreferrer">นำทาง</a>}

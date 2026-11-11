@@ -2,6 +2,7 @@
 
 // Bus Route chips (owner 2026-10-19 ref): trip type P / D / Both, trip status (Pending → Approved → OTW → Done),
 // stop status (Done / OTW / Next / Cancel), the van badge and the driver — one look everywhere on the page.
+import { tagChip } from "@/components/app/tags"
 import { ArrowLeftRightIcon, BanIcon, BusIcon, CheckCheckIcon, ClockIcon, FlagIcon, MapPinCheckIcon, MapPinIcon, PencilIcon, UserXIcon } from "lucide-react"
 import type { StopStatus, TripPlan, DriverInfo } from "@/domain/rules/transport"
 import type { BusRound, BusZone } from "@/domain/types"
@@ -12,8 +13,7 @@ export const KIND_LABEL: Record<BusRound["kind"], string> = { pickup: "รอบ
 
 /** P = pickup · D = drop-off · Both — as in the ref */
 export function TripTypeChip({ kind, short }: { kind: BusRound["kind"] | "pickup" | "dropoff"; short?: boolean }) {
-  // eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity tags (รับ ฟ้า · ส่ง เหลือง · รับ-ส่ง เขียว), not status
-  const cfg = kind === "pickup" ? { Icon: MapPinIcon, s: "P", l: "รับ", tone: "bg-sky-100 text-sky-800" } : kind === "dropoff" ? { Icon: FlagIcon, s: "D", l: "ส่ง", tone: "bg-amber-100 text-amber-900" } : { Icon: ArrowLeftRightIcon, s: "Both", l: "รับ-ส่ง", tone: "bg-emerald-100 text-emerald-800" }
+  const cfg = kind === "pickup" ? { Icon: MapPinIcon, s: "P", l: "รับ", tone: tagChip("busLeg", "pickup") } : kind === "dropoff" ? { Icon: FlagIcon, s: "D", l: "ส่ง", tone: tagChip("busLeg", "dropoff") } : { Icon: ArrowLeftRightIcon, s: "Both", l: "รับ-ส่ง", tone: tagChip("busLeg", "both") }
   return <span title={cfg.l} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", cfg.tone)}><cfg.Icon className="size-3" />{short ? cfg.s : cfg.l}</span>
 }
 

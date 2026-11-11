@@ -41,10 +41,10 @@ type Draft = { id?: string; name: string; date: string; category: HolidayCategor
 const BRAND_LABEL: Record<Brand, string> = { nockacademy: "NA", liclass: "LI" }
 type Scope = "na" | "li" | "both" | "branch"
 const scopeOf = (h: Holiday): Scope => (h.branchId !== null ? "branch" : h.brand === "nockacademy" ? "na" : h.brand === "liclass" ? "li" : "both")
-/* eslint-disable no-restricted-syntax -- ds-exception: whose brand a holiday closes (tags.ts holidayBrand: na ฟ้า · li ม่วง · both ชมพู) — identity, not status */
-const SCOPE_TEXT: Record<Scope, string> = { na: "text-sky-700", li: "text-violet-700", both: "text-rose-700", branch: "text-slate-700" }
-const SCOPE_BG: Record<Scope, string> = { na: "bg-sky-50", li: "bg-violet-50", both: "bg-rose-50", branch: "bg-slate-100" }
-const SCOPE_BAR: Record<Scope, string> = { na: "bg-sky-400", li: "bg-violet-400", both: "bg-rose-400", branch: "bg-slate-400" }
+/* eslint-disable no-restricted-syntax -- ds-exception: whose brand a holiday closes (tags.ts holidayBrand: na ฟ้า · li ม่วง · both คราม) — identity, not status */
+const SCOPE_TEXT: Record<Scope, string> = { na: "text-sky-700", li: "text-violet-700", both: "text-indigo-700", branch: "text-slate-700" }
+const SCOPE_BG: Record<Scope, string> = { na: "bg-sky-50", li: "bg-violet-50", both: "bg-indigo-50", branch: "bg-slate-100" }
+const SCOPE_BAR: Record<Scope, string> = { na: "bg-sky-400", li: "bg-violet-400", both: "bg-indigo-400", branch: "bg-slate-400" }
 /* eslint-enable no-restricted-syntax */
 const BRAND_CHIP: Record<Brand, string> = { nockacademy: HUE[TAG_HUE.holidayBrand.na].chip, liclass: HUE[TAG_HUE.holidayBrand.li].chip }
 /** the day when several holidays fall on it: both brands if they together close both */
@@ -224,11 +224,9 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-sky-200" />{BRAND_LABEL.nockacademy}</span>
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-violet-200" />{BRAND_LABEL.liclass}</span>
-            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
-            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />{BRAND_LABEL.nockacademy} + {BRAND_LABEL.liclass}</span>
+            <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-indigo-200" />{BRAND_LABEL.nockacademy} + {BRAND_LABEL.liclass}</span>
           </>}
-          {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
-          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />  {tx("หยุด")}</span>}
+          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-indigo-200" />  {tx("หยุด")}</span>}
           {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-warning/60" />  {tx("ช่วงเวลาพิเศษ")}</span>}
           {isBranch && <span className="line-through">{tx("ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ")}</span>}
           <span>{tx("เอาเมาส์ชี้ช่องว่างเพื่อเพิ่มวันหยุด")}</span>
