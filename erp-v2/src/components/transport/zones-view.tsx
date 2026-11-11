@@ -165,10 +165,10 @@ function BusHomesTable({ homes, zones, onZone }: { homes: Home[]; zones: BusZone
     { id: "family", label: "ครอบครัว", width: "140px", cell: (h) => h.fam.name },
     { id: "km", label: "ระยะทาง", width: "90px", align: "right", cell: (h) => <span className="tabular-nums">{h.km === null ? "—" : `${h.km} กม.`}</span> },
     { id: "pin", label: "หมุดบ้าน", width: "220px", cell: (h) => h.fam.location
-      ? <span className="flex items-center gap-1 text-emerald-700"><MapPinCheckIcon className="size-4" />{h.fam.addressNote ? <span className="max-w-48 truncate text-xs text-muted-foreground">{h.fam.addressNote}</span> : "มีหมุดแล้ว"}</span>
+      ? <span className="flex items-center gap-1 text-success"><MapPinCheckIcon className="size-4" />{h.fam.addressNote ? <span className="max-w-48 truncate text-xs text-muted-foreground">{h.fam.addressNote}</span> : "มีหมุดแล้ว"}</span>
       : (
         <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <span className="flex items-center gap-1 text-amber-700"><MapPinOffIcon className="size-4" />ยังไม่มีหมุด</span>
+          <span className="flex items-center gap-1 text-warning"><MapPinOffIcon className="size-4" />ยังไม่มีหมุด</span>
           <Button size="xs" variant="outline" disabled={!conversations.some((x) => x.familyId === h.fam.id)} title={conversations.some((x) => x.familyId === h.fam.id) ? "เปิดแชทครอบครัว พร้อมข้อความขอหมุด" : "ครอบครัวนี้ยังไม่มีแชท LINE"} onClick={() => askPin(h)}><MessageCircleIcon /> ขอหมุดจากผู้ปกครอง</Button>
         </span>
       ) },

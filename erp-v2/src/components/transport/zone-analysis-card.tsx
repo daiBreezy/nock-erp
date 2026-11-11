@@ -21,8 +21,8 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         <h3 className="flex items-center gap-2 font-semibold"><SparklesIcon className="size-4 text-primary" />วิเคราะห์ตำแหน่งบ้าน</h3>
         <span className="text-sm"><b className="tabular-nums">{homes}</b> บ้านที่ใช้รถ <span className="text-muted-foreground">{`(${kids} คน)`}</span></span>
-        <span className="flex items-center gap-1 text-sm"><MapPinHouseIcon className="size-4 text-emerald-600" /><b className="tabular-nums">{pinned}</b> ปักหมุดแล้ว</span>
-        {missing > 0 && <span className="flex items-center gap-1 text-sm text-amber-700"><MapPinOffIcon className="size-4" /><b className="tabular-nums">{missing}</b> ยังไม่มีหมุด — ขอจากผู้ปกครองได้ในตารางด้านล่าง</span>}
+        <span className="flex items-center gap-1 text-sm"><MapPinHouseIcon className="size-4 text-success" /><b className="tabular-nums">{pinned}</b> ปักหมุดแล้ว</span>
+        {missing > 0 && <span className="flex items-center gap-1 text-sm text-warning"><MapPinOffIcon className="size-4" /><b className="tabular-nums">{missing}</b> ยังไม่มีหมุด — ขอจากผู้ปกครองได้ในตารางด้านล่าง</span>}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.6fr]">
@@ -32,7 +32,7 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
             <ol className="space-y-1">
               {spots.slice(0, 5).map((s, i) => (
                 <li key={i} className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-1.5 text-sm">
-                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-rose-100 text-2xs font-semibold text-rose-700">{i + 1}</span>
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/10 text-2xs font-semibold text-primary">{i + 1}</span>
                   <span className="min-w-0 flex-1">{`${s.direction} · ${s.km} กม. จากสาขา`}</span>
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{`${s.homes} บ้าน · ${s.kids} คน`}</span>
                 </li>
@@ -54,7 +54,7 @@ export function ZoneAnalysisCard({ homes, kids, pinned, spots, options, current,
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {o.zones.map((z, i) => (
-                  <span key={i} className={cn("inline-flex items-center gap-1.5 rounded-full bg-background px-2 py-0.5 text-xs ring-1 ring-foreground/10", z.peak > o.seats && "text-red-700 ring-red-300")}>
+                  <span key={i} className={cn("inline-flex items-center gap-1.5 rounded-full bg-background px-2 py-0.5 text-xs ring-1 ring-foreground/10", z.peak > o.seats && "text-danger ring-danger/40")}>
                     <span className={cn("size-2 rounded-full", ZONE_DOT[z.zone.color] ?? "bg-slate-400")} />
                     {`${z.zone.name} · ${z.homes} บ้าน · ไกลสุด ${z.farthestKm} กม. · ~${z.minutes} นาที · ${z.peak}/${o.seats} ที่`}
                   </span>

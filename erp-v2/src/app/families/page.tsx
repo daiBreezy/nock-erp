@@ -141,7 +141,7 @@ export default function FamiliesPage() {
         {(archivedCount > 0 || showArchived) && <ShowChip label="ที่เก็บเข้าคลัง" on={showArchived} count={archivedCount} onChange={setShowArchived} />}
         <span className="text-xs text-muted-foreground">{rows.length} ครอบครัว</span><ColumnsMenu id="families" columns={columns} />{scope.select}
       </>}>
-      {orphans > 0 && <p className="rounded-lg bg-amber-50 p-2.5 text-sm text-amber-900">นักเรียน {orphans} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)</p>}
+      {orphans > 0 && <p className="rounded-lg bg-warning-soft/60 p-2.5 text-sm text-warning-ink">นักเรียน {orphans} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)</p>}
 
       {/* owner 2026-10-07: family / parent / phone / address edit in place on hover; LINE and children open the panel ·
           owner 2026-10-12: one line per row, every child listed · columns arranged per person (DataTable) */}

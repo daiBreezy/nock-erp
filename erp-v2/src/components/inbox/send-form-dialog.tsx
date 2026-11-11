@@ -203,7 +203,7 @@ export function SendFormDialog({
 
           {step === "confirm" && (
             <div className="space-y-2 text-sm">
-              {!lineUserId && <p className="rounded-xl bg-red-50 p-3 text-red-700 dark:bg-red-950/40">ยังไม่ได้ผูก LINE — ผูกได้จากหน้า Inbox ก่อนถึงจะส่งฟอร์มได้</p>}
+              {!lineUserId && <p className="rounded-xl bg-danger-soft/60 p-3 text-danger">ยังไม่ได้ผูก LINE — ผูกได้จากหน้า Inbox ก่อนถึงจะส่งฟอร์มได้</p>}
               {oneVisit && <p className="text-muted-foreground">มาวันเดียว: สอบ {subjects.join(" + ")} ต่อกัน 2 ชม.</p>}
               {(oneVisit ? [{ subject: subjects.join(" + "), slots: chosen[0]?.slots ?? [] }] : chosen).map((o) => (
                 <div key={o.subject} className="rounded-2xl border p-3">
@@ -217,7 +217,7 @@ export function SendFormDialog({
 
         <DialogFooter className="items-center border-t px-6 py-4">
           {step === "offers" && (
-            <p className={cn("mr-auto text-xs", missing.length ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")}>
+            <p className={cn("mr-auto text-xs", missing.length ? "text-warning" : "text-muted-foreground")}>
               {!subjects.length ? "ยังไม่ได้เลือกวิชา" : missing.length ? `ยังไม่ได้เลือกเวลา: ${missing.join(", ")}` : `เสนอ ${oneVisit ? visitPicks.size : pickedCount} เวลา`}
             </p>
           )}

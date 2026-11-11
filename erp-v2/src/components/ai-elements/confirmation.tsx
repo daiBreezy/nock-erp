@@ -15,17 +15,17 @@ export type ConfirmationState = "waiting" | "pending" | "approved" | "rejected" 
 
 const STATE: Record<ConfirmationState, { label: string; icon: React.ReactNode; tone: string }> = {
   waiting: { label: "รอผู้ปกครองตอบ", icon: <CircleDashedIcon />, tone: "text-muted-foreground" },
-  pending: { label: "รออนุมัติ", icon: <ClockIcon />, tone: "text-amber-700 dark:text-amber-400" },
-  approved: { label: "อนุมัติแล้ว", icon: <CheckCircle2Icon />, tone: "text-emerald-700 dark:text-emerald-400" },
-  rejected: { label: "ปฏิเสธแล้ว", icon: <XCircleIcon />, tone: "text-red-700 dark:text-red-400" },
-  answered: { label: "ผู้ปกครองตอบแล้ว", icon: <CheckCircle2Icon />, tone: "text-emerald-700 dark:text-emerald-400" },
+  pending: { label: "รออนุมัติ", icon: <ClockIcon />, tone: "text-warning" },
+  approved: { label: "อนุมัติแล้ว", icon: <CheckCircle2Icon />, tone: "text-success" },
+  rejected: { label: "ปฏิเสธแล้ว", icon: <XCircleIcon />, tone: "text-danger" },
+  answered: { label: "ผู้ปกครองตอบแล้ว", icon: <CheckCircle2Icon />, tone: "text-success" },
 }
 
 export function Confirmation({ state, className, ...props }: React.ComponentProps<"div"> & { state: ConfirmationState }) {
   return (
     <div
       data-slot="confirmation" data-state={state}
-      className={cn("w-full max-w-md overflow-hidden rounded-2xl border bg-card text-sm shadow-xs", state === "pending" && "border-amber-300 dark:border-amber-800", className)}
+      className={cn("w-full max-w-md overflow-hidden rounded-2xl border bg-card text-sm shadow-xs", state === "pending" && "border-warning/40", className)}
       {...props}
     />
   )

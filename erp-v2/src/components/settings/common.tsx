@@ -45,7 +45,7 @@ export function SaveRow({ dirty, onSave, onReset, label = tx("บันทึก
     <div className="mt-4 flex items-center justify-end gap-2">
       {dirty ? (
         <>
-          <span className="mr-auto text-xs text-amber-700">{tx("มีการแก้ไขที่ยังไม่บันทึก")}</span>
+          <span className="mr-auto text-xs text-warning">{tx("มีการแก้ไขที่ยังไม่บันทึก")}</span>
           <Button variant="ghost" size="sm" onClick={onReset}>{tx("ยกเลิก")}</Button>
           <Button size="sm" onClick={onSave}>{label}</Button>
         </>

@@ -110,18 +110,18 @@ export default function NockPage() {
         description={answerer ? "ตอบคำถามที่ Nock ยังไม่รู้ — ตอบแล้วกลายเป็นคลังความรู้" : "คำถามของคุณ และคลังความรู้ที่ทีมตอบไว้"}
         actions={tab === "dev" ? <Button onClick={() => setNewTicket(true)}><PlusIcon /> ส่งเรื่องถึง Dev</Button> : answerer && <Button onClick={() => setOpen("new")}><PlusIcon /> สร้างคลังความรู้</Button>} />
       {/* owner 2026-10-13: questions about using the system | เรื่องถึง Dev (bugs / help / suggestions) — one page */}
-      <Tabs value={tab} onChange={setTab} options={[{ value: "questions", label: "คำถามการใช้งาน", icon: MessagesSquareIcon }, { value: "dev", label: <>เรื่องถึง Dev{openTickets > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{openTickets}</span>}</>, icon: CodeXmlIcon }]} />
+      <Tabs value={tab} onChange={setTab} options={[{ value: "questions", label: "คำถามการใช้งาน", icon: MessagesSquareIcon }, { value: "dev", label: <>เรื่องถึง Dev{openTickets > 0 && <span className="rounded-full bg-danger-soft px-1.5 text-xs text-danger-ink tabular-nums">{openTickets}</span>}</>, icon: CodeXmlIcon }]} />
       {tab === "dev" ? <DevTicketsView creating={newTicket} onCreated={() => setNewTicket(false)} /> : <>
       <KpiRow>
         <Kpi icon={MessagesSquareIcon} label="คำถามทั้งหมด" value={filtered.length} onClick={() => setStatus("")} active={!status} />
         <Kpi icon={CircleHelpIcon} label="ยังไม่มีคำตอบ" value={count("unanswered")} tone="red" emphasis={!!(count("unanswered"))} onClick={() => { setStatus(status === "unanswered" ? "" : "unanswered") }} active={status === "unanswered"} />
         <Kpi icon={SparklesIcon} label="Nock ตอบเอง" value={count("ai")} tone="sky" onClick={() => { setStatus(status === "ai" ? "" : "ai") }} active={status === "ai"} />
         <Kpi icon={BookOpenCheckIcon} label="คลังความรู้" value={count("answered")} tone="emerald" onClick={() => { setStatus(status === "answered" ? "" : "answered") }} active={status === "answered"}
-          sub={votes.up + votes.down ? <span className="inline-flex items-center gap-1"><ThumbsUpIcon className="size-3 text-emerald-600" /> ช่วยได้ {Math.round((votes.up / (votes.up + votes.down)) * 100)}% ({votes.up + votes.down} โหวต)</span> : "ยังไม่มีโหวต"} />
+          sub={votes.up + votes.down ? <span className="inline-flex items-center gap-1"><ThumbsUpIcon className="size-3 text-success" /> ช่วยได้ {Math.round((votes.up / (votes.up + votes.down)) * 100)}% ({votes.up + votes.down} โหวต)</span> : "ยังไม่มีโหวต"} />
       </KpiRow>
 
       <Toolbar>
-        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count("unanswered") > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count("unanswered")}</span>}</> }, { value: "done", label: "Done" }]} />
+        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count("unanswered") > 0 && <span className="rounded-full bg-danger-soft px-1.5 text-xs text-danger-ink tabular-nums">{count("unanswered")}</span>}</> }, { value: "done", label: "Done" }]} />
         <ShowChip label="Done" on={showDone === "1" || show === "done"} count={filtered.filter((x) => x.status !== "unanswered").length} onChange={(v) => { setShowDone(v ? "1" : "0"); if (!v && show === "done") setShow("all"); setStatus("") }} />
       </Toolbar>
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคำถาม / คำตอบ / ผู้ถาม" />}>
@@ -161,11 +161,11 @@ function VoteButtons({ up, down, onVote, inline }: { up: ID[]; down: ID[]; onVot
   const mine = up.includes(me.id) ? true : down.includes(me.id) ? false : null
   const btns = (
     <>
-      <Button size="xs" variant="outline" className={cn(mine === true && "border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950")} onClick={() => report(onVote(mine === true ? null : true), mine === true ? "ยกเลิกโหวตแล้ว" : "โหวตว่าช่วยได้")}>
-        <ThumbsUpIcon className="text-emerald-600" /> {up.length}
+      <Button size="xs" variant="outline" className={cn(mine === true && "border-success bg-success-soft/40 text-success-ink")} onClick={() => report(onVote(mine === true ? null : true), mine === true ? "ยกเลิกโหวตแล้ว" : "โหวตว่าช่วยได้")}>
+        <ThumbsUpIcon className="text-success" /> {up.length}
       </Button>
-      <Button size="xs" variant="outline" className={cn(mine === false && "border-red-500 bg-red-50 text-red-800 dark:bg-red-950")} onClick={() => report(onVote(mine === false ? null : false), mine === false ? "ยกเลิกโหวตแล้ว" : "โหวตว่าไม่ช่วย")}>
-        <ThumbsDownIcon className="text-red-600" /> {down.length}
+      <Button size="xs" variant="outline" className={cn(mine === false && "border-danger bg-danger-soft/40 text-danger-ink")} onClick={() => report(onVote(mine === false ? null : false), mine === false ? "ยกเลิกโหวตแล้ว" : "โหวตว่าไม่ช่วย")}>
+        <ThumbsDownIcon className="text-danger" /> {down.length}
       </Button>
     </>
   )
@@ -181,7 +181,7 @@ function AnswerCard({ q, a, used, onEdit }: { q: NockQuestion; a: NockAnswer; us
   const mine = a.by === me.id
   const rate = helpfulRate(a)
   return (
-    <section className={cn("space-y-2 rounded-2xl p-3 ring-1", used ? "bg-emerald-50/70 ring-emerald-300 dark:bg-emerald-950/30 dark:ring-emerald-900" : "bg-card ring-foreground/10")}>
+    <section className={cn("space-y-2 rounded-2xl p-3 ring-1", used ? "bg-success-soft/50 ring-success/30" : "bg-card ring-foreground/10")}>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-medium">{staff.find((s) => s.id === a.by)?.nickname ?? "—"}{mine && " (คุณ)"}</span>
         <span className="text-muted-foreground">{fmtDate(toDateStr(new Date(a.at)))} {timeOf(a.at)} น.</span>
@@ -192,11 +192,11 @@ function AnswerCard({ q, a, used, onEdit }: { q: NockQuestion; a: NockAnswer; us
       <ImageGallery images={a.images} size="sm" />
       <div className="flex flex-wrap items-center gap-1.5">
         <VoteButtons up={a.votesUp} down={a.votesDown} onVote={(v) => vote(q.id, a.id, v)} inline />
-        {rate !== null && <span className={cn("text-xs font-medium", rate >= 0.7 ? "text-emerald-700" : rate >= 0.4 ? "text-amber-700" : "text-red-700")}>ช่วยได้ {Math.round(rate * 100)}%</span>}
+        {rate !== null && <span className={cn("text-xs font-medium", rate >= 0.7 ? "text-success" : rate >= 0.4 ? "text-warning" : "text-danger")}>ช่วยได้ {Math.round(rate * 100)}%</span>}
         {mine && (
           <span className="ml-auto flex gap-1">
             <Button size="xs" variant="ghost" onClick={onEdit}><PencilIcon /> แก้</Button>
-            <Button size="xs" variant="ghost" className="text-red-700" onClick={() => report(remove(q.id, a.id), "ลบคำตอบแล้ว")}><TrashIcon /> ลบ</Button>
+            <Button size="xs" variant="ghost" className="text-danger" onClick={() => report(remove(q.id, a.id), "ลบคำตอบแล้ว")}><TrashIcon /> ลบ</Button>
           </span>
         )}
       </div>
@@ -247,8 +247,8 @@ function QuestionPanel({ id, onClose }: { id: ID; onClose: () => void }) {
         ]} />
         <ImageGallery images={x.images} />
         {!x.manual && (
-          <section className="space-y-1.5 rounded-2xl bg-sky-50/70 p-3 ring-1 ring-sky-200 dark:bg-sky-950/40 dark:ring-sky-900">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-sky-800 dark:text-sky-200"><SparklesIcon className="size-3.5" /> Nock ตอบ{x.aiSource && ` · จาก${x.aiSource === "ai" ? " AI" : x.aiSource === "knowledge" ? "คลังความรู้" : "คู่มือระบบ"}`}</p>
+          <section className="space-y-1.5 rounded-2xl bg-info-soft/50 p-3 ring-1 ring-info/30">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-info-ink"><SparklesIcon className="size-3.5" /> Nock ตอบ{x.aiSource && ` · จาก${x.aiSource === "ai" ? " AI" : x.aiSource === "knowledge" ? "คลังความรู้" : "คู่มือระบบ"}`}</p>
             <p className="text-sm whitespace-pre-line">{x.aiAnswer || "Nock ไม่รู้คำตอบ"}</p>
             {x.aiAnswer && <VoteButtons up={x.aiVotesUp ?? []} down={x.aiVotesDown ?? []} onVote={(v) => voteAi(x.id, v)} />}
           </section>

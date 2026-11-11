@@ -99,7 +99,7 @@ export function BroadcastDialog({ conversations, onClose }: { conversations: Con
                     className={cn("rounded-full border px-3 py-1 text-xs", audience === a ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted")}>{AUDIENCE[a]}</button>
                 ))}
               </div>
-              <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">{targets.length} แชท{live > 0 && <> · <RadioIcon className="size-3 text-sky-600" /> LINE จริง {live}</>}</p>
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">{targets.length} แชท{live > 0 && <> · <RadioIcon className="size-3 text-info" /> LINE จริง {live}</>}</p>
             </div>
             <Textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="เช่น แจ้งหยุดเรียนวันที่ 23 ต.ค. (วันปิยมหาราช) ค่ะ 🙏" />
           </div>

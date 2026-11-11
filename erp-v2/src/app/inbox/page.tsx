@@ -429,7 +429,7 @@ export default function InboxPage() {
                   </div>
                 )}
                 {/* one rounded box: + · text · send (Claude-style) */}
-                <div className={cn("flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60", isNote && "border-amber-400 bg-amber-50 dark:bg-amber-950/30")}>
+                <div className={cn("flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60", isNote && "border-warning bg-warning-soft/60")}>
                   {/* owner 2026-10-05: "+" before the type bar — send a form or a photo into this chat */}
                   <DropdownMenu>
                     <DropdownMenuTrigger render={<Button size="icon" variant="ghost" className="rounded-full text-muted-foreground" aria-label="แนบฟอร์ม / รูปภาพ" />}><PlusIcon /></DropdownMenuTrigger>
@@ -497,7 +497,7 @@ export default function InboxPage() {
                 <div className="flex items-center justify-between px-3 text-2xs text-muted-foreground">
                   <span>พิมพ์ <code className="rounded bg-muted px-1">{"//"}</code> ขึ้นต้น = โน้ตภายใน ผู้ปกครองไม่เห็น</span>
                   {isLive(selected.id) ? (
-                    <span className="inline-flex items-center gap-1 text-sky-700"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
+                    <span className="inline-flex items-center gap-1 text-info"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
                   ) : (
                     <button className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
                       <SparklesIcon className="size-3" /> จำลองข้อความจากผู้ปกครอง
@@ -584,7 +584,7 @@ function Sent({ at }: { at?: string }) {
   if (!at) return null
   return (
     <HoverCard>
-      <HoverCardTrigger render={<span role="img" aria-label="ส่งแล้ว" className="ml-auto grid size-5 shrink-0 place-items-center pl-3" />}><CheckCircle2Icon className="size-4 text-emerald-600" /></HoverCardTrigger>
+      <HoverCardTrigger render={<span role="img" aria-label="ส่งแล้ว" className="ml-auto grid size-5 shrink-0 place-items-center pl-3" />}><CheckCircle2Icon className="size-4 text-success" /></HoverCardTrigger>
       <HoverCardContent side="right" className="w-auto px-3 py-1.5 text-xs"><span className="block">ส่งแล้ว {fmtDate(at.slice(0, 10))}</span><span className="block text-muted-foreground">กดเพื่อส่งใหม่</span></HoverCardContent>
     </HoverCard>
   )

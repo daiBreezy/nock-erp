@@ -30,20 +30,20 @@ export interface TripRowData { branch: Branch; plan: { trips: TripPlan[] }; trip
 export function tripColumns(isOpen: (id: string) => boolean): Column<TripRowData>[] {
   return [
     { id: "open", label: "", width: "44px", required: true, cell: ({ trip: t }) => <span className="grid size-7 place-items-center rounded-lg bg-muted text-muted-foreground">{isOpen(t.id) ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}</span> },
-    { id: "van", label: "รถ", width: "150px", required: true, cell: ({ trip: t, branch }) => t.vehicle ? <VanBadge index={Math.max(0, (branch.vehicles ?? []).findIndex((v) => v.id === t.vehicle?.id))} name={t.vehicle.name} plate={t.vehicle.plate} /> : <span className="text-xs text-amber-700">ยังไม่ได้เลือกรถ</span> },
+    { id: "van", label: "รถ", width: "150px", required: true, cell: ({ trip: t, branch }) => t.vehicle ? <VanBadge index={Math.max(0, (branch.vehicles ?? []).findIndex((v) => v.id === t.vehicle?.id))} name={t.vehicle.name} plate={t.vehicle.plate} /> : <span className="text-xs text-warning">ยังไม่ได้เลือกรถ</span> },
     { id: "time", label: "เวลาเที่ยว", width: "150px", cell: ({ trip: t }) => {
       const late = t.late && t.late > 0 ? t.late : null
       return (
         <span className="block">
           <span className="block font-medium tabular-nums">{`${t.depart} → ${t.finish}`}{t.departFixed && <span className="ml-1 text-2xs font-normal text-primary">ตั้งเอง</span>}</span>
-          {t.startedAt && <span className="block text-xs text-emerald-700 tabular-nums">{`ออกจริง ${t.startedAt}${t.finishedAt ? ` · จบ ${t.finishedAt}` : ""}`}</span>}
-          <span className="block text-xs text-muted-foreground">{`${t.minutes} นาที`}{late && <span className="font-medium text-red-600">{` +${late}`}</span>}{t.round.name ? ` · ${t.round.name}` : ""}{t.extra ? " · เที่ยวพิเศษ" : ""}{t.timeChanged ? " · เวลาเปลี่ยนวันนี้" : ""}</span>
+          {t.startedAt && <span className="block text-xs text-success tabular-nums">{`ออกจริง ${t.startedAt}${t.finishedAt ? ` · จบ ${t.finishedAt}` : ""}`}</span>}
+          <span className="block text-xs text-muted-foreground">{`${t.minutes} นาที`}{late && <span className="font-medium text-danger">{` +${late}`}</span>}{t.round.name ? ` · ${t.round.name}` : ""}{t.extra ? " · เที่ยวพิเศษ" : ""}{t.timeChanged ? " · เวลาเปลี่ยนวันนี้" : ""}</span>
         </span>
       )
     } },
     // owner 2026-10-19: "รอบรถแต่ละรอบ ต้องบอกได้ด้วยว่า ระยะทางเท่าไร"
     { id: "km", label: "ระยะทาง", width: "84px", align: "right", cell: ({ trip: t }) => <span className="tabular-nums">{t.stops.some((x) => x.rider.loc) ? `${t.km} กม.` : "—"}</span> },
-    { id: "pax", label: "ผู้โดยสาร", width: "90px", cell: ({ trip: t }) => <span className={cn("flex items-center gap-1 tabular-nums", t.used > t.seats && "font-semibold text-red-700")}><UserIcon className="size-3.5 text-muted-foreground" />{`${t.used}/${t.seats}`}</span> },
+    { id: "pax", label: "ผู้โดยสาร", width: "90px", cell: ({ trip: t }) => <span className={cn("flex items-center gap-1 tabular-nums", t.used > t.seats && "font-semibold text-danger")}><UserIcon className="size-3.5 text-muted-foreground" />{`${t.used}/${t.seats}`}</span> },
     { id: "zone", label: "โซน", width: "64px", cell: ({ trip: t, branch }) => { const zones = branch.busZones ?? []; const zone = zones.find((z) => z.id === t.zoneIds[0]); return <ZoneChip zone={zone} index={zones.indexOf(zone!)} /> } },
     { id: "driver", label: "คนขับ", width: "170px", cell: ({ trip: t }) => <DriverCell d={t.driver} changed={t.driverChanged} /> },
     { id: "type", label: "ประเภท", width: "80px", cell: ({ trip: t }) => <TripTypeChip kind={t.round.kind} short /> },
@@ -100,15 +100,15 @@ export function TripDetail({ r }: { r: TripRowData }) {
   const cancelled = t.status === "cancelled"
   return (
     <div className="space-y-2 bg-muted/20 px-4 py-3">
-      {t.warnings.length > 0 && !cancelled && <p className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{t.warnings.join(" · ")}</p>}
+      {t.warnings.length > 0 && !cancelled && <p className="rounded-xl bg-warning-soft/60 px-3 py-1.5 text-xs text-warning-ink">{t.warnings.join(" · ")}</p>}
       {!cancelled && <TripTimes t={t} />}
       {!cancelled && t.stops.length > 1 && (
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {t.orderCustom ? <>
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900"><PencilIcon className="size-3" />Admin จัดลำดับเอง</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning-ink"><PencilIcon className="size-3" />Admin จัดลำดับเอง</span>
             <Button size="xs" variant="outline" onClick={() => report(s.setTripOrder(t.round.id, t.date, []), "ใช้ลำดับที่ระบบแนะนำแล้ว — เวลาแต่ละจุดคำนวณใหม่")}><RotateCcwIcon /> ใช้ลำดับที่ระบบแนะนำ</Button>
           </> : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 font-medium text-sky-800"><RouteIcon className="size-3" />{
+            <span className="inline-flex items-center gap-1 rounded-full bg-info-soft px-2 py-0.5 font-medium text-info-ink"><RouteIcon className="size-3" />{
               t.round.kind === "pickup" ? "ลำดับที่ระบบแนะนำ: บ้านไกลสุดก่อน แล้วขยับเข้ามาจนถึงสาขา"
                 : t.round.kind === "dropoff" ? "ลำดับที่ระบบแนะนำ: ออกจากสาขา ส่งบ้านใกล้ก่อน ไล่ออกไปจนถึงบ้านไกลสุด"
                   : "ลำดับที่ระบบแนะนำ: ส่งก่อน (ใกล้ → ไกล) แล้วรับกลับ (ไกลสุด → สาขา)"
@@ -130,17 +130,17 @@ export function TripDetail({ r }: { r: TripRowData }) {
               {t.stops.map((x, i) => (
                 <tr key={x.key} draggable={edit} onDragStart={() => setDrag(x.key)} onDragOver={(e) => edit && e.preventDefault()} onDrop={() => { if (drag) reorder(drag, x.key); setDrag(null) }}
                   className={cn("border-b last:border-0", x.status === "otw" && "bg-primary/5", drag === x.key && "opacity-50")}>
-                  <td className={STOP_TD}>{edit ? <GripVerticalIcon className="size-4 cursor-grab text-muted-foreground" /> : <span className={cn("grid size-6 place-items-center rounded-full text-xs font-semibold", x.status === "done" ? "bg-emerald-100 text-emerald-700" : "bg-primary/10 text-primary")}>{i + 1}</span>}</td>
+                  <td className={STOP_TD}>{edit ? <GripVerticalIcon className="size-4 cursor-grab text-muted-foreground" /> : <span className={cn("grid size-6 place-items-center rounded-full text-xs font-semibold", x.status === "done" ? "bg-success-soft text-success-ink" : "bg-primary/10 text-primary")}>{i + 1}</span>}</td>
                   <td className={STOP_TD}>
                     <span className="flex items-center gap-2">
                       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">{x.rider.nickname.slice(0, 1)}</span>
-                      <span className="min-w-0"><span className="flex items-center gap-1.5 font-medium whitespace-nowrap">{x.rider.nickname}{x.rider.adult && <span className="inline-flex items-center gap-0.5 rounded-full bg-red-50 px-1.5 py-0.5 text-2xs font-medium text-red-700"><UserIcon className="size-3" />+ผู้ปกครอง</span>}</span><span className="block text-xs whitespace-nowrap text-muted-foreground">{x.rider.name}</span></span>
+                      <span className="min-w-0"><span className="flex items-center gap-1.5 font-medium whitespace-nowrap">{x.rider.nickname}{x.rider.adult && <span className="inline-flex items-center gap-0.5 rounded-full bg-danger-soft/60 px-1.5 py-0.5 text-2xs font-medium text-danger"><UserIcon className="size-3" />+ผู้ปกครอง</span>}</span><span className="block text-xs whitespace-nowrap text-muted-foreground">{x.rider.name}</span></span>
                     </span>
                   </td>
                   <td className={cn(STOP_TD, "text-center")}><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", gradeTone(x.rider.grade))}>{x.rider.grade}</span></td>
                   <td className={cn(STOP_TD, "text-xs")}>
                     {x.rider.loc ? <><span className="flex items-center gap-1 text-sm"><MapPinIcon className="size-3 shrink-0 text-muted-foreground" />{x.rider.addressNote ?? x.rider.familyName}</span><span className="block text-muted-foreground">{[x.rider.address, x.km !== null && `${x.km} กม.`].filter(Boolean).join(" · ")}</span></>
-                      : <span className="inline-flex items-center gap-1 text-amber-700"><MapPinOffIcon className="size-3" />ยังไม่ปักหมุดบ้าน</span>}
+                      : <span className="inline-flex items-center gap-1 text-warning"><MapPinOffIcon className="size-3" />ยังไม่ปักหมุดบ้าน</span>}
                   </td>
                   <td className={STOP_TD}><TripTypeChip kind={x.rider.leg} short /></td>
                   <td className={cn(STOP_TD, "tabular-nums")}>
@@ -150,12 +150,12 @@ export function TripDetail({ r }: { r: TripRowData }) {
                   </td>
                   <td className={cn(STOP_TD, "tabular-nums")}>
                     <EditCell kind="time" value={x.checkIn ?? ""} placeholder="—"
-                      display={x.checkIn ? <span className={cn("font-medium", x.late && x.late > 0 ? "text-red-600" : "text-emerald-700")}>{x.checkIn}{x.late && x.late > 0 ? <span className="text-xs font-normal">{` +${x.late}`}</span> : null}</span> : undefined}
+                      display={x.checkIn ? <span className={cn("font-medium", x.late && x.late > 0 ? "text-danger" : "text-success")}>{x.checkIn}{x.late && x.late > 0 ? <span className="text-xs font-normal">{` +${x.late}`}</span> : null}</span> : undefined}
                       onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "in", stopKey: x.key }, v || null), v ? `${x.rider.nickname} · ถึง ${v}` : "ล้างเวลาแล้ว")} />
                   </td>
                   <td className={cn(STOP_TD, "tabular-nums")}>
                     <EditCell kind="time" value={x.checkOut ?? ""} placeholder="—"
-                      display={x.checkOut ? <span className={cn("font-medium", x.status === "noshow" ? "text-muted-foreground line-through" : "text-emerald-700")}>{x.checkOut}{x.manual && <span title="Admin ใส่เวลาเอง" className="ml-1 text-2xs font-normal text-muted-foreground">(แอดมิน)</span>}</span> : undefined}
+                      display={x.checkOut ? <span className={cn("font-medium", x.status === "noshow" ? "text-muted-foreground line-through" : "text-success")}>{x.checkOut}{x.manual && <span title="Admin ใส่เวลาเอง" className="ml-1 text-2xs font-normal text-muted-foreground">(แอดมิน)</span>}</span> : undefined}
                       onSave={(v) => report(s.setTripActual(t.round.id, t.date, { field: "out", stopKey: x.key }, v || null), v ? `${x.rider.nickname} · ${x.rider.leg === "pickup" ? "รับแล้ว" : "ส่งแล้ว"} ${v}` : "ล้างเวลาแล้ว")} />
                   </td>
                   <td className={cn(STOP_TD, "text-right")}><StopStatusChip s={x.status} /></td>

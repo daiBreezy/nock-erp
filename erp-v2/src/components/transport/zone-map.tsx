@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react"
 type LatLng = { lat: number; lng: number }
 
 export const ZONE_HEX: Record<string, string> = { sky: "#0284c7", amber: "#d97706", emerald: "#059669", violet: "#7c3aed", rose: "#e11d48", teal: "#0d9488" }
+// eslint-disable-next-line no-restricted-syntax -- ds-exception: one colour per transport zone (identity palette), not status
 export const ZONE_DOT: Record<string, string> = { sky: "bg-sky-500", amber: "bg-amber-500", emerald: "bg-emerald-500", violet: "bg-violet-500", rose: "bg-rose-500", teal: "bg-teal-500" }
 
 /** a point `km` away from `o` in direction `deg` (clockwise from north) */

@@ -305,7 +305,7 @@ function ActivityButton({ items, today }: { items: Activity[]; today: string }) 
                 const Icon = e.tone === "green" ? BanknoteIcon : e.tone === "red" ? XCircleIcon : CheckCircle2Icon
                 return (
                   <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm">
-                    <span className={cn("grid size-6 shrink-0 place-items-center rounded-md", e.tone === "green" ? "bg-emerald-100 text-emerald-700" : e.tone === "red" ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-700")}><Icon className="size-3.5" /></span>
+                    <span className={cn("grid size-6 shrink-0 place-items-center rounded-md", e.tone === "green" ? "bg-success-soft text-success-ink" : e.tone === "red" ? "bg-danger-soft text-danger-ink" : "bg-info-soft text-info-ink")}><Icon className="size-3.5" /></span>
                     <span className="min-w-0 flex-1 truncate">{e.text}</span>
                     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{timeOf(e.at)}</span>
                   </div>

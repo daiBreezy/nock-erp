@@ -97,12 +97,13 @@ export function DriverApp({ token, demo }: { token: string; demo?: boolean }) {
               className={cn("block w-full space-y-3 rounded-3xl bg-background p-4 text-left shadow-sm ring-1 ring-foreground/10", p.finished && "bg-muted/60", p.started && !p.finished && "ring-2 ring-primary")}>
               {/* top row, centred: type · trip · status + chevron side by side (owner 2026-10-20) */}
               <span className="flex items-center gap-3">
+                {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity tile (P ฟ้า · D เหลือง · P+D เขียว), same family as transport/labels */}
                 <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl text-lg font-bold", t.kind === "dropoff" ? "bg-amber-200 text-amber-950" : t.kind === "pickup" ? "bg-sky-200 text-sky-950" : "bg-emerald-200 text-emerald-950")}>{t.kind === "pickup" ? "P" : t.kind === "dropoff" ? "D" : "P+D"}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-lg leading-tight font-semibold">{`${KIND[t.kind]} ${t.time}`}</span>
                   {t.name && <span className="block truncate text-sm text-foreground/70">{t.name}</span>}
                 </span>
-                <span className={cn("shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap", p.finished ? "bg-emerald-600 text-white" : p.started ? "bg-red-600 text-white" : "bg-foreground/10 text-foreground/80")}>
+                <span className={cn("shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold whitespace-nowrap", p.finished ? "bg-success text-white" : p.started ? "bg-danger text-white" : "bg-foreground/10 text-foreground/80")}>
                   {p.finished ? `เสร็จ ${hhmm(p.finished.at)}` : p.started ? `กำลังวิ่ง ${p.done}/${t.stops.length}` : "ยังไม่เริ่ม"}
                 </span>
                 <ChevronRightIcon className="size-6 shrink-0 text-foreground/50" />
@@ -162,16 +163,16 @@ function RouteStrip({ t, p, speed }: { t: Trip; p: ReturnType<typeof progress>; 
   const at = `calc(16px + ${q} * (100% - 32px))`
   return (
     <div key={prev} className="animate-in duration-500 fade-in">
-      <div className="relative h-8 overflow-hidden rounded-full bg-sky-300/70">
+      <div className="relative h-8 overflow-hidden rounded-full bg-info/30">
         <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear" style={{ width: `min(100%, calc(${at} + 24px))`, background: "linear-gradient(90deg, #4a93d3, #2a5a82)" }} />
         {/* the van (public/brand/van-top.png) is hidden — owner 2026-11-09; put the <img> back here to show it again */}
         {ends.map((nd, i) => (
-          <span key={i} className={cn("absolute z-10 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-sm font-semibold", i === 0 ? "left-1 bg-sky-100 text-sky-600" : "right-1 bg-sky-500 text-white")}>
+          <span key={i} className={cn("absolute z-10 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-sm font-semibold", i === 0 ? "left-1 bg-info-soft text-info" : "right-1 bg-info text-white")}>
             {nd.icon ? <nd.icon className="size-3.5" /> : (nd as { n: number }).n}
           </span>
         ))}
       </div>
-      <div className="mt-1.5 flex justify-between gap-3 text-xs text-sky-900">
+      <div className="mt-1.5 flex justify-between gap-3 text-xs text-info-ink">
         <span className="min-w-0 truncate">{ends[0].label}</span>
         <span className="min-w-0 truncate text-right">{ends[1].label}</span>
       </div>
@@ -190,7 +191,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
     p.finished ? { left: { label: "กลับไปรายการ", icon: ArrowLeftIcon, onClick: onBack, tone: "neutral" } }
       : !p.started ? { left: { label: "กลับ", icon: ArrowLeftIcon, onClick: onBack, tone: "neutral" }, right: { label: t.kind === "pickup" ? "เริ่มวิ่ง" : `เริ่มวิ่ง — ออกจาก${t.branchName}`, icon: PlayIcon, onClick: () => onTap("start"), tone: "bg-primary text-primary-foreground" } }
         : cur ? { left: { label: "ไม่มา", icon: UserXIcon, onClick: () => onTap("noshow", cur.key), tone: "danger" }, right: curIn
-          ? { label: `${verb(cur)}${cur.nickname}แล้ว`, icon: CheckIcon, onClick: () => onTap("done", cur.key), tone: "bg-emerald-600 text-white" }
+          ? { label: `${verb(cur)}${cur.nickname}แล้ว`, icon: CheckIcon, onClick: () => onTap("done", cur.key), tone: "bg-success text-white" }
           : { label: `ถึงบ้าน${cur.nickname}แล้ว`, icon: MapPinCheckIcon, onClick: () => onTap("arrive", cur.key), tone: "bg-violet-600 text-white" } }
           : { left: { label: "แก้ล่าสุด", icon: RotateCcwIcon, onClick: () => p.lastMarked && onTap("undo", p.lastMarked), tone: "neutral" }, right: { label: t.kind === "pickup" ? `ถึง${t.branchName}แล้ว — จบเที่ยว` : `กลับถึง${t.branchName} — คืนกุญแจ`, icon: FlagIcon, onClick: () => onTap("finish"), tone: "bg-primary text-primary-foreground" } }
   const navAll = t.stops.filter((s) => s.loc)
@@ -203,7 +204,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
             <p className="font-semibold">{`${KIND[t.kind]} ${t.time}`}{t.name ? <span className="font-normal text-muted-foreground">{` · ${t.name}`}</span> : null}</p>
             <p className="truncate text-xs text-muted-foreground">{`${t.vehicle ? `${t.vehicle.name} · ${t.vehicle.plate} · ` : ""}${t.used}/${t.seats} ที่${t.km ? ` · ${t.km} กม.` : ""}`}</p>
           </div>
-          <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-medium", p.finished ? "bg-emerald-100 text-emerald-800" : p.started ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground")}>
+          <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-medium", p.finished ? "bg-success-soft text-success-ink" : p.started ? "bg-danger-soft text-danger-ink" : "bg-muted text-muted-foreground")}>
             {p.finished ? `เสร็จ ${hhmm(p.finished.at)}` : p.started ? `${p.done}/${t.stops.length}` : "ยังไม่เริ่ม"}
           </span>
         </div>
@@ -211,24 +212,25 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
 
       <main className="space-y-3 p-3">
         {/* the stop to go to now — big, with call / navigate */}
-        <section className="relative isolate -mx-3 -mt-3 space-y-4 bg-sky-100 p-5 text-sky-950">
+        <section className="relative isolate -mx-3 -mt-3 space-y-4 bg-info-soft p-5 text-info-ink">
           <RouteStrip t={t} p={p} speed={speed} />
           {cur && (<div className="space-y-3">
-            <p className="text-sm font-medium text-sky-800">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
+            <p className="text-sm font-medium text-info-ink">{curIn ? `ถึงแล้ว ${hhmm(curIn.at)} — รอ${verb(cur)}เด็ก` : "ไปที่นี่ต่อ"}</p>
             <div>
               <p className="flex flex-wrap items-center gap-1.5 text-xl font-semibold">
+                {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity pill (รับ/ส่ง) */}
                 <span className={cn("rounded-full px-2 py-0.5 text-xs", cur.leg === "pickup" ? "bg-white text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(cur)}</span>
-                {cur.nickname} <span className="text-sm font-normal text-sky-800">{cur.grade}</span>
+                {cur.nickname} <span className="text-sm font-normal text-info-ink">{cur.grade}</span>
                 {cur.adult && <span className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 text-xs font-normal text-violet-800"><UserIcon className="size-3" />+ผู้ปกครอง</span>}
               </p>
-              <Address className="mt-1 text-base text-sky-950 [&_button]:text-sky-900 [&_button]:underline" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
+              <Address className="mt-1 text-base text-info-ink [&_button]:text-info-ink [&_button]:underline" text={[cur.addressNote, cur.address].filter(Boolean).join(" · ")} />
               <p className="mt-1 text-base font-medium tabular-nums">{`ประมาณ ${cur.eta ?? "—"}`}</p>
             </div>
             {/* owner 2026-10-20: "ยังไม่ถึง" is a proper button on the same line as call / navigate */}
             <div className={cn("grid gap-2", curIn ? "grid-cols-3" : "grid-cols-2")}>
-              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-sky-300 bg-white/70 text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
-              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-sky-300 bg-white/70 text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
-              {curIn && <button type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-amber-300 bg-amber-50 text-sm font-medium text-amber-900 disabled:opacity-50"><RotateCcwIcon className="size-4 shrink-0" />ยังไม่ถึง</button>}
+              {cur.phone ? <a href={`tel:${cur.phone.replace(/[^0-9+]/g, "")}`} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-info/40 bg-white/70 text-sm font-medium"><PhoneIcon className="size-4 shrink-0" />{curIn ? "โทร" : "โทรผู้ปกครอง"}</a> : <span />}
+              {cur.loc ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${cur.loc.lat},${cur.loc.lng}`} target="_blank" rel="noreferrer" className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-info/40 bg-white/70 text-sm font-medium"><NavigationIcon className="size-4 shrink-0" />นำทาง</a> : <span />}
+              {curIn && <button type="button" disabled={busy} onClick={() => onTap("undo", cur.key)} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-warning/40 bg-warning-soft/60 text-sm font-medium text-warning-ink disabled:opacity-50"><RotateCcwIcon className="size-4 shrink-0" />ยังไม่ถึง</button>}
             </div>
           </div>)}
         </section>
@@ -245,15 +247,16 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                 <li key={s.key} className={cn("px-4 py-3", now && "bg-primary/10 shadow-[inset_4px_0_0_var(--primary)]", out && "bg-muted/50")}>
                   <div className="flex items-center gap-3">
                     <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold",
-                      out?.type === "done" ? "bg-emerald-500 text-white" : out?.type === "noshow" ? "bg-red-100 text-red-700" : now ? "bg-primary text-primary-foreground" : "bg-muted")}>
+                      out?.type === "done" ? "bg-success text-white" : out?.type === "noshow" ? "bg-danger-soft text-danger-ink" : now ? "bg-primary text-primary-foreground" : "bg-muted")}>
                       {out?.type === "done" ? <CheckIcon className="size-4" /> : out?.type === "noshow" ? <UserXIcon className="size-4" /> : i + 1}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 font-medium">
+                        {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: bus-leg identity pill (รับ/ส่ง) */}
                         <span className={cn("shrink-0 rounded-full px-1.5 text-2xs", s.leg === "pickup" ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900")}>{verb(s)}</span>
                         <span className="truncate">{s.nickname}</span>
                         {s.adult && <UserIcon className="size-3.5 shrink-0 text-violet-700" />}
-                        {out?.type === "noshow" && <span className="shrink-0 rounded-full bg-red-50 px-1.5 text-2xs text-red-700">ไม่มา</span>}
+                        {out?.type === "noshow" && <span className="shrink-0 rounded-full bg-danger-soft/60 px-1.5 text-2xs text-danger">ไม่มา</span>}
                       </span>
                       <Address className="text-sm text-foreground/75" text={[s.addressNote, s.address].filter(Boolean).join(" · ")} />
                     </span>
@@ -262,7 +265,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
                   <div className="mt-2 ml-11 grid grid-cols-3 divide-x text-center">
                     <TimeCell label="ประมาณ" value={s.eta ?? "—"} />
                     <TimeCell label="Check in" value={inn ? hhmm(inn.at) : "—"} tone={inn ? "bg-violet-600 text-white" : undefined} />
-                    <TimeCell label={out?.type === "noshow" ? "ไม่มา" : "Check out"} value={out ? hhmm(out.at) : "—"} tone={out ? (out.type === "noshow" ? "bg-red-600 text-white" : "bg-emerald-600 text-white") : undefined} />
+                    <TimeCell label={out?.type === "noshow" ? "ไม่มา" : "Check out"} value={out ? hhmm(out.at) : "—"} tone={out ? (out.type === "noshow" ? "bg-danger text-white" : "bg-success text-white") : undefined} />
                   </div>
                 </li>
               )
@@ -282,7 +285,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
         {/* owner 2026-10-20: left 30% · right 70% */}
         <div className={cn("grid gap-3", bar.right ? "grid-cols-[3fr_7fr]" : "grid-cols-1")}>
           <button type="button" disabled={busy} onClick={bar.left.onClick}
-            className={cn("flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 px-1 text-sm font-semibold disabled:opacity-50", bar.left.tone === "danger" ? "border-red-300 text-red-700" : "border-foreground/15")}>
+            className={cn("flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 px-1 text-sm font-semibold disabled:opacity-50", bar.left.tone === "danger" ? "border-danger/40 text-danger" : "border-foreground/15")}>
             <bar.left.icon className="size-5 shrink-0" /><span className="max-w-full truncate">{bar.left.label}</span>
           </button>
           {bar.right && (
@@ -300,7 +303,7 @@ function TripView({ t, events, busy, onBack, onTap, speed }: { t: Trip; events: 
 function EndRow({ icon, title, label, time, done }: { icon: React.ReactNode; title: string; label: string; time: string; done: boolean }) {
   return (
     <li className="flex items-center gap-3 px-4 py-3">
-      <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", done ? "bg-emerald-500 text-white" : "bg-foreground text-background")}>{icon}</span>
+      <span className={cn("grid size-8 shrink-0 place-items-center rounded-full", done ? "bg-success text-white" : "bg-foreground text-background")}>{icon}</span>
       <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
       <span className="shrink-0 text-right"><span className="block text-sm font-semibold tabular-nums">{time}</span><span className="block text-2xs text-muted-foreground">{label}</span></span>
     </li>
@@ -310,7 +313,8 @@ function EndRow({ icon, title, label, time, done }: { icon: React.ReactNode; tit
 /** one of a stop's three times — estimate / check in / check out */
 function TimeCell({ label, value, tone }: { label: string; value: string; tone?: string }) {
   // owner 2026-11-06: no boxes — plain text with a divider between; a time that's in takes the colour of its meaning
-  const color = tone?.includes("violet") ? "text-violet-700" : tone?.includes("red") ? "text-red-700" : tone?.includes("emerald") ? "text-emerald-700" : ""
+  // tones are DS tokens now (bg-danger / bg-success) — match on the token name, not the old Tailwind hue
+  const color = tone?.includes("violet") ? "text-violet-700" : tone?.includes("danger") ? "text-danger" : tone?.includes("success") ? "text-success" : ""
   return (
     <span className="px-1 py-0.5">
       <span className="block text-2xs font-medium text-foreground/60">{label}</span>

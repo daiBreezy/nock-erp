@@ -199,7 +199,7 @@ function TableDemo() {
     { id: "students", label: "นักเรียน", width: "96px", sort: "students", align: "right", className: "tabular-nums", info: "จำนวนนักเรียนที่ลงในคลาสนี้", cell: (r) => <span className="inline-flex items-center gap-1"><UsersIcon className="size-3.5 text-muted-foreground" />{r.students}</span> },
     { id: "teacher", label: "ครู", width: "130px", sort: "teacher", cell: (r) => r.teacher },
     { id: "room", label: "ห้อง", width: "90px", sort: "room", defaultHidden: true, cell: (r) => <span className="inline-flex items-center gap-1.5"><DoorOpenIcon className="size-4 text-muted-foreground" />{r.room}</span> },
-    { id: "status", label: "สถานะ", width: "100px", align: "right", cell: (r) => (r.active ? <span className="text-sm font-medium text-emerald-700">เปิดอยู่</span> : <span className="text-sm text-muted-foreground">ปิดแล้ว</span>) },
+    { id: "status", label: "สถานะ", width: "100px", align: "right", cell: (r) => (r.active ? <span className="text-sm font-medium text-success">เปิดอยู่</span> : <span className="text-sm text-muted-foreground">ปิดแล้ว</span>) },
   ]
   return (
     <div className="space-y-3">

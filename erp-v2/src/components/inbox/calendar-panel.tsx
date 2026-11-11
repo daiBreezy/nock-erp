@@ -122,7 +122,7 @@ function WeekView({ branchId, today }: { branchId: ID; today: string }) {
                         <span className="w-[5.5rem] shrink-0 tabular-nums">{s.start}–{fromMinutes(toMinutes(s.start) + s.minutes)}</span>
                         <span className="size-2 shrink-0 rounded-full" style={{ background: subjectHex(s.subject) }} />
                         <span className="min-w-0 flex-1 truncate">{k?.name ?? s.subject}{s.trial && " (ทดลอง)"} · {staff.find((t) => t.id === s.teacherId)?.nickname ?? "ยังไม่มีครู"}</span>
-                        <span className={cn("shrink-0 tabular-nums", s.studentIds.length >= cap ? "text-muted-foreground" : "text-emerald-700 dark:text-emerald-300")}>{s.studentIds.length}/{cap}</span>
+                        <span className={cn("shrink-0 tabular-nums", s.studentIds.length >= cap ? "text-muted-foreground" : "text-success")}>{s.studentIds.length}/{cap}</span>
                       </li>
                     )
                   })}

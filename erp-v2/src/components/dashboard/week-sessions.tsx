@@ -30,8 +30,8 @@ export function WeekSessions({ sessions, weekStart, today, markedCount }: { sess
             return (
               <Link key={date} href={`/calendar?view=day&date=${date}`}
                 className={cn("flex min-h-28 flex-col rounded-xl p-2 transition-colors hover:ring-2 hover:ring-primary/30",
-                  isToday ? "bg-red-50 dark:bg-red-950/50" : "bg-muted/40")}>
-                <div className={cn("mb-1.5 text-center text-2xs font-medium", isToday ? "text-red-700 dark:text-red-300" : "text-muted-foreground")}>
+                  isToday ? "bg-today-soft" : "bg-muted/40")}>
+                <div className={cn("mb-1.5 text-center text-2xs font-medium", isToday ? "text-danger" : "text-muted-foreground")}>
                   {fmtDate(date, { weekday: true })}{isToday && ` · ${tx("วันนี้")}`}
                 </div>
                 {of.length === 0 ? (
@@ -41,7 +41,7 @@ export function WeekSessions({ sessions, weekStart, today, markedCount }: { sess
                     <div className="flex flex-1 flex-col gap-1">
                       {of.slice(0, 6).map((s) => <span key={s.id} className={cn("h-1.5 rounded-full", subjectColor(s.subject).bar)} title={`${s.start} ${s.subject}`} />)}
                     </div>
-                    <div className={cn("mt-1.5 text-center text-base font-semibold tabular-nums", isToday ? "text-red-700 dark:text-red-300" : "text-foreground")}>{of.length}</div>
+                    <div className={cn("mt-1.5 text-center text-base font-semibold tabular-nums", isToday ? "text-danger" : "text-foreground")}>{of.length}</div>
                   </>
                 )}
               </Link>

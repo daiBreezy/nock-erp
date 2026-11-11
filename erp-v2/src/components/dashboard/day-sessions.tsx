@@ -40,9 +40,9 @@ export function DaySessions({ todays, now, attendance, mineOnly, progress, onOpe
         {/* one-line status summary — grasp the whole day even when it is long */}
         {todays.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1.5">
-            {live.length > 0 && <Stat tone="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200" label={tx("กำลังเรียน")} n={live.length} />}
+            {live.length > 0 && <Stat tone="bg-danger-soft text-danger-ink" label={tx("กำลังเรียน")} n={live.length} />}
             {upcoming.length > 0 && <Stat tone="bg-muted text-muted-foreground" label={tx("รอเริ่ม")} n={upcoming.length} />}
-            {past.length > 0 && <Stat tone="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" label={tx("จบแล้ว")} n={past.length} />}
+            {past.length > 0 && <Stat tone="bg-success-soft text-success-ink" label={tx("จบแล้ว")} n={past.length} />}
           </div>
         )}
         {progress && progress.attTotal > 0 && (
@@ -80,8 +80,8 @@ function Bar({ label, done, total }: { label: string; done: number; total: numbe
   const full = total > 0 && done === total
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">{label}</span><span className={cn("font-semibold tabular-nums", full ? "text-emerald-600" : "text-muted-foreground")}>{done}/{total}</span></div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full transition-all", full ? "bg-emerald-500" : "bg-primary")} style={{ width: `${pct}%` }} /></div>
+      <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">{label}</span><span className={cn("font-semibold tabular-nums", full ? "text-success" : "text-muted-foreground")}>{done}/{total}</span></div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full transition-all", full ? "bg-success" : "bg-primary")} style={{ width: `${pct}%` }} /></div>
     </div>
   )
 }
@@ -97,7 +97,7 @@ function Row({ s, now, L, attendance, onOpen, muted }: { s: Session; now: Date; 
       <div className="w-24 shrink-0 text-xs tabular-nums text-muted-foreground"><span className="text-sm font-semibold text-foreground">{s.start}</span>–{endTime(s.start, s.minutes)}</div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{sj(s.subject)}<KindChip s={s} className="ml-2" /></div>
-        <div className="truncate text-xs text-muted-foreground"><span className={cn(t.missing && "text-amber-700")}>{nm(t.label)}</span> · {nm(L.room(s.roomId))} {tx("· เช็คชื่อแล้ว")} {marked}/{s.studentIds.length}</div>
+        <div className="truncate text-xs text-muted-foreground"><span className={cn(t.missing && "text-warning")}>{nm(t.label)}</span> · {nm(L.room(s.roomId))} {tx("· เช็คชื่อแล้ว")} {marked}/{s.studentIds.length}</div>
       </div>
       {st === "live" ? <SessionStateBadge state={st} /> : <span className="shrink-0 text-xs text-muted-foreground">{tx(STATE_LABEL[st])}</span>}
     </button>

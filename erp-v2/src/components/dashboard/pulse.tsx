@@ -51,7 +51,7 @@ export function Pulse({ data }: { data: PulseData }) {
         </DashCard>
 
         <DashCard>
-          <CardHeader className="pb-2"><CardTitle className="flex items-baseline justify-between text-sm font-medium">{tx("เข้า − ออก")}<span className={cn("text-xs tabular-nums", net >= 0 ? "text-emerald-600" : "text-red-600")}>{tx("สุทธิ")} {net >= 0 ? "+" : ""}{net}</span></CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="flex items-baseline justify-between text-sm font-medium">{tx("เข้า − ออก")}<span className={cn("text-xs tabular-nums", net >= 0 ? "text-success" : "text-danger")}>{tx("สุทธิ")} {net >= 0 ? "+" : ""}{net}</span></CardTitle></CardHeader>
           <CardContent><InOutBars inCount={newCount} outCount={lostCount} /></CardContent>
         </DashCard>
 

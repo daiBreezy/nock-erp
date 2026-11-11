@@ -62,7 +62,7 @@ export function AiSettings() {
             : <Pill tone="gray">ยังไม่ได้ตั้งค่า — Nock ตอบจากคู่มือ + คลังความรู้</Pill>}
         {status?.maskedKey && <span className="text-xs text-muted-foreground">Key {status.maskedKey}{status.source === "env" && " (จากไฟล์ .env.local)"}</span>}
         {status?.configured && <Button size="xs" variant="ghost" disabled={!!busy} onClick={runTest}>{busy === "test" ? <LoaderCircleIcon className="animate-spin" /> : <PlugZapIcon />} ทดสอบการเชื่อมต่อ</Button>}
-        {test && <span className={cn("text-xs", test.ok ? "text-emerald-700" : "text-red-700")}>{test.text}</span>}
+        {test && <span className={cn("text-xs", test.ok ? "text-success" : "text-danger")}>{test.text}</span>}
       </div>
 
       <Field label="ผู้ให้บริการ">
@@ -87,7 +87,7 @@ export function AiSettings() {
         </Field>
       </div>
       <div className="mt-4 flex items-center gap-2">
-        {status?.source === "settings" && <Button size="sm" variant="ghost" className="text-red-700" disabled={!!busy} onClick={clear}><TrashIcon /> เอา key ออก</Button>}
+        {status?.source === "settings" && <Button size="sm" variant="ghost" className="text-danger" disabled={!!busy} onClick={clear}><TrashIcon /> เอา key ออก</Button>}
         <Button size="sm" className="ml-auto" disabled={!!busy || (!apiKey.trim() && !(status?.source === "settings" && status.provider === provider))} onClick={save}>
           {busy === "save" && <LoaderCircleIcon className="animate-spin" />} บันทึก
         </Button>

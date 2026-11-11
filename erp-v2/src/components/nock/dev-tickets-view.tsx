@@ -89,7 +89,7 @@ export function DevTicketsView({ creating, onCreated }: { creating: boolean; onC
         <Kpi icon={CheckCircle2Icon} label="เสร็จแล้ว" value={count(["done"])} tone="emerald" sub={count(["wont_do"]) ? `ไม่ทำ ${count(["wont_do"])} เรื่อง` : undefined} onClick={() => setStatus(status === "done" ? "" : "done")} active={status === "done"} />
       </KpiRow>
       <Toolbar>
-        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count(OPEN_STATUSES) > 0 && <span className="rounded-full bg-red-100 px-1.5 text-xs text-red-800 tabular-nums">{count(OPEN_STATUSES)}</span>}</> }, { value: "done", label: "Done" }]} />
+        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setStatus("") }} options={[{ value: "all", label: "All" }, { value: "pending", label: <>Pending{count(OPEN_STATUSES) > 0 && <span className="rounded-full bg-danger-soft px-1.5 text-xs text-danger-ink tabular-nums">{count(OPEN_STATUSES)}</span>}</> }, { value: "done", label: "Done" }]} />
         <ShowChip label="Done" on={showDone === "1" || show === "done"} count={count(DONE_STATUSES)} onChange={(v) => { setShowDone(v ? "1" : "0"); if (!v && show === "done") setShow("all"); setStatus("") }} />
         {status && <Button size="sm" variant="ghost" onClick={() => setStatus("")}>ดูทุกสถานะ</Button>}
       </Toolbar>
@@ -120,7 +120,7 @@ export function KindChip({ kind }: { kind: DevTicketKind }) {
   return <Pill tone={KIND_TONE[kind]}><Icon className="size-3" />{DEV_KIND_LABEL[kind]}</Pill>
 }
 
-const KIND_ICON_TONE: Record<DevTicketKind, string> = { bug: "bg-red-100 text-red-700", help: "bg-amber-100 text-amber-800", idea: "bg-violet-100 text-violet-700", question: "bg-sky-100 text-sky-700" }
+const KIND_ICON_TONE: Record<DevTicketKind, string> = { bug: "bg-danger-soft text-danger-ink", help: "bg-warning-soft text-warning-ink", idea: "bg-violet-100 text-violet-700", question: "bg-info-soft text-info-ink" }
 /** the kind as a small coloured icon (hover = its name) */
 function KindIcon({ kind }: { kind: DevTicketKind }) {
   const Icon = DEV_KIND_ICON[kind]

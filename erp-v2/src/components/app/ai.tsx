@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- ds-exception: this file IS the AI tone (AI = sky blue, owner rule) — an identity palette, not status */
 import { SparklesIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 

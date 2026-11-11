@@ -162,8 +162,8 @@ export default function TransportPage() {
                       <Button size="sm" variant="outline" className="ml-auto" onClick={() => setAdding({ date: d, branch: scope.length === 1 ? scope[0] : branch })}><PlusIcon /> เพิ่มเที่ยว</Button>
                     </div>
                     {issues.length > 0 && (
-                      <div className="space-y-1.5 rounded-2xl bg-amber-50 p-3 text-sm ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900">
-                        <p className="flex items-center gap-1.5 font-medium text-amber-900 dark:text-amber-100"><AlertTriangleIcon className="size-4" />{`ต้องตัดสินใจ ${issues.length}`}</p>
+                      <div className="space-y-1.5 rounded-2xl bg-warning-soft/60 p-3 text-sm ring-1 ring-warning/30">
+                        <p className="flex items-center gap-1.5 font-medium text-warning-ink"><AlertTriangleIcon className="size-4" />{`ต้องตัดสินใจ ${issues.length}`}</p>
                         {issues.map((x, j) => x.type === "u" ? (
                           <div key={`u${j}`} className="flex flex-wrap items-center gap-2 rounded-xl bg-background px-3 py-1.5">
                             <span className="min-w-0 flex-1"><span className="font-medium">{x.u.rider.nickname}</span><span className="text-muted-foreground">{` · ${x.u.kind === "pickup" ? "รับ" : "ส่ง"} · ${x.u.reason}`}</span></span>

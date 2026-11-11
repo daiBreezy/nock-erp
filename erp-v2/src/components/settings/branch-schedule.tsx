@@ -202,7 +202,7 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
             onRemove={() => guarded(p, "remove", () => setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== p.id) }))} />
         ))}
       </div>
-      {err && list.length > 0 && <p className="mt-2 text-xs text-red-700">{err}</p>}
+      {err && list.length > 0 && <p className="mt-2 text-xs text-danger">{err}</p>}
       <AlertDialog open={!!ask} onOpenChange={(o) => !o && setAsk(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -328,5 +328,5 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
 
 function PriorityIcon({ priority, dim }: { priority: PeriodPriority; dim?: boolean }) {
   const Icon = priority === "high" ? ChevronsUpIcon : priority === "medium" ? ChevronUpIcon : ChevronsDownIcon
-  return <Icon aria-label={`Priority ${tx(PRIORITY_LABEL[priority])}`} className={cn("size-4 shrink-0", priority === "high" ? "text-red-600" : priority === "medium" ? "text-amber-500" : "text-muted-foreground", dim && "opacity-40")} />
+  return <Icon aria-label={`Priority ${tx(PRIORITY_LABEL[priority])}`} className={cn("size-4 shrink-0", priority === "high" ? "text-danger" : priority === "medium" ? "text-warning" : "text-muted-foreground", dim && "opacity-40")} />
 }

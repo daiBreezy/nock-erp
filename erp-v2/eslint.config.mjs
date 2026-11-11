@@ -4,6 +4,8 @@ import nextTs from "eslint-config-next/typescript";
 
 // Design System guard rails (2026-11-10, Design System › กฎหน้าจอและด่านกันพลาด). Warnings for now — the existing
 // code still has spots to clean up; turn them into "error" once a rule reaches zero.
+// 2026-11-11: no-hardcoded-status-color reached 0 (DESIGN-SYSTEM.md round 6). All five rails share this ONE rule's
+// severity, so it stays "warn" until the other rails hit 0 too (or the status selector is split out) — don't let it regress.
 // A real exception: `// eslint-disable-next-line no-restricted-syntax -- ds-exception: <why>` (count them with
 // `grep -rn ds-exception src`; the same exception on 3 pages → move it into the shared component instead).
 const PX = "/-\\[\\d+(\\.\\d+)?px\\]/"

@@ -131,12 +131,12 @@ export function ThemeTuner() {
       <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10" style={{ background: t.pageBg2 ? `linear-gradient(135deg, ${t.pageBg}, ${t.pageBg2})` : t.pageBg }}>
         <div className="relative space-y-2 p-3">
           <span className="absolute -top-3 right-6 size-14 rounded-full bg-primary/40 blur-md" aria-hidden />
-          <span className="absolute bottom-0 left-4 size-10 rounded-full bg-sky-400/40 blur-md" aria-hidden />
+          <span className="absolute bottom-0 left-4 size-10 rounded-full bg-info/40 blur-md" aria-hidden />
           <div className="relative rounded-xl bg-card p-2.5 shadow-sm ring-1 ring-foreground/5">
             <p className="text-2xs text-muted-foreground">ตัวอย่างการ์ด</p>
             <p className="text-lg font-semibold tabular-nums">61 <span className="text-xs font-normal text-primary">นักเรียน</span></p>
           </div>
-          <div className="ai-aurora relative rounded-xl p-2.5"><p className="text-xs font-medium text-sky-800">✦ ตัวอย่างการ์ด AI</p></div>
+          <div className="ai-aurora relative rounded-xl p-2.5"><p className="text-xs font-medium text-info-ink">✦ ตัวอย่างการ์ด AI</p></div>
         </div>
       </div>
 
@@ -158,7 +158,7 @@ export function ThemeTuner() {
         <Slider label="ความทึบ" value={t.cardOpacity} min={20} max={100} unit="%" onChange={(cardOpacity) => set({ cardOpacity })} />
         <Slider label="เบลอด้านหลัง" value={t.cardBlur} min={0} max={30} unit="px" onChange={(cardBlur) => set({ cardBlur })} />
         <Slider label="เส้นขอบ" value={t.cardRing} min={0} max={30} unit="%" onChange={(cardRing) => set({ cardRing })} />
-        {t.cardOpacity < 100 && !t.pageBg2 && t.pageBg.toLowerCase() === "#ffffff" && <p className="text-2xs text-amber-700">การ์ดโปร่งบนพื้นขาวจะไม่เห็นความต่าง — ลองเปลี่ยนสีพื้นหลัง หรือใส่ &quot;ไล่สีไปที่&quot;</p>}
+        {t.cardOpacity < 100 && !t.pageBg2 && t.pageBg.toLowerCase() === "#ffffff" && <p className="text-2xs text-warning">การ์ดโปร่งบนพื้นขาวจะไม่เห็นความต่าง — ลองเปลี่ยนสีพื้นหลัง หรือใส่ &quot;ไล่สีไปที่&quot;</p>}
       </Group>
 
       <Group title="สีอื่น">

@@ -182,13 +182,13 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
             {c.grades.length === 0 ? <p className="text-sm text-muted-foreground">เลือกระดับชั้นก่อน เพื่อดึงราคาจากตารางของสาขา</p> : (
               <div className="space-y-2">
                 {chart.mixed && (
-                  <div className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">
+                  <div className="rounded-lg bg-warning-soft/60 p-2 text-xs text-warning-ink">
                     <p className="flex items-center gap-1 font-medium"><AlertTriangleIcon className="size-3.5" /> ระดับชั้นที่เลือกมีราคาในตารางไม่เท่ากัน — ควรแยกเป็นคนละคอร์ส</p>
                     <p className="mt-1">{chart.perGrade.map((g) => `${g.grade}: ${g.price === null ? "ไม่มีราคาในตาราง" : fmtMoney(g.price)}`).join(" · ")}</p>
                     <p>ถ้ายังรวมคอร์ส ให้ใส่ราคาเดียวที่จะเก็บด้านล่าง</p>
                   </div>
                 )}
-                {!chart.mixed && chart.price === null && <p className="text-xs text-amber-700">ยังไม่มีราคาในตารางของสาขาสำหรับแพ็กเกจนี้ — ใส่ราคาเอง</p>}
+                {!chart.mixed && chart.price === null && <p className="text-xs text-warning">ยังไม่มีราคาในตารางของสาขาสำหรับแพ็กเกจนี้ — ใส่ราคาเอง</p>}
                 <div className="flex items-center gap-2">
                   <Input className="w-40 text-right tabular-nums" type="number" min={0} step={50} value={c.price || ""} onChange={(e) => { setPriceTouched(true); setC({ ...c, price: Number(e.target.value) }) }} />
                   {chart.price !== null && (

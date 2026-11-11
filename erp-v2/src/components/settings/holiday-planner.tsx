@@ -41,9 +41,11 @@ type Draft = { id?: string; name: string; date: string; category: HolidayCategor
 const BRAND_LABEL: Record<Brand, string> = { nockacademy: "NA", liclass: "LI" }
 type Scope = "na" | "li" | "both" | "branch"
 const scopeOf = (h: Holiday): Scope => (h.branchId !== null ? "branch" : h.brand === "nockacademy" ? "na" : h.brand === "liclass" ? "li" : "both")
+/* eslint-disable no-restricted-syntax -- ds-exception: whose brand a holiday closes (tags.ts holidayBrand: na ฟ้า · li ม่วง · both ชมพู) — identity, not status */
 const SCOPE_TEXT: Record<Scope, string> = { na: "text-sky-700", li: "text-violet-700", both: "text-rose-700", branch: "text-slate-700" }
 const SCOPE_BG: Record<Scope, string> = { na: "bg-sky-50", li: "bg-violet-50", both: "bg-rose-50", branch: "bg-slate-100" }
 const SCOPE_BAR: Record<Scope, string> = { na: "bg-sky-400", li: "bg-violet-400", both: "bg-rose-400", branch: "bg-slate-400" }
+/* eslint-enable no-restricted-syntax */
 const BRAND_CHIP: Record<Brand, string> = { nockacademy: HUE[TAG_HUE.holidayBrand.na].chip, liclass: HUE[TAG_HUE.holidayBrand.li].chip }
 /** the day when several holidays fall on it: both brands if they together close both */
 const dayScope = (hs: Holiday[]): Scope => {
@@ -198,13 +200,13 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
             const n = isBranch ? sessions.filter((s) => !s.cancelled && s.date === d && s.branchId === branch.id).length : 0
             const sp = periodOf(d)
             return (
-              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", sp && inMonth && "bg-amber-50", shut && inMonth && SCOPE_BG[sc], d === today && "ring-2 ring-primary ring-inset")}>
-                {sp && <span className="absolute inset-x-0 top-0 h-1 bg-amber-400" />}
+              <div key={d} className={cn("group relative min-h-20 border-r border-b p-1.5 [&:nth-child(7n)]:border-r-0", !inMonth && "bg-muted/20 text-muted-foreground/50", sp && inMonth && "bg-warning-soft/50", shut && inMonth && SCOPE_BG[sc], d === today && "ring-2 ring-primary ring-inset")}>
+                {sp && <span className="absolute inset-x-0 top-0 h-1 bg-warning" />}
                 <div className="flex items-center justify-between">
                   <span className={cn("text-xs", shut && cn("font-semibold", SCOPE_TEXT[sc]))}>{parseDate(d).getDate()}</span>
                   {n > 0 && inMonth && <span className="text-2xs text-muted-foreground">{n}  {tx("คาบ")}</span>}
                 </div>
-                {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-2xs font-medium text-amber-700">☀ {sp.name}</p>}
+                {sp && inMonth && (d === sp.from || parseDate(d).getDate() === 1 || weekdayOf(d) === 1) && <p className="truncate text-2xs font-medium text-warning">☀ {sp.name}</p>}
                 {hs.map((h) => (
                   <p key={h.id} className={cn("mt-0.5 truncate text-2xs", closed(h) ? SCOPE_TEXT[scopeOf(h)] : "text-muted-foreground line-through")} title={`${h.name} · ${tx(HOLIDAY_CATEGORY_LABEL[h.category])}`}>{h.name}</p>
                 ))}
@@ -219,12 +221,15 @@ export function HolidayPlanner({ branch }: { branch?: Branch }) {
         </div>
         <p className="mt-2 flex flex-wrap gap-3 text-2xs text-muted-foreground">
           {!isBranch && <>
+            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-sky-200" />{BRAND_LABEL.nockacademy}</span>
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-violet-200" />{BRAND_LABEL.liclass}</span>
+            {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
             <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />{BRAND_LABEL.nockacademy} + {BRAND_LABEL.liclass}</span>
           </>}
+          {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: holiday-brand legend swatch (identity) */}
           {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-rose-200" />  {tx("หยุด")}</span>}
-          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-amber-300" />  {tx("ช่วงเวลาพิเศษ")}</span>}
+          {isBranch && <span className="flex items-center gap-1"><span className="size-2.5 rounded-sm bg-warning/60" />  {tx("ช่วงเวลาพิเศษ")}</span>}
           {isBranch && <span className="line-through">{tx("ชื่อขีดฆ่า = วันหยุดบริษัทที่สาขานี้เปิดทำการ")}</span>}
           <span>{tx("เอาเมาส์ชี้ช่องว่างเพื่อเพิ่มวันหยุด")}</span>
         </p>
@@ -270,7 +275,7 @@ type ParentMsg = { on: boolean; text: string }
 function ParentNotice({ chats, msg, setMsg }: { chats: number; msg: ParentMsg; setMsg: (m: ParentMsg) => void }) {
   if (!chats) return null
   return (
-    <div className="mt-2 space-y-1.5 border-t border-amber-200 pt-2">
+    <div className="mt-2 space-y-1.5 border-t border-warning/30 pt-2">
       <label className="flex items-center gap-2"><Checkbox checked={msg.on} onCheckedChange={(v) => setMsg({ ...msg, on: !!v })} />  {tx("แจ้งผู้ปกครอง {0} ครอบครัวทางแชท", [chats])}</label>
       {msg.on && <Textarea rows={3} className="bg-background text-sm" value={msg.text} onChange={(e) => setMsg({ ...msg, text: e.target.value })} />}
     </div>
@@ -335,7 +340,7 @@ function HolidayDialog({ draft, branch, onClose, onSave }: { draft: Draft; branc
           </Field>
         ) : null}
         {affected.length > 0 && (
-          <div className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">
+          <div className="rounded-md bg-warning-soft/60 p-2 text-sm text-warning-ink">
             
             {tx("วันนั้นมี")} <b>{affected.length}  {tx("คาบ")}</b>{branch ? "" : tx(" (ทุกสาขา)")}  {tx("· นักเรียน")} {affected.reduce((n, s) => n + s.studentIds.length, 0)}  {tx("คน")}
             <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} />  {tx("ยกเลิกคาบเหล่านี้ + แจ้งทีมให้ติดต่อผู้ปกครอง/นัดชดเชย")}</label>
@@ -366,7 +371,7 @@ function CloseDayDialog({ holiday, branch, affected: list, onClose, onConfirm }:
           <DialogDescription>{fmtDate(holiday.date, { weekday: true, year: true })}</DialogDescription>
         </DialogHeader>
         {affected > 0 ? (
-          <div className="rounded-md bg-amber-50 p-2 text-sm text-amber-900">
+          <div className="rounded-md bg-warning-soft/60 p-2 text-sm text-warning-ink">
             
             {tx("วันนั้นสาขานี้มี")} <b>{affected}  {tx("คาบ")}</b>
             <label className="mt-1 flex items-center gap-2"><Checkbox checked={cancel} onCheckedChange={(v) => setCancel(!!v)} />  {tx("ยกเลิกคาบเหล่านี้ + แจ้งทีม")}</label>

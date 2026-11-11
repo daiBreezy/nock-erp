@@ -40,7 +40,7 @@ function StatTable({ title, list }: { title: string; list: Stat[] }) {
                 <td className="py-2"><span className="block font-medium">{s.label}</span>{s.sub && <span className="block text-xs text-muted-foreground">{s.sub}</span>}</td>
                 <td className="py-2 text-right tabular-nums">{s.trips}</td>
                 <td className="py-2 text-right tabular-nums">{s.pax}</td>
-                <td className="py-2 pl-4"><span className="flex items-center gap-2"><span className="h-2 w-24 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full rounded-full", use > 100 ? "bg-red-500" : "bg-primary")} style={{ width: `${Math.min(100, use)}%` }} /></span><span className="tabular-nums text-xs">{`${use}%`}</span></span></td>
+                <td className="py-2 pl-4"><span className="flex items-center gap-2"><span className="h-2 w-24 overflow-hidden rounded-full bg-muted"><span className={cn("block h-full rounded-full", use > 100 ? "bg-danger" : "bg-primary")} style={{ width: `${Math.min(100, use)}%` }} /></span><span className="tabular-nums text-xs">{`${use}%`}</span></span></td>
                 <td className="py-2 text-right tabular-nums">{`${Math.round(s.km)} กม.`}</td>
                 <td className="py-2 text-right tabular-nums">{`${Math.round(s.minutes / s.trips)} นาที`}</td>
                 <td className="py-2 text-right tabular-nums">{s.ran ? `${s.ran - s.late}/${s.ran}` : "—"}</td>

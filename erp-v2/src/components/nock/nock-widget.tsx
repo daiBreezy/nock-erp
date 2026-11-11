@@ -266,7 +266,7 @@ function DevTicketForm({ from, onDone, onLink }: { from?: NockQuestion | null; o
   const pageUrl = typeof window === "undefined" ? pathname : `${pathname}${window.location.search}`
   if (sent) return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-emerald-100 text-emerald-700"><CheckIcon className="size-6" /></span>
+      <span className="grid size-12 place-items-center rounded-full bg-success-soft text-success-ink"><CheckIcon className="size-6" /></span>
       <p className="font-semibold">ส่งถึง Dev แล้ว · {sent}</p>
       <p className="text-sm text-muted-foreground">ทีมพัฒนาจะตอบกลับในเรื่องนี้ — คุณจะได้แจ้งเตือนทุกครั้งที่มีความคืบหน้า</p>
       <div className="flex gap-2">
@@ -322,7 +322,7 @@ function Bubble({ from, children }: { from: "me" | "nock" | "team"; children: Re
   if (from === "me") return <div className="ml-auto w-fit max-w-[85%] rounded-3xl bg-muted px-3.5 py-2 text-sm whitespace-pre-line">{children}</div>
   return (
     <div className="flex gap-2.5">
-      {from === "nock" ? <AiAvatar size="xs" blinking={false} className="mt-0.5" /> : <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><UserRoundCheckIcon className="size-3.5" /></span>}
+      {from === "nock" ? <AiAvatar size="xs" blinking={false} className="mt-0.5" /> : <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-success-soft text-success-ink"><UserRoundCheckIcon className="size-3.5" /></span>}
       <div className="min-w-0 flex-1 text-sm leading-relaxed whitespace-pre-line">{children}</div>
     </div>
   )
@@ -357,8 +357,8 @@ function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (help
       )}
       <div className="flex items-center gap-0.5 pl-8 text-xs text-muted-foreground">
         {q.aiAnswer && !inBank && (q.helpful === undefined ? <>
-          <button type="button" aria-label="ตอบตรง" title="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-emerald-600" /></button>
-          <button type="button" aria-label="ไม่ตรง" title="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-red-600" /></button>
+          <button type="button" aria-label="ตอบตรง" title="ตอบตรง" onClick={() => onRate(true)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsUpIcon className="size-3.5 text-success" /></button>
+          <button type="button" aria-label="ไม่ตรง" title="ไม่ตรง" onClick={() => onRate(false)} className="grid size-6 place-items-center rounded-full hover:bg-muted"><ThumbsDownIcon className="size-3.5 text-danger" /></button>
         </> : <span className="px-1">ขอบคุณที่บอก</span>)}
         <DropdownMenu>
           <DropdownMenuTrigger render={<button type="button" aria-label="เพิ่มเติม" title="เพิ่มเติม" className="grid size-6 place-items-center rounded-full hover:bg-muted data-[popup-open]:bg-muted" />}>
@@ -392,10 +392,10 @@ function Exchange({ q, onRate, onLink, onDev }: { q: NockQuestion; onRate: (help
           )) : <p className="text-muted-foreground">ไม่พบเรื่องใกล้เคียง — ลองสร้างคลังความรู้ให้ผู้รู้ช่วยตอบ</p>}
         </div>
       )}
-      {inBank && q.status === "unanswered" && <p className="pl-8 text-xs text-amber-700">อยู่ในคลังคำถามแล้ว · รอผู้รู้ตอบ — คำตอบจะกลับมาที่นี่</p>}
+      {inBank && q.status === "unanswered" && <p className="pl-8 text-xs text-warning">อยู่ในคลังคำถามแล้ว · รอผู้รู้ตอบ — คำตอบจะกลับมาที่นี่</p>}
       {q.status === "answered" && best && (
         <Bubble from="team">
-          <span className="mb-0.5 block text-xs font-medium text-emerald-700 dark:text-emerald-300">ตอบโดย {staff.find((s) => s.id === best.by)?.nickname ?? "ทีม"}{(q.answers?.length ?? 0) > 1 && ` · คำตอบที่โหวตดีที่สุดจาก ${q.answers!.length} คำตอบ`}</span>
+          <span className="mb-0.5 block text-xs font-medium text-success">ตอบโดย {staff.find((s) => s.id === best.by)?.nickname ?? "ทีม"}{(q.answers?.length ?? 0) > 1 && ` · คำตอบที่โหวตดีที่สุดจาก ${q.answers!.length} คำตอบ`}</span>
           {best.text}
         </Bubble>
       )}
@@ -408,7 +408,7 @@ function BankOffer({ q, onClose }: { q: NockQuestion; onClose: () => void }) {
   const promote = useStore((s) => s.promoteNockQuestion)
   const [locs, setLocs] = useState<string[]>(q.locations ?? [])
   return (
-    <div className="ml-8 space-y-2 rounded-2xl bg-sky-50 p-3 text-sm ring-1 ring-sky-200 dark:bg-sky-950/40 dark:ring-sky-900">
+    <div className="ml-8 space-y-2 rounded-2xl bg-info-soft/50 p-3 text-sm ring-1 ring-info/30">
       <p>สร้างเป็นคำถามในคลังความรู้ ให้ผู้รู้ช่วยตอบ <span className="text-xs text-muted-foreground">(คำตอบจะกลับมาที่นี่ และ Nock จะจำไว้ตอบคนต่อไป)</span></p>
       <LocationPicker value={locs} onChange={setLocs} placeholder="เลือก Part ของระบบ (จำเป็น)" />
       <div className="flex justify-end gap-1.5">

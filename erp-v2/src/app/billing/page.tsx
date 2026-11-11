@@ -205,7 +205,7 @@ function BillingPage() {
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" />}>
         {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
         <Segmented label="สถานะ" value={filter} onChange={(v) => setFilter(v)}
-          options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800 tabular-nums">{pendingCount}</span>}</> }]} />
+          options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-warning-soft px-1.5 text-xs text-warning-ink tabular-nums">{pendingCount}</span>}</> }]} />
         <span className="h-5 w-px bg-border" />
         <ShowChip label="Done" on={showDone === "1"} count={doneCount} onChange={(v) => setShowDone(v ? "1" : "0")} />
         <ShowChip label="Void" on={showVoid === "1"} count={voidCount} onChange={(v) => setShowVoid(v ? "1" : "0")} />
@@ -254,6 +254,7 @@ function InvThumb({ id }: { id: string }) {
   )
 }
 
+// eslint-disable-next-line no-restricted-syntax -- ds-exception: one colour per sibling bundle (identity cycle), not status
 const BUNDLE_TONES = ["bg-sky-100 text-sky-800", "bg-violet-100 text-violet-800", "bg-emerald-100 text-emerald-800", "bg-amber-100 text-amber-900", "bg-rose-100 text-rose-800", "bg-teal-100 text-teal-800"]
 const bundleTone = (id: string) => BUNDLE_TONES[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % BUNDLE_TONES.length]
 

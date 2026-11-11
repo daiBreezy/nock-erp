@@ -4,11 +4,11 @@
 > **รอบนี้ = ไล่โค้ดเก่าให้เข้า DS จริง** จนกฎ eslint ทุกข้อเหลือ 0 แล้วเลื่อนจาก `warn` → `error` (ล็อกถาวร)
 > วิธีดูเลขสด: `npx eslint src` · ไฟล์นี้อัปเดตทุกครั้งที่ปิดรอบย่อย
 
-## ภาพรวม — มี **4 เรื่อง** รวม **~1,097 จุด** (ทำไปแล้ว 61 · เหลือ 1,036)
+## ภาพรวม — มี **4 เรื่อง** รวม **~1,097 จุด** (ทำไปแล้ว 694 · เหลือ 403)
 
 | เรื่อง | กฎ eslint | จุดทั้งหมด | เหลือ | สถานะ |
 |---|---|---:|---:|---|
-| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **186** | 🟡 กำลังทำ (ทำไป 508) |
+| 1. สีสถานะ → token | no-hardcoded-status-color | 694 | **0** | ✅ ครบ 2026-11-11 (กฎยังเป็น `warn` — ดูหมายเหตุท้ายเรื่องที่ 1) |
 | 2. controls ดิบ → Button/Input/NativeSelect | no-raw-controls | 329 | 329 | ⬜ ยังไม่เริ่ม |
 | 3. px → text token / spacing scale | no-px-text | 44 | 44 | ⬜ ยังไม่เริ่ม |
 | 4. breakpoint `md:`/`xl:` → base/sm/lg | no-adhoc-breakpoints | 29 | 29 | ⬜ ยังไม่เริ่ม |
@@ -30,10 +30,14 @@
 | 6.3 | ปฏิทิน | week-teacher-board (25), calendar/page (12), summary-panel (10), class-card (9), move/blocks/meta | 63 | ✅ เสร็จ |
 | 6.4 | คาบ / เช็คชื่อ / สรุป | session-sheet (30), work-state, class-dialog, summaries, force-approve, period-banner | 68 | ✅ เสร็จ |
 | 6.5 | Reports | reports/page (66), summary-tab, charts, attention-dialog | 82 | ✅ เสร็จ |
-| 6.6 | รถรับส่ง / คนขับ | driver-app (32), labels (18), trip-row (13), zone-analysis, zone-map, trip-sheet | ~79 | ⬜ (ข้ามไว้) |
+| 6.6 | รถรับส่ง / คนขับ | driver-app (32), labels (18), trip-row (13), zone-analysis, zone-map, trip-sheet | 79 | ✅ เสร็จ |
 | 6.7 | CRM / นักเรียน / บุคลากร | staff-panel (18), lead-sheet (10), student-exit, renewal-followup, lead-followups, survey-calls, student-sheet + ปลีกย่อย | 97 | ✅ เสร็จ |
 | 6.8 | ผู้ปกครอง / LIFF ฟอร์ม | parent-app (17), liff/form (13), liff/exit (11), liff/survey (9), catalog, form-renderer, form-builder, person-fields, parent-requests | 76 | ✅ เสร็จ |
-| 6.9 | ตั้งค่า / Nock / Inbox / แอปเชลล์ + เก็บตก | holiday-planner (16), nock/page (14), nock-widget, app-shell, ai, confirmation, day/week-sessions + ไฟล์ปลีกย่อย | ~124 | ⬜ |
+| 6.9 | ตั้งค่า / Nock / Inbox / แอปเชลล์ + เก็บตก | holiday-planner (16), nock/page (14), nock-widget, app-shell, ai, confirmation, day/week-sessions + ไฟล์ปลีกย่อย | 107 | ✅ เสร็จ |
+
+**หมายเหตุ — ทำไมยังไม่เลื่อนเป็น `error`:** guard rail ทั้ง 5 ข้อนั่งอยู่ใน `no-restricted-syntax` ตัวเดียว ใช้ severity ร่วมกัน → เลื่อนเฉพาะสีสถานะไม่ได้ ต้องรอเรื่อง 2–4 เหลือ 0 ด้วย (หรือแยก selector สีสถานะออกเป็นกฎคนละตัว) · ระหว่างนี้ **ห้ามปล่อยให้ตัวเลขกลับขึ้นจาก 0** — เช็คด้วย `npx eslint src` ก่อน commit
+**ข้อที่ใช้ token `info` แทน AI_TONE (เพราะสีเดียวกัน = sky):** กล่องคำตอบ Nock (`nock/page`, `nock-widget`), การ์ดตัวอย่าง AI ใน `theme-tuner` — ถ้าวันหนึ่ง AI เปลี่ยนสีให้ย้าย 3 จุดนี้ไป `AI_TONE`
+**"วันนี้" ในปฏิทินสัปดาห์** (`week-sessions`) ใช้ token `today-soft` ที่รอบ 1 เตรียมไว้
 
 ---
 
@@ -62,6 +66,10 @@
 - **สีประจำวันของไทย** (`week-teacher-board.tsx` `DAY_TONE`: อา.แดง จ.เหลือง อ.ชมพู พ.เขียว พฤ.ส้ม ศ.ฟ้า ส.ม่วง) — เป็นจานสี identity ไม่ใช่ success/danger → ครอบด้วย `/* eslint-disable … ds-exception */` คงสีเดิมไว้ (รอบ 6.3)
 - **ไอคอนหัวใจวิชาโปรด** (`form-app.tsx`) — เก็บ `fill-red-500` (fill ไม่โดนกฎ หัวใจคงแดงเสมอ) · ส่วน `text-*` ใช้ danger · สเกลหน้า NPS/ความพอใจ (แดง/ส้ม/เขียว) map danger/·/success, ส้มกลางสเกลคงไว้ (รอบ 6.8)
 - **แท็กสายรถ P/D/B** (`student-sheet.tsx` `BUS_TAG`: รับ ฟ้า · ส่ง ม่วง · ทั้งคู่ เขียว) — identity ของประเภทรับส่ง ไม่ใช่สถานะ → ds-exception (รอบ 6.7)
+- **ป้ายรับ/ส่ง ฝั่งรถ** (`transport/labels.tsx` LegTag, `trip-sheet.tsx`, `driver-app.tsx` tile P/D/P+D) — ตระกูลเดียวกับ BUS_TAG → ds-exception (รอบ 6.6) · ⚠ ปัจจุบัน "ส่ง" เป็น**ม่วง**ใน student-sheet แต่**เหลือง**ฝั่งรถ — ควรรวมเป็นสีเดียวใน tags.ts
+- **สีประจำคัน** (`labels.tsx` `VAN_TONES`) · **สีโซนรับส่ง** (`zone-map.tsx` `ZONE_DOT`) · **สีต่อ bundle พี่น้อง** (`billing/page.tsx` `BUNDLE_TONES`) — identity cycle → ds-exception (รอบ 6.6 / 6.9)
+- **สีแบรนด์ที่วันหยุดปิด** (`holiday-planner.tsx` `SCOPE_TEXT/BG/BAR` + legend = tag `holidayBrand` na ฟ้า · li ม่วง · both ชมพู) → ds-exception (รอบ 6.9)
+- **AI_TONE ทั้งไฟล์** (`components/app/ai.tsx`) — AI = ฟ้า ตามกฎเจ้าของ เป็น identity palette → ds-exception ระดับไฟล์ (รอบ 6.9)
 
 ## ค้างให้เจ้าของตัดสิน
 

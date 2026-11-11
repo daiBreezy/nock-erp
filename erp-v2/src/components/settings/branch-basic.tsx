@@ -77,7 +77,7 @@ function BranchInfoForm({ branch, onDone }: { branch: Branch; onDone: () => void
         </Field>
       </div>
       <div className="mt-4 flex items-center justify-end gap-2">
-        {dirty && <span className="mr-auto text-xs text-amber-700">{tx("มีการแก้ไขที่ยังไม่บันทึก")}</span>}
+        {dirty && <span className="mr-auto text-xs text-warning">{tx("มีการแก้ไขที่ยังไม่บันทึก")}</span>}
         <Button variant="ghost" size="sm" onClick={() => { reset(); onDone() }}>{tx("ยกเลิก")}</Button>
         <Button size="sm" disabled={!dirty} onClick={() => { if (save(tx("บันทึกข้อมูลสาขาแล้ว"))) onDone() }}>{tx("บันทึก")}</Button>
       </div>
@@ -273,7 +273,7 @@ export function LineTab({ branch }: { branch: Branch }) {
             <Input value={webhookUrl} readOnly className="font-mono text-muted-foreground" />
             <Button size="icon" variant="outline" aria-label={tx("คัดลอก")} onClick={() => { navigator.clipboard.writeText(webhookUrl); report({ ok: true, value: undefined }, tx("คัดลอกแล้ว")) }}><CopyIcon /></Button>
           </div>
-          {status?.webhook && <p className={cn("mt-1 text-xs", status.webhookActive ? "text-emerald-700" : "text-amber-700")}>{status.webhookActive ? tx("LINE ส่งข้อความเข้ามาที่นี่อยู่") : tx("ยังไม่ได้เปิด Use webhook ใน LINE Developers")}</p>}
+          {status?.webhook && <p className={cn("mt-1 text-xs", status.webhookActive ? "text-success" : "text-warning")}>{status.webhookActive ? tx("LINE ส่งข้อความเข้ามาที่นี่อยู่") : tx("ยังไม่ได้เปิด Use webhook ใน LINE Developers")}</p>}
         </Field>
       </div>
       <Alert className="mt-4">

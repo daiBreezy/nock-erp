@@ -17,7 +17,7 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { m
   if (message.author === "internal") {
     return (
       <SentAt message={message} who={sender} align="center">
-        <Marker className="mx-auto w-fit max-w-[85%] items-start text-xs text-amber-800 dark:text-amber-300">
+        <Marker className="mx-auto w-fit max-w-[85%] items-start text-xs text-warning-ink">
           <MarkerIcon className="mt-px [&>svg]:size-3.5"><LockIcon /></MarkerIcon>
           <MarkerContent><b className="font-medium">โน้ตภายใน{sender ? ` · ${sender}` : ""}</b> — {message.text}</MarkerContent>
         </Marker>

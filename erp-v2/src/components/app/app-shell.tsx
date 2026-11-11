@@ -156,12 +156,12 @@ function Shell({ children }: { children: ReactNode }) {
                         <SidebarMenuButton isActive={current?.href === i.href} tooltip={n ? `${t(i.label)} · ${n}` : t(i.label)} render={<Link href={i.href} />} className={cn(i.soon && "text-muted-foreground")}>
                           <span className="relative">
                             <i.icon className="size-4" />
-                            {n > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-red-600 ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
+                            {n > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-danger ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
                           </span>
                           <span>{t(i.label)}</span>
                           {i.soon && <Pill className="ml-auto px-1.5 py-0 text-2xs">{t("เร็วๆ นี้")}</Pill>}
                         </SidebarMenuButton>
-                        {n > 0 && <SidebarMenuBadge className="rounded-full bg-red-600 text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{n > 99 ? "99+" : n}</SidebarMenuBadge>}
+                        {n > 0 && <SidebarMenuBadge className="rounded-full bg-danger text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{n > 99 ? "99+" : n}</SidebarMenuBadge>}
                       </SidebarMenuItem>
                     )
                   })}
@@ -274,11 +274,11 @@ function NotificationCard() {
         <SidebarMenuButton isActive={pathname === "/notifications"} tooltip={count ? `${t("แจ้งเตือน")} · ${count}` : t("แจ้งเตือน")} render={<Link href="/notifications" />}>
           <span className="relative">
             <BellIcon className="size-4" />
-            {count > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-red-600 ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
+            {count > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-danger ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
           </span>
           <span>{t("แจ้งเตือน")}</span>
         </SidebarMenuButton>
-        {count > 0 && <SidebarMenuBadge className="rounded-full bg-red-600 text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{count > 99 ? "99+" : count}</SidebarMenuBadge>}
+        {count > 0 && <SidebarMenuBadge className="rounded-full bg-danger text-white peer-hover/menu-button:text-white peer-data-active/menu-button:text-white">{count > 99 ? "99+" : count}</SidebarMenuBadge>}
       </SidebarMenuItem>
     </SidebarMenu>
   )
@@ -358,8 +358,8 @@ function CurrentPeriodChip() {
   if (!p) return null
   return (
     <Link href={`/settings/branches/${branch.id}`} title={`${p.name}: ${fmtDate(p.from)} – ${fmtDate(p.to, { year: true })} · ${periodHours(p)}`}
-      className="hidden items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 ring-1 ring-amber-200 lg:flex">
-      <SunIcon className="size-3.5 text-amber-600" /> {t("ช่วง")} {p.name} · {t("ถึง")} {fmtDate(p.to)}
+      className="hidden items-center gap-1 rounded-full bg-warning-soft/60 px-2.5 py-1 text-xs font-medium text-warning-ink ring-1 ring-warning/30 lg:flex">
+      <SunIcon className="size-3.5 text-warning" /> {t("ช่วง")} {p.name} · {t("ถึง")} {fmtDate(p.to)}
     </Link>
   )
 }

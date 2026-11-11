@@ -101,7 +101,7 @@ export default function SessionsPage() {
                 <SessionLine key={s.id} s={s} onOpen={() => setOpenId(s.id)} focus={w.state === "needs_attendance" ? "unmarked" : undefined}
                   className={cn(mine && "bg-primary/[0.04]")}
                   title={<>{mine && <span className="mr-1.5 rounded-full bg-primary/15 px-1.5 py-px align-middle text-2xs font-semibold text-primary">ฉัน</span>}{classes.find((k) => k.id === s.classId)?.name ?? s.subject}<KindChip s={s} klass={classes.find((k) => k.id === s.classId)} className="ml-2" />{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
-                  sub={<><span className={cn(mine ? "font-medium text-primary" : t.missing && "text-amber-700")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
+                  sub={<><span className={cn(mine ? "font-medium text-primary" : t.missing && "text-warning")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
                   status={<WorkChip w={w} students={s.studentIds.length} />} />
               )
             })}
