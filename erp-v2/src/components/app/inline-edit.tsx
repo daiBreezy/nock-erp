@@ -37,7 +37,7 @@ export function EditCell({ value, display, onSave, disabled, placeholder, classN
         <span className="min-w-0 flex-1 truncate" title={value || undefined}>{shown}</span>
         {/* owner 2026-10-12: the icon sits over the end of the text (the text looks shorter) — hovering never widens the column.
             Inset 1px so it never covers the field's outline */}
-        <span className="pointer-events-none absolute inset-y-px right-px hidden items-center rounded-r-[7px] bg-background pr-[7px] pl-1 group-hover/cell:flex">
+        <span className="pointer-events-none absolute inset-y-px right-px hidden items-center rounded-r-md bg-background pr-1.75 pl-1 group-hover/cell:flex">
           {kind === "select" ? <ChevronDownIcon className="size-3.5 text-muted-foreground" /> : <PencilIcon className="size-3 text-muted-foreground" />}
         </span>
       </div>

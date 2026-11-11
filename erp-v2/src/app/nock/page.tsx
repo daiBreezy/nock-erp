@@ -91,7 +91,7 @@ export default function NockPage() {
     { id: "date", label: "วันที่ · เวลา", width: "112px", sort: "date", cell: (x) => <span className="tabular-nums"><span className="block whitespace-nowrap">{fmtDate(toDateStr(new Date(x.at)), { year: true })}</span><span className="text-xs text-muted-foreground">{timeOf(x.at)} น.</span></span> },
     { id: "question", label: "คำถาม", width: "260px", required: true, cell: (x) => {
       const b = bestAnswer(x, answerer ? undefined : me.roles)
-      return <span className="block max-w-[340px]"><span className="block truncate font-medium">{x.question}</span><span className="block truncate text-xs text-muted-foreground">{b ? `ทีม: ${b.text}` : x.aiAnswer ? `Nock: ${x.aiAnswer}` : "—"}</span></span>
+      return <span className="block max-w-85"><span className="block truncate font-medium">{x.question}</span><span className="block truncate text-xs text-muted-foreground">{b ? `ทีม: ${b.text}` : x.aiAnswer ? `Nock: ${x.aiAnswer}` : "—"}</span></span>
     } },
     { id: "part", label: "Part", width: "130px", cell: (x) => <ChipOverflow items={x.locations ?? []} label={locationLabel} render={(l) => <span className="rounded-full bg-muted px-2 py-0.5 text-xs whitespace-nowrap">{locationLabel(l)}</span>} /> },
     { id: "role", label: "Role", width: "100px", cell: (x) => <ChipOverflow items={x.roles} label={(r) => ROLE_LABEL[r]} render={(r) => <RoleChip role={r} />} /> },

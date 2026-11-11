@@ -29,7 +29,7 @@ import { useUiLang } from "@/lib/i18n"
 import { Empty } from "@/components/app/empty"
 
 // the map loads only when a parent opens "ปักหมุดบ้าน" (Leaflet is big — the rest of the app stays light in LINE)
-const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-[8px] bg-muted" /> })
+const CatalogApp = dynamic(() => import("@/app/liff/catalog/catalog-app").then((m) => m.CatalogApp), { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-lg bg-muted" /> })
 // the SAME address block as the LINE form / family panel (owner 2026-11-09: pin home = the parent's address, one thing)
 const AddressFields = dynamic(() => import("@/components/people/person-fields").then((m) => m.AddressFields), { ssr: false, loading: () => <div className="h-64 animate-pulse rounded-2xl bg-muted" /> })
 
@@ -222,7 +222,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
               <p className="min-w-0 flex-1 truncate text-lg font-semibold">{family}</p>
             </div>
           ) : <p className="truncate text-lg font-semibold">{family}</p>}
-          <p className={cn("truncate text-xs leading-4 text-muted-foreground", (summaryKid || catalogOpen) && "pl-[34px]")}>{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
+          <p className={cn("truncate text-xs leading-4 text-muted-foreground", (summaryKid || catalogOpen) && "pl-8.5")}>{brand === "liclass" ? "Liclass" : "NockAcademy"} · {child?.branchName}</p>
         </div>
         {/* the bar that stays: small name (slides in as you scroll) + the child tabs. No tabs → the bar just hangs under the header */}
         <div className={cn("flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur", !barBody && "pointer-events-none absolute inset-x-0 top-full py-2.5 group-data-[stuck=true]:pointer-events-auto")} style={!barBody ? { opacity: "var(--p)" } : undefined}>
@@ -240,7 +240,7 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
       <main className={cn("flex-1 space-y-4 p-3", framed ? "pb-3" : "pb-24")}>
         {/* owner 2026-10-19: a family on the bus without a home pin is asked for it, wherever they are in the app */}
         {paid && usesBus && !view.home && !(cur === "request" && ask === "home") && (
-          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-[8px] bg-warning-soft/60 p-3 text-left text-sm text-warning-ink ring-1 ring-warning/30">
+          <button type="button" onClick={() => { setAsk("home"); setTab("request") }} className="flex w-full items-center gap-3 rounded-lg bg-warning-soft/60 p-3 text-left text-sm text-warning-ink ring-1 ring-warning/30">
             <MapPinHouseIcon className="size-5 shrink-0" /><span className="min-w-0 flex-1">{t.homeBanner}</span>
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </button>
@@ -296,7 +296,7 @@ function Overview({ view, t, lang, today, dayLabel, nick, onDrill }: { view: Par
             {next.length > 0 && (
               <div className="space-y-1.5">
               <p className="px-1 text-xs font-semibold text-muted-foreground">{t.nextClasses}</p>
-              <div className="overflow-hidden rounded-[8px] bg-card text-sm ring-1 ring-foreground/5">
+              <div className="overflow-hidden rounded-lg bg-card text-sm ring-1 ring-foreground/5">
                 {next.map((x) => (
                   <button key={x.sessionId} type="button" onClick={() => onDrill(c.id, x.courseId)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left">
                     <span className={cn("w-14 shrink-0 text-xs", x.date === today ? "font-medium text-danger" : "text-muted-foreground")}>{dayLabel(x.date)}</span>
@@ -334,16 +334,16 @@ function CourseRows({ pkgs, t, lang, onPick }: { child?: ParentChild; pkgs: Pare
         return (
           // owner ref 2026-11-06: subject tile · name + dates · link · 4 equal numbers in one outlined pill · one line per weekly class with its own progress
           // owner 2026-11-09: each course card carries its subject's light colour (the same one as the calendar) so the courses tell apart at a glance
-          <section key={i} className={cn("space-y-3 rounded-[16px] border p-4 shadow-sm", subjectColor(p.subject ?? "").soft)}>
+          <section key={i} className={cn("space-y-3 rounded-2xl border p-4 shadow-sm", subjectColor(p.subject ?? "").soft)}>
             <div className="flex items-center gap-3">
-              <span className={cn("grid size-11 shrink-0 place-items-center rounded-[8px] text-sm font-semibold", subjectColor(p.subject ?? "").chip)}>{(p.subject ?? "?").slice(0, 2)}</span>
+              <span className={cn("grid size-11 shrink-0 place-items-center rounded-lg text-sm font-semibold", subjectColor(p.subject ?? "").chip)}>{(p.subject ?? "?").slice(0, 2)}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-base font-semibold">{p.course}</span>
                 <span className="block truncate text-xs text-muted-foreground">{fmtDay(p.from, lang)} → {fmtDay(p.until, lang)}</span>
               </span>
               {onPick && <button type="button" onClick={() => onPick(p.courseId)} className="flex shrink-0 items-center gap-0.5 text-xs text-primary">{t.openSchedule}<ChevronRightIcon className="size-3.5" /></button>}
             </div>
-            <div className="grid grid-cols-4 divide-x rounded-[8px] border bg-background/70 py-2 text-center">
+            <div className="grid grid-cols-4 divide-x rounded-lg border bg-background/70 py-2 text-center">
               {stats.map(([label, value]) => (
                 <div key={label}><p className="text-lg leading-tight font-semibold tabular-nums">{value}</p><p className="text-2xs text-muted-foreground">{label}</p></div>
               ))}
@@ -398,7 +398,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
     <>
       {only?.left && (
         // owner 2026-10-14: a child who left — history stays, and the family can ask to come back
-        <section className="space-y-2 rounded-[8px] bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
+        <section className="space-y-2 rounded-lg bg-card ring-1 ring-foreground/5 p-4 text-center shadow-sm">
           <p className="font-medium">{t.leftSince(fmtDay(only.left.since, lang))}</p>
           <p className="text-sm text-muted-foreground">{t.leftNote}</p>
           <Button className="mx-auto mt-1" onClick={onReturn}>{t.returnReq}</Button>
@@ -450,7 +450,7 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
   return (
     // owner 2026-11-09: collapsed = the quiet grey "past" row; OPEN = it turns into a white card with a coloured ring and a filled chevron — the
     // two states must be told apart at a glance
-    <li className={cn("overflow-hidden rounded-[16px] transition-colors", open ? "bg-card text-foreground shadow-sm ring-1 ring-primary/30" : "bg-muted/70 text-muted-foreground")}>
+    <li className={cn("overflow-hidden rounded-2xl transition-colors", open ? "bg-card text-foreground shadow-sm ring-1 ring-primary/30" : "bg-muted/70 text-muted-foreground")}>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 px-4 py-3 text-left">
         <span className="w-24 shrink-0">
           <span className="block truncate text-xs">{fmtDay(r.date, lang)}</span>
@@ -471,11 +471,11 @@ function PastRow({ r, t, lang, tag }: { r: { date: string; start: string; subjec
               a missing one a dashed, quiet line — the two must not look alike */}
           {(r.sum?.teacher || tag) && <p className="text-xs text-muted-foreground">{[r.sum?.teacher && `${t.teacher} ${r.sum.teacher}`, tag].filter(Boolean).join(" · ")}</p>}
           {r.sum ? (
-            <div className="rounded-[12px] bg-muted/50">
+            <div className="rounded-xl bg-muted/50">
               {r.sum.detail && <p className="px-3 pt-3 text-xs font-semibold text-foreground">{r.sum.detail}</p>}
               <ClampedParagraphs className="p-3" paras={r.sum.text.split("\n").map((x) => x.trim()).filter(Boolean).map((text) => ({ subject: "", text }))} showSubject={false} readAll={t.readAll} less={t.lessText} />
             </div>
-          ) : <p className="rounded-[12px] border border-dashed px-3 py-2 text-xs italic text-muted-foreground">{t.noSummaryYet}</p>}
+          ) : <p className="rounded-xl border border-dashed px-3 py-2 text-xs italic text-muted-foreground">{t.noSummaryYet}</p>}
         </div>
       )}
     </li>
@@ -518,7 +518,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
     if (r.ok) { setLeave(false); setRide({}); setNote(""); setAct(null); setOpen(false) }
   }
   return (
-    <article className={cn("rounded-[8px] bg-card shadow-sm ring-1 ring-foreground/5", c.cancelled && "opacity-60")}>
+    <article className={cn("rounded-lg bg-card shadow-sm ring-1 ring-foreground/5", c.cancelled && "opacity-60")}>
       {/* owner 2026-11-06: day over time on the left (fixed column) · subject (may wrap to 2 lines) with who / which course under it · the card grows with long text */}
       <button type="button" aria-expanded={open} onClick={() => { setOpen(!open); setMsg(null) }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left">
         <span className="w-24 shrink-0">
@@ -538,7 +538,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
         </span>
         <ChevronDownIcon className={cn("size-4 shrink-0 self-center text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
-      {msg && <p className={cn("mx-3 mb-2 rounded-[8px] p-2 text-xs", msg.ok ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger-ink")}>{msg.text}</p>}
+      {msg && <p className={cn("mx-3 mb-2 rounded-lg p-2 text-xs", msg.ok ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger-ink")}>{msg.text}</p>}
       {open && (
         <div className="space-y-2.5 border-t px-3 pt-2.5 pb-3">
           <div className="flex flex-wrap items-center justify-between gap-1.5">
@@ -557,7 +557,7 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
             ))}
           </div>
           {act === "leave" && (
-            <label className={cn("flex w-full items-center gap-2.5 rounded-[8px] border p-3 text-sm", leaveWaiting ? "opacity-50" : "cursor-pointer", leave && "border-primary bg-primary/5")}>
+            <label className={cn("flex w-full items-center gap-2.5 rounded-lg border p-3 text-sm", leaveWaiting ? "opacity-50" : "cursor-pointer", leave && "border-primary bg-primary/5")}>
               <Checkbox checked={leave} disabled={leaveWaiting} onCheckedChange={(v) => setLeave(!!v)} />{t.leaveThis}
             </label>
           )}
@@ -625,7 +625,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
   const block = (label: string, v: string, icon: typeof TargetIcon, tone: string, text: string, card: string) => {
     const ls = lines(v)
     return ls.length ? (
-      <section className={cn("space-y-2 rounded-[16px] px-3 pb-3 pt-3", card)}>
+      <section className={cn("space-y-2 rounded-2xl px-3 pb-3 pt-3", card)}>
         <SectionHead icon={icon} tone={tone} text={text} label={label} />
         <div className="space-y-2 text-sm leading-relaxed">{ls.map((l, i) => <p key={i} className={cn(l.heading && "pt-1 font-semibold")}>{l.subject && !only && <span className={cn("mr-1.5 inline-block rounded-full px-1.5 py-0.5 align-middle text-2xs leading-none", subjectColor(l.subject).chip)}>{l.subject}</span>}{l.text}</p>)}</div>
       </section>
@@ -639,7 +639,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
         )}
       </CourseSummaryCard>
       {/* owner 2026-11-09: ภาพรวมพัฒนาการ = the whole course in words, in the AI blue. (The per-session summaries live in ตารางเรียน › ผ่านไปแล้ว — not repeated here.) */}
-      <section className={cn("overflow-hidden rounded-[16px]", AI_TONE.surface)}>
+      <section className={cn("overflow-hidden rounded-2xl", AI_TONE.surface)}>
         <p className="flex items-center gap-2 px-3 pb-1 pt-3"><AiIcon className="size-6" /><span className={cn("text-sm font-semibold", AI_TONE.text)}>{t.overall}{only && ` · ${only}`}</span></p>
         {lines(cs.overallProgress).length > 0 && (
           <ClampedParagraphs className="px-3 pb-3" paras={lines(cs.overallProgress)} showSubject={!only} readAll={t.readAll} less={t.lessText} />
@@ -648,7 +648,7 @@ function CourseEnd({ cs, t, lang }: { cs: ParentCourseSummary; t: T; lang: FormL
       {block(t.strengths, cs.strengths, ThumbsUpIcon, "bg-success-soft text-success-ink", "text-success-ink", "bg-success-soft/60 ring-1 ring-success/30")}
       {block(t.improve, cs.toImprove, TargetIcon, "bg-warning-soft text-warning-ink", "text-warning-ink", "bg-warning-soft/60 ring-1 ring-warning/30")}
       {/* owner 2026-11-09: attendance is a plain row of numbers at the very bottom */}
-      <section className="space-y-2.5 rounded-[16px] bg-muted/60 px-3 pb-3 pt-3 ring-1 ring-foreground/5">
+      <section className="space-y-2.5 rounded-2xl bg-muted/60 px-3 pb-3 pt-3 ring-1 ring-foreground/5">
         <SectionHead icon={CalendarCheckIcon} tone="bg-background text-muted-foreground" text="text-foreground" label={t.attendanceLabel} />
         <div className="grid grid-cols-4 divide-x pl-0 text-center">
           {[[t.statDone, `${done.length}`], [t.statPresent, `${present}`], [t.statLeave, `${leave}`], [t.absent, `${absent}`]].map(([label, value]) => (
@@ -746,7 +746,7 @@ function CourseSummaryCard({ cs, t, lang, prefix, fresh, onOpen, framed = true, 
       {children}
     </>
   )
-  const cls = framed ? "block w-full rounded-[16px] bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5" : "block w-full px-1 text-left"
+  const cls = framed ? "block w-full rounded-2xl bg-card p-4 text-left shadow-sm ring-1 ring-foreground/5" : "block w-full px-1 text-left"
   return onOpen ? <button type="button" onClick={onOpen} className={cls}>{inner}</button> : <section className={cls}>{inner}</section>
 }
 
@@ -793,10 +793,10 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
   const ready = mode === "exit" ? !!lastDate : mode === "home" ? !!homeLoc : mode === "return"
   return (
     <div className="space-y-3">
-      {msg && <p className={cn("rounded-[8px] p-3 text-sm", msg.ok ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger-ink")}>{msg.text}</p>}
+      {msg && <p className={cn("rounded-lg p-3 text-sm", msg.ok ? "bg-success-soft/60 text-success-ink" : "bg-danger-soft/60 text-danger-ink")}>{msg.text}</p>}
       {/* owner 2026-11-06: อื่นๆ is a LIST of what you can do — language (dropdown at the right) for everyone; the rest once the family has paid */}
       {!mode && (
-        <div className="divide-y overflow-hidden rounded-[8px] bg-card ring-1 ring-foreground/5">
+        <div className="divide-y overflow-hidden rounded-lg bg-card ring-1 ring-foreground/5">
           <div className="flex items-center gap-3 px-3 py-2.5">
             <span className="min-w-0 flex-1 font-medium">{t.language}</span>
             <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
@@ -851,7 +851,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
         <section className="space-y-1.5">
           <p className="px-1 text-xs font-semibold text-muted-foreground">{t.myRequests}</p>
           {mine.map((r) => (
-            <article key={r.id} className="rounded-[8px] bg-card ring-1 ring-foreground/5 p-3 text-sm shadow-sm">
+            <article key={r.id} className="rounded-lg bg-card ring-1 ring-foreground/5 p-3 text-sm shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 font-medium">{r.kind === "leave" ? `${t.leaveReq} · ${t.classes(r.sessions?.length ?? 0)}` : r.kind === "return" ? t.returnReq : r.kind === "bus" ? t.busReq : r.kind === "home" ? t.homeReq : `${t.exitReq} · ${fmtDay(r.lastDate!, lang)}`}</span>
 <Pill tone={r.status === "new" ? "amber" : r.status === "done" ? "green" : "gray"}>{t[`st_${r.status}`]}</Pill>

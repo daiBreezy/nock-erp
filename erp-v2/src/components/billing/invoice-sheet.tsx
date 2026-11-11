@@ -393,7 +393,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             {steps.map((s, i) => (
               <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
                 {/* the line joining this status icon to the next one — it is a stepper */}
-                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-[9.5px] top-6 -bottom-0.5 w-px", s.state === "done" ? "bg-success" : "bg-border")} />}
+                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-2.375 top-6 -bottom-0.5 w-px", s.state === "done" ? "bg-success" : "bg-border")} />}
                 <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-success text-white" : s.state === "current" ? "bg-info text-white" : s.state === "warn" ? "bg-warning text-white" : "border text-muted-foreground")}>
                   {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
                 </span>

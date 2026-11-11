@@ -141,7 +141,7 @@ function AttendanceBars({ rows }: { rows: Sum.ProgressRow[] }) {
   const max = Math.max(...months.map(([, m]) => m.present + m.leave + m.absent))
   return (
     <div>
-      <div className="flex h-[118px] items-end gap-2">
+      <div className="flex h-29.5 items-end gap-2">
         {months.map(([k, m]) => {
           const total = m.present + m.leave + m.absent
           return (

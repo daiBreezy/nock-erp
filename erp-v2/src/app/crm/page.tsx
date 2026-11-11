@@ -200,7 +200,7 @@ export default function CrmPage() {
                   const id = e.dataTransfer.getData("text/lead")
                   if (id && draggableTarget && canManage) report(moveStage(id, draggableTarget), `ย้ายไป "${group.label}" แล้ว`)
                 }}
-                className={cn("group/col flex h-[calc(100dvh-20rem)] min-h-[480px] w-72 shrink-0 flex-col rounded-xl border bg-muted/30 p-2", overCol === group.key && "border-primary bg-primary/5")}
+                className={cn("group/col flex h-[calc(100dvh-20rem)] min-h-120 w-72 shrink-0 flex-col rounded-xl border bg-muted/30 p-2", overCol === group.key && "border-primary bg-primary/5")}
               >
                 <div className="flex shrink-0 items-center justify-between px-1 pb-2">
                   <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group.label}

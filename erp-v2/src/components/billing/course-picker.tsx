@@ -72,7 +72,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
 
           {/* owner 2026-10-13: a table, not cards — scan many courses at once */}
           <div className="-mx-1 min-h-0 flex-1 overflow-auto rounded-2xl border">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-205 text-sm">
               <thead className={cn(HEAD, "sticky top-0 z-10 bg-muted")}>
                 <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
                   <th className="w-10" />

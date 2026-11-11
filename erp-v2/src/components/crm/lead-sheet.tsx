@@ -390,7 +390,7 @@ function LeadSteps({ lead, assessments, canManage, now }: { lead: Lead; assessme
     }
     return (
       <li key={key} className="relative flex gap-3 pb-3 last:pb-0">
-        {i < upTo && <span className="absolute top-6 left-[11px] h-[calc(100%-1.25rem)] w-px bg-border" />}
+        {i < upTo && <span className="absolute top-6 left-2.75 h-[calc(100%-1.25rem)] w-px bg-border" />}
         <span className={cn("z-10 grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold", current ? "bg-primary text-primary-foreground" : "bg-success-soft text-success-ink")}>{current ? i + 1 : "✓"}</span>
         <div className="min-w-0 flex-1 space-y-1">
           <p className={cn("text-sm font-medium", !current && "text-muted-foreground")}>{label}{current && <span className="ml-1.5 text-xs font-normal text-primary">ขั้นปัจจุบัน</span>}</p>

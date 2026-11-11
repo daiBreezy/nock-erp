@@ -100,7 +100,7 @@ function Viewer({ docs, index, onIndex, onClose }: { docs: DocItem[]; index: num
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex h-[92vh] flex-col gap-3 lg:max-w-[880px]">
+      <DialogContent className="flex h-[92vh] flex-col gap-3 lg:max-w-220">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2"><FileTextIcon className="size-4" />{doc.label}</DialogTitle>
           <DialogDescription className="sr-only">เปิดเอกสาร ดาวน์โหลด หรือแชร์</DialogDescription>

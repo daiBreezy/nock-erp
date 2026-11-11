@@ -191,7 +191,7 @@ function NockPanel({ onClose, corner }: { onClose: () => void; corner: Corner })
   // owner 2026-10-13: smaller, no divider lines, a calm chat like Claude / ChatGPT — Nock speaks as plain text next to its
   // face, your messages are soft grey bubbles, the composer is one rounded box with the send button inside
   return (
-    <div role="dialog" aria-label="Nock" className={cn("fixed z-40 flex", corner[1] === "l" ? "left-5" : "right-5", corner[0] === "t" ? "top-40 h-[min(520px,calc(100vh-12rem))]" : "bottom-24 h-[min(520px,calc(100vh-8rem))]", "w-[min(360px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-[28px] bg-background shadow-2xl ring-1 ring-foreground/8 print:hidden")}>
+    <div role="dialog" aria-label="Nock" className={cn("fixed z-40 flex", corner[1] === "l" ? "left-5" : "right-5", corner[0] === "t" ? "top-40 h-[min(520px,calc(100vh-12rem))]" : "bottom-24 h-[min(520px,calc(100vh-8rem))]", "w-[min(360px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-3xl bg-background shadow-2xl ring-1 ring-foreground/8 print:hidden")}>
       <div className="flex shrink-0 items-center gap-2.5 px-4 pt-3.5 pb-2">
         <AiAvatar size="xs" />
         {/* owner 2026-10-14: header kept quiet — no subtext; ส่งถึง Dev + คลังคำถาม live in the ⋯ next to close */}
@@ -301,7 +301,7 @@ function LocationPicker({ value, onChange, placeholder = "Part (ไม่บั�
   const label = value.length ? value.map(Nock.locationLabel).join(", ") : placeholder
   return (
     <Popover>
-      <PopoverTrigger render={<button type="button" className={cn("flex max-w-[230px] items-center gap-1 rounded-full px-2.5 py-1 text-xs", value.length ? "bg-background font-medium ring-1 ring-foreground/10" : "text-muted-foreground hover:bg-background")} />}>
+      <PopoverTrigger render={<button type="button" className={cn("flex max-w-57.5 items-center gap-1 rounded-full px-2.5 py-1 text-xs", value.length ? "bg-background font-medium ring-1 ring-foreground/10" : "text-muted-foreground hover:bg-background")} />}>
         <MapPinIcon className="size-3.5 shrink-0" /><span className="truncate">{label}</span>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-64 p-2">

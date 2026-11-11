@@ -181,7 +181,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
               const state = s.done === members.length ? "done" : s.done > 0 ? "current" : "todo"
               return (
                 <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
-                  {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-[9.5px] top-6 -bottom-0.5 w-px", state === "done" ? "bg-success" : "bg-border")} />}
+                  {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-2.375 top-6 -bottom-0.5 w-px", state === "done" ? "bg-success" : "bg-border")} />}
                   <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", state === "done" ? "bg-success text-white" : state === "current" ? "bg-info text-white" : "border text-muted-foreground")}>
                     {state === "done" ? <CheckIcon className="size-3" /> : <span className="size-1.5 rounded-full bg-current" />}
                   </span>

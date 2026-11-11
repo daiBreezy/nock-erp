@@ -29,7 +29,7 @@ export function ParentPreview({ family, onClose }: { family: Family; onClose: ()
               : "ยังไม่ผูก LINE — ผู้ปกครองจะเปิดดูได้หลังผูกบัญชี LINE กับครอบครัวนี้ที่ Inbox"}
           </DialogDescription>
         </DialogHeader>
-        <div className="relative mx-auto h-[640px] w-full max-w-[375px] overflow-y-auto rounded-[2rem] border-8 border-foreground/80">
+        <div className="relative mx-auto h-160 w-full max-w-93.75 overflow-y-auto rounded-[2rem] border-8 border-foreground/80">
           <ParentApp view={view} today={toDateStr(now)} framed catalogPreview={catalog} />
         </div>
       </DialogContent>

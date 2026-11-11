@@ -99,7 +99,7 @@ function useLayout<R>(tableId: string, columns: Column<R>[]) {
 
 const DRAG_TYPE = "application/x-nock-column"
 /** header icons: no width until the header is hovered, then they slide open */
-const SLIDE = "flex w-0 shrink-0 items-center overflow-hidden opacity-0 transition-[width,opacity] duration-150 ease-out group-hover/th:w-[18px] group-hover/th:opacity-100 focus-visible:w-[18px] focus-visible:opacity-100"
+const SLIDE = "flex w-0 shrink-0 items-center overflow-hidden opacity-0 transition-[width,opacity] duration-150 ease-out group-hover/th:w-4.5 group-hover/th:opacity-100 focus-visible:w-4.5 focus-visible:opacity-100"
 const justify = (a?: Column<unknown>["align"]) => (a === "right" ? "justify-end" : a === "center" ? "justify-center" : "justify-start")
 const textAlign = (a?: Column<unknown>["align"]) => (a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left")
 
@@ -206,7 +206,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                         and the label gets shorter (…) inside the SAME column width: hovering never widens a column.
                         owner 2026-10-29: drag handle goes LAST, lock → pin. The invisible sizer gives the column its width. */}
                     <span aria-hidden className="invisible flex h-0 items-center gap-1 overflow-hidden">
-                      {c.label}{c.sort && onSort && <span className="size-3" />}{c.info && <span className="ml-1 size-4" />}{isLocked && <span className="w-[18px]" />}
+                      {c.label}{c.sort && onSort && <span className="size-3" />}{c.info && <span className="ml-1 size-4" />}{isLocked && <span className="w-4.5" />}
                     </span>
                     <span className={cn("flex min-w-0 items-center [contain:inline-size]", justify(c.align))}>
                       {c.sort && onSort ? (
@@ -224,7 +224,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                       )}
                       <button type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked}
                         title={isLocked ? "เลิกปักหมุด — กลับไปที่เดิม" : "ปักหมุดคอลัมน์ — ไว้ด้านหน้า ไม่เลื่อนตาม"} aria-label={isLocked ? `เลิกปักหมุด ${c.label}` : `ปักหมุด ${c.label}`}
-                        className={cn("flex items-center hover:text-foreground", isLocked ? "w-[18px] shrink-0 text-primary" : SLIDE)}>
+                        className={cn("flex items-center hover:text-foreground", isLocked ? "w-4.5 shrink-0 text-primary" : SLIDE)}>
                         <span className="w-1 shrink-0" />{isLocked ? <PinIcon className="size-3.5 shrink-0" /> : <PinOffIcon className="size-3.5 shrink-0" />}
                       </button>
                       <span draggable title="ลากเพื่อย้ายคอลัมน์" aria-label={`ย้ายคอลัมน์ ${c.label}`}

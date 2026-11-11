@@ -155,7 +155,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
             <tr className="align-top">
               <td className="h-[46mm]" />
               <td className="relative">
-                {kind === "receipt" && <span className="absolute bottom-3 left-1/2 -translate-x-1/2 -rotate-6 rounded-sm border-2 border-[#c0392b] px-3 py-0.5 text-[20px] font-bold tracking-widest text-[#c0392b] opacity-80">PAID</span>}
+                {kind === "receipt" && <span className="absolute bottom-3 left-1/2 -translate-x-1/2 -rotate-6 rounded-sm border-2 border-[#c0392b] px-3 py-0.5 text-xl font-bold tracking-widest text-[#c0392b] opacity-80">PAID</span>}
               </td>
               <td /><td /><td />
             </tr>
@@ -207,7 +207,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
         <footer className="mt-6 flex justify-end gap-8 text-center">
           {([[kind === "receipt" ? L.payeeBy : L.preparedBy, kind === "receipt" ? "PAYEE BY" : "PREPARED BY", signer], [L.authorized, "AUTHORIZED SIGNATURE", authorizer]] as const).map(([th, en2, name]) => (
             <div key={en2} className="w-[52mm]">
-              <p className="min-h-[11mm] border-b border-dotted border-neutral-500 pb-0.5 text-[26px] leading-none" style={{ fontFamily: "var(--font-sign), cursive" }}>{name}</p>
+              <p className="min-h-[11mm] border-b border-dotted border-neutral-500 pb-0.5 text-2xl leading-none" style={{ fontFamily: "var(--font-sign), cursive" }}>{name}</p>
               <p className="mt-1">{th} / {en2}</p>
             </div>
           ))}

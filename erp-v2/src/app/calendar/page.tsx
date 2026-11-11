@@ -453,7 +453,7 @@ function WeekView({ from, sessions, onDay, today, hideEmpty, ...ctx }: CardCtx &
   return (
     <HourPx.Provider value={hourPx}>
     <div ref={box} className="overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-      <div className="flex min-w-[760px] border-b text-xs">
+      <div className="flex min-w-190 border-b text-xs">
         <div className="w-12 shrink-0" />
         {days.map((d) => (
           <button key={d} onClick={() => onDay(d)} className={cn("flex-1 border-l py-2 text-center hover:bg-muted", d === today && "font-semibold text-primary")}>
@@ -462,7 +462,7 @@ function WeekView({ from, sessions, onDay, today, hideEmpty, ...ctx }: CardCtx &
           </button>
         ))}
       </div>
-      <div className="flex min-w-[760px] pt-2">
+      <div className="flex min-w-190 pt-2">
         <TimeGutter />
         {days.map((d) => <Column key={d} date={d} sessions={sessions.filter((s) => s.date === d)} ctx={ctx} maxCols={2} onMore={() => onDay(d)} />)}
       </div>
