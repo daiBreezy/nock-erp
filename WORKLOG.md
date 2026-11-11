@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-11-11 — erp-v2: Design System รอบ 6 — สีสถานะทั้งแอปเข้า token (694 → 0) · branch `erp-v2/design-system`
+
+**ก่อนหน้า (ยังไม่เคยจดใน WORKLOG):** DS รอบ 1–5 อยู่บน branch นี้แล้ว — tokens/brand theme (globals.css), shared components (Kpi/KpiRow/SearchBox/Empty), ListPage, eslint guard rails 5 ข้อ (warn), ThemeSettings · commit a965c65 · 110fbe8 · aafa844
+
+**รอบ 6 (วันนี้):** ไล่โค้ดเก่าให้ใช้ DS จริง — เรื่องที่ 1 "สีสถานะ → token" ครบ: `no-hardcoded-status-color` **694 → 0** ทุกไฟล์ (9 รอบย่อยตามพื้นที่, commit 86e9496 → 2f52c47) · tsc ผ่านทุกรอบ
+- กลไก: `emerald→success · amber→warning · red/rose→danger · sky→info` · ป้าย = `bg-{t}-soft text-{t}-ink` (dark-aware ตัด `dark:` ทิ้ง) · แถบ/จุด = `bg-{t}` · ข้อความ = `text-{t}` · "วันนี้" = `today-soft`
+- **ds-exception (identity ไม่ใช่สถานะ — ห้ามแปลง):** สีประจำวันไทย (DAY_TONE), ป้ายรับ/ส่ง P/D/B (student-sheet + transport + driver), สีประจำคัน/โซน/bundle, สีแบรนด์วันหยุด (holidayBrand), `ai.tsx` ทั้งไฟล์ (AI = ฟ้า)
+- ⚠ `driver-app` TimeCell เคยจับสีด้วย `includes("red")` → แก้ให้จับชื่อ token แล้ว
+- 📄 **tracker: `erp-v2/DESIGN-SYSTEM.md`** — แผนทั้ง 4 เรื่อง + เลขเหลือ + ข้อยกเว้น + เรื่องค้างให้เจ้าของเคาะ
+
+**ยังไม่เลื่อนกฎเป็น error:** 5 rails นั่งใน `no-restricted-syntax` ตัวเดียว severity ร่วมกัน → ต้องรอเรื่อง 2–4 เหลือ 0 (หรือแยก selector) · ระหว่างนี้ห้ามให้สีสถานะกลับขึ้นจาก 0 (`npx eslint src`)
+
+**เหลือ (ทำใน "แชทใหม่" — แชทเดิมหนักจน credit พุ่ง):** เรื่อง 2 controls ดิบ→Button/Input (329) · เรื่อง 3 px (44) · เรื่อง 4 breakpoint md/xl (29) — 3+4 ใช้ Sonnet พอ
+**❓ รอเจ้าของ:** สีลา (tags.ts=ฟ้า / หน้าจริง=เหลือง) · สีวันหยุด (ปฏิทินเหลือง / date-picker แดง) · สี "ส่ง" (student-sheet ม่วง / ฝั่งรถเหลือง) — ควรเลือกสีเดียวใส่ `tags.ts`
+
+---
+
 ## 2026-11-05 — erp-v2: เจ้าของยืนยัน business decision 3 ข้อ (ส่วนใหญ่ build ไว้ตรงแล้ว) + วางระบบประหยัด credit
 
 **ระบบประหยัด credit (เช้า):** `erp-v2/RESPONSIVE.md` (breakpoint 3 ระดับ base/sm/lg ห้าม md/xl · responsive อยู่ใน component กลาง หน้าห้ามเขียนเอง · DataTable จอ <640 ยุบเป็นการ์ด · ตรวจด้วย read_page ไม่ screenshot) · หน้า `/kit` คลังคอมโพเนนต์ (ลากปรับกว้างดู reflow + light/dark · ตรวจ responsive ที่เดียว) · commit b819776 + b046da5 บน branch `erp-v2/mobile-session-sheet` (ยังไม่ push) · memory: credit-saving-habits (แชทใหม่ต่องาน · งานจักรกลใช้ Sonnet · Explore · ตรวจรอบเดียว)
