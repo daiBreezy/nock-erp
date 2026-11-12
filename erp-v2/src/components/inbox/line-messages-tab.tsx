@@ -3,7 +3,12 @@
 // owner 2026-11-09: "ฉันจะดูตัวอย่างข้อความ LINE ได้จากไหน" — EVERY text the system sends to parents, built by the SAME
 // functions the store / forms / API use (domain/rules/messages.ts), from a real invoice of the demo data.
 // Nothing is sent from here. Language by brand: Liclass = Japanese + English, NockAcademy = Thai + English.
+import { PlusIcon } from "lucide-react"
 import { Empty } from "@/components/app/empty"
+import { LineMessageBox, type BoxView } from "@/components/inbox/line-message-box"
+import { Button } from "@/components/ui/button"
+import { boxKey, useLineDrafts } from "@/store/line-drafts"
+import { InfoTip } from "@/components/app/info-tip"
 import { useMemo, useState } from "react"
 import { Segmented } from "@/components/app/page-layout"
 import { addDays, toDateStr } from "@/domain/dates"
@@ -18,27 +23,15 @@ import { useStore } from "@/store/store"
 
 type Item = { title: string; hint: string; text: string; draft?: boolean }
 
-function Bubble({ title, hint, text, draft }: Item) {
+function Group({ title, hint, boxes, onAdd, autoEditKey }: { title: string; hint: string; boxes: BoxView[]; onAdd: () => void; autoEditKey: string | null }) {
   return (
-    <div className="min-w-0 space-y-2">
-      <div>
-        <p className="text-sm font-semibold leading-tight">{title}{draft && <span className="ml-2 rounded-full border border-dashed px-2 py-0.5 align-middle text-2xs font-normal text-muted-foreground">ร่าง — ยังไม่ส่งอัตโนมัติ</span>}</p>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+    <section className="space-y-4 border-t pt-6 first:border-t-0 first:pt-0">
+      <div className="flex items-end justify-between gap-3">
+        <div><h2 className="text-base font-semibold">{title}</h2><p className="text-sm text-muted-foreground">{hint}</p></div>
+        <Button type="button" variant="outline" size="sm" onClick={onAdd}><PlusIcon />เพิ่มข้อความ</Button>
       </div>
-      <div className="rounded-3xl bg-[#8CABD9]/25 p-4">
-        <div className="ml-auto w-fit max-w-full whitespace-pre-line break-words rounded-2xl rounded-tr-sm bg-white px-4 py-3 text-sm leading-relaxed shadow-sm">{text}</div>
-      </div>
-    </div>
-  )
-}
-
-function Group({ title, hint, items }: { title: string; hint: string; items: Item[] }) {
-  return (
-    <section className="space-y-3">
-      <div><h2 className="text-base font-semibold">{title}</h2><p className="text-sm text-muted-foreground">{hint}</p></div>
-      <div className="rounded-3xl bg-card p-6 shadow-sm ring-1 ring-foreground/5">
-        <div className="grid items-start gap-6 lg:grid-cols-3">{items.map((x) => <Bubble key={x.title} {...x} />)}</div>
-      </div>
+      {boxes.length === 0 ? <p className="text-sm text-muted-foreground">ไม่มีข้อความในกลุ่มนี้</p>
+        : <div className="grid items-start gap-x-8 gap-y-6 lg:grid-cols-3">{boxes.map((x) => <LineMessageBox key={x.key} box={x} autoEdit={x.key === autoEditKey} />)}</div>}
     </section>
   )
 }
@@ -52,6 +45,9 @@ export function LineMessagesTab() {
   const holidays = useStore((s) => s.holidays)
   const today = toDateStr(useNow(60_000))
   const [brand, setBrand] = useState<"nockacademy" | "liclass">("liclass")
+  const { overrides, removed, added, add, restoreAll } = useLineDrafts()
+  const [autoEditKey, setAutoEditKey] = useState<string | null>(null)
+  const removedHere = removed.filter((k) => k.startsWith(`${brand}|`)).length
 
   const sample = useMemo(() => {
     const inv = invoices.filter((i) => i.status !== "void" && i.lines.length > 0 && branches.find((b) => b.id === i.branchId)?.brand === brand)
@@ -130,11 +126,21 @@ export function LineMessagesTab() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <Segmented value={brand} onChange={setBrand} label="แบรนด์" options={[{ value: "liclass", label: "Liclass" }, { value: "nockacademy", label: "NockAcademy" }]} />
-        <p className="text-sm text-muted-foreground">ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ — ดูอย่างเดียว ไม่ส่งจริง</p>
+        <InfoTip text="ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ — แก้ / เพิ่ม / ลบได้อิสระเพื่อคุยกับ Admin และ Dev เป็นร่างสเปกเท่านั้น (บันทึกในเครื่องนี้ ไม่เปลี่ยนข้อความที่ระบบส่งจริง)" />
+        {removedHere > 0 && <Button type="button" variant="ghost" size="sm" onClick={() => restoreAll(brand)}>กู้คืนที่ลบ ({removedHere})</Button>}
       </div>
       {!sample ? (
         <Empty>ยังไม่มีใบแจ้งหนี้ของแบรนด์นี้ให้ทำตัวอย่าง</Empty>
-      ) : groups.map((g) => <Group key={g.title} {...g} />)}
+      ) : groups.map((g) => {
+        const generated: BoxView[] = g.items.flatMap((x) => {
+          const key = boxKey(brand, g.title, x.title)
+          if (removed.includes(key)) return []
+          const ov = overrides[key]
+          return [ov ? { ...ov, draft: x.draft, edited: true, custom: false } : { key, brand, group: g.title, title: x.title, hint: x.hint, draft: x.draft, text: x.text, edited: false, custom: false }]
+        })
+        const mine: BoxView[] = added.filter((x) => x.brand === brand && x.group === g.title).map((x) => ({ ...x, edited: false, custom: true }))
+        return <Group key={g.title} title={g.title} hint={g.hint} boxes={[...generated, ...mine]} autoEditKey={autoEditKey} onAdd={() => setAutoEditKey(add(brand, g.title))} />
+      })}
     </div>
   )
 }

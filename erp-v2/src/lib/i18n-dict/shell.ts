@@ -11,6 +11,7 @@ export const SHELL: Record<string, Entry> = {
   "CRM (ลีด)": { en: "CRM (Leads)", ja: "CRM（リード）" },
   "Inbox": { en: "Inbox", ja: "受信箱" },
   "ฟอร์มผู้ปกครอง": { en: "Parent forms", ja: "保護者フォーム" },
+  "การ์ดในแชท": { en: "Chat cards", ja: "チャットカード" },
   "ปฏิทิน": { en: "Calendar", ja: "カレンダー" },
   "นักเรียน": { en: "Students", ja: "生徒" },
   "ครอบครัว": { en: "Families", ja: "家族" },

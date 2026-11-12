@@ -2,9 +2,7 @@
 
 // owner 2026-10-15: "ทำให้ฉันเห็นตัวอย่างได้หน่อย" — every card the Inbox chat can show, in every state, with sample
 // data. The buttons work as a preview: they say what they would do and never change real data.
-import { useState } from "react"
 import { ChevronRightIcon } from "lucide-react"
-import { Segmented } from "@/components/app/page-layout"
 import { RequestCard } from "@/components/app/parent-requests"
 import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
@@ -62,8 +60,8 @@ function Outcome({ children }: { children: React.ReactNode }) {
   return <p className="rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">{children}</p>
 }
 
-export function CardsPreview() {
-  const [tab, setTab] = useState<"cards" | "line">("cards")
+export function CardsPreview({ view }: { view: "cards" | "line" }) {
+  const tab = view
   const now = useNow(60_000)
   const today = toDateStr(now)
   const at = (days: number, time: string) => new Date(`${addDays(today, days)}T${time}:00`).toISOString()
@@ -108,9 +106,7 @@ export function CardsPreview() {
 
   return (
     <div className="space-y-6">
-      {/* owner 2026-11-12: moved here from the Inbox toolbar — one tab of ฟอร์มผู้ปกครอง, sub-tabs inside */}
-      <Segmented value={tab} onChange={setTab} label="ตัวอย่าง" options={[{ value: "cards", label: "การ์ดในแชท" }, { value: "line", label: "ข้อความ LINE ที่ระบบส่ง" }]} />
-      <p className="text-sm text-muted-foreground">ทุกการ์ดที่ Inbox แสดงได้ ในทุกสถานะ — ข้อมูลตัวอย่าง กดปุ่มได้แต่ไม่บันทึกจริง</p>
+      {/* owner 2026-11-12: moved here from the Inbox toolbar; the two views are tabs of ฟอร์มผู้ปกครอง */}
       {tab === "line" ? <LineMessagesTab /> : <>
 
       {/* owner 2026-11-06: every form's journey as states side by side — Admin sends → the parent sends it back → Admin handles */}

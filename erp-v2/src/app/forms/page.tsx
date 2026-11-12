@@ -85,7 +85,7 @@ const FORMS: FormDoc[] = [
 const FULL: Record<string, string> = { test: "สอบวัดระดับ (Test)", trial: "ทดลองเรียน (Trial)", survey: "ความพึงพอใจประจำปี (NPS)" }
 
 export default function FormsPage() {
-  const [tab, setTab] = useState<"forms" | "line" | "cards">("forms")
+  const [tab, setTab] = useState<"forms" | "line" | "cards" | "linemsg">("forms")
   const [key, setKey] = useState("enroll")
   const [lang, setLang] = useState<FormLang>("th")
   const [brand, setBrand] = useState<"nockacademy" | "liclass">("nockacademy")
@@ -95,8 +95,8 @@ export default function FormsPage() {
   return (
     <Page>
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
-            <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }, { value: "cards", label: "ตัวอย่างการ์ดในแชท", icon: LayoutTemplateIcon }]} />
-      {tab === "cards" ? <CardsPreview /> : tab === "line" ? <LinePreview /> : (
+            <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }, { value: "cards", label: "การ์ดในแชท", icon: LayoutTemplateIcon }, { value: "linemsg", label: "ข้อความ LINE ที่ระบบส่ง", icon: SendIcon }]} />
+      {tab === "cards" || tab === "linemsg" ? <CardsPreview view={tab === "cards" ? "cards" : "line"} /> : tab === "line" ? <LinePreview /> : (
         <PreviewLayout onRestart={() => setReload((n) => n + 1)}
           picker={<Segmented value={key} onChange={setKey} label="ฟอร์ม" options={FORMS.map((x) => ({ value: x.key, label: x.name }))} />}
           controls={<>

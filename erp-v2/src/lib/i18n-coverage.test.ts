@@ -19,7 +19,7 @@ const THAI = /[\u0E01-\u0E3A\u0E40-\u0E5B]/
 const SKIP = [
   /^lib\/i18n-dict\//, /\.test\.tsx?$/, /^data\//, /^app\/liff\//, /^app\/api\//, /^server\//, /^app\/print\//,
   /^components\/parent\//, /^domain\/rules\/messages\.ts$/, /^domain\/rules\/address\.ts$/, /^domain\/rules\/romanize\.ts$/, /^lib\/screen-translate\.ts$/,
-  /^domain\/rules\/documents\.ts$/, /^store\/linked-demo\.ts$/, /^store\/transport-demo\.ts$/, /^lib\/sales-tax-export\.ts$/, /^proxy\.ts$/, /^components\/inbox\/cards-preview\.tsx$/, /^components\/inbox\/line-messages-tab\.tsx$/, // the owner's preview pages (sample parent messages) stay Thai like /inbox/cards
+  /^domain\/rules\/documents\.ts$/, /^store\/linked-demo\.ts$/, /^store\/transport-demo\.ts$/, /^lib\/sales-tax-export\.ts$/, /^proxy\.ts$/, /^components\/inbox\/cards-preview\.tsx$/, /^components\/inbox\/line-messages-tab\.tsx$/, /^components\/inbox\/line-message-box\.tsx$/, /^store\/line-drafts\.ts$/, // the owner's preview pages (sample parent messages) stay Thai like /inbox/cards
 ]
 
 /** Thai on purpose — sent to parents in LINE, typed sample chat, Nock's search words / AI prompt, parsing helpers */
