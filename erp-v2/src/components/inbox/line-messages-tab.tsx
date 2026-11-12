@@ -3,7 +3,7 @@
 // owner 2026-11-09: "ฉันจะดูตัวอย่างข้อความ LINE ได้จากไหน" — EVERY text the system sends to parents, built by the SAME
 // functions the store / forms / API use (domain/rules/messages.ts), from a real invoice of the demo data.
 // Nothing is sent from here. Language by brand: Liclass = Japanese + English, NockAcademy = Thai + English.
-import { PlusIcon } from "lucide-react"
+import { LanguagesIcon, PlusIcon } from "lucide-react"
 import { Empty } from "@/components/app/empty"
 import { LineMessageBox, type BoxView } from "@/components/inbox/line-message-box"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,7 @@ import { useStore } from "@/store/store"
 
 type Item = { title: string; hint: string; text: string; draft?: boolean }
 
-function Group({ title, hint, boxes, onAdd, autoEditKey }: { title: string; hint: string; boxes: BoxView[]; onAdd: () => void; autoEditKey: string | null }) {
+function Group({ title, hint, boxes, onAdd, autoEditKey, showTranslation }: { title: string; hint: string; boxes: BoxView[]; onAdd: () => void; autoEditKey: string | null; showTranslation: boolean }) {
   return (
     <section className="space-y-4 border-t pt-6 first:border-t-0 first:pt-0">
       <div className="flex items-end justify-between gap-3">
@@ -31,7 +31,7 @@ function Group({ title, hint, boxes, onAdd, autoEditKey }: { title: string; hint
         <Button type="button" variant="outline" size="sm" onClick={onAdd}><PlusIcon />เพิ่มข้อความ</Button>
       </div>
       {boxes.length === 0 ? <p className="text-sm text-muted-foreground">ไม่มีข้อความในกลุ่มนี้</p>
-        : <div className="grid items-start gap-x-8 gap-y-6 lg:grid-cols-3">{boxes.map((x) => <LineMessageBox key={x.key} box={x} autoEdit={x.key === autoEditKey} />)}</div>}
+        : <div className="grid items-start gap-x-8 gap-y-6 lg:grid-cols-3">{boxes.map((x) => <LineMessageBox key={x.key} box={x} autoEdit={x.key === autoEditKey} showTranslation={showTranslation} />)}</div>}
     </section>
   )
 }
@@ -47,6 +47,7 @@ export function LineMessagesTab() {
   const [brand, setBrand] = useState<"nockacademy" | "liclass">("liclass")
   const { overrides, removed, added, add, restoreAll } = useLineDrafts()
   const [autoEditKey, setAutoEditKey] = useState<string | null>(null)
+  const [showTranslation, setShowTranslation] = useState(true)
   const removedHere = removed.filter((k) => k.startsWith(`${brand}|`)).length
 
   const sample = useMemo(() => {
@@ -126,7 +127,8 @@ export function LineMessagesTab() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <Segmented value={brand} onChange={setBrand} label="แบรนด์" options={[{ value: "liclass", label: "Liclass" }, { value: "nockacademy", label: "NockAcademy" }]} />
-        <InfoTip text="ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ — แก้ / เพิ่ม / ลบได้อิสระเพื่อคุยกับ Admin และ Dev เป็นร่างสเปกเท่านั้น (บันทึกในเครื่องนี้ ไม่เปลี่ยนข้อความที่ระบบส่งจริง)" />
+        <Button type="button" variant="chip" aria-pressed={showTranslation} onClick={() => setShowTranslation((v) => !v)}><LanguagesIcon />{showTranslation ? "ซ่อนคำแปล English" : "แสดงคำแปล English"}</Button>
+        <InfoTip text="ข้อความจริงที่ระบบส่งให้ผู้ปกครอง · Liclass = ญี่ปุ่น + อังกฤษ · NockAcademy = ไทย + อังกฤษ · ภาษาอังกฤษเป็นตัวอย่างคำแปล กดปุ่มเพื่อซ่อน/แสดง — แก้ / เพิ่ม / ลบได้อิสระเพื่อคุยกับ Admin และ Dev เป็นร่างสเปกเท่านั้น (บันทึกในเครื่องนี้ ไม่เปลี่ยนข้อความที่ระบบส่งจริง)" />
         {removedHere > 0 && <Button type="button" variant="ghost" size="sm" onClick={() => restoreAll(brand)}>กู้คืนที่ลบ ({removedHere})</Button>}
       </div>
       {!sample ? (
@@ -139,7 +141,7 @@ export function LineMessagesTab() {
           return [ov ? { ...ov, draft: x.draft, edited: true, custom: false } : { key, brand, group: g.title, title: x.title, hint: x.hint, draft: x.draft, text: x.text, edited: false, custom: false }]
         })
         const mine: BoxView[] = added.filter((x) => x.brand === brand && x.group === g.title).map((x) => ({ ...x, edited: false, custom: true }))
-        return <Group key={g.title} title={g.title} hint={g.hint} boxes={[...generated, ...mine]} autoEditKey={autoEditKey} onAdd={() => setAutoEditKey(add(brand, g.title))} />
+        return <Group key={g.title} title={g.title} hint={g.hint} boxes={[...generated, ...mine]} autoEditKey={autoEditKey} showTranslation={showTranslation} onAdd={() => setAutoEditKey(add(brand, g.title))} />
       })}
     </div>
   )

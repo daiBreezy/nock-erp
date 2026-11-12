@@ -2,7 +2,7 @@
 
 // owner 2026-11-12: one LINE message — plain text you can edit freely (no bubble, no frame). A spec to talk through with
 // Admin / Dev; it never changes what the system really sends.
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { MoreHorizontalIcon, PencilIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -13,11 +13,42 @@ import { useLineDrafts, type DraftBox } from "@/store/line-drafts"
 
 export interface BoxView extends DraftBox { draft?: boolean; edited: boolean; custom: boolean }
 
-export function LineMessageBox({ box, autoEdit }: { box: BoxView; autoEdit?: boolean }) {
+/** the message the parent gets = main language (Thai / Japanese) + a divider + the English translation (last block) */
+const SEP = "\n\n———\n\n"
+export const splitTranslation = (text: string) => { const i = text.lastIndexOf(SEP); return i < 0 ? { main: text, trans: null as string | null } : { main: text.slice(0, i), trans: text.slice(i + SEP.length) } }
+
+export function LineMessageBox({ box, autoEdit, showTranslation = true }: { box: BoxView; autoEdit?: boolean; showTranslation?: boolean }) {
   const [renaming, setRenaming] = useState(!!autoEdit)
   const { save, remove, restore, revert } = useLineDrafts()
   // owner 2026-11-12: the message is a field you type in directly (saved as you type, faint frame, small character count)
   const change = (p: Partial<DraftBox>) => save({ key: box.key, brand: box.brand, group: box.group, title: box.title, hint: box.hint, text: box.text, ...p }, box.custom)
+  // owner 2026-11-12: the English block is only a translation example — hide it so each reader sees just their own language
+  const { main, trans } = splitTranslation(box.text)
+  const hidden = trans !== null && !showTranslation
+  const shown = hidden ? main : box.text
+  // owner 2026-11-12: edit the main language → the English block follows (debounced, via /api/ai/translate)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const lastMain = useRef(main)
+  const latest = useRef({ box, main })
+  useEffect(() => { latest.current = { box, main } })
+  useEffect(() => {
+    if (trans === null || main === lastMain.current) return
+    if (!box.edited && !box.custom) { lastMain.current = main; return } // reverted to the system text — its English is already right
+    if (!main.trim()) return
+    const timer = setTimeout(async () => {
+      setErr(null)
+      setBusy(true)
+      try {
+        const r = await fetch("/api/ai/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: main, from: box.brand === "liclass" ? "ja" : "th" }) }).then((x) => x.json())
+        if (latest.current.main !== main) return // typed more meanwhile — the next round translates the newer text
+        if (r.ok) { lastMain.current = main; save({ ...latest.current.box, text: main + SEP + r.text }, latest.current.box.custom) } else setErr(r.error ?? "แปลไม่สำเร็จ")
+      } catch { setErr("แปลไม่สำเร็จ") }
+      setBusy(false)
+    }, 1500)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [main])
   const del = () => {
     remove(box.key, box.custom)
     toast.success(`ลบ “${box.title}” แล้ว`, box.custom ? undefined : { action: { label: "เลิกลบ", onClick: () => restore(box.key) } })
@@ -52,8 +83,8 @@ export function LineMessageBox({ box, autoEdit }: { box: BoxView; autoEdit?: boo
           </DropdownMenu>
         )}
       </div>
-      <Textarea value={box.text} onChange={(e) => change({ text: e.target.value })} placeholder="พิมพ์ข้อความได้เลย" aria-label={box.title} className="min-h-32 border-foreground/10 text-sm leading-relaxed" />
-      <p className="text-right text-2xs text-muted-foreground">{box.text.length.toLocaleString()} ตัวอักษร</p>
+      <Textarea value={shown} onChange={(e) => change({ text: hidden ? e.target.value + SEP + trans : e.target.value })} placeholder="พิมพ์ข้อความได้เลย" aria-label={box.title} className="min-h-32 border-foreground/10 text-sm leading-relaxed" />
+      <p className="text-right text-2xs text-muted-foreground">{shown.length.toLocaleString()} ตัวอักษร{hidden && " · ซ่อนคำแปล English ไว้"}{busy && " · กำลังแปลเป็น English…"}{err && ` · แปลอัตโนมัติไม่ได้: ${err}`}</p>
     </div>
   )
 }
