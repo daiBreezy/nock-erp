@@ -5,6 +5,10 @@
 
 ---
 
+## 2026-11-12 — erp-v2: ย้าย "ตัวอย่างการ์ดในแชท" จาก Inbox ไปเป็นแท็บใน ฟอร์มผู้ปกครอง · สลับเมนู
+- ปุ่มไอคอน layout ในแถบเครื่องมือ Inbox ถูกลบ → เนื้อหาเดิมอยู่ที่ `/forms` แท็บที่ 3 "ตัวอย่างการ์ดในแชท" (ในมี Segmented ย่อย: การ์ดในแชท | ข้อความ LINE ที่ระบบส่ง) · โค้ดย้ายไป `components/inbox/cards-preview.tsx` · `/inbox/cards` redirect ไป `/forms`
+- Sidebar: ฟอร์มผู้ปกครอง ย้ายลงมาใต้ ปฏิทิน (`nav.ts`) · tsc/eslint/i18n test ผ่าน · ตรวจในเบราว์เซอร์แล้ว (ยังไม่ commit)
+
 ## 2026-11-11 (ต่อ) — erp-v2: Design System รอบ 7–9c — ครบทั้ง 4 เรื่อง · ทุกกฎเป็น `error` · `main` อัปเดตแล้ว
 - **ผล:** px 44→0 · breakpoint 29→0 · controls ดิบ 329→0 · eslint ทั้ง src = 0 warning/0 error · 421 tests ผ่าน · ตรวจด้วย eslint/tsc เท่านั้น (**ยังไม่ได้เปิดดูหน้าจอ**)
 - **แยกกฎ:** no-raw-controls ย้ายไป `react/forbid-elements` · `no-restricted-syntax` (สีสถานะ/px/breakpoint/search icon) + forbid-elements = `error` ถาวร

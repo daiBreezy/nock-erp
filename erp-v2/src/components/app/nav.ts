@@ -24,8 +24,8 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/", label: "Dashboard", icon: LayoutDashboardIcon, perm: "calendar.view" },
       { href: "/crm", label: "CRM (ลีด)", icon: UserSearchIcon, perm: "lead.manage" },
       { href: "/inbox", label: "Inbox", icon: InboxIcon, perm: "inbox.manage" },
-      { href: "/forms", label: "ฟอร์มผู้ปกครอง", icon: FileTextIcon, perm: "lead.manage" },
       { href: "/calendar", label: "ปฏิทิน", icon: CalendarDaysIcon, perm: "calendar.view" },
+      { href: "/forms", label: "ฟอร์มผู้ปกครอง", icon: FileTextIcon, perm: "lead.manage" },
     ],
   },
   {

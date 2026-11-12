@@ -1,10 +1,11 @@
 "use client"
 
 import { Page, Segmented, Tabs } from "@/components/app/page-layout"
+import { CardsPreview } from "@/components/inbox/cards-preview"
 import { LinePreview } from "@/components/forms/line-preview"
 import { PreviewLayout } from "@/components/forms/preview-layout"
 import { useState } from "react"
-import { ArrowRightIcon, FileTextIcon, MessageCircleIcon, ExternalLinkIcon, SendIcon, UserRoundIcon } from "lucide-react"
+import { ArrowRightIcon, FileTextIcon, MessageCircleIcon, ExternalLinkIcon, LayoutTemplateIcon, SendIcon, UserRoundIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import type { FormLang } from "@/domain/types"
@@ -84,7 +85,7 @@ const FORMS: FormDoc[] = [
 const FULL: Record<string, string> = { test: "สอบวัดระดับ (Test)", trial: "ทดลองเรียน (Trial)", survey: "ความพึงพอใจประจำปี (NPS)" }
 
 export default function FormsPage() {
-  const [tab, setTab] = useState<"forms" | "line">("forms")
+  const [tab, setTab] = useState<"forms" | "line" | "cards">("forms")
   const [key, setKey] = useState("enroll")
   const [lang, setLang] = useState<FormLang>("th")
   const [brand, setBrand] = useState<"nockacademy" | "liclass">("nockacademy")
@@ -94,8 +95,8 @@ export default function FormsPage() {
   return (
     <Page>
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
-            <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }]} />
-      {tab === "line" ? <LinePreview /> : (
+            <Tabs value={tab} onChange={setTab} options={[{ value: "forms", label: "ฟอร์ม", icon: FileTextIcon }, { value: "line", label: "LINE OA Preview", icon: MessageCircleIcon }, { value: "cards", label: "ตัวอย่างการ์ดในแชท", icon: LayoutTemplateIcon }]} />
+      {tab === "cards" ? <CardsPreview /> : tab === "line" ? <LinePreview /> : (
         <PreviewLayout onRestart={() => setReload((n) => n + 1)}
           picker={<Segmented value={key} onChange={setKey} label="ฟอร์ม" options={FORMS.map((x) => ({ value: x.key, label: x.name }))} />}
           controls={<>
