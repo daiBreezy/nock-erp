@@ -353,18 +353,22 @@ function LeadOverview({ d }: { d: ReportData }) {
   const f = shown.map((s, j) => ({ ...s, ofPrev: j && shown[j - 1].count ? s.count / shown[j - 1].count : null }))
   const head = (i: number, title: string, extra?: React.ReactNode) => {
     const last = i === f.length - 1
+    const sub = i ? tx("{0} จากขั้นก่อน", [fmtPct(f[i].ofPrev)]) : deltaSub(pctDelta(l.total, l.prev.total, ok))
     return (
-      <div>
+      <div className={cn(last && "text-right")}>
         <p className="text-xs text-muted-foreground">{title}</p>
         <p className={cn("mt-0.5 flex items-baseline gap-1.5", last && "flex-row-reverse")}>
           <span className="text-2xl font-semibold tabular-nums">{fmtNum(f[i].count)}</span>
           {/* the same words as the boxes under it */}
           <span className="truncate text-sm text-muted-foreground">{tx(f[i].key === "came" ? "มาตามนัด" : f[i].label)}</span>
         </p>
-        <p className={cn("flex items-center gap-2 text-2xs text-muted-foreground tabular-nums", last && "justify-end")}>
-          {i ? tx("{0} จากขั้นก่อน", [fmtPct(f[i].ofPrev)]) : deltaSub(pctDelta(l.total, l.prev.total, ok))}
-          {extra}
-        </p>
+        {/* the result column's Conversion chip stacks under the "% จากขั้นก่อน" line — side by side it was wide enough
+            to reach back into the previous column's caption (they sit close together in a 4-column funnel) */}
+        {last && extra ? (
+          <span className="flex flex-col items-end gap-0.5 text-2xs text-muted-foreground tabular-nums"><span>{sub}</span>{extra}</span>
+        ) : (
+          <p className={cn("flex items-center gap-2 text-2xs text-muted-foreground tabular-nums", last && "justify-end")}>{sub}{extra}</p>
+        )}
       </div>
     )
   }

@@ -131,11 +131,14 @@ export function Sankey({ columns, flows, total, heads, size = { w: 1000, h: 380 
       </div>
       <div className="-mx-1 overflow-x-auto px-1">
         {heads && (
-          <div className={cn("relative mb-1 h-[4.75rem]", minWidth)}>
+          <div className={cn("relative mb-1 h-[5.5rem]", minWidth)}>
             {heads.map((h, ci) => {
               const last = ci === columns.length - 1
+              // anchored to its column's x (left for a column, right for the last one so it hugs the right edge);
+              // sized to its content (not a fixed width — a fixed 28% made the invisible boxes overlap even when the
+              // text didn't), capped so a very wide caption truncates instead of running into its neighbour.
               return (
-                <div key={ci} className={cn("absolute top-0 whitespace-nowrap [&_p]:truncate", columns.length > 2 ? "w-[28%]" : "w-[48%]", last && "text-right")}
+                <div key={ci} className={cn("absolute top-0 max-w-[40%] whitespace-nowrap [&_p]:truncate", last && "text-right")}
                   style={last ? { right: `${((W - xOf(ci) - NW) / W) * 100}%` } : { left: `${(xOf(ci) / W) * 100}%` }}>{h}</div>
               )
             })}
