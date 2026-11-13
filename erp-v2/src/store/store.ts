@@ -206,7 +206,8 @@ type Store = DB & UIState & {
 
   saveSummary: (sessionId: ID, studentId: ID, text: string, submit: boolean, lesson?: SummaryLesson) => Result
   /** "Summary Template": the same Book / Topic / Lesson Detail for every student present in the session (feedback stays per student) */
-  applyLessonToSession: (sessionId: ID, lesson: SummaryLesson) => Result<{ count: number }>
+  /** `text` set = the Feedback Summary goes to everyone too (owner 2026-11-13: "use this summary for the whole class") */
+  applyLessonToSession: (sessionId: ID, lesson: SummaryLesson, text?: string) => Result<{ count: number }>
   /** Book / Topic catalog — typed once, picked by everyone in the branch; same name (any case/spacing) = the existing one */
   addLessonBook: (branchId: ID, name: string) => Result<LessonBook>
   addLessonTopic: (bookId: ID, name: string) => Result<LessonTopic>
@@ -217,6 +218,8 @@ type Store = DB & UIState & {
   /** forceRemark set = Force Approve (skip maker–checker) */
   approveSummary: (id: ID, forceRemark?: string) => Result
   sendSummary: (id: ID) => Result<{ delivered: boolean }>
+  /** owner 2026-11-13: close an approved summary WITHOUT sending it to the parent (told in person) — kept as History */
+  keepSummary: (id: ID) => Result
 
   /** Course Summary (owner 2026-10-06) — one per entitlement (purchase round), same lifecycle as a session summary */
   saveCourseSummary: (entitlementId: ID, studentId: ID, fields: { overallProgress: string; toImprove: string; strengths: string }, submit: boolean) => Result
@@ -434,6 +437,16 @@ const forceNotice = (s: DB & { userId: ID; now: () => Date }, branchId: ID, what
     audience: Notif.forceAudience(branchId, s.staff),
   })
 }
+/** owner 2026-11-13: an invoice that did not reach the parent (no LINE linked / LINE failed) — the branch's office is told */
+const undeliveredInvoiceNotice = (s: DB & { now: () => Date }, inv: Invoice, nickname: string, error?: string) =>
+  Notif.notify({
+    id: uid("no"), at: s.now(), kind: "info",
+    title: "ใบแจ้งหนี้ยังไม่ถึงผู้ปกครอง",
+    body: error
+      ? `${inv.number ?? ""} · ${nickname} — ส่ง LINE ไม่สำเร็จ (${error}) · ระบบเก็บใบนี้ไว้ในระบบแล้ว ต้องส่งให้ผู้ปกครองทางอื่นเอง`
+      : `${inv.number ?? ""} · ${nickname} — ครอบครัวยังไม่ผูก LINE · ระบบเก็บใบนี้ไว้ในระบบแล้ว ต้องส่งให้ผู้ปกครองทางอื่นเอง`,
+    audience: { roles: ["admin", "manager"], branchId: inv.branchId },
+  })
 const ctxOf = (s: DB, branchId: ID) => ({
   branch: s.branches.find((b) => b.id === branchId)!,
   courses: s.courses, classes: s.classes, holidays: s.holidays,
@@ -2089,7 +2102,7 @@ export const useStore = create<Store>()(
       },
 
       // ---------------- summaries ----------------
-      applyLessonToSession: (sessionId, lesson) => {
+      applyLessonToSession: (sessionId, lesson, text) => {
         const s = get()
         const me = s.me()
         const se = s.sessions.find((x) => x.id === sessionId)!
@@ -2104,8 +2117,8 @@ export const useStore = create<Store>()(
           if (ex && ex.status !== "draft" && ex.status !== "changes_requested") continue // already submitted — leave it
           count++
           summaries = ex
-            ? summaries.map((x) => (x === ex ? { ...x, ...L, lastEditorId: me.id, history: [...x.history, { at, by: me.id, action: "edit" as const }] } : x))
-            : [...summaries, { id: uid("sm"), sessionId, studentId, ...L, text: "", status: "draft" as const, authorId: me.id, lastEditorId: me.id, history: [{ at, by: me.id, action: "write" as const }] }]
+            ? summaries.map((x) => (x === ex ? { ...x, ...L, ...(text?.trim() ? { text: text.trim() } : {}), lastEditorId: me.id, history: [...x.history, { at, by: me.id, action: "edit" as const }] } : x))
+            : [...summaries, { id: uid("sm"), sessionId, studentId, ...L, text: text?.trim() ?? "", status: "draft" as const, authorId: me.id, lastEditorId: me.id, history: [{ at, by: me.id, action: "write" as const }] }]
         }
         set({ summaries })
         return { ok: true, value: { count } }
@@ -2244,10 +2257,23 @@ export const useStore = create<Store>()(
           set((st) => ({ summaries: st.summaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
           toast.error(`ส่งสรุปของ ${stu.nickname} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
         })
-        if (delivery === "no_line") return fail("ผู้ปกครองยังไม่ได้ผูก LINE — ยังไม่ได้ส่ง (สรุปยังอยู่สถานะอนุมัติแล้ว)")
+        if (delivery === "no_line") return fail("ผู้ปกครองยังไม่ได้ผูก LINE — ยังไม่ได้ส่ง (สรุปยังอยู่สถานะอนุมัติแล้ว · เลือก \"เก็บเป็น History\" ได้ถ้าไม่ต้องส่ง)")
         set({ summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "sent", history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "send" }] } : x)) })
         if (delivery === "delivered") log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ส่งถึงผู้ปกครองทาง LINE")
         return { ok: true, value: { delivered: true } }
+      },
+
+      keepSummary: (id) => {
+        const s = get()
+        const cur = s.summaries.find((x) => x.id === id)
+        if (!cur) return fail("ไม่พบสรุป")
+        if (!can(s.me(), "summary.approve")) return fail("เฉพาะผู้อนุมัติสรุปเท่านั้น")
+        const r = Sum.canKeep(cur)
+        if (!r.ok) return r
+        // closed like a sent one (locks the session, counts as done) — but nothing goes to LINE, and it stays as History
+        set({ summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "sent", toParent: false, history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "keep" as const }] } : x)) })
+        log("attendance", [cur.studentId], "เก็บสรุปการเรียนเป็น History", "ไม่ได้ส่งผู้ปกครอง (เก็บไว้ใช้สร้าง Course Summary)")
+        return OK
       },
 
       saveCourseSummary: (entitlementId, studentId, fields, submit) => {
@@ -2398,10 +2424,16 @@ export const useStore = create<Store>()(
         const delivery = pushLine(stu.familyId, text, (ok, error) => {
           set((st) => ({ invoices: st.invoices.map((x) => (sentIds.has(x.id) ? { ...x, delivery: ok ? "delivered" : "failed", deliveryError: ok ? undefined : error } : x)) }))
           log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${ok ? "ถึงผู้ปกครองทาง LINE แล้ว" : `ส่ง LINE ไม่สำเร็จ: ${error ?? ""}`}`)
-          if (!ok) toast.error(`ส่งใบแจ้งหนี้ ${inv.number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+          if (!ok) {
+            toast.error(`ส่งใบแจ้งหนี้ ${inv.number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
+            set((st) => ({ notifications: [undeliveredInvoiceNotice(st, inv, stu.nickname, error), ...st.notifications] }))
+          }
         })
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...inv, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : sentIds.has(x.id) ? { ...x, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : x)) })
         if (delivery !== "sending") log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${delivery === "delivered" ? "ส่งทาง LINE แล้ว" : "ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"}`)
+        // owner 2026-11-13: sent to a family with no LINE → it did NOT reach the parent: tell the branch's Admin / Manager.
+        // The invoice itself stays in the system (status "sent", delivery "no_line") for them to hand over another way.
+        if (delivery === "no_line") set((st) => ({ notifications: [undeliveredInvoiceNotice(st, inv, stu.nickname), ...st.notifications] }))
         // lead's child got an invoice → the lead is waiting for payment
         const lead = leadOfStudent(inv.studentId)
         if (lead) advanceLead(lead.id, "payment_pending")

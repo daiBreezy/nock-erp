@@ -8,6 +8,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // Soft-filled primary (owner 2026-11-13) — a step along the way, not the one that reaches outside the team;
+        // reads better than `outline` (border only, easy to miss) without being as loud as the solid `default`.
+        tonal: "bg-primary/10 text-primary hover:bg-primary/15 aria-expanded:bg-primary/15",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-transparent dark:hover:bg-input/30",
         secondary:

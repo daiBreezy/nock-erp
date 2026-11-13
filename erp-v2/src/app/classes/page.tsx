@@ -8,7 +8,7 @@ import { ClassSheet } from "@/components/app/class-sheet"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { Kpi } from "@/components/app/kpi"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { endTime, fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
@@ -117,7 +117,7 @@ export default function ClassesPage() {
   ]
 
   return (
-    <ListPage title="คลาส" description="คลาสประจำ ครู ห้อง และนักเรียนในแต่ละคลาส"
+    <ListPage branch={scope.select} title="คลาส" description="คลาสประจำ ครู ห้อง และนักเรียนในแต่ละคลาส"
         actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> สร้างคลาส</Button>}
       kpis={<>
         <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={active.length} />
@@ -127,12 +127,12 @@ export default function ClassesPage() {
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาครู / ชั้น / วิชา / ห้อง" />}
       filters={<>
-        <NativeSelect className="h-9 w-28" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={[...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x }))} />
-        <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ประเภทคอร์ส" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
-        <NativeSelect className="h-9 w-32" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="แพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
+        <FilterMenu fields={[
+          { id: "subject", label: "วิชา", value: subjectF, onChange: setSubjectF, placeholder: "ทุกวิชา", options: [...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x })) },
+          { id: "kind", label: "ประเภทคอร์ส", value: kindF, onChange: setKindF, placeholder: "ทุกประเภท", options: [{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }] },
+          { id: "unit", label: "แพ็กเกจ", value: unitF, onChange: setUnitF, placeholder: "ทุกแพ็กเกจ", options: (["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] })) },
+        ]} />
         <ColumnsMenu id="classes" columns={columns} />
-        {/* owner 2026-10-09: branch chip always last in the row */}
-        {scope.select}
       </>}>
       {/* owner 2026-10-12: subject and class name in their own columns · teacher by nickname only · branch as its code ·
           columns arranged per person (DataTable) */}

@@ -14,7 +14,7 @@ import { EntityPanel, PanelBody, PanelFooter, PanelMore } from "@/components/app
 import { InfoTip } from "@/components/app/info-tip"
 import { ImageAttach, ImageGallery, MetaGrid } from "@/components/app/images"
 import { Kpi } from "@/components/app/kpi"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { FilterBar, KpiRow, Page, PageHeader, SearchBox, Segmented, ShowChip, Tabs, Toolbar } from "@/components/app/page-layout"
 import { DevTicketsView } from "@/components/nock/dev-tickets-view"
 import { OPEN_STATUSES, visibleTickets } from "@/domain/rules/dev-tickets"
@@ -108,7 +108,7 @@ export default function NockPage() {
     <Page>
       <PageHeader title={<span className="flex items-center gap-2">คลังคำถาม Nock <InfoTip text="ทุกคำถามที่ถาม Nock · คำถามที่มีคำตอบจากทีม = คลังความรู้ที่ Nock ใช้ตอบคนต่อไป · ตอบได้หลายคน แก้ได้เฉพาะคำตอบของตัวเอง · โหวตขึ้น / ลง เลือกว่า Nock ใช้คำตอบไหน · คำถามที่ Nock ตอบไม่ได้รอ Super Admin / Director / Area Manager / Manager ตอบ" /></span>}
         description={answerer ? "ตอบคำถามที่ Nock ยังไม่รู้ — ตอบแล้วกลายเป็นคลังความรู้" : "คำถามของคุณ และคลังความรู้ที่ทีมตอบไว้"}
-        actions={tab === "dev" ? <Button onClick={() => setNewTicket(true)}><PlusIcon /> ส่งเรื่องถึง Dev</Button> : answerer && <Button onClick={() => setOpen("new")}><PlusIcon /> สร้างคลังความรู้</Button>} />
+        actions={<>{tab !== "dev" && scope.select}{tab === "dev" ? <Button onClick={() => setNewTicket(true)}><PlusIcon /> ส่งเรื่องถึง Dev</Button> : answerer && <Button onClick={() => setOpen("new")}><PlusIcon /> สร้างคลังความรู้</Button>}</>} />
       {/* owner 2026-10-13: questions about using the system | เรื่องถึง Dev (bugs / help / suggestions) — one page */}
       <Tabs value={tab} onChange={setTab} options={[{ value: "questions", label: "คำถามการใช้งาน", icon: MessagesSquareIcon }, { value: "dev", label: <>เรื่องถึง Dev{openTickets > 0 && <span className="rounded-full bg-danger-soft px-1.5 text-xs text-danger-ink tabular-nums">{openTickets}</span>}</>, icon: CodeXmlIcon }]} />
       {tab === "dev" ? <DevTicketsView creating={newTicket} onCreated={() => setNewTicket(false)} /> : <>
@@ -125,10 +125,11 @@ export default function NockPage() {
         <ShowChip label="Done" on={showDone === "1" || show === "done"} count={filtered.filter((x) => x.status !== "unanswered").length} onChange={(v) => { setShowDone(v ? "1" : "0"); if (!v && show === "done") setShow("all"); setStatus("") }} />
       </Toolbar>
       <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคำถาม / คำตอบ / ผู้ถาม" />}>
-        <NativeSelect className="h-9 w-36" value={role} onChange={(e) => setRole(e.target.value as Role | "")} placeholder="ทุก Role" options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
-        <NativeSelect className="h-9 w-44" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="ทุก Part" options={NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label }))} />
+        <FilterMenu fields={[
+          { id: "role", label: "Role", value: role, onChange: (v) => setRole(v as Role | ""), placeholder: "ทุก Role", options: ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] })) },
+          { id: "part", label: "Part", value: location, onChange: setLocation, placeholder: "ทุก Part", options: NOCK_LOCATIONS.map((l) => ({ value: l.id, label: l.label })) },
+        ]} />
         <ColumnsMenu id="nock" columns={columns} />
-        {scope.select}
       </FilterBar>
 
       <DataTable id="nock" columns={columns} rows={rows} rowKey={(x) => x.id} onRowClick={(x) => setOpen(x.id)} sort={sort} onSort={toggle} minWidth={900}

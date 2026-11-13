@@ -549,7 +549,7 @@ export type SummaryStatus = "draft" | "submitted" | "changes_requested" | "appro
 export interface SummaryEvent {
   at: string
   by: ID
-  action: "write" | "submit" | "request_changes" | "approve" | "force_approve" | "send" | "edit"
+  action: "write" | "submit" | "request_changes" | "approve" | "force_approve" | "send" | "keep" | "edit"
   note?: string
 }
 
@@ -586,6 +586,9 @@ export interface LessonSummary {
   /** owner 2026-10-14: a Bundle session (several subjects) rates each subject on its own; `level` = their average */
   subjectLevels?: Record<string, number>
   status: SummaryStatus
+  /** owner 2026-11-13: false = closed WITHOUT sending to the parent (told in person) — kept as History for the Course
+   *  Summary. undefined / true = sent (or to be sent) to the parent as before. */
+  toParent?: boolean
   authorId: ID
   lastEditorId: ID
   history: SummaryEvent[]
@@ -620,6 +623,8 @@ export interface Parent {
   email?: string
   /** owner 2026-10-12: one of PARENT_RELATIONS (ผู้ปกครอง · พ่อ · แม่ · ญาติ) — names carry no คุณพ่อ / คุณแม่ */
   relationship?: string
+  /** this guardian's own LINE account — set when staff say who they are in a LINE group (Family.lineUserId is only the one chat the family was linked through) */
+  lineUserId?: string
   birthDate?: DateStr
   /** phone numbers beyond the primary `phone` above — additive so every existing `p.phone` read stays correct */
   altPhones?: string[]
@@ -1203,7 +1208,14 @@ export interface Conversation {
   lastMessageAt: string
   /** true while there's a parent message staff hasn't opened yet */
   unread: boolean
+  /** LINE group / multi-person room (id = line_<groupId>) — many people share this one thread, each message carries its `sender` */
+  group?: boolean
+  /** group only: who each LINE member is — kept on the conversation (not on the family) because a group also holds people who are NOT in the ERP (an uncle or aunt who just wants the news) */
+  members?: Record<string, GroupMemberRole>
 }
+
+/** a LINE group member's place: a guardian (identified by `Parent.lineUserId`) · a student of the linked family · a follower outside the ERP */
+export type GroupMemberRole = { kind: "parent" } | { kind: "student"; studentId: ID } | { kind: "follower" }
 
 export type MessageAuthor = "parent" | "staff" | "internal"
 
@@ -1266,6 +1278,8 @@ export interface ChatMessage {
   /** absent/"text" = plain bubble — every existing message stays valid with no migration */
   kind?: MessageKind
   meta?: ChatMessageMeta
+  /** who in a LINE group wrote this ("parent" messages of group conversations only) — userId stays stable even when LINE won't reveal the name */
+  sender?: { userId: string; name: string }
 }
 
 // ---------- Billing ----------

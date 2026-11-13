@@ -2,7 +2,6 @@
 
 // The one date control for list pages (owner 2026-10-09):  [ วันนี้ | สัปดาห์นี้ | เดือนนี้ | กำหนดเอง ]  ( ‹ range › )
 // Segmented switch for the kind of period, one pill to step back / forward. Kept in the URL (?period=&at=&from=&to=).
-import { DateRangePicker } from "@/components/app/date-range-picker"
 import { RangeStepper } from "@/components/app/page-layout"
 import { fmtDate, fmtMonth, toDateStr } from "@/domain/dates"
 import { isCurrent, periodRange, shiftPeriod, type PeriodMode, type PeriodRange } from "@/domain/rules/period"
@@ -44,9 +43,9 @@ export function usePeriod(initial: PeriodMode = "week", opts?: { modes?: Exclude
           <Button variant="ghost" size="inline" key={m.key} type="button" aria-pressed={mode === m.key} onClick={() => pick(m.key)}
             className={cn("h-7 flex-1 rounded-full px-3 text-sm whitespace-nowrap sm:flex-none", mode === m.key ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground")}>{m.label}</Button>
         ))}
-        <DateRangePicker segment from={range.from} to={range.to} active={mode === "custom"} onChange={setCustom} />
       </div>
-      <RangeStepper label={label} current={current || mode === "custom"} onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => { setAt(""); setFrom(""); setTo(""); if (mode === "custom") setMode("week") }} />
+      <RangeStepper label={label} current={current || mode === "custom"} onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => { setAt(""); setFrom(""); setTo(""); if (mode === "custom") setMode("week") }}
+        pick={{ from: range.from, to: range.to, onPick: setCustom }} />
     </div>
   )
   return { ...range, mode, control }

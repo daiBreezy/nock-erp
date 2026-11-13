@@ -71,6 +71,20 @@ export function canSend(s: Pick<SummaryLike, "status">, parents: Parent[]): Resu
   return { ok: true, value: { delivered: parents.some((p) => p.lineLinked) } }
 }
 
+/** owner 2026-11-13: an approved summary may be closed without sending it to the parent (they were told in person, or
+ *  there is no LINE) — it stays in the student's History and still feeds the Course Summary. */
+export function canKeep(s: Pick<SummaryLike, "status">): Result {
+  if (s.status !== "approved") return { ok: false, error: "ต้องอนุมัติก่อน จึงเก็บเป็น History ได้" }
+  return { ok: true, value: undefined }
+}
+
+/** closed without going to the parent */
+export const keptOnly = (s: Pick<LessonSummary, "status" | "toParent">) => s.status === "sent" && s.toParent === false
+
+/** the label for a summary's state — "sent" splits into sent to the parent / kept as History only */
+export const summaryLabel = (s: Pick<LessonSummary, "status" | "toParent"> | undefined): string =>
+  !s ? "ยังไม่เขียน" : keptOnly(s) ? "เก็บเป็น History" : SUMMARY_STATUS_LABEL[s.status]
+
 export interface EntitlementRound {
   entitlementIds: ID[]
   /** the round's own CourseSummary is keyed on this — its latest entitlement */

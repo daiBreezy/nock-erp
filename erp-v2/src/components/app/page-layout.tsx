@@ -6,9 +6,14 @@
 //   Toolbar — branch chip first · search · filters · (right) view switch / count
 //   Content — the table, full width
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
-import { Children } from "react"
-import { ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, SearchIcon } from "lucide-react"
+import { Children, Fragment, isValidElement, type ReactNode } from "react"
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { DateRangePicker } from "@/components/app/date-range-picker"
+import type { DateStr } from "@/domain/types"
+import { Checkbox } from "@/components/ui/checkbox"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 
 export function Page({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -32,15 +37,21 @@ export function PageHeader({ title, description, actions }: { title: React.React
  *   2 → 2 · 3 → 3 · 4 → 2+2 then 4 on desktop · 6 → 2 / 3+3.  Only 2, 3, 4 or 6 cards are allowed;
  *   5 still renders (2 / 3 / 5) but warns in development — trim to 4 or add a 6th.
  */
+/** a Fragment counts as its children — ListPage hands over `kpis={<>…</>}`, which used to count as ONE card and fell into the 5-column layout */
+function flat(node: ReactNode): ReactNode[] {
+  return Children.toArray(node).flatMap((c) => (isValidElement<{ children?: ReactNode }>(c) && c.type === Fragment ? flat(c.props.children) : [c]))
+}
+
 export function KpiRow({ children }: { children: React.ReactNode }) {
-  const n = Children.toArray(children).length
+  const n = flat(children).length
   if (process.env.NODE_ENV !== "production" && ![0, 2, 3, 4, 6].includes(n)) console.warn(`KpiRow: ${n} cards — the Design System allows 2, 3, 4 or 6`)
   // each column is at most 18rem (288px) so cards never stretch wide on big screens; 6 cards stay 3 + 3 so none drops
   // under the 160px minimum next to the sidebar
   const cols =
     n === 2 ? "grid-cols-[repeat(2,minmax(0,18rem))]"
     : n === 3 ? "grid-cols-3 sm:grid-cols-[repeat(3,minmax(0,18rem))]"
-    : n === 4 ? "grid-cols-[repeat(2,minmax(0,18rem))] lg:grid-cols-[repeat(4,minmax(0,18rem))]"
+    // 4 = the standard (teaching menu, 2026-11-13): 2×2 on phones / iPad portrait, one row of four from 1024, columns share the full width equally
+    : n === 4 ? "grid-cols-2 lg:grid-cols-4"
     : n === 6 ? "grid-cols-[repeat(2,minmax(0,18rem))] sm:grid-cols-[repeat(3,minmax(0,18rem))]"
     : "grid-cols-[repeat(2,minmax(0,18rem))] sm:grid-cols-[repeat(3,minmax(0,18rem))] lg:grid-cols-[repeat(5,minmax(0,18rem))]"
   return <div className={cn("grid gap-3", cols)}>{children}</div>
@@ -48,16 +59,16 @@ export function KpiRow({ children }: { children: React.ReactNode }) {
 
 /** filters on the left (branch chip first), `end` on the right */
 /** The one search box for list pages (owner 2026-10-13: Sessions · Attendance · Summaries got one too) — h-9 like every toolbar control.
- *  Design System (2026-11-10): full width on phones · 260–400px from 640 up · 16px text on phones so iPhone Safari
+ *  Design System (2026-11-10): full width on phones · 160–240px from 640 up · 16px text on phones so iPhone Safari
  *  doesn't zoom in on focus. No className — the width belongs to the system, not the page. */
 export function SearchBox({ value, onChange, placeholder, block, autoFocus }: {
   value: string; onChange: (v: string) => void; placeholder: string
-  /** inside a picker / dialog: always the full width of its box (list pages leave this off: 260–400px) */
+  /** inside a picker / dialog: always the full width of its box (list pages leave this off: 160–240px) */
   block?: boolean
   autoFocus?: boolean
 }) {
   return (
-    <div className={cn("relative w-full", !block && "sm:w-auto sm:max-w-100 sm:min-w-65 sm:flex-1")}>
+    <div className={cn("relative w-full", !block && "sm:w-auto sm:max-w-60 sm:min-w-48 sm:flex-1")}>
       <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
       <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoFocus={autoFocus}
         className="h-9 w-full min-w-0 rounded-3xl border border-transparent bg-input/50 pr-3 pl-8 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 sm:text-sm" />
@@ -71,27 +82,57 @@ export function SearchBox({ value, onChange, placeholder, block, autoFocus }: {
  *   header (title · description · actions) → KPI row (2, 3, 4 or 6) → search + filters → the list (children)
  * Need something the formula can't do? Add it here, or mark the page `// ds-exception: <why>` (rule of three).
  */
-export function ListPage({ title, description, actions, kpis, search, filters, children }: {
+export function ListPage({ title, description, actions, branch, kpis, status, search, period, view, filters, children }: {
   title: React.ReactNode
   description?: React.ReactNode
   /** the page's main button(s) — one `default` button, others `outline` */
   actions?: React.ReactNode
+  /** the branch chip (`scope.select`) — sits in the header row, always just before the CTA */
+  branch?: React.ReactNode
   /** <Kpi> cards — 2, 3, 4 or 6 */
   kpis?: React.ReactNode
   /** a <SearchBox> */
   search?: React.ReactNode
-  /** NativeSelect / Segmented / ShowChip / ColumnsMenu / branch chip (last) */
+  /** a status switch (All / Pending / Done) — gets a line of its own above the rest of the bar */
+  status?: React.ReactNode
+  /** the shared date control (`usePeriod().control`) — sits first, left of the search */
+  period?: React.ReactNode
+  /** a <Segmented> that changes the whole view (day / student · All / Pending / Done) */
+  view?: React.ReactNode
+  /** <FilterMenu> · ShowChip · ColumnsMenu · branch chip (last) */
   filters?: React.ReactNode
   /** the table / cards, pager, and the page's panels */
   children: React.ReactNode
 }) {
   return (
     <Page>
-      <PageHeader title={title} description={description} actions={actions} />
+      <PageHeader title={title} description={description} actions={(branch || actions) ? <>{branch}{actions}</> : undefined} />
       {kpis && <KpiRow>{kpis}</KpiRow>}
-      {(search || filters) && <FilterBar search={search}>{filters}</FilterBar>}
+      {(status || search || period || view || filters) && <ListBar status={status} search={search} period={period} view={view}>{filters}</ListBar>}
       {children}
     </Page>
+  )
+}
+
+/**
+ * Design System › ListBar (2026-11-13, owner): two rows, same on every list page.
+ *   row 0 (only with a date control): [period]
+ *   row 1: [status (All/Pending/Done)] [view switch] [search]                [filters ▾] [columns] …
+ * The branch chip is not here — it lives in the page header, just before the CTA (ListPage `branch`).
+ */
+export function ListBar({ status, search, period, view, children }: { status?: React.ReactNode; search?: React.ReactNode; period?: React.ReactNode; view?: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      {period && <div className="flex flex-wrap items-center gap-2">{period}</div>}
+      {(status || view || search || children) && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {status}
+          {view}
+          {search}
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">{children}</div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -119,15 +160,19 @@ export function Toolbar({ children, end }: { children: React.ReactNode; end?: Re
  * ( ‹  range  › ) — the one date stepper (owner 2026-10-09): Sessions / Attendance / Summaries (inside PeriodControl)
  * and Calendar. Off the current period the range turns pink and a "กลับวันนี้" link appears.
  */
-export function RangeStepper({ label, current = true, onPrev, onNext, onToday }: { label: React.ReactNode; current?: boolean; onPrev: () => void; onNext: () => void; onToday?: () => void }) {
+export function RangeStepper({ label, current = true, onPrev, onNext, onToday, pick }: { label: React.ReactNode; current?: boolean; onPrev: () => void; onNext: () => void; onToday?: () => void
+  /** click the date text to choose any range in a calendar popup (replaces the old "กำหนดเอง" button) */
+  pick?: { from: DateStr; to: DateStr; onPick: (r: { from: DateStr; to: DateStr }) => void } }) {
   return (
     <div className="flex items-center gap-2">
       <div className="inline-flex h-9 items-center rounded-full border bg-background">
         <button type="button" aria-label="ก่อนหน้า" onClick={onPrev} className="grid h-full w-9 place-items-center rounded-l-full hover:bg-muted"><ChevronLeftIcon className="size-4" /></button>
-        <span className={cn("min-w-36 px-1 text-center text-sm font-medium whitespace-nowrap tabular-nums", !current && "text-primary")}>{label}</span>
+        {pick
+          ? <DateRangePicker labelOnly={label} from={pick.from} to={pick.to} onChange={pick.onPick} className={cn(!current && "text-primary")} />
+          : <span className={cn("min-w-36 px-1 text-center text-sm font-medium whitespace-nowrap tabular-nums", !current && "text-primary")}>{label}</span>}
         <button type="button" aria-label="ถัดไป" onClick={onNext} className="grid h-full w-9 place-items-center rounded-r-full hover:bg-muted"><ChevronRightIcon className="size-4" /></button>
       </div>
-      {!current && onToday && <button type="button" onClick={onToday} className="text-sm text-primary hover:underline">กลับวันนี้</button>}
+      {!current && onToday && <Button variant="outline" type="button" onClick={onToday}>กลับวันนี้</Button>}
     </div>
   )
 }
@@ -140,6 +185,34 @@ export function ShowChip({ label, on, count, onChange }: { label: string; on: bo
       {on ? <EyeIcon className="size-4" /> : <EyeOffIcon className="size-4" />}{label}
       {count !== undefined && <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">{count}</span>}
     </button>
+  )
+}
+
+/**
+ * Design System › ShowMenu (2026-11-13, owner): several show / hide toggles (Billing "Done" · "Void") folded into ONE chip with a
+ * dropdown of checkboxes. Looks like any other dropdown (grey pill, no accent); it names what is on: "แสดง · Done, Void".
+ */
+export function ShowMenu({ label, items }: { label: string; items: { key: string; label: string; on: boolean; count?: number; onChange: (v: boolean) => void }[] }) {
+  const on = items.filter((i) => i.on)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={
+        <button type="button" aria-label={label}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-3xl border border-transparent bg-input/50 px-3 text-sm whitespace-nowrap outline-none transition-colors hover:bg-input/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" />
+      }>
+        {label}{on.length > 0 && <> · {on.map((i) => i.label).join(", ")}</>}
+        <ChevronDownIcon className="size-4 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto min-w-44">
+        {items.map((i) => (
+          // a menu row with a real checkbox on the left; the menu stays open so several can be ticked
+          <DropdownMenuItem key={i.key} closeOnClick={false} onClick={() => i.onChange(!i.on)}>
+            <Checkbox checked={i.on} tabIndex={-1} aria-hidden className="pointer-events-none" />
+            {i.label}{i.count !== undefined && <span className="ml-auto rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">{i.count}</span>}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

@@ -2343,7 +2343,7 @@ export const AUTO: Record<string, Entry> = {
   "วิชาเป็นรายการกลางของทุกสาขา: Settings › ระบบ › วิชา → พิมพ์ชื่อวิชาใหม่ เลือกสี แล้วกด เพิ่ม · จากนั้นแต่ละสาขาเลือกวิชาที่เปิดสอนที่ Settings › สาขา › วิชา": { en: "Subjects are one list for every branch: Settings › System › Subjects → type the new subject, pick a colour, then Add · then each branch picks its subjects in Settings › Branch › Subjects", ja: "科目は全校舎共通の一覧：設定 › システム › 科目 → 新しい科目名を入力、色を選んで追加 · 各校舎は設定 › 校舎 › 科目で開講科目を選択" },
   "สถิติ": { en: "Statistics", ja: "統計" },
   "สรุปการเรียน › กดแถวคาบ → เขียนสรุปของนักเรียน → ส่งไป Approve · คนอนุมัติต้องไม่ใช่คนเขียน แล้วจึงส่งผู้ปกครอง": { en: "Lesson summaries › click a session row → write each student's summary → send for approval · the approver must not be the writer, then it goes to parents", ja: "学習まとめ › 授業の行をクリック → 生徒のまとめを作成 → 承認依頼 · 承認者は作成者以外、その後保護者へ送信" },
-  "สรุปการเรียน › การ์ด รอส่งไป Approve → อนุมัติ (หรือเปิดแถวเพื่อขอแก้) → ส่งผู้ปกครอง": { en: "Lesson summaries › the \"Waiting for approval\" card → approve (or open the row to request changes) → send to parents", ja: "学習まとめ ›「承認依頼待ち」カード → 承認（または行を開いて修正依頼）→ 保護者へ送信" },
+  "สรุปการเรียน › การ์ด รออนุมัติ → อนุมัติ (หรือเปิดแถวเพื่อขอแก้) → ส่งผู้ปกครอง": { en: "Lesson summaries › the \"Waiting for approval\" card → approve (or open the row to request changes) → send to parents", ja: "学習まとめ ›「承認依頼待ち」カード → 承認（または行を開いて修正依頼）→ 保護者へ送信" },
   "สร้างนักเรียน": { en: "Create student", ja: "生徒を作成" },
   "สลับสาขา": { en: "Switch branch", ja: "校舎を切替" },
   "สิทธิ์ที่ผู้ถามมี: {0}": { en: "Permissions the asker has: {0}", ja: "質問者が持つ権限: {0}" },

@@ -310,6 +310,16 @@ describe("permissions & summaries", () => {
     const r = Sum.canSend({ ...summary, status: "approved" }, [{ name: "p", phone: "", lineLinked: false, primary: true }])
     expect(r.ok && r.value.delivered).toBe(false)
   })
+  it("owner 2026-11-13: an approved summary can be kept as History without sending; only after approval", () => {
+    expect(Sum.canKeep(summary).ok).toBe(false) // draft
+    expect(Sum.canKeep({ ...summary, status: "submitted" }).ok).toBe(false)
+    expect(Sum.canKeep({ ...summary, status: "approved" }).ok).toBe(true)
+    const kept = { ...summary, status: "sent" as const, toParent: false }
+    expect(Sum.keptOnly(kept)).toBe(true)
+    expect(Sum.keptOnly({ ...summary, status: "sent" as const })).toBe(false) // sent to the parent as before
+    expect(Sum.summaryLabel(kept)).toBe("เก็บเป็น History")
+    expect(Sum.summaryLabel({ ...summary, status: "sent" as const })).toBe("ส่งแล้ว")
+  })
   it("owner 2026-10-06: courseSummaryDue — only once the package is ending soon or already over, not partway through", () => {
     expect(Sum.courseSummaryDue({ to: "2026-11-01" }, "2026-10-06", 14)).toBe(false) // 26 days left — too early
     expect(Sum.courseSummaryDue({ to: "2026-10-15" }, "2026-10-06", 14)).toBe(true) // 9 days left — within the window

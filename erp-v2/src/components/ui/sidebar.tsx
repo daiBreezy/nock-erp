@@ -593,7 +593,10 @@ function SidebarMenuBadge({
       data-slot="sidebar-menu-badge"
       data-sidebar="menu-badge"
       className={cn(
-        "pointer-events-none absolute right-1 flex h-5 min-w-5 items-center justify-center rounded-xl px-1 text-xs font-medium text-sidebar-foreground tabular-nums select-none group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 peer-data-active/menu-button:text-sidebar-accent-foreground",
+        // owner 2026-11-13: vertically centred on the row it sits on — top math is (button height − badge height) / 2,
+        // not an eyeballed offset — default h-9: (36−20)/2=8px=top-2 · sm h-8: (32−20)/2=6px=top-1.5 · lg h-14: (56−20)/2=18px.
+        // right-1.5 (not right-1) so the circle clears the row's own rounded-xl corner instead of hugging it.
+        "pointer-events-none absolute right-1.5 flex h-5 min-w-5 items-center justify-center rounded-xl px-1 text-xs font-medium text-sidebar-foreground tabular-nums select-none group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-2 peer-data-[size=lg]/menu-button:top-[18px] peer-data-[size=sm]/menu-button:top-1.5 peer-data-active/menu-button:text-sidebar-accent-foreground",
         className
       )}
       {...props}

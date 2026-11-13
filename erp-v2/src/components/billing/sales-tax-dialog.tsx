@@ -28,7 +28,8 @@ function monthsBetween(from: string, to: string) {
  * Sales Tax Report for the accountant (owner 2026-09-30): the whole company in one file — every branch the user can
  * see — one tab per month, rows in statement order (payment date), credit notes as negative rows.
  */
-export function SalesTaxDialog() {
+/** `open`/`onOpenChange` = controlled (opened from a menu, no trigger button of its own); leave both off for the standalone button */
+export function SalesTaxDialog({ open, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void } = {}) {
   const s = useStore()
   const me = s.me()
   const thisMonth = toDateStr(useNow(60_000)).slice(0, 7)
@@ -59,8 +60,8 @@ export function SalesTaxDialog() {
   }
 
   return (
-    <Dialog>
-      <DialogTrigger render={<Button variant="outline" />}><FileSpreadsheetIcon /> รายงานภาษีขาย</DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open === undefined && <DialogTrigger render={<Button variant="outline" />}><FileSpreadsheetIcon /> รายงานภาษีขาย</DialogTrigger>}
       <DialogContent className="max-h-[90vh] overflow-y-auto lg:max-w-2xl">
         <DialogHeader>
           <DialogTitle>รายงานภาษีขาย (Sales Tax Report)</DialogTitle>

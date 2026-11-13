@@ -11,7 +11,7 @@ import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 /** add / edit one Note Calendar: text + ชั่วคราว | ถาวร. Enter or leaving the box saves, Esc cancels. */
 export function NoteEditor({ text: initialText = "", kind: initialKind, canPermanent, onDone, onDelete, className }: {
@@ -27,20 +27,23 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
   const pinned = kind === "permanent"
   // owner 2026-10-15: no ชั่วคราว / ถาวร pair — a note is for this session unless the 📌 is on; ✓ saves, 🗑 deletes
   return (
-    // owner 2026-10-15: the text gets its own line (room to type), the buttons sit under it on the right
-    <div ref={box} className={cn("mt-1 space-y-1", className)} onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
-      <Input autoFocus value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") finish(text); if (e.key === "Escape") finish("") }}
-        placeholder="Note เช่น MBook 1 (2-4)" className="h-8 w-full min-w-0 rounded-full border bg-background px-3 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/30" />
-      <div className="flex items-center justify-end gap-1">
-      <Button variant="ghost" size="inline" type="button" aria-pressed={pinned} disabled={!canPermanent && !pinned} onClick={() => setKind(pinned ? "temporary" : "permanent")}
-        aria-label="Note ถาวร" title={pinned ? "ถาวร — แสดงทุกคาบของคลาสนี้ (กดเพื่อเป็นเฉพาะคาบนี้)" : canPermanent ? "กดเพื่อปักหมุด — แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ"}
-        className={cn("grid size-7 shrink-0 place-items-center rounded-full disabled:opacity-40", pinned ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
-        <PinIcon className="size-3.5" />
-      </Button>
-      <Button variant="ghost" size="inline" type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
-        className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></Button>
-      <Button variant="ghost" size="icon-md" type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></Button>
+    // owner 2026-11-13: one field — the text area grows with what you type (several lines to read it all) and the three
+    // buttons (pin · delete · save) sit inside it, bottom right, so there is no extra row. Enter saves, Shift+Enter = new line.
+    <div ref={box} className={cn("relative mt-1 rounded-2xl border bg-background focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30", className)}
+      onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) finish(text) }}>
+      <Textarea autoFocus rows={1} value={text} maxLength={CALENDAR_NOTE_MAX} onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); finish(text) } if (e.key === "Escape") finish("") }}
+        placeholder="Note เช่น MBook 1 (2-4)"
+        className="field-sizing-content min-h-0 w-full resize-none rounded-2xl border-0 bg-transparent px-3 pt-2 pb-9 text-xs leading-relaxed text-foreground shadow-none outline-none focus-visible:ring-0" />
+      <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1">
+        <Button variant="ghost" size="inline" type="button" aria-pressed={pinned} disabled={!canPermanent && !pinned} onClick={() => setKind(pinned ? "temporary" : "permanent")}
+          aria-label="Note ถาวร" title={pinned ? "ถาวร — แสดงทุกคาบของคลาสนี้ (กดเพื่อเป็นเฉพาะคาบนี้)" : canPermanent ? "กดเพื่อปักหมุด — แสดงทุกคาบของคลาสนี้" : "คาบนี้ไม่ได้อยู่ในคลาสประจำ"}
+          className={cn("grid size-7 shrink-0 place-items-center rounded-full disabled:opacity-40", pinned ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+          <PinIcon className="size-3.5" />
+        </Button>
+        <Button variant="ghost" size="inline" type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
+          className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></Button>
+        <Button variant="ghost" size="icon-md" type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></Button>
       </div>
     </div>
   )

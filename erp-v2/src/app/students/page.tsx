@@ -1,12 +1,13 @@
 "use client"
 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { familyShortName } from "@/domain/rules/people"
 import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
-import { DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SparklesIcon, TriangleAlertIcon, UnlinkIcon } from "lucide-react"
+import { ChevronDownIcon, DownloadIcon, GraduationCapIcon, LogOutIcon, PlusIcon, RefreshCwIcon, SparklesIcon, TriangleAlertIcon, UnlinkIcon } from "lucide-react"
 import { GenderIcon, Pill } from "@/components/app/badges"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
@@ -161,13 +162,19 @@ export default function StudentsPage() {
   ]
 
   return (
-    <ListPage title="นักเรียน" description="นักเรียนทั้งหมด คอร์สที่เรียนอยู่ และวันจบแพ็กเกจ"
-        actions={<>
-          {can(me, "student.export") && <Button variant="outline" onClick={exportCsv}><DownloadIcon /> ส่งออก</Button>}
-          {can(me, "student.manage") && <Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มนักเรียน</Button>}
-        </>}
+    <ListPage branch={scope.select} title="นักเรียน" description="นักเรียนทั้งหมด คอร์สที่เรียนอยู่ และวันจบแพ็กเกจ"
+        actions={(can(me, "student.export") || can(me, "student.manage")) && (
+          // owner 2026-11-13: the two header buttons folded into one dropdown, like the other pages
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button />}><PlusIcon /> เพิ่ม / ส่งออก <ChevronDownIcon /></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-auto min-w-48">
+              {can(me, "student.manage") && <DropdownMenuItem onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มนักเรียน</DropdownMenuItem>}
+              {can(me, "student.export") && <DropdownMenuItem onClick={exportCsv}><DownloadIcon /> ส่งออก</DropdownMenuItem>}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       kpis={<>
-        <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
+        <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} sub={`ในรายการ ${shown.length} คน`} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
         <Kpi icon={RefreshCwIcon} label="รอต่อคอร์ส" value={kpi.renewal} tone="amber" emphasis={!!(kpi.renewal)} onClick={() => pick("renewal")} active={status === "renewal"} />
         <Kpi icon={SparklesIcon} label="นักเรียนใหม่เดือนนี้" value={kpi.fresh} tone="sky" />
         <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.attention} tone="amber" emphasis={!!kpi.attention}
@@ -176,9 +183,11 @@ export default function StudentsPage() {
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" />}
       filters={<>
-        <NativeSelect className="h-9 w-28" value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
-        <NativeSelect className="h-9 w-40" value={status} onChange={(e) => setStatus(e.target.value)} placeholder="ทุกสถานะ" options={[...Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label })), { value: "exiting", label: "แจ้งออก" }]} />
-        <span className="text-xs text-muted-foreground">{shown.length} คน</span><ColumnsMenu id="students" columns={columns} />{scope.select}
+        <FilterMenu fields={[
+          { id: "grade", label: "ชั้น", value: grade, onChange: setGrade, placeholder: "ทุกชั้น", options: branch.grades.map((g) => ({ value: g, label: g })) },
+          { id: "status", label: "สถานะ", value: status, onChange: setStatus, placeholder: "ทุกสถานะ", options: [...Object.entries(STATUS_PILL).map(([k, v]) => ({ value: k, label: v.label })), { value: "exiting", label: "แจ้งออก" }] },
+        ]} />
+        <ColumnsMenu id="students" columns={columns} />
       </>}>
       {/* owner 2026-10-07: one fact per column (grade sortable on its own); Course + Enroll / End date instead of
           classes, school only in the student panel. Name / nickname / grade edit in place — click the other cells to

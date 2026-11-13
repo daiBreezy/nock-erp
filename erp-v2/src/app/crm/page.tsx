@@ -1,6 +1,6 @@
 "use client"
 
-import { ListPage, ShowChip, Segmented, SearchBox } from "@/components/app/page-layout"
+import { ListPage, Segmented, SearchBox } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useEffect, useState } from "react"
 import { BellRingIcon, CalendarClockIcon, ChevronRightIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, TableIcon, TrendingUpIcon, UserCheckIcon, UsersIcon } from "lucide-react"
@@ -8,7 +8,7 @@ import { Pill } from "@/components/app/badges"
 import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { Kpi } from "@/components/app/kpi"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
 import { LeadSheet } from "@/components/crm/lead-sheet"
 import { EnrollInbox } from "@/components/crm/enroll-review"
@@ -71,6 +71,11 @@ export default function CrmPage() {
   const [archivedParam, setArchivedParam] = useQueryState<"0" | "1">("archived", "0")
   const showArchived = archivedParam === "1"
   const setShowArchived = (v: boolean) => setArchivedParam(v ? "1" : "0")
+  // owner 2026-11-13: "ปิดแล้ว" (became a student) and "Archived" (closed without enrolling) are two separate switches
+  const [enrolledParam, setEnrolledParam] = useQueryState<"0" | "1">("enrolled", "0")
+  const showEnrolled = enrolledParam === "1"
+  const setShowEnrolled = (v: boolean) => setEnrolledParam(v ? "1" : "0")
+  const hiddenStage = (l: Lead) => (l.stage === "archived" && !showArchived) || (l.stage === "enrolled" && !showEnrolled)
   const [openLead, setOpenLead] = useState<ID | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
   const { sort, toggle } = useSort<LeadSort>("created", true)
@@ -79,7 +84,7 @@ export default function CrmPage() {
   const assignees = staff.filter((s) => leads.some((l) => l.assigneeId === s.id))
   const assigneeName = (id: ID | null) => staff.find((s) => s.id === id)?.nickname ?? ""
   // same scope as the board (archived toggle only, not search/assignee) so the count reads as "how many could I see"
-  const assigneeScope = leads.filter((l) => showArchived || (l.stage !== "archived" && l.stage !== "enrolled"))
+  const assigneeScope = leads.filter((l) => !hiddenStage(l))
   const restoreLead = (id: ID) => report(restore(id), "กู้คืนแล้ว")
   const saveLead = useStore((s) => s.saveLead)
   // inline edit (owner 2026-10-07, back 2026-10-12): one field at a time, same rules as the lead form; only some cells — the rest open the side panel
@@ -89,7 +94,7 @@ export default function CrmPage() {
   // finished leads stay out of both views by default (owner 2026-10-05: once paid and a student, the card leaves the
   // board) — archived ones and ones that became students; the switch below brings them back
   const matches = (l: Lead) => {
-    if (!showArchived && (l.stage === "archived" || l.stage === "enrolled")) return false
+    if (hiddenStage(l)) return false
     if (assigneeFilter !== "all" && l.assigneeId !== assigneeFilter) return false
     if (search && !`${l.name} ${leadSubjects(l).join(" ")} ${l.childGrade}`.toLowerCase().includes(search.toLowerCase())) return false
     return true
@@ -138,7 +143,7 @@ export default function CrmPage() {
   ]
 
   return (
-    <ListPage title="CRM" description={`${leads.length} Lead ทั้งหมด · ${activeCount} รายกำลังตาม`}
+    <ListPage branch={scope.select} title="CRM" description={`${leads.length} Lead ทั้งหมด · ${activeCount} รายกำลังตาม`}
         actions={canManage && <Button onClick={() => setOpenLead("new")}><PlusIcon /> เพิ่ม Lead</Button>}
       kpis={<>
         <Kpi icon={UsersIcon} label="Lead ทั้งหมด" value={kpis.total} sub={`${kpis.active} รายกำลังตาม`} />
@@ -157,10 +162,14 @@ export default function CrmPage() {
       </>}
       search={<SearchBox value={search} onChange={setSearch} placeholder="ค้นหาชื่อ / วิชา" />}
       filters={<>
-        <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="w-44"
-          options={[{ value: "all", label: `ผู้ดูแลทั้งหมด (${assigneeScope.length})` }, ...assignees.map((s) => ({ value: s.id, label: `${s.nickname} (${assigneeScope.filter((l) => l.assigneeId === s.id).length})` }))]} />
-        {/* same show / hide chip as Billing (owner 2026-10-09) — closed = became students or archived */}
-        <ShowChip label="ที่ปิดแล้ว" on={showArchived} onChange={setShowArchived} />
+        <FilterMenu
+          checks={[
+            { key: "enrolled", label: "ปิดแล้ว", on: showEnrolled, count: leads.filter((l) => l.stage === "enrolled").length, onChange: setShowEnrolled },
+            { key: "archived", label: "Archived", on: showArchived, count: leads.filter((l) => l.stage === "archived").length, onChange: setShowArchived },
+          ]}
+          fields={[{ id: "assignee", label: "ผู้ดูแล", value: assigneeFilter === "all" ? "" : assigneeFilter, onChange: (v) => setAssigneeFilter(v || "all"), placeholder: `ผู้ดูแลทั้งหมด (${assigneeScope.length})`,
+            options: assignees.map((x) => ({ value: x.id, label: `${x.nickname} (${assigneeScope.filter((l) => l.assigneeId === x.id).length})` })) }]} />
+
         <div className="flex items-center gap-2">
           {/* owner 2026-10-12: the toolbar keeps one line when switching view — the count lives in the pager below */}
           {view === "kanban" && <InfoTip text="ลากการ์ดไปคอลัมน์อื่นเพื่อย้ายขั้นตอน · ที่ปิดแล้ว = เป็นนักเรียนแล้ว หรือเก็บเข้าคลัง" />}
@@ -169,8 +178,6 @@ export default function CrmPage() {
           <Segmented iconOnly label="มุมมอง" value={view} onChange={(v) => setView(v)}
             options={[{ value: "kanban", label: "Kanban", icon: LayoutGridIcon }, { value: "table", label: "ตาราง", icon: TableIcon }]} />
         </div>
-        {/* owner 2026-10-09: branch chip always last in the row */}
-        {scope.select}
       </>}>
       <Dialog open={workOpen} onOpenChange={setWorkOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-3xl">
@@ -205,7 +212,7 @@ export default function CrmPage() {
               >
                 <div className="flex shrink-0 items-center justify-between px-1 pb-2">
                   <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group.label}
-                    {group.key === "closing" && !showArchived && <span className="ml-1 font-normal tracking-normal normal-case">· เป็นนักเรียนแล้ว {leads.filter((l) => l.stage === "enrolled").length} (ซ่อน)</span>}
+                    {group.key === "closing" && !showEnrolled && <span className="ml-1 font-normal tracking-normal normal-case">· เป็นนักเรียนแล้ว {leads.filter((l) => l.stage === "enrolled").length} (ซ่อน)</span>}
                   </span>
                   <span className="grid size-5 place-items-center rounded-full bg-background text-xs font-medium">{groupLeads.length}</span>
                 </div>

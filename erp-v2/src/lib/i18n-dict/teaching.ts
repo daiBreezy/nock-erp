@@ -1,0 +1,32 @@
+import type { Entry } from "./index"
+
+// Teaching menu tidy-up (2026-11-13): the shared FilterMenu + the 4-card Summaries KPI row
+export const TEACHING: Record<string, Entry> = {
+  "ตัวกรอง": { en: "Filters", ja: "絞り込み" },
+  "ล้างตัวกรอง": { en: "Clear filters", ja: "絞り込みを解除" },
+  "สถานะ (ละเอียด)": { en: "Status (detailed)", ja: "ステータス（詳細）" },
+  "สถานะการเช็คชื่อ": { en: "Attendance status", ja: "出席チェックの状況" },
+  "ต้องเขียน / แก้ไข": { en: "To write / revise", ja: "作成・修正が必要" },
+  "รออนุมัติ / รอส่ง": { en: "Awaiting approval / sending", ja: "承認待ち・送信待ち" },
+  "ประเภทเที่ยว": { en: "Trip type", ja: "便の種類" },
+  "นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)": { en: "{0} students are not linked to a family — invoices / summaries can't be sent by LINE (see the Students page)", ja: "{0}名の生徒が家族に未連携です — 請求書・サマリーをLINEで送れません（生徒ページで確認）" },
+  "แบบตารางสัปดาห์": { en: "Week table type", ja: "週表の種類" },
+  "ตารางปฏิทิน": { en: "Calendar table", ja: "カレンダー表" },
+  "ตารางครูรายสัปดาห์": { en: "Teachers' week table", ja: "講師別の週表" },
+  "เพิ่ม / ส่งออก": { en: "Add / Export", ja: "追加・エクスポート" },
+  "สร้าง / รายงาน": { en: "Create / Reports", ja: "作成・レポート" },
+  "เก็บเป็น History": { en: "Kept as History", ja: "履歴として保存" },
+  "เก็บเป็น History (ไม่ส่ง)": { en: "Keep as History (don't send)", ja: "履歴として保存（送信しない）" },
+  "เก็บเป็น History แล้ว — ไม่ได้ส่งผู้ปกครอง": { en: "Kept as History — not sent to the parent", ja: "履歴として保存しました — 保護者には送信していません" },
+  "ต้องอนุมัติก่อน จึงเก็บเป็น History ได้": { en: "Approve it first, then it can be kept as History", ja: "承認後に履歴として保存できます" },
+  "เฉพาะผู้อนุมัติสรุปเท่านั้น": { en: "Only summary approvers can do this", ja: "サマリーの承認者のみ操作できます" },
+  "รวมข้อความสรุปด้วย": { en: "Include the summary text", ja: "サマリー本文も含める" },
+  "ใบแจ้งหนี้ยังไม่ถึงผู้ปกครอง": { en: "Invoice did not reach the parent", ja: "請求書が保護者に届いていません" },
+  "ใช้สรุปนี้กับ {0} คนที่มาเรียนแล้ว — แก้รายคนได้": { en: "Used this summary for {0} students who attended — edit anyone individually", ja: "出席した{0}名にこのサマリーを適用しました — 個別に編集できます" },
+  "{0} · {1} — ส่ง LINE ไม่สำเร็จ ({2}) · ระบบเก็บใบนี้ไว้ในระบบแล้ว ต้องส่งให้ผู้ปกครองทางอื่นเอง": { en: "{0} · {1} — LINE failed ({2}) · the invoice is kept in the system; send it to the parent another way", ja: "{0} · {1} — LINE送信に失敗（{2}）· 請求書はシステムに保存済み。別の方法で保護者へお渡しください" },
+  "{0} · {1} — ครอบครัวยังไม่ผูก LINE · ระบบเก็บใบนี้ไว้ในระบบแล้ว ต้องส่งให้ผู้ปกครองทางอื่นเอง": { en: "{0} · {1} — the family has no LINE linked · the invoice is kept in the system; send it to the parent another way", ja: "{0} · {1} — 家族がLINE未連携 · 請求書はシステムに保存済み。別の方法で保護者へお渡しください" },
+  "ไม่พบสรุป": { en: "Summary not found", ja: "サマリーが見つかりません" },
+  "เก็บสรุปการเรียนเป็น History": { en: "Kept the lesson summary as History", ja: "授業サマリーを履歴として保存" },
+  "ไม่ได้ส่งผู้ปกครอง (เก็บไว้ใช้สร้าง Course Summary)": { en: "Not sent to the parent (kept to build the Course Summary)", ja: "保護者には未送信（コースサマリー作成用に保存）" },
+  "ทุกแพ็กเกจ": { en: "All packages", ja: "すべてのパッケージ" },
+}

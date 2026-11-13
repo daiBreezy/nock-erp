@@ -6,8 +6,8 @@ import { gradeTone, subjectColor } from "@/components/app/subject-color"
 import { LayersIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePeriod } from "@/components/app/period-control"
-import { FilterBar, Page, PageHeader, KpiRow, SearchBox, ShowChip, Toolbar, Segmented } from "@/components/app/page-layout"
-import { NativeSelect } from "@/components/app/native-select"
+import { ListPage, SearchBox, Segmented } from "@/components/app/page-layout"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { staffAt } from "@/domain/rules/permissions"
 import { useBranch } from "@/lib/hooks"
 import { matchesQuery } from "@/domain/rules/people"
@@ -16,11 +16,11 @@ import type { Tone } from "@/components/app/badges"
 import { Kpi, type KpiTone } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { BadgeCheckIcon, CheckIcon, FilePenIcon, HourglassIcon, PenLineIcon, SendIcon, Undo2Icon, type LucideIcon } from "lucide-react"
+import { CheckIcon, FilePenIcon, HourglassIcon, PenLineIcon, SendIcon, type LucideIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
+import { Button } from "@/components/ui/button"
 import { CourseSummaryPanel } from "@/components/app/course-summary-sheet"
 import { SessionSheet } from "@/components/app/session-sheet"
-import { Button } from "@/components/ui/button"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { can, seesAllSessions } from "@/domain/rules/permissions"
 import * as Sum from "@/domain/rules/summaries"
@@ -36,29 +36,48 @@ import { Empty } from "@/components/app/empty"
 type Bucket = "to_write" | "draft" | "submitted" | "approved" | "sent" | "changes"
 const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
   { key: "to_write", label: "ยังไม่ได้เขียน", tone: "text-danger" },
-  { key: "draft", label: "เขียนแล้ว Draft ไว้", tone: "text-special-ink" },
-  { key: "submitted", label: "รอส่งไป Approve", tone: "text-warning" },
+  { key: "draft", label: "เขียนแล้ว", tone: "text-special-ink" },
+  { key: "submitted", label: "รออนุมัติ", tone: "text-warning" },
   { key: "approved", label: "ได้ Approve แล้ว กำลังรอส่ง", tone: "text-info" },
   { key: "sent", label: "ส่งแล้ว", tone: "text-success" },
   { key: "changes", label: "ขอแก้ไข", tone: "text-danger" },
 ]
 
-const BUCKET_ICON: Record<Bucket, LucideIcon> = { to_write: PenLineIcon, draft: FilePenIcon, submitted: HourglassIcon, approved: BadgeCheckIcon, sent: SendIcon, changes: Undo2Icon }
-const PILL_TONE: Record<Bucket, Tone> = { to_write: "red", draft: "special", submitted: "amber", approved: "blue", sent: "green", changes: "red" }
-const BUCKET_TONE: Record<Bucket, KpiTone> = { to_write: "red", draft: "special", submitted: "amber", approved: "sky", sent: "emerald", changes: "red" }
+const PILL_TONE: Record<Bucket, Tone> = { to_write: "red", draft: "gray", submitted: "amber", approved: "blue", sent: "green", changes: "red" }
 const bucketOf = (status: SummaryStatus | undefined): Bucket => (!status ? "to_write" : status === "changes_requested" ? "changes" : status)
 
-/** the 6 stages as KPI cards — click one to list it (standard page: KPI row above the toolbar) */
-function BucketRow({ active, onPick, count, focus }: { active: Bucket | "all"; onPick: (b: Bucket) => void; count: (b: Bucket) => number; focus?: boolean }) {
+/**
+ * Teaching-menu tidy-up (2026-11-13): the 6 statuses fold into 4 KPI cards so the row is the same 4 equal cards as every
+ * other page. The 6 statuses are still shown as the row pill and can be picked one by one in the "ตัวกรอง" menu.
+ */
+type Stage = "write" | "draft" | "pending" | "sent"
+const STAGES: { key: Stage; label: string; icon: LucideIcon; tone: KpiTone; buckets: Bucket[] }[] = [
+  { key: "write", label: "ต้องเขียน / แก้ไข", icon: PenLineIcon, tone: "red", buckets: ["to_write", "changes"] },
+  { key: "draft", label: "เขียนแล้ว", icon: FilePenIcon, tone: "special", buckets: ["draft"] },
+  { key: "pending", label: "รออนุมัติ / รอส่ง", icon: HourglassIcon, tone: "amber", buckets: ["submitted", "approved"] },
+  { key: "sent", label: "ส่งแล้ว", icon: SendIcon, tone: "emerald", buckets: ["sent"] },
+]
+const stageOf = (b: Bucket): Stage => STAGES.find((x) => x.buckets.includes(b))!.key
+
+/** called as a function (not as a component) so KpiRow can count the four cards inside */
+function stageKpis({ active, onPick, count, focus }: { active: Stage | "all"; onPick: (s: Stage) => void; count: (b: Bucket) => number; focus?: boolean }) {
   return (
-    <KpiRow>
-      {BUCKETS.map((t) => (
-        <div key={t.key} data-focus={focus ? FOCUS_OF[t.key] : undefined} className="h-full rounded-3xl">
-          <Kpi icon={BUCKET_ICON[t.key]} tone={BUCKET_TONE[t.key]} label={t.label} value={count(t.key)} emphasis onClick={() => onPick(t.key)} active={active === t.key} />
+    <>
+      {STAGES.map((t) => (
+        <div key={t.key} data-focus={focus ? FOCUS_OF[t.buckets[0]] : undefined} className="h-full rounded-3xl">
+          <Kpi icon={t.icon} tone={t.tone} label={t.label} value={t.buckets.reduce((n, b) => n + count(b), 0)} emphasis onClick={() => onPick(t.key)} active={active === t.key} />
         </div>
       ))}
-    </KpiRow>
+    </>
   )
+}
+
+/** one row passes when: a status picked in the menu matches · else a KPI card matches · else everything (minus hidden "sent") */
+function passes(b: Bucket, tab: Bucket | "all", stage: Stage | "all", show: Show, showSent: "0" | "1"): boolean {
+  if (!inShow(show, b)) return false
+  if (tab !== "all") return b === tab
+  if (stage !== "all") return stageOf(b) === stage
+  return showSent === "1" || show === "done" || b !== "sent"
 }
 
 /** owner 2026-10-14: All / Pending / Done on both tabs — Done = ส่งถึงผู้ปกครองแล้ว, Pending = everything before that */
@@ -75,20 +94,18 @@ const FOCUS_OF: Partial<Record<Bucket, string>> = { to_write: "summary_write", d
 
 export default function SummariesPage() {
   const [top, setTop] = useQueryState<"session" | "course">("view", "session")
-  return (
-    <Page>
-      <PageHeader title="สรุปการเรียน" description={top === "session" ? "สรุปรายคาบ: เขียน → อนุมัติ → ส่งผู้ปกครอง" : "สรุปทั้งคอร์ส เมื่อแพ็กเกจใกล้หมดหรือหมดแล้ว"}
-        actions={
-          <Segmented label="ชนิดสรุป" value={top} onChange={(v) => setTop(v)}
-            options={[{ value: "session", label: "Session Summary" }, { value: "course", label: "Course Summary" }]} />
-        } />
-      {top === "session" ? <SessionSummaryTab /> : <CourseSummaryTab />}
-    </Page>
-  )
+  const head = {
+    title: "สรุปการเรียน",
+    description: top === "session" ? "สรุปรายคาบ: เขียน → อนุมัติ → ส่งผู้ปกครอง" : "สรุปทั้งคอร์ส เมื่อแพ็กเกจใกล้หมดหรือหมดแล้ว",
+    actions: <Segmented label="ชนิดสรุป" value={top} onChange={(v) => setTop(v)} options={[{ value: "session", label: "Session Summary" }, { value: "course", label: "Course Summary" }]} />,
+  }
+  return top === "session" ? <SessionSummaryTab head={head} /> : <CourseSummaryTab head={head} />
 }
 
+type Head = { title: string; description: string; actions: React.ReactNode }
+
 /** Per-session work queue (the original /summaries page) — unchanged, D6: counts only cover the chosen period. */
-function SessionSummaryTab() {
+function SessionSummaryTab({ head }: { head: Head }) {
   const now = useNow()
   const today = toDateStr(now)
   // owner 2026-10-09: Director / Area Manager can list several branches at once
@@ -107,6 +124,7 @@ function SessionSummaryTab() {
   // owner 2026-10-13: everything is listed (sent ones too) — a KPI card narrows to one stage, click it again for all;
   // "ส่งแล้ว" can be hidden like Done / Void on Billing
   const [tab, setTab] = useQueryState<Bucket | "all">("bucket", "all")
+  const [stage, setStage] = useState<Stage | "all">("all")
   const [showSent, setShowSent] = useQueryState<"0" | "1">("sent", "1")
   const [show, setShow] = useQueryState<Show>("show", "all")
   const [q, setQ] = useState("")
@@ -127,25 +145,28 @@ function SessionSummaryTab() {
   const bucket = (r: (typeof rows)[number]): Bucket => bucketOf(r.sm?.status)
   const found = rows.filter((r) => (!subject || r.s.subject === subject || (r.s.subjects ?? []).includes(subject)) && (!teacher || (r.sm?.authorId ?? r.s.teacherId) === teacher || r.s.teacherId === teacher)).filter((r) => !q || matchesQuery(q, [L.student(r.studentId)?.nickname, L.student(r.studentId)?.name, classes.find((c) => c.id === r.s.classId)?.name, r.s.subject, L.teacher(r.sm?.authorId ?? r.s.teacherId).label, r.sm?.text]))
   const shown = found
-    .filter((r) => inShow(show, bucket(r)) && (tab === "all" ? showSent === "1" || show === "done" || bucket(r) !== "sent" : bucket(r) === tab))
+    .filter((r) => passes(bucket(r), tab, stage, show, showSent))
     .sort((a, b) => (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start))
 
+  const statusField = { id: "status", label: "สถานะ (ละเอียด)", value: tab === "all" ? "" : tab, onChange: (v: string) => { setTab((v || "all") as Bucket | "all"); setStage("all") }, placeholder: "ทุกสถานะ", options: BUCKETS.map((x) => ({ value: x.key, label: x.label })) }
+  // owner 2026-11-13: a real Checkbox row in "ตัวกรอง" (ShowChip was a loose pill) — same pattern as CRM's "ปิดแล้ว" / "Archived"
+  const sentCheck = { key: "sent", label: "ส่งแล้ว", on: showSent === "1" || tab === "sent" || stage === "sent", count: found.filter((r) => bucket(r) === "sent").length,
+    onChange: (v: boolean) => { setShowSent(v ? "1" : "0"); if (!v && (tab === "sent" || stage === "sent")) { setTab("all"); setStage("all") } } }
+
   return (
-    <div className="space-y-4">
-      <BucketRow active={tab} onPick={(b) => setTab(tab === b ? "all" : b)} count={(b) => rows.filter((r) => bucket(r) === b).length} focus />
-      <Toolbar end={mineOnly && <span className="text-xs text-muted-foreground">เฉพาะคาบของฉัน</span>}>
-        {period.control}
-        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setTab("all") }} options={showOptions(found.filter((r) => bucket(r) !== "sent").length)} />
-        <ShowChip label="ส่งแล้ว" on={showSent === "1" || tab === "sent"} count={found.filter((r) => bucket(r) === "sent").length} onChange={(v) => { setShowSent(v ? "1" : "0"); if (!v && tab === "sent") setTab("all") }} />
-      </Toolbar>
-      {/* owner 2026-10-13: second row — search left · filters right (subject · status · teacher · branch last) */}
-      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คลาส / ครู" />}>
-        <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
-        {/* the same 6 statuses as the cards above — picking one here is picking that card */}
-        <NativeSelect className="h-9 w-48" value={tab === "all" ? "" : tab} onChange={(e) => setTab((e.target.value || "all") as Bucket | "all")} placeholder="ทุกสถานะ" options={BUCKETS.map((b) => ({ value: b.key, label: b.label }))} />
-        {!mineOnly && <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />}
-        {scope.select}
-      </FilterBar>
+    <ListPage {...head} branch={scope.select}
+      kpis={stageKpis({ active: stage, onPick: (g) => { setStage(stage === g ? "all" : g); setTab("all") }, count: (b) => rows.filter((r) => bucket(r) === b).length, focus: true })}
+      period={period.control}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คลาส / ครู" />}
+      status={<Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setTab("all"); setStage("all") }} options={showOptions(found.filter((r) => bucket(r) !== "sent").length)} />}
+      filters={<>
+        <FilterMenu checks={[sentCheck]} fields={[
+          { id: "subject", label: "วิชา", value: subject, onChange: setSubject, placeholder: "ทุกวิชา", options: branch.subjects.map((x) => ({ value: x, label: x })) },
+          statusField,
+          { id: "teacher", label: "ครู", hidden: mineOnly, value: teacher, onChange: setTeacher, placeholder: "ครูทุกคน", options: staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname })) },
+        ]} />
+        {mineOnly && <span className="text-xs text-muted-foreground">เฉพาะคาบของฉัน</span>}
+      </>}>
 
       {/* owner 2026-10-09: one section per day, like Sessions — easier to see what each day still needs */}
       {shown.length === 0 && <Empty>ไม่มีรายการในหมวดนี้</Empty>}
@@ -159,15 +180,28 @@ function SessionSummaryTab() {
               const stu = L.student(studentId)
               const approveCheck = sm && Sum.canApprove(sm, me)
               // owner 2026-10-13: same row as Sessions (colour bar · start–end), status last, the row opens the panel
+              // owner 2026-11-13: one chip, not a pill + a separate button saying the same thing — when you can act on
+              // this stage, the chip itself becomes the button (verb instead of state name), same tone/shape/slot so
+              // nothing doubles up or shifts around as the stage changes
               return (
                 <SessionLine key={s.id + studentId} s={s} focus={FOCUS_OF[b]} onOpen={() => setOpenId(s.id)}
                   title={<>{stu?.nickname} <span className="text-xs font-normal text-muted-foreground">{stu?.grade}</span> · {classes.find((c) => c.id === s.classId)?.name ?? s.subject}{scope.multi && <span className="ml-1.5 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
                   sub={<>ครู {L.teacher(sm?.authorId ?? s.teacherId).label}</>}
-                  actions={<>
-                    {b === "submitted" && sm && approveCheck?.ok && <Button size="sm" onClick={() => report(approve(sm.id), "อนุมัติแล้ว")}><CheckIcon /> อนุมัติ</Button>}
-                    {b === "approved" && sm && can(me, "summary.approve") && <Button size="sm" onClick={() => report(send(sm.id), "ส่งถึงผู้ปกครองแล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>}
-                  </>}
-                  status={<Pill tone={PILL_TONE[b]} title={b === "submitted" && approveCheck && !approveCheck.ok ? approveCheck.error : undefined}>{BUCKETS.find((x) => x.key === b)!.label}</Pill>}>
+                  status={(() => {
+                    const canApproveNow = b === "submitted" && sm && approveCheck?.ok
+                    const canSendNow = b === "approved" && sm && can(me, "summary.approve")
+                    // owner 2026-11-13: one slot, not a pill + a button saying the same thing twice — but a tag and a
+                    // button must still look like what they are (a coloured pill reads as neither), so this renders a
+                    // real Button when you can act, and the plain Pill only when there's nothing to do about it
+                    {/* owner 2026-11-13: อนุมัติ = an in-between step (outline) · ส่งผู้ปกครอง = the one that actually reaches
+                        someone outside the team (filled) — same weight the panel's own buttons use for this pair */}
+                    if (canApproveNow) return <Button variant="tonal" size="sm" onClick={() => report(approve(sm.id), "อนุมัติแล้ว")}><CheckIcon /> อนุมัติ</Button>
+                    if (canSendNow) return <Button size="sm" onClick={() => report(send(sm.id), "ส่งถึงผู้ปกครองแล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
+                    const label = b === "sent" && sm && Sum.keptOnly(sm) ? "เก็บเป็น History" : BUCKETS.find((x) => x.key === b)!.label
+                    return (
+                      <Pill tone={PILL_TONE[b]} title={b === "submitted" && approveCheck && !approveCheck.ok ? approveCheck.error : undefined}>{label}</Pill>
+                    )
+                  })()}>
                   {sm?.text && <span className="mt-1 line-clamp-2 block text-sm">{sm.text}</span>}
                   {sm?.status === "changes_requested" && <span className="mt-1 block text-xs text-danger">ขอแก้: {sm.history.findLast((h) => h.action === "request_changes")?.note}</span>}
                 </SessionLine>
@@ -177,7 +211,7 @@ function SessionSummaryTab() {
         </section>
       ))}
       <SessionSheet sessionId={openId} onClose={() => setOpenId(null)} />
-    </div>
+    </ListPage>
   )
 }
 
@@ -186,7 +220,7 @@ function SessionSummaryTab() {
  * (purchase round) — due once the package is ending soon or already over, not partway through. Same
  * write → submit → approve → send lifecycle and bucket layout as the session queue above, for a familiar UI.
  */
-function CourseSummaryTab() {
+function CourseSummaryTab({ head }: { head: Head }) {
   const now = useNow()
   const today = toDateStr(now)
   const me = useStore((s) => s.me())
@@ -200,6 +234,7 @@ function CourseSummaryTab() {
   const L = useLookup()
   // owner 2026-10-13: same as the session list — everything listed, a KPI narrows it, "ส่งแล้ว" can be hidden
   const [tab, setTab] = useState<Bucket | "all">("all")
+  const [stage, setStage] = useState<Stage | "all">("all")
   const [showSent, setShowSent] = useQueryState<"0" | "1">("sent", "1")
   const [show, setShow] = useQueryState<Show>("show", "all")
   const [q, setQ] = useState("")
@@ -243,7 +278,7 @@ function CourseSummaryTab() {
       && (!q || matchesQuery(q, [L.student(r.studentId)?.nickname, L.student(r.studentId)?.name, course?.name, L.teacher(teacherOf(r)).label]))
   })
   const rows = found
-    .filter((r) => inShow(show, bucket(r)) && (tab === "all" ? showSent === "1" || show === "done" || bucket(r) !== "sent" : bucket(r) === tab))
+    .filter((r) => passes(bucket(r), tab, stage, show, showSent))
     .sort((a, b) => a.to.localeCompare(b.to))
 
   const columns: Column<Sum.EntitlementRound>[] = [
@@ -263,24 +298,28 @@ function CourseSummaryTab() {
     { id: "status", label: "สถานะ", align: "right", required: true, cell: (r) => <Pill tone={PILL_TONE[bucket(r)]}>{BUCKETS.find((x) => x.key === bucket(r))!.label}</Pill> },
   ]
 
+  const statusField = { id: "status", label: "สถานะ (ละเอียด)", value: tab === "all" ? "" : tab, onChange: (v: string) => { setTab((v || "all") as Bucket | "all"); setStage("all") }, placeholder: "ทุกสถานะ", options: BUCKETS.map((x) => ({ value: x.key, label: x.label })) }
+  const sentCheck = { key: "sent", label: "ส่งแล้ว", on: showSent === "1" || tab === "sent" || stage === "sent" || show === "done", count: found.filter((r) => bucket(r) === "sent").length,
+    onChange: (v: boolean) => { setShowSent(v ? "1" : "0"); if (!v && (tab === "sent" || stage === "sent")) { setTab("all"); setStage("all") } if (!v && show === "done") setShow("all") } }
+
   return (
-    <div className="space-y-4">
-      <BucketRow active={tab} onPick={(b) => setTab(tab === b ? "all" : b)} count={countIn} />
-      <Toolbar end={<ColumnsMenu id="course-summaries" columns={columns} />}>
-        <Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setTab("all") }} options={showOptions(found.filter((r) => bucket(r) !== "sent").length)} />
-        <ShowChip label="ส่งแล้ว" on={showSent === "1" || tab === "sent" || show === "done"} count={found.filter((r) => bucket(r) === "sent").length} onChange={(v) => { setShowSent(v ? "1" : "0"); if (!v && tab === "sent") setTab("all"); if (!v && show === "done") setShow("all") }} />
+    <ListPage {...head} branch={scope.select}
+      kpis={stageKpis({ active: stage, onPick: (g) => { setStage(stage === g ? "all" : g); setTab("all") }, count: countIn })}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คอร์ส / ครู" />}
+      status={<Segmented label="แสดง" value={show} onChange={(v) => { setShow(v); setTab("all"); setStage("all") }} options={showOptions(found.filter((r) => bucket(r) !== "sent").length)} />}
+      filters={<>
+        <FilterMenu checks={[sentCheck]} fields={[
+          { id: "subject", label: "วิชา", value: subject, onChange: setSubject, placeholder: "ทุกวิชา", options: branch.subjects.map((x) => ({ value: x, label: x })) },
+          statusField,
+          { id: "teacher", label: "ครู", hidden: mineOnly, value: teacher, onChange: setTeacher, placeholder: "ครูทุกคน", options: staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname })) },
+        ]} />
+        <ColumnsMenu id="course-summaries" columns={columns} />
         <InfoTip text={`แพ็กเกจใกล้หมด (ภายใน ${renewalDays} วัน) หรือหมดแล้ว · กดแถวเพื่อดู / เขียน / อนุมัติ`} />
-      </Toolbar>
-      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหานักเรียน / คอร์ส / ครู" />}>
-        <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
-        <NativeSelect className="h-9 w-48" value={tab === "all" ? "" : tab} onChange={(e) => setTab((e.target.value || "all") as Bucket | "all")} placeholder="ทุกสถานะ" options={BUCKETS.map((b) => ({ value: b.key, label: b.label }))} />
-        {!mineOnly && <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />}
-        {scope.select}
-      </FilterBar>
+      </>}>
 
       <DataTable id="course-summaries" columns={columns} rows={rows} rowKey={(r) => r.representativeId} onRowClick={(r) => setOpenId(r.representativeId)}
         empty="ไม่มีรายการในหมวดนี้" />
       <CourseSummaryPanel round={dueRounds.find((r) => r.representativeId === openId) ?? null} onClose={() => setOpenId(null)} />
-    </div>
+    </ListPage>
   )
 }

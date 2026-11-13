@@ -9,7 +9,8 @@ import Link from "next/link"
 import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, ChartColumnIcon, CheckIcon, MapIcon, MessageCircleIcon, PlusIcon, RouteIcon, SettingsIcon, SquareCheckBigIcon, TableIcon, UsersIcon } from "lucide-react"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
-import { FilterBar, KpiRow, Page, PageHeader, RangeStepper, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { KpiRow, ListBar, Page, PageHeader, RangeStepper, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { KIND_LABEL } from "@/components/transport/labels"
 import { TransportCalendar } from "@/components/transport/transport-calendar"
 import { TransportReport, TransportReportKpis } from "@/components/transport/transport-report"
@@ -104,12 +105,15 @@ export default function TransportPage() {
     <Page className="max-w-[90rem]">
       <PageHeader title="รถรับส่ง"
         description="Bus Route — ใครนั่งเที่ยวไหนระบบจัดให้จากใบแจ้งหนี้และคำขอ · คนขับรายงานผ่านแอป · Admin ดูคำเตือน แล้วอนุมัติ & ส่ง"
-        actions={view === "week" && hasBus && toSend.length > 0 ? <Button onClick={approveAll}><CheckIcon /> {`อนุมัติทั้งหมด & ส่ง (${toSend.length})`}</Button> : undefined} />
+        actions={<>
+          {allBranches(me) && busBranches.length > 1 && (view === "week" || view === "report") && (
+            <NativeSelect className="h-9 w-40" value={fBranch} placeholder={`สาขา: ${nm(branch.name)}`} onChange={(e) => setFBranch(e.target.value)}
+              options={[{ value: "*", label: "ทุกสาขาที่มีรถ" }, ...busBranches.filter((b) => b.id !== branch.id).map((b) => ({ value: b.id, label: nm(b.name) }))]} />
+          )}
+          {view === "week" && hasBus && toSend.length > 0 && <Button onClick={approveAll}><CheckIcon /> {`อนุมัติทั้งหมด & ส่ง (${toSend.length})`}</Button>}
+        </>} />
 
-      <Toolbar end={allBranches(me) && busBranches.length > 1 && (view === "week" || view === "report") ? (
-        <NativeSelect className="h-9 w-44" value={fBranch} placeholder={`สาขา: ${nm(branch.name)}`} onChange={(e) => setFBranch(e.target.value)}
-          options={[{ value: "*", label: "ทุกสาขาที่มีรถ" }, ...busBranches.filter((b) => b.id !== branch.id).map((b) => ({ value: b.id, label: nm(b.name) }))]} />
-      ) : undefined}>
+      <Toolbar>
         <Segmented label="หน้า" value={view} onChange={setView} options={[
           { value: "week", label: "เที่ยวรถ", icon: RouteIcon }, { value: "report", label: "รายงาน", icon: ChartColumnIcon },
           { value: "vehicles", label: "รถ & คนขับ", icon: SettingsIcon }, { value: "zones", label: "โซน", icon: MapIcon },
@@ -130,18 +134,22 @@ export default function TransportPage() {
             <Kpi icon={SquareCheckBigIcon} label="อนุมัติแล้ว" value={`${approved}/${live.length}`} sub={toSend.length ? `รออนุมัติ ${toSend.length} เที่ยว` : "ส่งคนขับครบแล้ว"} tone="emerald" />
           </KpiRow>}
 
-          <Toolbar end={range === "day"
-            ? <RangeStepper current={date === today} label={fmtDate(date, { weekday: true })} onPrev={() => setDate(addDays(date, -1))} onNext={() => setDate(addDays(date, 1))} onToday={() => setDate(today)} />
-            : <RangeStepper current={monday === mondayOf(today)} label={`${fmtDate(monday)} – ${fmtDate(addDays(monday, 6))}`} onPrev={() => setDate(addDays(date, -7))} onNext={() => setDate(addDays(date, 7))} onToday={() => setDate(today)} />}>
-            <Segmented label="ช่วง" value={range} onChange={setRange} options={[{ value: "day", label: "วัน" }, { value: "week", label: "สัปดาห์" }]} />
-            {view === "week" && <Segmented label="มุมมอง" value={mode} onChange={setMode} options={[{ value: "table", label: "ตาราง", icon: TableIcon }, { value: "calendar", label: "ปฏิทิน", icon: CalendarDaysIcon }]} />}
-            <span className="text-sm font-medium text-muted-foreground">{`${monthShort(Number(monday.slice(5, 7)) - 1)} ${yearOf(Number(monday.slice(0, 4)))}`}</span>
-          </Toolbar>
-          <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อเด็ก / คนขับ / ชั้น / รถ" />}>
-            {zonesAll.length > 0 && <NativeSelect className="h-9 w-32" value={fZone} placeholder="ทุกโซน" onChange={(e) => setFZone(e.target.value)} options={zonesAll.map(({ z }) => ({ value: z.id, label: z.name }))} />}
-            <NativeSelect className="h-9 w-40" value={fType} placeholder="ทุกประเภทเที่ยว" onChange={(e) => setFType(e.target.value)} options={(["pickup", "dropoff", "both"] as const).map((x) => ({ value: x, label: KIND_LABEL[x] }))} />
-            <NativeSelect className="h-9 w-40" value={fBus} placeholder="ทุกคัน" onChange={(e) => setFBus(e.target.value)} options={vansAll.map(({ v, b }) => ({ value: v.id, label: scope.length > 1 ? `${v.name} · ${nm(b.name)}` : v.name }))} />
-          </FilterBar>
+          <ListBar
+            period={<div className="flex flex-wrap items-center gap-2">
+              <Segmented label="ช่วง" value={range} onChange={setRange} options={[{ value: "day", label: "วัน" }, { value: "week", label: "สัปดาห์" }]} />
+              {range === "day"
+                ? <RangeStepper current={date === today} label={fmtDate(date, { weekday: true })} onPrev={() => setDate(addDays(date, -1))} onNext={() => setDate(addDays(date, 1))} onToday={() => setDate(today)} />
+                : <RangeStepper current={monday === mondayOf(today)} label={`${fmtDate(monday)} – ${fmtDate(addDays(monday, 6))}`} onPrev={() => setDate(addDays(date, -7))} onNext={() => setDate(addDays(date, 7))} onToday={() => setDate(today)} />}
+              <span className="text-sm font-medium text-muted-foreground">{`${monthShort(Number(monday.slice(5, 7)) - 1)} ${yearOf(Number(monday.slice(0, 4)))}`}</span>
+            </div>}
+            search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อเด็ก / คนขับ / ชั้น / รถ" />}
+            view={view === "week" ? <Segmented label="มุมมอง" value={mode} onChange={setMode} options={[{ value: "table", label: "ตาราง", icon: TableIcon }, { value: "calendar", label: "ปฏิทิน", icon: CalendarDaysIcon }]} /> : undefined}>
+            <FilterMenu fields={[
+              { id: "zone", label: "โซน", hidden: zonesAll.length === 0, value: fZone, onChange: setFZone, placeholder: "ทุกโซน", options: zonesAll.map(({ z }) => ({ value: z.id, label: z.name })) },
+              { id: "type", label: "ประเภทเที่ยว", value: fType, onChange: setFType, placeholder: "ทุกประเภทเที่ยว", options: (["pickup", "dropoff", "both"] as const).map((x) => ({ value: x, label: KIND_LABEL[x] })) },
+              { id: "bus", label: "รถ", value: fBus, onChange: setFBus, placeholder: "ทุกคัน", options: vansAll.map(({ v, b }) => ({ value: v.id, label: scope.length > 1 ? `${v.name} · ${nm(b.name)}` : v.name })) },
+            ]} />
+          </ListBar>
 
           {view === "report" ? <TransportReport rows={live} />
             : mode === "calendar" ? <TransportCalendar rows={all} days={days} today={today} onPick={(id) => { setMode("table"); setOpen(new Set([id])) }} /> : (

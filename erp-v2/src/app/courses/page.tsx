@@ -8,7 +8,7 @@ import { useMemo, useState } from "react"
 import { BookOpenIcon, LayersIcon, PlusIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Kpi, kpiMoney } from "@/components/app/kpi"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { gradeTone, subjectColor } from "@/components/app/subject-color"
 import { emptyCourse } from "@/components/courses/course-dialog"
 import { CoursePanel } from "@/components/courses/course-panel"
@@ -123,7 +123,7 @@ export default function CoursesPage() {
   ]
 
   return (
-    <ListPage title="คอร์ส" description="คอร์สที่เปิดขาย แพ็กเกจ ราคา และคลาสที่ผูก"
+    <ListPage branch={scope.select} title="คอร์ส" description="คอร์สที่เปิดขาย แพ็กเกจ ราคา และคลาสที่ผูก"
         actions={manage && <Button onClick={() => setPanel(emptyCourse(branch))}><PlusIcon /> สร้างคอร์ส</Button>}
       kpis={<>
         <Kpi icon={BookOpenIcon} label="คอร์สทั้งหมด" value={kpi.total} />
@@ -133,13 +133,14 @@ export default function CoursesPage() {
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคอร์ส / วิชา / ระดับชั้น" />}
       filters={<>
-        <NativeSelect className="h-9 w-32" value={subjectF} onChange={(e) => setSubjectF(e.target.value)} placeholder="ทุกวิชา" options={subjects.map((s) => ({ value: s, label: s }))} />
-        <NativeSelect className="h-9 w-32" value={kindF} onChange={(e) => setKindF(e.target.value)} placeholder="ทุกประเภท" options={[{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }]} />
-        <NativeSelect className="h-9 w-36" value={unitF} onChange={(e) => setUnitF(e.target.value)} placeholder="ทุกแพ็กเกจ" options={(["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
+        <FilterMenu fields={[
+          { id: "subject", label: "วิชา", value: subjectF, onChange: setSubjectF, placeholder: "ทุกวิชา", options: subjects.map((x) => ({ value: x, label: x })) },
+          { id: "kind", label: "ประเภทคอร์ส", value: kindF, onChange: setKindF, placeholder: "ทุกประเภท", options: [{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }] },
+          { id: "unit", label: "แพ็กเกจ", value: unitF, onChange: setUnitF, placeholder: "ทุกแพ็กเกจ", options: (["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] })) },
+        ]} />
         {/* owner 2026-10-09: branch chip always last in the row */}
         {(archivedCount > 0 || showArchived) && <ShowChip label="ที่เก็บเข้าคลัง" on={showArchived} count={archivedCount} onChange={setShowArchived} />}
         <ColumnsMenu id="courses" columns={columns} />
-        {scope.select}
       </>}>
       {/* owner 2026-10-12: subject and course name in their own columns, branch as its code only, package as the badge
           (legend on the header ⓘ) · columns arranged per person (DataTable) */}

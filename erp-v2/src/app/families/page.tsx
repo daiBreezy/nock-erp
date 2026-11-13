@@ -1,5 +1,6 @@
 "use client"
 
+import { tx } from "@/lib/i18n"
 import { familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
 import { MapPinOffIcon, MessageCircleIcon, PlusIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
@@ -10,7 +11,7 @@ import { Pill } from "@/components/app/badges"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { FamilySheet } from "@/components/app/family-sheet"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import type { Family, ID, Student } from "@/domain/types"
@@ -126,10 +127,10 @@ export default function FamiliesPage() {
   ]
 
   return (
-    <ListPage title="ครอบครัว" description="ผู้ปกครอง ช่องทางติดต่อ LINE และลูกที่เรียนอยู่"
+    <ListPage branch={scope.select} title="ครอบครัว" description="ผู้ปกครอง ช่องทางติดต่อ LINE และลูกที่เรียนอยู่"
         actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มครอบครัว</Button>}
       kpis={<>
-        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} onClick={() => { setLineF(""); setNoAddr(false); setMulti(false) }} />
+        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} info={orphans > 0 ? tx("นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)", [orphans]) : undefined} onClick={() => { setLineF(""); setNoAddr(false); setMulti(false) }} />
         <Kpi icon={UsersRoundIcon} label="มีลูกหลายคน" value={kpi.multi} tone="special" onClick={() => setMulti(!multi)} active={multi} />
         <Kpi icon={MessageCircleIcon} label="ผูก LINE ครบ" value={kpi.linked} tone="emerald" onClick={() => setLineF(lineF === "linked" ? "" : "linked")} active={lineF === "linked"} />
         <Kpi icon={UnlinkIcon} label="ยังผูก LINE ไม่ครบ" value={kpi.missing} tone="amber" emphasis={!!(kpi.missing)} onClick={() => setLineF(lineF === "missing" ? "" : "missing")} active={lineF === "missing"} />
@@ -137,12 +138,11 @@ export default function FamiliesPage() {
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก" />}
       filters={<>
-        <NativeSelect className="h-9 w-40" value={lineF} onChange={(e) => setLineF(e.target.value)} placeholder="LINE ทั้งหมด" options={[{ value: "linked", label: "ผูก LINE ครบ" }, { value: "missing", label: "ยังผูกไม่ครบ" }]} />
-        {(archivedCount > 0 || showArchived) && <ShowChip label="ที่เก็บเข้าคลัง" on={showArchived} count={archivedCount} onChange={setShowArchived} />}
-        <span className="text-xs text-muted-foreground">{rows.length} ครอบครัว</span><ColumnsMenu id="families" columns={columns} />{scope.select}
+        <FilterMenu
+          extra={(archivedCount > 0 || showArchived) ? <ShowChip label="ที่เก็บเข้าคลัง" on={showArchived} count={archivedCount} onChange={setShowArchived} /> : undefined}
+          fields={[{ id: "line", label: "LINE", value: lineF, onChange: setLineF, placeholder: "LINE ทั้งหมด", options: [{ value: "linked", label: "ผูก LINE ครบ" }, { value: "missing", label: "ยังผูกไม่ครบ" }] }]} />
+        <ColumnsMenu id="families" columns={columns} />
       </>}>
-      {orphans > 0 && <p className="rounded-lg bg-warning-soft/60 p-2.5 text-sm text-warning-ink">นักเรียน {orphans} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)</p>}
-
       {/* owner 2026-10-07: family / parent / phone / address edit in place on hover; LINE and children open the panel ·
           owner 2026-10-12: one line per row, every child listed · columns arranged per person (DataTable) */}
       <DataTable id="families" columns={columns} rows={pg.rows} rowKey={(f) => f.id} onRowClick={(f) => setOpenId(f.id)}

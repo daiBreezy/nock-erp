@@ -34,7 +34,8 @@ export function SessionLine({ s, title, sub, children, actions, status, onOpen, 
         {children}
       </span>
       {actions && <span className="flex flex-wrap items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>{actions}</span>}
-      {status && <span className="flex shrink-0 justify-end">{status}</span>}
+      {/* a status chip can now double as an action button (Pill onClick — owner 2026-11-13) — stop it opening the row too */}
+      {status && <span className="flex shrink-0 justify-end" onClick={(e) => e.stopPropagation()}>{status}</span>}
     </div>
   )
 }

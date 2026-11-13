@@ -61,7 +61,7 @@ export const NOCK_GUIDE: GuideEntry[] = [
   { id: "summary_write", locations: ["summaries"], title: "เขียนสรุปการเรียน", keywords: ["สรุปการเรียน", "เขียนสรุป", "summary", "session summary"], perm: "summary.write",
     steps: "สรุปการเรียน › กดแถวคาบ → เขียนสรุปของนักเรียน → ส่งไป Approve · คนอนุมัติต้องไม่ใช่คนเขียน แล้วจึงส่งผู้ปกครอง", href: "/summaries", hrefLabel: "สรุปการเรียน" },
   { id: "summary_approve", locations: ["summaries"], title: "อนุมัติสรุปการเรียน", keywords: ["อนุมัติสรุป", "approve summary", "ส่งสรุป"], perm: "summary.approve",
-    steps: "สรุปการเรียน › การ์ด รอส่งไป Approve → อนุมัติ (หรือเปิดแถวเพื่อขอแก้) → ส่งผู้ปกครอง", href: "/summaries", hrefLabel: "สรุปการเรียน" },
+    steps: "สรุปการเรียน › การ์ด รออนุมัติ → อนุมัติ (หรือเปิดแถวเพื่อขอแก้) → ส่งผู้ปกครอง", href: "/summaries", hrefLabel: "สรุปการเรียน" },
   { id: "long_leave", locations: ["students"], title: "ลาพักยาว (ไม่หักโควตา)", keywords: ["ลาพักยาว", "ลายาว", "ลาหลายวัน", "พักเรียน", "ไม่หักโควตา"], perm: "attendance.leave_override",
     steps: "เปิด Panel นักเรียน › ปุ่ม ⋯ ซ้ายล่าง › ลาพักยาว → เลือกคาบ หรือช่วงวันที่ + หมายเหตุ · สถานะเป็น Inactive ช่วงนั้น และวันจบคอร์สเลื่อนให้อัตโนมัติ", href: "/students", hrefLabel: "หน้านักเรียน" },
   { id: "student_exit", locations: ["students"], title: "นักเรียนแจ้งออก", keywords: ["แจ้งออก", "ลาออก", "เลิกเรียน", "ไม่เรียนต่อ"], perm: "student.manage",

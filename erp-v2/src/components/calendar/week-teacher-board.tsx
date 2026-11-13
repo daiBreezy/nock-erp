@@ -3,10 +3,10 @@
 import { WEEKDAY_TONE } from "@/components/app/tags"
 import { staffAt } from "@/domain/rules/permissions"
 import { Fragment, useMemo, useState } from "react"
-import { AlertTriangleIcon, Clock3Icon, CalendarOffIcon, CircleCheckIcon, CircleDashedIcon, CircleXIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, RotateCcwIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, UserIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, ClockFadingIcon, CalendarOffIcon, CircleDashedIcon, XIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, RotateCcwIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, UserIcon, UsersIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
-import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
+import { avatarTone, subjectColor } from "@/components/app/subject-color"
 import { Badge } from "@/components/ui/badge"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Button } from "@/components/ui/button"
@@ -35,9 +35,11 @@ const DAY_FULL = ["อาทิตย์", "จันทร์", "อังค�
 const dayTone = (date: DateStr, today: DateStr) => { const t = WEEKDAY_TONE[weekdayOf(date)]; return date === today ? t.strong : date < today ? t.faded : t.soft }
 
 const MARK_TEXT = { present: "มา", absent: "ขาด", leave: "ลา" } as const
-const MARK_TONE = { present: "text-success", absent: "text-danger", leave: "text-info" } as const
+// owner 2026-11-13: fewer colours — only an absence stands out; present / leave are quiet grey
+const MARK_TONE = { present: "text-muted-foreground", absent: "text-danger", leave: "text-muted-foreground" } as const
 // owner 2026-10-15: the check-in result as an icon that tells the story — the word stays as its tooltip
-const MARK_ICON = { present: CircleCheckIcon, absent: CircleXIcon, leave: CalendarOffIcon } as const
+// owner 2026-11-13: one shape per meaning, no circles around them — ✓ came · ✕ absent · crossed calendar = leave (the clock = part of the class only)
+const MARK_ICON = { present: CheckIcon, absent: XIcon, leave: CalendarOffIcon } as const
 // owner 2026-10-15: the same state icons as the Week and List views (components/app/work-state.tsx)
 const STATE_ICON = Object.fromEntries(WORK_ORDER.map((w) => [w, { icon: WORK_ICON[w], tone: WORK_ICON_TONE[w], label: WORK_LABEL[w] }])) as Record<WorkState, { icon: typeof CheckIcon; tone: string; label: string }>
 
@@ -127,13 +129,6 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
 
   return (
     <div className="space-y-5">
-      {/* sits right under the app header (h-14) instead of sliding over it */}
-      {days.length > 1 && <nav className="sticky top-14 z-10 -mx-1 flex flex-wrap gap-1.5 bg-background/95 px-1 py-2 backdrop-blur">
-        {days.map((d) => (
-          <a key={d} href={`#day-${d}`} className={cn("rounded-full px-3 py-1 text-xs font-medium hover:opacity-80", dayTone(d, today))}>{DAY_FULL[weekdayOf(d)].slice(0, 3)} {fmtDate(d)}</a>
-        ))}
-      </nav>}
-
       {dayAction && <TeacherDayDialog {...dayAction} onClose={() => setDayAction(null)} />}
       {moving && <MoveStudentDialog {...moving} onClose={() => setMoving(null)} />}
       {resolving && <ConflictResolver sessionIds={resolving} onClose={() => setResolving(null)} onOpen={(id) => { setResolving(null); onOpen(id) }} />}
@@ -145,7 +140,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
           <section key={date} id={`day-${date}`} className="scroll-mt-32 overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/10">
             <div className="min-w-fit">
               <div className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
-                <span>{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
+                {/* the band spans the whole table; the text sticks to the left edge so a sideways scroll never moves it */}
+                <span className="sticky left-4">{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
                 {periodsOn(branch, date)[0] && <span className="rounded-full bg-special-soft px-2 py-0.5 text-2xs font-medium text-special-ink">ช่วง {periodsOn(branch, date)[0].name}</span>}
               </div>
               {rows.length === 0 || teacherIds.length === 0 ? (
@@ -153,7 +149,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
               ) : (
                 <div className="grid bg-muted/40 text-sm" style={{ gridTemplateColumns: cols }}>
                   {/* teacher headers: avatar · name · subjects · classes that day */}
-                  <div className="sticky left-0 z-10 border-b bg-card" />
+                  <div className="sticky left-0 z-10 border-r border-b bg-card" />
 
                   {teacherIds.map((tid) => {
                     const t = staff.find((x) => x.id === tid)
@@ -226,7 +222,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                     return (
                       <Fragment key={row.start}>
                         {/* owner 2026-10-15: no Room bar — the room sits inside each class card, the same in both views */}
-                        <div className={cn("sticky left-0 z-10 flex flex-col items-center gap-1 border-b bg-card px-2 py-3 text-sm tabular-nums", plain ? "justify-start" : "justify-center", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
+                        <div className={cn("sticky left-0 z-10 flex flex-col items-center gap-1 border-r border-b bg-card px-2 py-3 text-sm tabular-nums", plain ? "justify-start" : "justify-center", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
                           <span>{row.start}</span>
                           {!plain && <span>{row.block ? row.end : "นอกช่วง"}</span>}
                         </div>
@@ -263,7 +259,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                                   <PlusIcon className="size-4" /> สร้างคลาส
                                 </Button>
                               )}
-                              {nowHere && <span className="pointer-events-none absolute inset-x-0 z-10 h-px bg-danger" style={{ top: `${nowPct(row)}%` }} />}
+                              {nowHere && <span className="pointer-events-none absolute inset-x-0 z-[5] h-px bg-danger" style={{ top: `${nowPct(row)}%` }} />}
                             </div>
                           )
                         })}
@@ -482,13 +478,13 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
       </div>
       {/* owner 2026-10-15: class on top, then the room (day view) */}
       {room}
-      {s.studentIds.map((sid) => {
+      {s.studentIds.map((sid, idx) => {
         const seat = Seats.seatOf(s, sid, klass)
         const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
         const moved = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
         const result = a ? { text: MARK_TEXT[a.status], tone: MARK_TONE[a.status], icon: MARK_ICON[a.status] } : ended && !s.trial ? { text: "ยังไม่เช็ค", tone: "text-warning", icon: CircleDashedIcon } : null
         return (
-          <StudentLine key={sid} drag={canDrag && !ended && !a ? JSON.stringify({ from: s.id, studentId: sid }) : undefined} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
+          <StudentLine key={sid} divider={idx > 0} drag={canDrag && !ended && !a ? JSON.stringify({ from: s.id, studentId: sid }) : undefined} nickname={L.student(sid)?.nickname ?? "?"} grade={L.student(sid)?.grade ?? ""} avatarKey={sid}
             notes={calendarNotesFor(s, sid, allNotes).map((n) => ({ id: n.id, text: n.text, kind: n.kind, when: noteWhen(n.at, now) }))}
             canPermanent={!!s.classId}
             onAddNote={(text, kind) => report(addNote(s.id, sid, text, kind), `บันทึก Note ${NOTE_KIND_LABEL[kind]}แล้ว`)}
@@ -527,9 +523,11 @@ function noteWhen(at: string, now: Date) {
  * deletable, ถาวร (pinned, every session of the class) or ชั่วคราว (this session only).
  */
 type LineNote = { id: string; text: string; kind: CalendarNoteKind; when?: string }
-function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, movedFrom, inverted, onOpen, canEdit, canPermanent, onAddNote, onEditNote, onDeleteNote }: {
+function StudentLine({ divider, drag, nickname, grade, notes, time, result, movedFrom, inverted, onOpen, canEdit, canPermanent, onAddNote, onEditNote, onDeleteNote }: {
+  /** a line above this student (every student but the first) — owner 2026-11-13: lines, not frames, tell students apart */
+  divider?: boolean
   drag?: string; nickname: string; grade: string; avatarKey: string; notes: LineNote[]; time?: string
-  result: { text: string; tone: string; icon: typeof CircleCheckIcon } | null; movedFrom?: string; inverted: boolean
+  result: { text: string; tone: string; icon: typeof CheckIcon } | null; movedFrom?: string; inverted: boolean
   onOpen: () => void; canEdit: boolean; canPermanent: boolean
   onAddNote: (text: string, kind: CalendarNoteKind) => void
   onEditNote: (id: string, text: string, kind: CalendarNoteKind) => void
@@ -539,39 +537,45 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
   const [editing, setEditing] = useState<string | null>(null)
   const muted = inverted ? "text-white/75" : "text-muted-foreground"
   return (
-    <div className="group/line min-w-0">
+    <div className={cn("group/line min-w-0", divider && "border-t pt-1.5")}>
       <div className="flex items-center gap-2">
-        <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold", avatarTone(avatarKey))}>{initial(nickname)}</span>
         <Button variant="ghost" size="inline" type="button" onClick={onOpen} draggable={!!drag} onDragStart={(e) => { if (drag) { e.dataTransfer.setData("application/x-student", drag); e.dataTransfer.effectAllowed = "move" } }}
           title={drag ? "ลากไปวางที่คาบอื่นเพื่อย้าย" : undefined} className={cn("shrink-0 truncate text-left font-medium hover:underline", drag && "cursor-grab active:cursor-grabbing")}>{nickname}</Button>
+        {/* owner 2026-11-13: grade is part of who the student is — plain muted text beside the name; the right edge is only status */}
+        {grade && <span className="shrink-0 text-xs text-muted-foreground">{grade}</span>}
         {canEdit && !adding ? (
           <Button variant="row" size="inline" type="button" onClick={() => setAdding(true)} className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left text-xs italic opacity-0 group-hover/line:opacity-100 focus-visible:opacity-100", muted)}>
             <PlusIcon className="size-3 shrink-0" /><span className="truncate">Note</span>
           </Button>
         ) : <span className="flex-1" />}
-        {/* owner 2026-10-15: part of the class only — an icon here, the hours on hover (and in the panel) */}
-        {time && (
-          <HoverCard>
-            <HoverCardTrigger render={<span tabIndex={0} aria-label={`เรียนเฉพาะ ${time}`} className="inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
-              <Clock3Icon className={cn("size-4", inverted ? "text-white" : "text-special-ink")} />
-            </HoverCardTrigger>
-            <HoverCardContent>{`เรียนเฉพาะช่วง ${time}`}</HoverCardContent>
-          </HoverCard>
-        )}
-        {result && <span title={result.text} className="inline-flex shrink-0"><result.icon className={cn("size-4", inverted ? "text-white" : result.tone)} aria-label={result.text} /></span>}
-        {grade && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", gradeTone(grade))}>{grade}</span>}
+        {/* two fixed-width status slots (partial-class clock · attendance result) so the icons stack in columns down the card */}
+        <span className="inline-flex size-4 shrink-0 items-center justify-center">
+          {time && (
+            <HoverCard>
+              <HoverCardTrigger render={<span tabIndex={0} aria-label={`เรียนเฉพาะ ${time}`} className="inline-flex shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
+                <ClockFadingIcon className={cn("size-4", inverted ? "text-white" : "text-muted-foreground")} />
+              </HoverCardTrigger>
+              <HoverCardContent>{`เรียนเฉพาะช่วง ${time}`}</HoverCardContent>
+            </HoverCard>
+          )}
+        </span>
+        <span title={result?.text} className="inline-flex size-4 shrink-0 items-center justify-center">
+          {result && <result.icon className={cn("size-4", inverted ? "text-white" : result.tone)} aria-label={result.text} />}
+        </span>
       </div>
-      {adding && <NoteEditor className="pl-8" kind="temporary" canPermanent={canPermanent} onDone={(text, kind) => { setAdding(false); if (text) onAddNote(text, kind) }} />}
+      {adding && <NoteEditor kind="temporary" canPermanent={canPermanent} onDone={(text, kind) => { setAdding(false); if (text) onAddNote(text, kind) }} />}
       {notes.map((n) => editing === n.id ? (
-        <NoteEditor key={n.id} className="pl-8" text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
+        <NoteEditor key={n.id} text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
           onDelete={() => { setEditing(null); onDeleteNote(n.id) }}
           onDone={(text, kind) => { setEditing(null); if (text && (text !== n.text || kind !== n.kind)) onEditNote(n.id, text, kind) }} />
       ) : (
-        <div key={n.id} className="group/note flex min-w-0 items-center gap-1 pl-8">
-          {n.kind === "permanent" && <PinIcon className={cn("size-3 shrink-0", inverted ? "text-white/80" : "text-primary")} aria-label="Note ถาวร" />}
+        <div key={n.id} className="group/note flex min-w-0 items-center gap-1.5">
+          {/* a bullet in front of every note, a pin for a permanent one — flush with the card's left edge */}
+          {n.kind === "permanent" ? <PinIcon className={cn("size-3 shrink-0", inverted ? "text-white/80" : "text-primary")} aria-label="Note ถาวร" /> : <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", inverted ? "bg-white/70" : "bg-muted-foreground/60")} />}
           <Button variant="row" size="inline" type="button" disabled={!canEdit} onClick={() => setEditing(n.id)} title={`${n.text}\nNote ${NOTE_KIND_LABEL[n.kind]}${n.kind === "permanent" ? " — แสดงทุกคาบของคลาสนี้" : " — เฉพาะคาบนี้"}`}
-            className={cn("min-w-0 truncate text-left text-xs", inverted ? "text-white/90" : "text-foreground/80", canEdit && "hover:underline")}>
-            {n.text}{n.when && <span className={cn("ml-1 tabular-nums", muted)}>({n.when})</span>}
+            className={cn("min-w-0 shrink text-left text-xs", inverted ? "text-white/90" : "text-foreground/80", canEdit && "hover:underline")}>
+            {/* the Button is inline-flex + shrink-0 by default, so the text needs its own truncating span or it runs out of the card */}
+            <span className="min-w-0 truncate">{n.text}</span>{n.when && <span className={cn("ml-1 shrink-0 tabular-nums", muted)}>({n.when})</span>}
           </Button>
           {canEdit && (
             <DropdownMenu>
@@ -586,7 +590,7 @@ function StudentLine({ drag, nickname, grade, avatarKey, notes, time, result, mo
           )}
         </div>
       ))}
-      {movedFrom && <p className={cn("pl-8 text-2xs", inverted ? "text-white/80" : "text-info")}>↩ {movedFrom}</p>}
+      {movedFrom && <p className={cn("text-2xs", inverted ? "text-white/80" : "text-info")}>↩ {movedFrom}</p>}
     </div>
   )
 }

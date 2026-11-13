@@ -3,15 +3,17 @@
 import { staffAt } from "@/domain/rules/permissions"
 import { PeriodBanner } from "@/components/app/period-banner"
 import { RangeStepper, Page, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
-import { createContext, Suspense, useContext, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createContext, Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, ClipboardListIcon, ListCollapseIcon, PalmtreeIcon, PlusIcon, Settings2Icon } from "lucide-react"
+import { AlertTriangleIcon, CalendarDaysIcon, ChevronDownIcon, ClipboardListIcon, PalmtreeIcon, FoldVerticalIcon, PlusIcon, Settings2Icon, UnfoldVerticalIcon, UsersIcon } from "lucide-react"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
 import { canEditBlocks } from "@/domain/rules/permissions"
 import { SummaryPanel } from "@/components/calendar/summary-panel"
 import { Pill } from "@/components/app/badges"
 import { ClassDialog, type ClassPrefill } from "@/components/app/class-dialog"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkIcon } from "@/components/app/work-state"
@@ -78,6 +80,15 @@ function CalendarView() {
   const [view, setView] = useQueryState<View>("view", "board")
   const [dayMode, setDayMode] = useQueryState<"table" | "single">("day", "table")
   const single = view === "board" && dayMode === "single"
+  // owner 2026-11-13: the UI has one period switch — Day = the one-day board · Week = calendar week OR the teachers' week table
+  const periodView: "day" | "week" | "month" | "list" = single ? "day" : view === "board" || view === "week" ? "week" : view
+  const weekTable: "calendar" | "teachers" = view === "week" ? "calendar" : "teachers"
+  const setPeriodView = (p: "day" | "week" | "month" | "list") => {
+    if (p === "day") { setView("board"); setDayMode("single") }
+    else if (p === "week") { if (periodView !== "week") { setView("board"); setDayMode("table") } }
+    else setView(p)
+  }
+  const setWeekTable = (m: "calendar" | "teachers") => { if (m === "teachers") { setView("board"); setDayMode("table") } else setView("week") }
   const [onlyBusy, setOnlyBusy] = useState(false)
   const [hideEmpty, setHideEmpty] = useQueryState<string>("hideEmpty", "")
   const [blocksDate, setBlocksDate] = useState<DateStr | null>(null)
@@ -86,6 +97,28 @@ function CalendarView() {
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
   const [teacher, setTeacher] = useQueryState<string>("teacher", "all")
   const [subject, setSubject] = useQueryState<string>("subject", "all")
+  // owner 2026-11-13: EVERY time the week table is (re)opened — first visit, coming back from another view or page — it
+  // jumps to today's section, wherever it was scrolled before. Today's week is restored first.
+  useEffect(() => {
+    if (view !== "board" || single || linkedSession) return
+    setAnchor(today) // eslint-disable-line react-hooks/set-state-in-effect
+    // the day sections mount after the first paint and the board keeps growing for a moment (avatars, rows), so aim twice —
+    // the second pass only runs if the person has not scrolled since the first
+    let target = -1
+    const go = (first: boolean) => {
+      const el = document.getElementById(`day-${today}`)
+      if (!el) return
+      if (!first && Math.abs(window.scrollY - target) > 4) return
+      // where the strip will sit once stuck: under the app bar (h-14 = 56px) + its own height (not where it is before the first scroll)
+      const pinned = 56 + (document.getElementById("calendar-pinned")?.offsetHeight ?? 160)
+      target = Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY - pinned - 8))
+      window.scrollTo({ top: target })
+    }
+    const t1 = setTimeout(() => go(true), 400)
+    const t2 = setTimeout(() => go(false), 1400)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [view, single, today, linkedSession])
+
   const [openId, setOpenId] = useState<string | null>(() => (linkedSession && allSessions.some((x) => x.id === linkedSession) ? linkedSession : null))
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
   const [moving, setMoving] = useState<{ id: string; target: MoveTarget } | null>(null)
@@ -175,64 +208,69 @@ function CalendarView() {
 
   return (
     <Page className="max-w-none">
+      {/* owner 2026-11-13: only the calendar content scrolls — header + controls stay pinned under the app bar (h-14).
+          The negative margins / padding stretch the pinned strip over the page padding so nothing shows through. */}
+      <div id="calendar-pinned" className="z-[15] -mx-3 -mt-3 space-y-4 bg-background px-3 pt-3 pb-1 sm:sticky sm:top-14 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6">
       {/* owner 2026-10-09: same structure as every page — header (name · what's in view · CTA), then one toolbar */}
       <PageHeader title="ปฏิทิน"
         description={<span className="flex flex-wrap items-center gap-1.5">
-          {visible.filter((s) => !s.cancelled).length} คาบในช่วงนี้
+          {/* owner 2026-11-13: say what day today is, like the Dashboard header */}
+          <span className="font-medium text-foreground">{fmtDate(today, { weekday: true, year: true })}</span> · {visible.filter((s) => !s.cancelled).length} คาบในช่วงนี้
           {conflicts.length > 0 && <Pill tone="red"><AlertTriangleIcon className="size-3" /> ชนกัน {conflicts.length} จุด</Pill>}
           {holidayDays.length > 0 && <Pill tone="amber"><PalmtreeIcon className="size-3" /> วันหยุด {holidayDays.length} วัน</Pill>}
         </span>}
         actions={<>
-          {/* the whole picture of the range + everything to handle */}
-          <Button variant="outline" onClick={() => setSummaryOpen(true)}><ClipboardListIcon /> Summary</Button>
-          {canCreate && <Button onClick={() => setPrefill({ date: anchor })}><PlusIcon /> สร้างคลาส</Button>}
+          {/* owner 2026-11-13: the header buttons folded into one dropdown, like Billing */}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button />}><PlusIcon /> สร้าง / รายงาน <ChevronDownIcon /></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-auto min-w-52">
+              {canCreate && <DropdownMenuItem onClick={() => setPrefill({ date: anchor })}><PlusIcon /> สร้างคลาส</DropdownMenuItem>}
+              {/* the whole picture of the range + everything to handle */}
+              <DropdownMenuItem onClick={() => setSummaryOpen(true)}><ClipboardListIcon /> Summary</DropdownMenuItem>
+              {view === "board" && canBlocks && <DropdownMenuItem onClick={() => setBlocksDate(anchor < today ? today : anchor)}><Settings2Icon /> ตั้งช่วงเวลา</DropdownMenuItem>}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>} />
 
       <div className="space-y-3">
-        <Toolbar end={<div className="flex flex-wrap items-center gap-2">
-        {/* owner 2026-10-12: the board's own switch sits in front of the period switch */}
-        {view === "board" && (
-          <>
-            <Segmented label="แบบตาราง" value={dayMode} onChange={(v) => setDayMode(v)}
-              options={[{ value: "table", label: "ตารางครูทั้งสัปดาห์" }, { value: "single", label: "รายวัน" }]} />
-            <span className="h-5 w-px bg-border" />
-          </>
-        )}
-        <Segmented label="มุมมอง" value={view} onChange={(v) => setView(v)}
-          options={[{ value: "board", label: "วัน" }, { value: "week", label: "สัปดาห์" }, { value: "month", label: "เดือน" }, { value: "list", label: "รายการ" }]} />
-        </div>}>
-
-        <RangeStepper label={range.title} current={range.from <= today && today <= range.to} onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)} />
-              </Toolbar>
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="ตัวกรองปฏิทิน">
-        <NativeSelect className="h-9 w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)} options={teacherOptions} />
-        <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} options={[{ value: "all", label: "ทุกวิชา" }, ...branch.subjects.map((s) => ({ value: s, label: s }))]} />
-        {/* status as a dropdown chip, like teachers / subjects (owner 2026-09-30) */}
-        <NativeSelect className="h-9 w-40" value={workFilter ?? ""} onChange={(e) => setWorkFilter((e.target.value || null) as WorkState | null)}
-          placeholder={`ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`}
-          options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` }))} />
-        {/* owner 2026-10-15: the board's own switches live with the filters — always in sight, no scrolling to find them */}
-        <span className="ml-auto flex flex-wrap items-center gap-2">
-          {view === "week" && (
-            <Button variant={hideEmpty ? "secondary" : "ghost"} size="sm" aria-pressed={!!hideEmpty} onClick={() => setHideEmpty(hideEmpty ? "" : "1")}
-              title={hideEmpty ? "แสดงทุกวัน" : "ซ่อนวันที่ไม่มีคลาส"}>
-              <ListCollapseIcon /> {hideEmpty ? "เฉพาะวันที่มีคลาส" : "ทุกวัน"}
-            </Button>
+        {/* owner 2026-11-13: row 1 = the period switch first (Day shows the one-day board only; Week offers two tables) ·
+            row 2 = date stepper left, filters + the board's own switches right */}
+        <Toolbar>
+          <Segmented label="ช่วงเวลา" value={periodView} onChange={setPeriodView}
+            options={[{ value: "day", label: "วัน" }, { value: "week", label: "สัปดาห์" }, { value: "month", label: "เดือน" }, { value: "list", label: "รายการ" }]} />
+          {periodView === "week" && (
+            <Segmented iconOnly label="แบบตารางสัปดาห์" value={weekTable} onChange={setWeekTable}
+              options={[{ value: "calendar", label: "ตารางปฏิทิน", icon: CalendarDaysIcon }, { value: "teachers", label: "ตารางครูรายสัปดาห์", icon: UsersIcon }]} />
           )}
-          {single && (
-            <Button variant={onlyBusy ? "secondary" : "ghost"} size="sm" aria-pressed={onlyBusy} onClick={() => setOnlyBusy(!onlyBusy)}
-              title={onlyBusy ? "แสดงทุกชั่วโมง" : "แสดงเฉพาะเวลาที่มีคลาส"}>
-              <ListCollapseIcon /> {onlyBusy ? "เฉพาะเวลาที่มีคลาส" : "ทุกชั่วโมง"}
-            </Button>
-          )}
-          {view === "board" && canBlocks && (
-            <Button variant="outline" size="sm" onClick={() => setBlocksDate(anchor < today ? today : anchor)} title="ตั้งช่วงเวลาเรียน (Time blocks) ของวัน / ทั้งสัปดาห์">
-              <Settings2Icon /> ตั้งช่วงเวลา
-            </Button>
-          )}
-        </span>
-
+        </Toolbar>
+        <div className="flex flex-wrap items-center gap-2">
+          <RangeStepper label={range.title} current={range.from <= today && today <= range.to} onPrev={() => step(-1)} onNext={() => step(1)} onToday={() => setAnchor(today)} />
+          <span className="ml-auto flex flex-wrap items-center gap-2" role="group" aria-label="ตัวกรองปฏิทิน">
+            {/* owner 2026-11-13: a view option, not a filter — an icon toggle (collapse / expand) in front of "ตัวกรอง", name on hover */}
+            {(view === "week" || single) && (() => {
+              const on = view === "week" ? !!hideEmpty : onlyBusy
+              const name = view === "week" ? (on ? "แสดงทุกวัน" : "ซ่อนวันที่ไม่มีคลาส") : (on ? "แสดงทุกชั่วโมง" : "แสดงเฉพาะเวลาที่มีคลาส")
+              return (
+                <HoverCard>
+                  <HoverCardTrigger render={<Button variant="outline" size="icon" type="button" aria-pressed={on} aria-label={name}
+                    className={cn("rounded-full", on && "border-primary bg-primary/10 text-primary hover:bg-primary/15")}
+                    onClick={() => (view === "week" ? setHideEmpty(on ? "" : "1") : setOnlyBusy(!on))} />}>
+                    {on ? <UnfoldVerticalIcon /> : <FoldVerticalIcon />}
+                  </HoverCardTrigger>
+                  <HoverCardContent>{name}</HoverCardContent>
+                </HoverCard>
+              )
+            })()}
+            <FilterMenu
+              fields={[
+              { id: "teacher", label: "ครู", value: teacher === "all" ? "" : teacher, onChange: (v) => setTeacher(v || "all"), placeholder: "ครูทุกคน", options: teacherOptions.filter((o) => o.value !== "all") },
+              { id: "subject", label: "วิชา", value: subject === "all" ? "" : subject, onChange: (v) => setSubject(v || "all"), placeholder: "ทุกวิชา", options: branch.subjects.map((x) => ({ value: x, label: x })) },
+              { id: "work", label: "สถานะ", value: workFilter ?? "", onChange: (v) => setWorkFilter((v || null) as WorkState | null), placeholder: `ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`,
+                options: WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` })) },
+            ]} />
+          </span>
         </div>
+      </div>
       </div>
 
       {/* card states: click one to highlight only those cards */}

@@ -6,7 +6,7 @@ import { staffAt } from "@/domain/rules/permissions"
 import { ForceApprove } from "./force-approve"
 import { useEffect, useMemo, useState } from "react"
 import {
-  AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, EllipsisVerticalIcon, FlameIcon,
+  AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockFadingIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
   CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon,
@@ -123,19 +123,26 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const present = s.studentIds.filter((sid) => attendance.find((x) => x.sessionId === s.id && x.studentId === sid)?.status === "present")
   const summaryOf = (sid: ID) => summaries.find((x) => x.sessionId === s.id && x.studentId === sid)
   const textOf = (sid: ID) => drafts[sid] ?? summaryOf(sid)?.text ?? ""
-  const submittable = present.filter((sid) => { const st = summaryOf(sid)?.status; return !viewOnly && (!st || st === "draft" || st === "changes_requested") && textOf(sid).trim() })
+  const submittable = present.filter((sid) => { const st = summaryOf(sid)?.status; return !viewOnly && hasEnded(s, now) && (!st || st === "draft" || st === "changes_requested") && textOf(sid).trim() })
   const approvable = present.filter((sid) => { const x = summaryOf(sid); return x?.status === "submitted" && Sum.canApprove(x, me).ok })
-  const selectable = [...new Set([...submittable, ...approvable])]
+  // owner 2026-11-13: every present student whose summary is not closed yet can be ticked (a dash only for those who can't:
+  // absent / on leave / already sent). The two bulk buttons count — and enable on — the ones that can act right now.
+  const selectable = present.filter((sid) => !viewOnly && summaryOf(sid)?.status !== "sent")
   const sel = [...picked].filter((x) => selectable.includes(x))
   const toggle = (sid: ID) => setPicked((p) => { const n = new Set(p); if (n.has(sid)) n.delete(sid); else n.add(sid); return n })
+  // owner 2026-11-13: nothing ticked = the button works on everyone it can (a written summary shouldn't need a tick first);
+  // anyone ticked = only those. The count on the button says exactly how many.
+  const targets = (can: ID[]) => (sel.length ? sel : selectable).filter((x) => can.includes(x))
+  const toSubmit = targets(submittable)
+  const toApprove = targets(approvable)
   const submitMany = () => {
-    const ids = sel.filter((x) => submittable.includes(x))
+    const ids = toSubmit
     const fails = ids.map((sid) => save(s.id, sid, textOf(sid), true)).filter((r) => !r.ok)
     report(fails.length ? fails[0] : { ok: true, value: undefined }, `ส่งอนุมัติสรุป ${ids.length} คนแล้ว`)
     setPicked(new Set())
   }
   const approveMany = () => {
-    const ids = sel.filter((x) => approvable.includes(x))
+    const ids = toApprove
     const fails = ids.map((sid) => approve(summaryOf(sid)!.id)).filter((r) => !r.ok)
     report(fails.length ? fails[0] : { ok: true, value: undefined }, `อนุมัติสรุป ${ids.length} คนแล้ว`)
     setPicked(new Set())
@@ -175,7 +182,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             <span>{L.teacher(s.teacherLeave.teacherId).label}ลา ({s.teacherLeave.reason}){s.teacherLeave.substituteId ? ` · ${L.teacher(s.teacherLeave.substituteId).label} สอนแทน` : " · เลื่อนวันจบคอร์สให้นักเรียนแล้ว"}</span>
             {/* owner 2026-10-12: a teacher leave can be taken back while the class hasn't closed */}
             {canManage && state !== "closed" && (
-              <Button size="xs" variant="outline" onClick={() => report(undoTeacherLeave(s.id), `${L.teacher(s.teacherLeave!.teacherId).label} กลับมาสอนแล้ว`)}><RotateCcwIcon /> ยกเลิกการลา</Button>
+              <Button variant="outline" onClick={() => report(undoTeacherLeave(s.id), `${L.teacher(s.teacherLeave!.teacherId).label} กลับมาสอนแล้ว`)}><RotateCcwIcon /> ยกเลิกการลา</Button>
             )}
           </p>
         )}
@@ -183,12 +190,17 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
         <div className="-mb-3 mt-2 flex gap-1">
           {([["students", `รายชื่อนักเรียน (${s.studentIds.length})`], ["info", "ข้อมูลคาบ"]] as const).map(([k, label]) => (
             <Button variant="ghost" size="inline" key={k} type="button" onClick={() => setTab(k)}
-              className={cn("border-b-2 px-3 pb-2.5 pt-1 text-sm transition", tab === k ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</Button>
+              className={cn("rounded-none border-x-0 border-t-0 border-b-2 px-3 pb-2.5 pt-1 text-sm transition hover:bg-transparent", tab === k ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</Button>
           ))}
         </div>
       </SheetHeader>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+      {/* owner 2026-11-13: padding lives on this INNER wrapper, not the scrolling box itself — a sticky child's `top`
+          offset is measured against the scroll container's own padding edge, so keeping that box padding-free is what
+          lets `top-0` land flush against the real viewport edge, no matter what (conflict alerts, locked notices, …)
+          happens to render before it. No more margin/top-offset tricks to cancel a padding that isn't there. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="space-y-3 px-4 py-4 sm:px-5">
         {/* a clash is the first thing you see when you open the session (owner 2026-10-01) — past ones aren't shown */}
         {conflicts.length > 0 && state === "upcoming" && (
           <Alert variant="destructive">
@@ -196,7 +208,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             <AlertTitle>คาบนี้ชนกับคาบอื่น</AlertTitle>
             <AlertDescription className="space-y-2">
               <div>{[...new Set(conflicts.map((c) => c.message))].join(" · ")}</div>
-              {canManage && <Button size="xs" variant="destructive" onClick={() => setResolving(true)}>แก้ปัญหา</Button>}
+              {canManage && <Button variant="destructive" onClick={() => setResolving(true)}>แก้ปัญหา</Button>}
             </AlertDescription>
           </Alert>
         )}
@@ -213,23 +225,30 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             {state === "upcoming" && <p className="text-xs text-muted-foreground">ยังไม่ถึงเวลาเรียน — เช็คชื่อ เขียนสรุป ลา หรือย้ายคาบ เตรียมไว้ล่วงหน้าได้เลย</p>}
             {locked && <p className="text-xs text-warning">ส่งสรุปถึงผู้ปกครองแล้ว — คาบนี้ถูกล็อก แก้ไขไม่ได้</p>}
             {selectable.length > 0 && (
-              <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-2xl border bg-background/95 px-3 py-2 text-sm backdrop-blur">
+              // owner 2026-11-13: a quiet utility bar — outline/ghost only, no filled colour, so it never competes with
+              // the per-row มา/ลา (green/red) or the real send CTA below each summary. No frame; buttons always shown,
+              // greyed out when there's nothing to do, so the list never jumps when a box is ticked. `top-0` lands flush
+              // against the real scroll edge because the scrolling box itself carries no padding (see above).
+              <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b bg-background px-4 py-3 text-sm sm:-mx-5 sm:px-5">
                 <Checkbox checked={sel.length === selectable.length} onCheckedChange={(v) => setPicked(v ? new Set(selectable) : new Set())} />
                 <span className="text-muted-foreground">{sel.length ? `เลือก ${sel.length} คน` : "เลือกสรุปหลายคนพร้อมกัน"}</span>
                 <span className="ml-auto flex gap-1.5">
-                  {sel.some((x) => submittable.includes(x)) && <Button size="xs" onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({sel.filter((x) => submittable.includes(x)).length})</Button>}
-                  {sel.some((x) => approvable.includes(x)) && <Button size="xs" variant="outline" onClick={approveMany}><CheckIcon /> อนุมัติ ({sel.filter((x) => approvable.includes(x)).length})</Button>}
+                  <Button variant="outline" disabled={toSubmit.length === 0} onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({toSubmit.length})</Button>
+                  <Button variant="outline" disabled={toApprove.length === 0} onClick={approveMany}><CheckIcon /> อนุมัติ ({toApprove.length})</Button>
                 </span>
               </div>
             )}
             {s.studentIds.length === 0 && !s.rescheduledOut?.length && <Empty>ยังไม่มีนักเรียนในคาบนี้</Empty>}
-            <ul className="divide-y">
+            <ul className="divide-y *:py-4">
               {s.studentIds.map((sid) => (
                 <StudentRow key={sid} s={s} sid={sid} viewOnly={viewOnly} canManage={canManage} mine={mine}
                   text={textOf(sid)} setText={(t) => setDrafts((d) => ({ ...d, [sid]: t }))}
-                  selectable={selectable.includes(sid)} picked={picked.has(sid)} onPick={() => toggle(sid)} />
+                  selectable={selectable.includes(sid)} showCheck={selectable.length > 0} picked={picked.has(sid)} onPick={() => toggle(sid)} />
               ))}
-              {s.rescheduledOut?.map((m) => <MovedOutRow key={m.studentId} s={s} studentId={m.studentId} toSessionId={m.toSessionId} canManage={canManage} />)}
+              {s.rescheduledOut?.map((m) => (
+                <StudentRow key={m.studentId} s={s} sid={m.studentId} viewOnly={viewOnly} canManage={canManage} mine={mine} movedTo={m.toSessionId}
+                  text="" setText={() => {}} selectable={false} showCheck={selectable.length > 0} picked={false} onPick={() => {}} />
+              ))}
             </ul>
           </>
         ) : (
@@ -238,7 +257,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">ครูผู้สอน</h3>
                 {canManage && canChangeTeachers(s, now).ok && (
-                  <Button size="xs" variant={s.teacherId ? "outline" : "default"} onClick={() => setTeachersOpen(true)}><UsersRoundIcon /> {s.teacherId ? "เปลี่ยน / เพิ่มครู" : "ตั้งครู"}</Button>
+                  <Button variant={s.teacherId ? "outline" : "default"} onClick={() => setTeachersOpen(true)}><UsersRoundIcon /> {s.teacherId ? "เปลี่ยน / เพิ่มครู" : "ตั้งครู"}</Button>
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -273,6 +292,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           </div>
         )}
       </div>
+      </div>
 
       <div className="flex items-center gap-2 border-t px-5 py-3">
         {/* owner 2026-11-04: a teacher can manage their own session (edit / add / remove) — the admin is notified */}
@@ -280,6 +300,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon" variant="outline" aria-label="จัดการคลาส" />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-60">
+              <DropdownMenuItem disabled={locked} onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem disabled={locked} onClick={() => (klass && canManage ? setEditingClass(true) : setPostponing(true))}><PencilIcon /> {klass && canManage ? "แก้คลาส" : "แก้คาบนี้"}</DropdownMenuItem>
               {canManage && <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setPostponing(true)}><LogOutIcon /> เลื่อนคาบ (Postpone)</DropdownMenuItem>}
               {canManage && (
@@ -293,9 +315,6 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
           </DropdownMenu>
         )}
         <span className="ml-auto" />
-        {(canManage || mine) && !locked && !s.cancelled && (
-          <Button variant="secondary" onClick={() => setAdding(true)}><UserPlusIcon /> เพิ่มนักเรียน</Button>
-        )}
       </div>
 
       {postponing && <EditSessionDialog id={s.id} onClose={() => setPostponing(false)} />}
@@ -309,9 +328,13 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
 }
 
 /** One student: avatar · name/family · New · grade · package progress · ✓ ✗ · ⋮ — and the summary right under when "มา" */
-function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectable, picked, onPick }: {
+function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectable, showCheck, picked, onPick, movedTo }: {
   s: Session; sid: ID; viewOnly: boolean; canManage: boolean; mine: boolean
-  text: string; setText: (t: string) => void; selectable: boolean; picked: boolean; onPick: () => void
+  text: string; setText: (t: string) => void; selectable: boolean
+  /** the list has a bulk bar: rows that can't be picked (on leave, nothing to submit) still show a disabled box, so the columns line up */
+  showCheck: boolean; picked: boolean; onPick: () => void
+  /** owner 2026-11-13: this student moved to another session — same row as everyone, rail greyed out, a framed note below */
+  movedTo?: ID
 }) {
   const allSessions = useStore((st) => st.sessions)
   const attendance = useStore((st) => st.attendance)
@@ -380,33 +403,37 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const seat = Seats.seatOf(s, sid, klass)
   const partial = Seats.isPartial(seat, s.minutes)
   // sub-content lines up under the name on desktop; on phones it runs full-width (no indent)
-  const indent = selectable ? "sm:pl-[5.25rem]" : "sm:pl-14"
+  const indent = showCheck ? "sm:pl-[5.25rem]" : "sm:pl-14"
   // the three actions share one full-width row (wide targets even at 36px tall); desktop keeps them inline
-  const pill = "h-9 min-w-12 flex-1 border-l px-3 text-sm font-medium transition first:border-l-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+  // owner 2026-11-13: colour only on the picked one (มา green · ลา red) in the white pill; the rest stay grey
+  // owner 2026-11-13: solid colour fill on the picked pill (white text) — the lighter track (bg-muted/60) keeps it from
+  // getting lost; ย้ายวัน stays neutral white, it's an action not a state
+  const pill = "h-7 min-w-12 flex-1 rounded-full border-0 px-3 text-sm text-muted-foreground transition hover:text-foreground hover:bg-transparent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none data-[on=true]:bg-card data-[on=true]:font-semibold data-[on=true]:shadow-sm"
   const markAs = (status: "present" | "absent" | "leave") =>
     a?.status === status ? report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`) : report(mark(s.id, sid, status), `${stu?.nickname}: ${status === "present" ? "มา" : status === "absent" ? "ขาด" : "ลา"}`)
 
   return (
-    <li className={cn("space-y-2 py-3", onLongLeave && "opacity-60")}>
+    <li className={cn("space-y-3", onLongLeave && "opacity-60")}>
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-        {selectable && <Checkbox checked={picked} onCheckedChange={onPick} aria-label={`เลือก ${stu?.nickname}`} />}
+        {/* mt-3.5 centres the box on the 44px avatar */}
+        {showCheck && <Checkbox className="mt-3.5" checked={selectable && picked} indeterminate={!selectable} disabled={!selectable} onCheckedChange={onPick} aria-label={`เลือก ${stu?.nickname}`} />}
         <span className="relative shrink-0">
-          <span className={cn("grid size-11 place-items-center rounded-full text-base font-semibold", avatarTone(sid))}>{initial(stu?.nickname ?? "?")}</span>
-          {movedFrom && <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-info-soft text-info-ink ring-2 ring-background" title="ย้ายมาจากคาบอื่น"><CalendarClockIcon className="size-3" /></span>}
+          <span className={cn("grid size-11 place-items-center rounded-full bg-muted text-base font-semibold text-muted-foreground")}>{initial(stu?.nickname ?? "?")}</span>
+          {movedFrom && <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-muted text-muted-foreground ring-2 ring-background" title="ย้ายมาจากคาบอื่น"><CalendarClockIcon className="size-3" /></span>}
         </span>
         <div className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
-            <Button variant="link" size="inline" type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold hover:text-primary hover:underline">{stu?.nickname}</Button>
+            <Button variant="link" size="inline" type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold text-foreground hover:text-foreground hover:underline">{stu?.nickname}</Button>
             {/* grade sits next to the name so the right side carries only the ⋮ (owner 2026-11-02) */}
-            {stu?.grade && <span className={cn("shrink-0 rounded-full px-1.5 py-px text-2xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
-            {isNew && <Pill tone="red" className="shrink-0" title="เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ"><FlameIcon className="size-3" /> ใหม่</Pill>}
-            {onLongLeave && <Pill tone="special" className="shrink-0" title={`${fmtDate(onLongLeave.from)} – ${fmtDate(onLongLeave.to, { year: true })} · ${onLongLeave.reason}`}>ลาพักยาว</Pill>}
+            {stu?.grade && <span className={cn("shrink-0 rounded-full bg-muted px-1.5 py-px text-2xs font-semibold text-muted-foreground")}>{stu.grade}</span>}
+            {isNew && <Pill className="shrink-0" title="เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ"><FlameIcon className="size-3" /> ใหม่</Pill>}
+            {onLongLeave && <Pill className="shrink-0" title={`${fmtDate(onLongLeave.from)} – ${fmtDate(onLongLeave.to, { year: true })} · ${onLongLeave.reason}`}>ลาพักยาว</Pill>}
             {/* tap to change which hours this student attends — works before attendance (parent called ahead) */}
             {/* default = the whole class (owner 2026-09-30); tap to set a part of it */}
             {(partial || (canManage && !locked && !s.cancelled)) && (
               <Button variant="ghost" size="inline" type="button" disabled={!canManage || locked || s.cancelled} onClick={() => setOpen("seat")}
                 title={partial ? `เรียนเฉพาะ ${Seats.seatTime(s.start, seat)}${s.seats?.[sid] ? " (คาบนี้)" : " (ทุกคาบ)"} · กดเพื่อเปลี่ยน` : "กดเพื่อตั้งให้เรียนแค่บางชั่วโมง"}
-                className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-special-soft text-special-ink" : "border border-dashed text-muted-foreground hover:bg-muted")}>
+                className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", partial ? "bg-muted text-foreground" : "border border-dashed text-muted-foreground hover:bg-muted")}>
                 {Seats.seatLabel(seat, s.minutes)}
               </Button>
             )}
@@ -425,17 +452,17 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </div>
         {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) ·
             phones: wraps to its own full-width row (order-last) so the buttons never run off the edge */}
-        <span className="order-last flex w-full shrink-0 overflow-hidden rounded-full border sm:order-none sm:w-auto">
-          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present"} disabled={!canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
+        <span className="order-last inline-flex h-9 w-full shrink-0 items-center rounded-full bg-muted/60 p-1 sm:order-none sm:w-auto">
+          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
             className={pill + " data-[on=true]:bg-success data-[on=true]:text-white"}>มา</Button>
-          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
-            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-warning data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>
-          <Button variant="ghost" size="inline" type="button" disabled={!canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
+          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
+            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-danger data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>
+          <Button variant="ghost" size="inline" type="button" disabled={!!movedTo || !canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
             title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</Button>
         </span>
         {/* per-student ⋮ — teachers get it too (profile / re-schedule); managers also get seat + remove.
             44px trigger on phones so it's easy to tap (owner 2026-11-02) */}
-        {(canManage || mine) && !locked && !s.cancelled ? (
+        {!movedTo && (canManage || mine) && !locked && !s.cancelled ? (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" className="size-9 shrink-0 self-start sm:size-8" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
@@ -448,7 +475,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
               )}
               {canManage && (
                 <DropdownMenuItem onClick={() => setOpen("seat")}>
-                  <ClockIcon /><span className="flex flex-col"><span>เวลาเรียนของ{stu?.nickname}</span><span className="text-xs text-muted-foreground">เรียนแค่บางชั่วโมง (คาบนี้ / ทุกคาบ)</span></span>
+                  <ClockFadingIcon /><span className="flex flex-col"><span>เวลาเรียนของ{stu?.nickname}</span><span className="text-xs text-muted-foreground">เรียนแค่บางชั่วโมง (คาบนี้ / ทุกคาบ)</span></span>
                 </DropdownMenuItem>
               )}
               {(canManage || mine) && <><DropdownMenuSeparator />
@@ -458,6 +485,10 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         ) : <span className="size-9 shrink-0 sm:size-8" />}
       </div>
 
+      {movedTo ? (
+        <MovedToBox s={s} studentId={sid} toSessionId={movedTo} canManage={canManage} className={indent} />
+      ) : (
+        <>
       {/* Note on its own full-width line under the student — extra top gap so a tap can't land on the attendance bar above (owner 2026-11-02) */}
       <div className={cn(indent, "pt-1")}><CalendarNotes s={s} studentId={sid} canEdit={canManage || mine} /></div>
 
@@ -473,7 +504,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </p>
       )}
       {a?.status === "leave" && raw && (
-        <p className={cn(indent, "text-xs", thisLeave?.quota || thisLeave?.noQuota ? "text-success" : "text-muted-foreground")}>
+        <p className={cn(indent, "text-xs", "text-muted-foreground")}>
           {a.leaveGroup && (() => { const n = attendance.filter((x) => x.studentId === sid && x.leaveGroup === a.leaveGroup).length; return n > 1 ? `ลาชุด ${n} คาบ · ` : "" })()}
           {thisLeave?.noQuota ? `ลาไม่หักโควตา · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
@@ -484,6 +515,9 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           {/* owner Row 48: past-summary history lives on the summary's CTA row (icon button) */}
           <SummaryInline key={lessonKey(summaries.find((x) => x.sessionId === s.id && x.studentId === sid))} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} historyCount={pastSummaries.length} onHistory={() => setHistoryOpen(true)} />
         </div>
+      )}
+
+        </>
       )}
 
       <StudentSheet studentId={open === "student" ? sid : null} onClose={() => setOpen(null)} />
@@ -546,7 +580,7 @@ export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID
             <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
           </DropdownMenuItem>
           <DropdownMenuItem disabled={!canLeave || s.cancelled} onClick={() => setOpen("leave")}><LogOutIcon /> ลา</DropdownMenuItem>
-          {canManage && <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setOpen("seat")}><ClockIcon /> เวลาเรียน (บางชั่วโมง)</DropdownMenuItem>}
+          {canManage && <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setOpen("seat")}><ClockFadingIcon /> เวลาเรียน (บางชั่วโมง)</DropdownMenuItem>}
           <DropdownMenuItem onClick={() => setOpen("session")}><CalendarDaysIcon /> เปิดคาบนี้</DropdownMenuItem>
           {canManage && !locked && !s.cancelled && (
             <>
@@ -702,40 +736,29 @@ function SeatDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onCl
 }
 
 /** Student moved out of this session — says where to, click opens that session, ⋮ undo */
-function MovedOutRow({ s, studentId, toSessionId, canManage }: { s: Session; studentId: ID; toSessionId: ID; canManage: boolean }) {
+function MovedToBox({ s, studentId, toSessionId, canManage, className }: { s: Session; studentId: ID; toSessionId: ID; canManage: boolean; className?: string }) {
   const to = useStore((st) => st.sessions.find((x) => x.id === toSessionId))
   const toClass = useStore((st) => st.classes.find((k) => k.id === to?.classId))
   const undo = useStore((st) => st.undoReschedule)
-  const families = useStore((st) => st.families)
   const L = useLookup()
   const [open, setOpen] = useState(false)
   const stu = L.student(studentId)
   return (
-    <li className="flex items-center gap-3 py-3">
-      <span className="w-4 shrink-0" />
-      <span className="relative shrink-0">
-        <span className={cn("grid size-11 place-items-center rounded-full text-base font-semibold opacity-60", avatarTone(studentId))}>{initial(stu?.nickname ?? "?")}</span>
-        <span className="absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full bg-warning-soft text-warning-ink ring-2 ring-background"><LogOutIcon className="size-3" /></span>
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-muted-foreground">{stu?.name} ({stu?.nickname})</p>
-        <p className="truncate text-xs text-muted-foreground">{families.find((f) => f.id === stu?.familyId)?.name ?? "—"}</p>
+    <div className={className}>
+      {/* a thin frame, the text in orange (owner 2026-11-13) */}
+      <div className="flex items-center gap-2 rounded-2xl border px-3 py-1.5 text-warning">
+        <CalendarClockIcon className="size-4 shrink-0" />
+        {to ? (
+          <Button variant="link" size="inline" type="button" onClick={() => setOpen(true)} className="min-w-0 flex-1 justify-start text-left text-xs font-medium text-warning hover:underline" title="เปิดคาบที่ย้ายไป">
+            <span className="truncate">ย้ายไป {fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
+          </Button>
+        ) : <span className="flex-1 text-xs font-medium">ย้ายไปคาบอื่น</span>}
+        {canManage && (
+          <Button size="xs" variant="outline" type="button" className="shrink-0 text-foreground" onClick={() => report(undo(s.id, studentId), `${stu?.nickname} กลับมาเรียนคาบนี้แล้ว`)}>ยกเลิก</Button>
+        )}
       </div>
-      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", gradeTone(stu?.grade ?? ""))}>{stu?.grade}</span>
-      {to && (
-        <Button variant="link" size="inline" type="button" onClick={() => setOpen(true)} className="shrink-0 text-right text-xs text-warning hover:underline" title="เปิดคาบที่ย้ายไป">
-          <span className="flex items-center justify-end gap-1 font-medium"><CalendarClockIcon className="size-4" /> ย้ายไป</span>
-          <span className="text-2xs">{fmtDate(to.date, { weekday: true })} · {to.start}–{endTime(to.start, to.minutes)}{toClass ? ` · ${toClass.name}` : ""}</span>
-        </Button>
-      )}
-      {canManage ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="จัดการการย้าย" />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
-          <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => report(undo(s.id, studentId), `${stu?.nickname} กลับมาเรียนคาบนี้แล้ว`)}><ChevronLeftIcon /> ยกเลิกการย้าย</DropdownMenuItem></DropdownMenuContent>
-        </DropdownMenu>
-      ) : <span className="w-8 shrink-0" />}
       <SessionSheet sessionId={open ? toSessionId : null} onClose={() => setOpen(false)} />
-    </li>
+    </div>
   )
 }
 
@@ -1049,6 +1072,8 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   const approve = useStore((s) => s.approveSummary)
   const requestChanges = useStore((s) => s.requestSummaryChanges)
   const send = useStore((s) => s.sendSummary)
+  const keep = useStore((s) => s.keepSummary)
+  const [withText, setWithText] = useState(false)
   const [note, setNote] = useState("")
   const [asking, setAsking] = useState(false)
   // Book / Topic / Lesson Detail (owner 2026-09-30) — a new summary starts where this student left off
@@ -1069,9 +1094,15 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   const bookTopics = lesson.bookId ? Les.topicsOf(lesson.bookId, topics) : []
   const status = summary?.status
   const editable = !viewOnly && (!status || status === "draft" || status === "changes_requested")
+  // owner 2026-11-13: once there's something saved, the form collapses to a one-glance Preview (saves space in a long
+  // list) — "แก้ไข" reopens it. A brand-new summary (nothing saved yet) has nothing to preview, so it opens straight
+  // into the form. Re-collapses itself after the next Save Draft.
+  const hasSaved = !!(summary && (summary.text.trim() || summary.bookId || summary.topicId || summary.detail?.trim()))
+  const [forceOpen, setForceOpen] = useState(false)
+  const showForm = editable && (forceOpen || !hasSaved)
   const lastChange = summary?.history.findLast((h) => h.action === "request_changes")
   const who = (id: ID) => staff.find((x) => x.id === id)?.nickname ?? "?"
-  const tone = status === "approved" ? "green" : status === "submitted" ? "amber" : status === "changes_requested" ? "red" : status === "sent" ? "blue" : "gray"
+  const tone = status === "approved" ? "green" : status === "submitted" ? "amber" : status === "changes_requested" ? "red" : status === "sent" && !Sum.keptOnly(summary!) ? "blue" : "gray"
 
   return (
     // owner 2026-11-02: no card frame, no divider line — full-width, clean
@@ -1080,7 +1111,7 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
       <div className="space-y-0.5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
         <div className="flex items-center gap-2 text-xs">
           <span className="font-medium">สรุปการเรียน</span>
-          <Pill tone={tone}>{status ? SUMMARY_STATUS_LABEL[status] : "ยังไม่เขียน"}</Pill>
+          <Pill tone={tone}>{Sum.summaryLabel(summary)}</Pill>
         </div>
         {/* owner 2026-11-04: editor stamp first, the send-deadline LAST — so the deadline's colour/width never shifts the stamp out of line */}
         <div className="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
@@ -1093,7 +1124,7 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
         </div>
       </div>
       {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-danger-soft/60 p-2 text-xs text-danger-ink">ขอแก้: {lastChange.note}</p>}
-      {editable ? (
+      {showForm ? (
         <div className="space-y-2 pt-1">
           <div className="grid gap-2 sm:grid-cols-2">
             <CatalogCombo label="Book · หนังสือ" items={branchBooks} value={lesson.bookId} placeholder="Book · เลือก/พิมพ์ชื่อหนังสือ"
@@ -1105,11 +1136,19 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
           </div>
           <Input style={{ fontSize: "0.875rem" }} className="h-9 rounded-3xl border-transparent bg-input/50" value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="Lesson Detail · เช่น หน้า 12–15 แบบฝึกหัด 2.1" aria-label="Lesson Detail" />
           {/* same lesson for the whole class in one tap — anyone different is edited on their own row (owner 2026-09-30) */}
-          {others > 0 && (lesson.bookId || lesson.topicId || lesson.detail?.trim()) && (
-            <Button variant="link" size="inline" type="button" className="text-xs text-primary underline"
-              onClick={() => report(applyLesson(sessionId, lesson), (v) => `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`)}>
-              ใช้หนังสือ / บทเรียน / รายละเอียดนี้กับทุกคนที่มาเรียน ({others + 1} คน)
-            </Button>
+          {others > 0 && (lesson.bookId || lesson.topicId || lesson.detail?.trim() || text.trim()) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <Button variant="link" size="inline" type="button" className="text-xs text-primary underline"
+                onClick={() => report(applyLesson(sessionId, lesson, withText ? text : undefined), (v) => (withText ? `ใช้สรุปนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้` : `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`))}>
+                ใช้หนังสือ / บทเรียน / รายละเอียดนี้กับทุกคนที่มาเรียน ({others + 1} คน)
+              </Button>
+              {/* owner 2026-11-13: the same Feedback Summary for the whole class, when everyone did the same thing */}
+              {text.trim() && (
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                  <Checkbox checked={withText} onCheckedChange={(v) => setWithText(!!v)} /> รวมข้อความสรุปด้วย
+                </label>
+              )}
+            </div>
           )}
           <Textarea style={{ fontSize: "0.875rem" }} className="rounded-2xl border-transparent bg-input/50" value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
           {/* owner 2026-11-02: the 1–5 "understanding" picker removed from the quick inline summary */}
@@ -1127,18 +1166,29 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
       )}
       {managing && <CatalogManager kind={managing} items={managing === "book" ? branchBooks : bookTopics} onClose={() => setManaging(null)} />}
       <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
-        {editable && (
+        {showForm ? (
           <>
             {/* history hugs the left gutter · Save only as wide as it needs · Send fills to the right gutter */}
             {historyCount > 0 && onHistory && (
-              <Button size="xs" variant="ghost" aria-label={`ประวัติสรุป ${historyCount} ครั้ง`} title={`ประวัติสรุป ${historyCount} ครั้ง`}
-                className="mr-auto size-10 shrink-0 p-0 text-muted-foreground lg:size-6" onClick={onHistory}>
+              <Button variant="ghost" size="icon" aria-label={`ประวัติสรุป ${historyCount} ครั้ง`} title={`ประวัติสรุป ${historyCount} ครั้ง`}
+                className="mr-auto text-muted-foreground" onClick={onHistory}>
                 <HistoryIcon className="size-4" />
               </Button>
             )}
-            <Button size="xs" variant="outline" className="h-10 shrink-0 lg:h-6" onClick={() => report(save(sessionId, studentId, text, false, lesson), "บันทึกร่างแล้ว")}>Save Draft</Button>
+            <Button variant="outline" className="shrink-0" onClick={() => { if (report(save(sessionId, studentId, text, false, lesson), "บันทึกร่างแล้ว")) setForceOpen(false) }}>Save Draft</Button>
             {/* owner 2026-11-02: can only submit once the class has ended — draft before that */}
-            <Button size="xs" className="h-10 lg:h-6" disabled={!text.trim() || !hasEnded(session, now)} title={!hasEnded(session, now) ? "ส่งได้หลังคาบเรียนจบแล้ว" : undefined} onClick={() => report(save(sessionId, studentId, text, true, lesson), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
+            <Button disabled={!text.trim() || !hasEnded(session, now)} title={!hasEnded(session, now) ? "ส่งได้หลังคาบเรียนจบแล้ว" : undefined} onClick={() => report(save(sessionId, studentId, text, true, lesson), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
+          </>
+        ) : editable && (
+          // owner 2026-11-13: collapsed Preview — เขียน/บันทึกไว้แล้ว, "แก้ไข" reopens the form
+          <>
+            {historyCount > 0 && onHistory && (
+              <Button variant="ghost" size="icon" aria-label={`ประวัติสรุป ${historyCount} ครั้ง`} title={`ประวัติสรุป ${historyCount} ครั้ง`}
+                className="mr-auto text-muted-foreground" onClick={onHistory}>
+                <HistoryIcon className="size-4" />
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setForceOpen(true)}><PencilIcon /> แก้ไข</Button>
           </>
         )}
         {status === "submitted" && can(me, "summary.approve") && summary && !Sum.canApprove(summary, me).ok && (
@@ -1149,13 +1199,17 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
         )}
         {status === "submitted" && summary && Sum.canApprove(summary, me).ok && (
           <>
-            <Button size="xs" variant="outline" onClick={() => setAsking(true)}><XIcon /> ขอแก้ไข</Button>
-            <Button size="xs" onClick={() => report(approve(summary.id), "อนุมัติแล้ว — ยังไม่ได้ส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ</Button>
+            <Button variant="outline" onClick={() => setAsking(true)}><XIcon /> ขอแก้ไข</Button>
+            {/* owner 2026-11-13: outline, same weight as the list chip's version — "ส่งผู้ปกครอง" below is the only filled
+                button in this flow, the one step that actually leaves the building */}
+            <Button variant="tonal" onClick={() => report(approve(summary.id), "อนุมัติแล้ว — ยังไม่ได้ส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ</Button>
           </>
         )}
         {status === "approved" && can(me, "summary.approve") && summary && (
           <>
-            <Button size="xs" onClick={() => report(send(summary.id), "ส่งผู้ปกครองทาง LINE แล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
+            {/* owner 2026-11-13: not every summary goes to the parent (told in person) — keep it as History only; it still feeds the Course Summary */}
+            <Button variant="outline" onClick={() => report(keep(summary.id), "เก็บเป็น History แล้ว — ไม่ได้ส่งผู้ปกครอง")}><HistoryIcon /> เก็บเป็น History (ไม่ส่ง)</Button>
+            <Button onClick={() => report(send(summary.id), "ส่งผู้ปกครองทาง LINE แล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
           </>
         )}
       </div>
@@ -1163,8 +1217,8 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
         <div className="mt-1.5 space-y-1.5">
           <Textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="บอกครูว่าต้องแก้อะไร (จำเป็น)" rows={2} className="bg-background" />
           <div className="flex justify-end gap-1.5">
-            <Button size="xs" variant="ghost" onClick={() => setAsking(false)}>ยกเลิก</Button>
-            <Button size="xs" disabled={!note.trim()} onClick={() => report(requestChanges(summary.id, note), "ส่งกลับให้ครูแก้แล้ว") && setAsking(false)}>ส่งกลับ</Button>
+            <Button variant="ghost" onClick={() => setAsking(false)}>ยกเลิก</Button>
+            <Button disabled={!note.trim()} onClick={() => report(requestChanges(summary.id, note), "ส่งกลับให้ครูแก้แล้ว") && setAsking(false)}>ส่งกลับ</Button>
           </div>
         </div>
       )}

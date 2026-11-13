@@ -65,7 +65,7 @@ export function BranchChip({ value, onChange, options, active, className }: { va
   return (
     <div className={cn("relative", active && "[&_[data-slot=select-trigger]]:bg-primary/10 [&_[data-slot=select-trigger]]:font-medium [&_[data-slot=select-trigger]]:text-primary", className)}>
       <MapPinIcon className="pointer-events-none absolute top-1/2 left-3 z-10 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <NativeSelect className="h-9 w-52 [&_[data-slot=select-trigger]]:pl-8" value={value} onChange={(e) => onChange(e.target.value)} options={options} aria-label={tx("สาขา")} />
+      <NativeSelect className="h-9 w-40 [&_[data-slot=select-trigger]]:pl-8" value={value} onChange={(e) => onChange(e.target.value)} options={options} aria-label={tx("สาขา")} />
     </div>
   )
 }

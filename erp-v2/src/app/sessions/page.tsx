@@ -6,10 +6,10 @@ import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
 import { CalendarDaysIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
-import { FilterBar, Page, PageHeader, KpiRow, SearchBox, Toolbar } from "@/components/app/page-layout"
+import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { matchesQuery } from "@/domain/rules/people"
 import { Kpi } from "@/components/app/kpi"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { SessionLine } from "@/components/app/session-line"
 import { WORK_ORDER, WorkChip } from "@/components/app/work-state"
@@ -38,7 +38,7 @@ export default function SessionsPage() {
   // owner 2026-10-09: the shared date control — default this week (same on Sessions / Attendance / Summaries)
   const period = usePeriod("week", { modes: ["day", "week"] })
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
-  const [teacher, setTeacher] = useState("all")
+  const [teacher, setTeacher] = useState("")
   const [workParam, setWorkParam] = useQueryState<WorkState | "all">("work", "all")
   const work = workParam === "all" ? null : workParam
   const setWork = (w: WorkState | null) => setWorkParam(w ?? "all")
@@ -52,7 +52,7 @@ export default function SessionsPage() {
   const hit = (s: (typeof sessions)[number]) => !q || matchesQuery(q, [classes.find((k) => k.id === s.classId)?.name, s.subject, ...[s.teacherId, ...s.coTeacherIds].map((t) => L.teacher(t).label), ...s.studentIds.flatMap((id) => { const x = students.find((st) => st.id === id); return [x?.nickname, x?.name] })])
   const list = sessions
     .filter((s) => scope.ids.includes(s.branchId) && s.date >= from && s.date <= to && !removedWithClass(s, classes))
-    .filter((s) => teacher === "all" || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
+    .filter((s) => !teacher || s.teacherId === teacher || s.coTeacherIds.includes(teacher))
     .filter(hit)
     .filter((s) => !subject || s.subject === subject || (s.subjects ?? []).includes(subject))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
@@ -65,29 +65,26 @@ export default function SessionsPage() {
   const pick = (w: WorkState) => setWork(work === w ? null : w)
 
   return (
-    <Page>
-      <PageHeader title="คาบเรียน & เช็คชื่อ" description="คาบที่ต้องเช็คชื่อและเขียนสรุป — กดคาบเพื่อเปิดทำงาน" />
-      <KpiRow>
+    <ListPage branch={scope.select} title="คาบเรียน & เช็คชื่อ" description="คาบที่ต้องเช็คชื่อและเขียนสรุป — กดคาบเพื่อเปิดทำงาน"
+      kpis={<>
         <Kpi icon={CalendarDaysIcon} label="คาบในช่วงนี้" value={withState.filter(({ w }) => w.state !== "cancelled").length} onClick={() => setWork(null)} />
         <Kpi icon={ClipboardCheckIcon} label="รอเช็คชื่อ" value={counts.needs_attendance ?? 0} tone="red" emphasis={!!(counts.needs_attendance)} onClick={() => pick("needs_attendance")} active={work === "needs_attendance"} />
         <Kpi icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" emphasis={!!(counts.needs_summary)} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
         <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
-      </KpiRow>
-      <Toolbar>{period.control}</Toolbar>
-      {/* owner 2026-10-13: search left · filters right (subject · teacher · status · branch last) */}
-      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคลาส / ครู / นักเรียน" />}>
-        <NativeSelect className="h-9 w-full sm:w-32" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
-        <NativeSelect className="h-9 w-full sm:w-36" value={teacher} onChange={(e) => setTeacher(e.target.value)}
-          options={[
-            { value: "all", label: "ครูทุกคน" },
+      </>}
+      period={period.control}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคลาส / ครู / นักเรียน" />}
+      filters={<>
+        <FilterMenu fields={[
+          { id: "subject", label: "วิชา", value: subject, onChange: setSubject, placeholder: "ทุกวิชา", options: branch.subjects.map((x) => ({ value: x, label: x })) },
+          { id: "teacher", label: "ครู", value: teacher, onChange: setTeacher, placeholder: "ครูทุกคน", options: [
             ...(me.roles.includes("teacher") ? [{ value: me.id, label: "เฉพาะคาบของฉัน" }] : []),
             ...staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id) && t.id !== me.id).map((t) => ({ value: t.id, label: t.nickname })),
-          ]} />
-        {/* every state, incl. the ones without a card (รอเริ่ม / กำลังเรียน / ยกเลิก) */}
-        <NativeSelect className="h-9 w-full sm:w-40" value={work ?? ""} onChange={(e) => setWork((e.target.value || null) as WorkState | null)} placeholder={`ทุกสถานะ (${withState.length})`}
-          options={WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` }))} />
-        {scope.select}
-      </FilterBar>
+          ] },
+          // every state, incl. the ones without a card (รอเริ่ม / กำลังเรียน / ยกเลิก)
+          { id: "work", label: "สถานะ", value: work ?? "", onChange: (v) => setWork((v || null) as WorkState | null), placeholder: `ทุกสถานะ (${withState.length})`, options: WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${counts[w] ?? 0})` })) },
+        ]} />
+      </>}>
 
       {shown.length === 0 && <Empty>ไม่มีคาบในช่วงนี้</Empty>}
       {dates.map((d) => (
@@ -110,6 +107,6 @@ export default function SessionsPage() {
         </section>
       ))}
       <SessionSheet sessionId={openId} onClose={() => setOpenId(null)} />
-    </Page>
+    </ListPage>
   )
 }

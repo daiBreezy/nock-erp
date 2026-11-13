@@ -4,14 +4,14 @@ import { usePeriod } from "@/components/app/period-control"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
-import { CalendarDaysIcon, ClipboardCheckIcon, UserCheckIcon, UserXIcon } from "lucide-react"
-import { FilterBar, Page, PageHeader, KpiRow, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
+import { CalendarDaysIcon, CalendarOffIcon, ClipboardCheckIcon, UserCheckIcon } from "lucide-react"
+import { ListPage, SearchBox, Segmented } from "@/components/app/page-layout"
 import { matchesQuery } from "@/domain/rules/people"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { SessionLine } from "@/components/app/session-line"
 import { fmtDate } from "@/domain/dates"
 import { Kpi } from "@/components/app/kpi"
-import { NativeSelect } from "@/components/app/native-select"
+import { FilterMenu } from "@/components/app/filter-menu"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
 import { sessionState } from "@/domain/rules/scheduling"
@@ -25,7 +25,7 @@ import { Empty } from "@/components/app/empty"
 
 
 /** Attendance report — every number is limited to the chosen period (C8) and real subjects (C9). */
-type AttSort = "name" | "grade" | "booked" | "present" | "absent" | "leave" | "rate"
+type AttSort = "name" | "grade" | "booked" | "present" | "leave" | "rate"
 
 export default function AttendancePage() {
   const now = useNow()
@@ -44,8 +44,9 @@ export default function AttendancePage() {
   const [teacher, setTeacher] = useState("")
   const [openId, setOpenId] = useState<ID | null>(null)
   const [q, setQ] = useState("")
-  // owner 2026-10-13: status filter — who still needs marking, who was absent / on leave, sessions all done
-  const [status, setStatus] = useState<"" | "unmarked" | "complete" | "absent" | "leave">("")
+  // owner 2026-10-13: status filter — who still needs marking, who was on leave, sessions all done
+  // owner 2026-11-13: no "absent" — nothing in the UI ever marks a session that way, so there is nothing real to filter by
+  const [status, setStatus] = useState<"" | "unmarked" | "complete" | "leave">("")
   const classes = useStore((s) => s.classes)
   const L = useLookup()
   const { sort, toggle } = useSort<AttSort>("rate")
@@ -70,10 +71,10 @@ export default function AttendancePage() {
     .map((s) => {
       const mine = att.filter((a) => a.studentId === s.id)
       const booked = inRange.filter((x) => x.studentIds.includes(s.id)).length
-      return { s, booked, present: mine.filter((a) => a.status === "present").length, absent: mine.filter((a) => a.status === "absent").length, leave: mine.filter((a) => a.status === "leave").length }
+      return { s, booked, present: mine.filter((a) => a.status === "present").length, leave: mine.filter((a) => a.status === "leave").length }
     })
     .filter((r) => r.booked > 0 && (!q || matchesQuery(q, [r.s.nickname, r.s.name, r.s.grade])))
-    .filter((r) => !status || (status === "unmarked" ? r.present + r.absent + r.leave < r.booked : status === "complete" ? r.present + r.absent + r.leave >= r.booked : r[status] > 0))
+    .filter((r) => !status || (status === "unmarked" ? r.present + r.leave < r.booked : status === "complete" ? r.present + r.leave >= r.booked : r[status] > 0))
     .sort((a, b) => {
       const k = sort.key
       const v = k === "name" ? a.s.nickname.localeCompare(b.s.nickname, "th")
@@ -91,7 +92,6 @@ export default function AttendancePage() {
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: (r) => <GradeCell grade={r.s.grade} tone={gradeTone(r.s.grade)} /> },
     { id: "booked", label: "นัด", width: "70px", sort: "booked", align: "right", className: "tabular-nums", cell: (r) => r.booked },
     { id: "present", label: "มา", width: "70px", sort: "present", align: "right", className: "tabular-nums text-success", cell: (r) => r.present },
-    { id: "absent", label: "ขาด", width: "70px", sort: "absent", align: "right", className: "tabular-nums text-danger", cell: (r) => r.absent },
     { id: "leave", label: "ลา", width: "70px", sort: "leave", align: "right", className: "tabular-nums text-warning", cell: (r) => r.leave },
     { id: "rate", label: "อัตราเข้าเรียน", width: "200px", sort: "rate", cell: (r) => {
       const rate = rateOf(r)
@@ -104,32 +104,28 @@ export default function AttendancePage() {
     } },
   ]
 
-  const marked = count("present") + count("absent") + count("leave")
+  const marked = count("present") + count("leave")
   const notMarked = Math.max(0, expected - att.length)
 
   return (
-    <Page>
-      <PageHeader title="รายงานเข้าเรียน" description="มา ขาด ลา ของนักเรียนแต่ละคน ในช่วงที่เลือก" />
-      <KpiRow>
+    <ListPage branch={scope.select} title="รายงานเข้าเรียน" description="มา ลา ของนักเรียนแต่ละคน ในช่วงที่เลือก"
+      kpis={<>
         <Kpi icon={CalendarDaysIcon} label="คาบที่เรียนไปแล้ว" value={inRange.length} />
         <Kpi icon={UserCheckIcon} label="มาเรียน" value={count("present")} tone="emerald" sub={marked ? `${Math.round((count("present") / marked) * 100)}% ของที่เช็คชื่อแล้ว` : undefined} />
-        <Kpi icon={UserXIcon} label="ขาด / ลา" value={<><span className="text-danger">{count("absent")}</span> <span className="text-base text-muted-foreground">/</span> <span className="text-warning">{count("leave")}</span></>} tone="red" />
+        <Kpi icon={CalendarOffIcon} label="ลา" value={count("leave")} tone="amber" />
         <Kpi icon={ClipboardCheckIcon} label="ยังไม่เช็คชื่อ" value={notMarked} tone="amber" emphasis={!!(notMarked)} />
-      </KpiRow>
-      <div className="space-y-3">
-        <Toolbar end={<Segmented label="มุมมอง" value={view} onChange={setView} options={[{ value: "day", label: "รายวัน" }, { value: "student", label: "รายนักเรียน" }]} />}>
-          {period.control}
-        </Toolbar>
-        {/* owner 2026-10-13: search left · filters right (subject · teacher · status · branch last) */}
-        <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder={view === "day" ? "ค้นหาคลาส / ครู / นักเรียน" : "ค้นหานักเรียน"} />}>
-        <NativeSelect className="h-9 w-28" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="ทุกวิชา" options={branch.subjects.map((s) => ({ value: s, label: s }))} />
-        <NativeSelect className="h-9 w-32" value={teacher} onChange={(e) => setTeacher(e.target.value)} placeholder="ครูทุกคน" options={staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname }))} />
-        <NativeSelect className="h-9 w-36" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} placeholder="ทุกสถานะ"
-          options={[{ value: "unmarked", label: "ยังเช็คไม่ครบ" }, { value: "complete", label: "เช็คครบแล้ว" }, { value: "absent", label: "มีขาด" }, { value: "leave", label: "มีลา" }]} />
+      </>}
+      period={period.control}
+      search={<SearchBox value={q} onChange={setQ} placeholder={view === "day" ? "ค้นหาคลาส / ครู / นักเรียน" : "ค้นหานักเรียน"} />}
+      view={<Segmented label="มุมมอง" value={view} onChange={setView} options={[{ value: "day", label: "รายวัน" }, { value: "student", label: "รายนักเรียน" }]} />}
+      filters={<>
+        <FilterMenu fields={[
+          { id: "subject", label: "วิชา", value: subject, onChange: setSubject, placeholder: "ทุกวิชา", options: branch.subjects.map((x) => ({ value: x, label: x })) },
+          { id: "teacher", label: "ครู", value: teacher, onChange: setTeacher, placeholder: "ครูทุกคน", options: staff.map((t) => staffAt(t, branch.id)).filter((t) => t.roles.includes("teacher") && t.branchIds.includes(branch.id)).map((t) => ({ value: t.id, label: t.nickname })) },
+          { id: "status", label: "สถานะการเช็คชื่อ", value: status, onChange: (v) => setStatus(v as typeof status), placeholder: "ทุกสถานะ", options: [{ value: "unmarked", label: "ยังเช็คไม่ครบ" }, { value: "complete", label: "เช็คครบแล้ว" }, { value: "leave", label: "มีลา" }] },
+        ]} />
         {view !== "day" && <ColumnsMenu id="attendance" columns={columns} />}
-        {scope.select}
-        </FilterBar>
-      </div>
+      </>}>
       {view === "day" ? <ByDay sessions={dayShown} attendance={att} multi={scope.multi} code={scope.code} onOpen={setSessionId} /> : (<>
       <p className="text-xs text-muted-foreground">นับเฉพาะคาบในช่วงที่เลือกที่เริ่มเรียนแล้วเท่านั้น · เริ่มเรียงจากอัตราเข้าเรียนต่ำสุด (กดหัวคอลัมน์เพื่อเรียงใหม่)</p>
       {/* owner 2026-10-07: a real sortable table — grade in its own column, numbers right-aligned */}
@@ -142,12 +138,12 @@ export default function AttendancePage() {
       </>)}
       <StudentSheet studentId={openId} onClose={() => setOpenId(null)} />
       <SessionSheet sessionId={sessionId} onClose={() => setSessionId(null)} />
-    </Page>
+    </ListPage>
   )
 }
 
 
-/** One section per day: each session with มา / ขาด / ลา / ยังไม่เช็ค — click to open it (owner 2026-10-09) */
+/** One section per day: each session with มา / ลา / ยังไม่เช็ค — click to open it (owner 2026-10-09) */
 function ByDay({ sessions, attendance, multi, code, onOpen }: { sessions: Session[]; attendance: Attendance[]; multi: boolean; code: (id: ID) => string; onOpen: (id: ID) => void }) {
   const classes = useStore((s) => s.classes)
   const L = useLookup()
@@ -164,16 +160,25 @@ function ByDay({ sessions, attendance, multi, code, onOpen }: { sessions: Sessio
             {sorted.filter((s) => s.date === d).map((s) => {
               const marked = attendance.filter((a) => a.sessionId === s.id).length
               const left = Math.max(0, s.studentIds.length - marked)
+              // owner 2026-11-13: grey by default, coloured only once it actually has a count — and always all 4 tags
+              // (never conditionally dropping "ยังไม่เช็ค") so every row has the same tag count and the row heights
+              // (and SessionLine's items-center) line up instead of jumping around with the data
+              const tag = (label: string, count: number, tone: string) => (
+                <span className={cn("rounded-full px-2 py-0.5 tabular-nums", count > 0 ? tone : "bg-muted text-muted-foreground")}>
+                  {label} {count > 0 ? count : "–"}
+                </span>
+              )
               return (
                 // owner 2026-10-13: the same row as Sessions — colour bar · start–end · status last
                 <SessionLine key={s.id} s={s} onOpen={() => onOpen(s.id)}
                   title={<>{classes.find((k) => k.id === s.classId)?.name ?? s.subject}{multi && <span className="ml-1.5 align-middle"><BranchCode code={code(s.branchId)} /></span>}</>}
                   sub={<>{L.teacher(s.teacherId).label} · {L.room(s.roomId)} · {s.studentIds.length} คน</>}
                   status={<span className="flex flex-wrap justify-end gap-1 text-xs">
-                    <span className="rounded-full bg-success-soft px-2 py-0.5 text-success-ink">มา {n(s.id, "present")}</span>
-                    <span className="rounded-full bg-danger-soft px-2 py-0.5 text-danger-ink">ขาด {n(s.id, "absent")}</span>
-                    <span className="rounded-full bg-warning-soft px-2 py-0.5 text-warning-ink">ลา {n(s.id, "leave")}</span>
-                    {left > 0 && <span className="rounded-full border border-danger/40 px-2 py-0.5 text-danger">ยังไม่เช็ค {left}</span>}
+                    {/* owner 2026-11-13: no "ขาด" tag — nothing in the UI ever marks a session that way, so it never has a real count */}
+                    {tag("มา", n(s.id, "present"), "bg-success-soft text-success-ink")}
+                    {tag("ลา", n(s.id, "leave"), "bg-warning-soft text-warning-ink")}
+                    {/* informational, not an outcome to flag — stays dark grey even when there's a count */}
+                    <span className="rounded-full bg-muted px-2 py-0.5 tabular-nums text-foreground/70">ยังไม่เช็ค {left > 0 ? left : "–"}</span>
                   </span>} />
               )
             })}

@@ -1,7 +1,8 @@
 "use client"
 
 import { idChip } from "@/components/app/tags"
-import { FilterBar, Page as PageShell, PageHeader, KpiRow, ShowChip, Segmented, SearchBox } from "@/components/app/page-layout"
+import { ListBar, Page as PageShell, PageHeader, KpiRow, ShowMenu, Segmented, SearchBox } from "@/components/app/page-layout"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Kpi, kpiMoney } from "@/components/app/kpi"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
@@ -10,7 +11,7 @@ import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Loader2Icon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
+import { Loader2Icon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, FileSpreadsheetIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -51,6 +52,7 @@ function BillingPage() {
   const holidays = useStore((s) => s.holidays)
   // owner 2026-10-06: sync to the URL (?filter=) so a reload or shared link keeps it — the ?open=/?new=/?renew=/?slip= deep-links above are untouched
   const [filter, setFilter] = useQueryState<Filter>("filter", "all")
+  const [taxOpen, setTaxOpen] = useState(false)
   const [showVoid, setShowVoid] = useQueryState<"0" | "1">("void", "0")
   const [showDone, setShowDone] = useQueryState<"0" | "1">("done", "1")
   const [q, setQ] = useState("")
@@ -191,10 +193,19 @@ function BillingPage() {
     <PageShell>
       <PageHeader title="ใบแจ้งหนี้ & รับเงิน" description="ออกใบแจ้งหนี้ อนุมัติ ส่งผู้ปกครอง รับเงิน และยืนยันยอด"
         actions={<>
-          {can(me, "billing.view") && <SalesTaxDialog />}
-          {can(me, "billing.manage") && <Button variant="outline" onClick={() => setFamilyOpen(true)}><UsersRoundIcon /> สร้างทั้งครอบครัว</Button>}
-          {can(me, "billing.manage") && <Button variant="outline" onClick={() => setRenewing(true)}><CopyPlusIcon /> ต่ออายุหลายคน</Button>}
-          {can(me, "billing.manage") && <Button onClick={() => setOpenId("new")}><PlusIcon /> สร้างใบแจ้งหนี้</Button>}
+          {scope.select}
+          {/* owner 2026-11-13: the four header buttons folded into one dropdown button */}
+          {(can(me, "billing.manage") || can(me, "billing.view")) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button />}><PlusIcon /> สร้าง / รายงาน <ChevronDownIcon /></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-auto min-w-52">
+                {can(me, "billing.manage") && <DropdownMenuItem onClick={() => setOpenId("new")}><PlusIcon /> สร้างใบแจ้งหนี้</DropdownMenuItem>}
+                {can(me, "billing.manage") && <DropdownMenuItem onClick={() => setFamilyOpen(true)}><UsersRoundIcon /> สร้างทั้งครอบครัว</DropdownMenuItem>}
+                {can(me, "billing.manage") && <DropdownMenuItem onClick={() => setRenewing(true)}><CopyPlusIcon /> ต่ออายุหลายคน</DropdownMenuItem>}
+                {can(me, "billing.view") && <DropdownMenuItem onClick={() => setTaxOpen(true)}><FileSpreadsheetIcon /> รายงานภาษีขาย</DropdownMenuItem>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </>} />
       <KpiRow>
         {cards.map((c) => (
@@ -203,17 +214,16 @@ function BillingPage() {
         ))}
       </KpiRow>
 
-      <FilterBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" />}>
-        {/* owner 2026-10-07: All / Pending, and Done / Void as show-hide toggles (the cards above still filter one status) */}
+      <ListBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" />}>
+        {/* owner 2026-10-07: All / Pending switch the view; Done / Void are show-hide toggles (the cards above still filter one status) */}
         <Segmented label="สถานะ" value={filter} onChange={(v) => setFilter(v)}
           options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-warning-soft px-1.5 text-xs text-warning-ink tabular-nums">{pendingCount}</span>}</> }]} />
-        <span className="h-5 w-px bg-border" />
-        <ShowChip label="Done" on={showDone === "1"} count={doneCount} onChange={(v) => setShowDone(v ? "1" : "0")} />
-        <ShowChip label="Void" on={showVoid === "1"} count={voidCount} onChange={(v) => setShowVoid(v ? "1" : "0")} />
+        <ShowMenu label="แสดง" items={[
+          { key: "done", label: "Done", on: showDone === "1", count: doneCount, onChange: (v) => setShowDone(v ? "1" : "0") },
+          { key: "void", label: "Void", on: showVoid === "1", count: voidCount, onChange: (v) => setShowVoid(v ? "1" : "0") },
+        ]} />
         <ColumnsMenu id="billing-v2" columns={columns} />
-        {/* owner 2026-10-09: branch chip always last in the row */}
-        {scope.select}
-      </FilterBar>
+      </ListBar>
 
       {/* owner 2026-10-07: a real table — number, date, student, grade, amounts and status each in their own column;
           scrolls inside the card on phones (BL-23) · owner 2026-10-12: columns arranged per person (DataTable) */}
@@ -222,6 +232,7 @@ function BillingPage() {
         sort={sort} onSort={toggle} minWidth={1080} empty="ไม่มีใบแจ้งหนี้ในหมวดนี้" />
       <Pager {...pg} unit="ใบ" />
 
+      <SalesTaxDialog open={taxOpen} onOpenChange={setTaxOpen} />
       {familyOpen && <FamilyInvoiceDialog onClose={() => setFamilyOpen(false)} onCreated={(id) => setOpenId(id)} />}
       {renewing && <RenewalDraftsDialog branchIds={scope.ids} onClose={() => setRenewing(false)} />}
       <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} defaultStudentId={presetStudent} renewEntitlementId={renewFrom} onClose={() => setOpenId(null)} />

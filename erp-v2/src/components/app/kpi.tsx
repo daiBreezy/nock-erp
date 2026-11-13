@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { InfoTip } from "@/components/app/info-tip"
 
 /** One overview number card — was copy-pasted per-page (classes/courses had byte-identical local
  *  copies); shared here so a style change doesn't need to be repeated across every list page. */
@@ -45,12 +46,12 @@ export const kpiMoney = (n: number) => <KpiNumber n={n} prefix="฿" />
  * KPI card — one structure everywhere (Design System › Kpi, round 2 · 2026-11-10, after the Dashboard StatCard look):
  *   [small icon] label            ← 12px, one line, full text on hover
  *   24px number  · sub            ← sub sits beside the number (wraps under it on narrow phones)
- * Calm card: rounded-xl, soft ring, 12–14px padding. Width 160–288px from 640 up (KpiRow sets the columns).
+ * Calm card: rounded-xl, soft ring, 12–14px padding. Width = its column (KpiRow sets the columns; 4 cards share the row equally).
  * Numbers ≥100K abbreviate on phones (K / M). No visual / chart here — micro-charts live on the Dashboard only.
  * No className / valueClassName / compact — those were what made pages differ.
  */
 export function Kpi({
-  icon: Icon, label, value, sub, tone = "primary", emphasis, onClick, active, children,
+  icon: Icon, label, value, sub, tone = "primary", emphasis, onClick, active, info, children,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: React.ReactNode
@@ -64,16 +65,19 @@ export function Kpi({
   /** a KPI that filters the list below (owner 2026-10-09) — click again to clear */
   onClick?: () => void
   active?: boolean
+  /** a note that used to be a bar above the list — an ⓘ at the card's right edge, read on hover */
+  info?: React.ReactNode
   /** optional body text / content under the numbers */
   children?: React.ReactNode
 }) {
   const Tag = onClick ? "button" : "div"
   return (
     <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-      className={cn("flex h-full w-full min-w-0 flex-col justify-start gap-1 rounded-xl bg-card px-3.5 py-3 text-left shadow-sm ring-1 ring-foreground/5 sm:max-w-72 sm:min-w-40",
+      className={cn("flex h-full w-full min-w-0 flex-col justify-start gap-1 rounded-xl bg-card px-3.5 py-3 text-left shadow-sm ring-1 ring-foreground/5 sm:min-w-40",
         onClick && "transition hover:ring-foreground/20", active && "ring-2 ring-primary hover:ring-primary")}>
       <p title={typeof label === "string" ? label : undefined} className={cn("flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground", emphasis && KPI_INK[tone])}>
         <Icon className="size-3.5 shrink-0" /><span className="truncate text-muted-foreground">{label}</span>
+        {info && <InfoTip text={info} className="ml-auto -my-0.5" />}
       </p>
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
         <span className={cn("text-2xl leading-tight font-semibold tracking-tight tabular-nums", emphasis && KPI_INK[tone])}>{typeof value === "number" ? <KpiNumber n={value} /> : value}</span>

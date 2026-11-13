@@ -123,7 +123,7 @@ export default function StaffPage() {
   ]
 
   return (
-    <ListPage title="บุคลากร" description="บทบาท วิชาที่สอน และวันทำงานแต่ละสาขา · กดที่แถวเพื่อดูข้อมูล / แก้ไข"
+    <ListPage branch={scope.select} title="บุคลากร" description="บทบาท วิชาที่สอน และวันทำงานแต่ละสาขา · กดที่แถวเพื่อดูข้อมูล / แก้ไข"
         actions={manage && <Button onClick={() => setOpen("new")}><PlusIcon /> เพิ่มบุคลากร</Button>}
       kpis={<>
         <Kpi icon={UsersIcon} label="บุคลากร" value={kpi.staff} onClick={() => setKind("")} />
@@ -133,7 +133,7 @@ export default function StaffPage() {
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น / อีเมล / วิชา" />}
       filters={<>
-        <span className="text-xs text-muted-foreground">{list.filter((x) => x.s.active).length} คน</span><ColumnsMenu id="staff-v2" columns={columns} />{scope.select}
+        <ColumnsMenu id="staff-v2" columns={columns} />
       </>}>
       {/* owner 2026-10-12: columns arranged per person (DataTable) · ประเภท right after the real name, both as chips */}
       {/* owner 2026-10-15: email + Class / Month + Student / Month start hidden — turn them on from the column menu (new layout key, so the default applies) */}

@@ -20,7 +20,7 @@ const LOCALES = { th, en: enUS, ja } as const
  * shadcn date-range picker (owner 2026-10-07): one chip that opens a two-month calendar — pick the first day, then
  * the last. Days after `max` can't be picked. Closes once both ends are chosen.
  */
-export function DateRangePicker({ from, to, min, max, active, onChange, className, segment, plain }: {
+export function DateRangePicker({ from, to, min, max, active, onChange, className, segment, plain, labelOnly }: {
   from: DateStr; to: DateStr; min?: DateStr; max?: DateStr; active?: boolean
   /** owner 2026-10-22: one neutral chip always showing the range (e.g. the Test / Trial send dialog) */
   plain?: boolean
@@ -28,6 +28,8 @@ export function DateRangePicker({ from, to, min, max, active, onChange, classNam
   className?: string
   /** drawn as one segment of the period switch (PeriodControl) — always reads "กำหนดเอง" */
   segment?: boolean
+  /** the picker is the date text itself (RangeStepper): shows this label, no icon / chip — click opens the calendar */
+  labelOnly?: React.ReactNode
 }) {
   const lang = useUiLang((s) => s.lang)
   const isMobile = useIsMobile()
@@ -42,10 +44,12 @@ export function DateRangePicker({ from, to, min, max, active, onChange, classNam
     close()
   }
   const disabled = [...(max ? [{ after: parseDate(max) }] : []), ...(min ? [{ before: parseDate(min) }] : [])]
-  const triggerClass = segment
+  const triggerClass = labelOnly
+    ? cn("h-full min-w-36 justify-center rounded-none px-1 text-sm font-medium whitespace-nowrap tabular-nums hover:bg-muted", className)
+    : segment
     ? cn("flex h-7 items-center gap-1.5 rounded-full px-3 text-sm", active ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground", className)
     : cn("flex h-9 items-center gap-1.5 rounded-3xl border px-3 text-sm tabular-nums", plain ? "bg-background font-medium hover:bg-muted" : active ? "border-primary bg-primary/10 font-medium text-primary" : "bg-card hover:bg-muted", className)
-  const triggerInner = <><CalendarRangeIcon className="size-3.5" />{segment ? tx("กำหนดเอง") : active || plain ? `${fmtDate(from, { year: from.slice(0, 4) !== to.slice(0, 4) })} – ${fmtDate(to, { year: true })}` : tx("กำหนดเอง")}</>
+  const triggerInner = labelOnly ? <>{labelOnly}</> : <><CalendarRangeIcon className="size-3.5" />{segment ? tx("กำหนดเอง") : active || plain ? `${fmtDate(from, { year: from.slice(0, 4) !== to.slice(0, 4) })} – ${fmtDate(to, { year: true })}` : tx("กำหนดเอง")}</>
 
   // phones: a single month centred on the screen, 24px gutter each side, cells filling the full width, no footer
   if (isMobile) {
