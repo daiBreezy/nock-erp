@@ -3291,3 +3291,15 @@ describe("composeAddress (address parts → one line)", () => {
     expect(composeAddress({ line: "  ", area: "" })).toBe("")
   })
 })
+
+describe("Accounting outstanding (owner 2026-11-15)", () => {
+  const pay = (at: string, confirmed: boolean) => [{ id: "p", amount: 1000, method: "transfer" as const, reference: "", recordedBy: "a", recordedAt: `${at}T09:00:00Z`, ...(confirmed ? { confirmedBy: "m" } : {}) }]
+  const inv = (id: string, status: Invoice["status"], createdAt: string, payments: Invoice["payments"] = []): Invoice => ({ id, branchId: "b1", studentId: "s1", number: `N-${id}`, lines: [], bus: [], bookFee: 1000, advance: [], concession: null, noteToParent: "", status, pdf: "ready", createdBy: "adm", createdAt: `${createdAt}T08:00:00Z`, payments })
+  it("lists unpaid invoices made in the range and money in but unconfirmed; paid + void are not outstanding", () => {
+    const r = Doc.accountingOutstanding([
+      inv("a", "sent", "2026-11-03"), inv("b", "draft", "2026-11-10"), inv("c", "paid", "2026-11-04", pay("2026-11-05", true)),
+      inv("d", "void", "2026-11-06"), inv("e", "sent", "2026-10-20", pay("2026-11-07", false)), inv("f", "sent", "2026-10-20"),
+    ], "2026-11-01", "2026-11-30")
+    expect(r.map((x) => [x.inv.id, x.reason])).toEqual([["e", "unconfirmed"], ["a", "sent"], ["b", "draft"]])
+  })
+})

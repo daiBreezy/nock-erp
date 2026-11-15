@@ -20,6 +20,8 @@ export type Permission =
   | "billing.view"
   | "billing.manage"
   | "billing.approve"
+  /** owner 2026-11-15: send the accounting files (Sales Tax Report, document sets) to the outsourced accountant — Director / Super Admin only; Area Manager views, cannot send */
+  | "billing.export"
   | "settings.manage"
   | "dashboard.view"
   | "lead.manage"
@@ -37,10 +39,10 @@ export type Permission =
 const ALL: Permission[] = [
   "calendar.view", "class.manage", "session.manage", "student.move", "attendance.mark", "attendance.leave_override", "summary.write", "summary.approve",
   "student.view", "student.manage", "student.export", "family.manage", "staff.view", "staff.manage",
-  "course.manage", "billing.view", "billing.manage", "billing.approve", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage", "holiday.manage", "reports.view",
+  "course.manage", "billing.view", "billing.manage", "billing.approve", "billing.export", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage", "holiday.manage", "reports.view",
 ]
 
-const MANAGER: Permission[] = ALL.filter((p) => p !== "settings.manage")
+const MANAGER: Permission[] = ALL.filter((p) => p !== "settings.manage" && p !== "billing.export")
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   // owner 2026-10-13: the development team — answers เรื่องถึง Dev; no school data beyond the calendar

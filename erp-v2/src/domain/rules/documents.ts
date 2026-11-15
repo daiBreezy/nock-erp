@@ -231,6 +231,27 @@ export function salesTaxRows(month: string, ctx: {
   return [...paid, ...credits].sort((a, b) => a.date.localeCompare(b.date) || a.number.localeCompare(b.number))
 }
 
+/** What still keeps an invoice out of the accountant's file for a date range (owner 2026-11-15). */
+export type OutstandingReason = "unconfirmed" | "draft" | "pending_approval" | "approved" | "sent"
+export interface OutstandingInvoice { inv: Invoice; reason: OutstandingReason }
+
+/**
+ * Invoices the admin still has to clear before sending a period to the accountant. The Sales Tax Report is by the day
+ * the money arrived, so an unpaid invoice never BLOCKS a send — it just lands in the month it is paid. These are the ones
+ * to chase: made in the range but not paid yet, or money that arrived in the range but nobody has confirmed (so it is
+ * missing from the report). Void invoices are not outstanding.
+ */
+export function accountingOutstanding(invoices: Invoice[], from: DateStr, to: DateStr): OutstandingInvoice[] {
+  const within = (d: string) => d >= from && d <= to
+  const out: OutstandingInvoice[] = []
+  for (const inv of invoices) {
+    if (inv.status === "void") continue
+    if (inv.payments.some((p) => !p.confirmedBy && within(p.paidOn ?? p.recordedAt.slice(0, 10)))) { out.push({ inv, reason: "unconfirmed" }); continue }
+    if (inv.status !== "paid" && within(inv.createdAt.slice(0, 10))) out.push({ inv, reason: inv.status })
+  }
+  return out.sort((a, b) => a.inv.createdAt.localeCompare(b.inv.createdAt) || (a.inv.number ?? "").localeCompare(b.inv.number ?? ""))
+}
+
 /** Totals per business line at the foot of each month (the owner's sheet sums Liclass / NA separately). */
 export function salesTaxTotals(rows: SalesTaxRow[]) {
   const by = new Map<Branch["brand"], number>()

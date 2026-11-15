@@ -9,7 +9,7 @@ import type { CompanyInfo } from "@/domain/types"
 
 const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 
-export async function downloadSalesTaxReport(months: { month: string; rows: SalesTaxRow[] }[], company: CompanyInfo, branchName: (id: string) => string) {
+export async function buildSalesTaxReport(months: { month: string; rows: SalesTaxRow[] }[], company: CompanyInfo, branchName: (id: string) => string) {
   const ExcelJS = (await import("exceljs")).default
   const wb = new ExcelJS.Workbook()
   wb.creator = "NockERP"
@@ -42,11 +42,25 @@ export async function downloadSalesTaxReport(months: { month: string; rows: Sale
     }
   }
   const buf = await wb.xlsx.writeBuffer()
-  const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }))
-  const a = document.createElement("a")
   const span = months.length > 1 ? `${months[0].month} ถึง ${months[months.length - 1].month}` : months[0]?.month
+  return { blob: new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), fileName: `Sales Tax report ${span}.xlsx` }
+}
+
+export async function downloadSalesTaxReport(months: { month: string; rows: SalesTaxRow[] }[], company: CompanyInfo, branchName: (id: string) => string) {
+  const { blob, fileName } = await buildSalesTaxReport(months, company, branchName)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
   a.href = url
-  a.download = `Sales Tax report ${span}.xlsx`
+  a.download = fileName
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 5000)
+}
+
+/** Share the file itself where the device can (phones / tablets); returns false when it can't so the caller can fall back */
+export async function shareSalesTaxReport(months: { month: string; rows: SalesTaxRow[] }[], company: CompanyInfo, branchName: (id: string) => string) {
+  const { blob, fileName } = await buildSalesTaxReport(months, company, branchName)
+  const file = new File([blob], fileName, { type: blob.type })
+  if (!navigator.canShare?.({ files: [file] })) return false
+  await navigator.share({ files: [file], title: fileName })
+  return true
 }

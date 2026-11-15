@@ -4,6 +4,8 @@ import { idChip } from "@/components/app/tags"
 import { ListBar, Page as PageShell, PageHeader, KpiRow, ShowMenu, Segmented, SearchBox } from "@/components/app/page-layout"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Kpi, kpiMoney } from "@/components/app/kpi"
+import { usePeriod } from "@/components/app/period-control"
+import { InfoTip } from "@/components/app/info-tip"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { PrintDocument } from "@/components/billing/print-document"
@@ -17,7 +19,7 @@ import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { invoiceTone } from "@/components/billing/status"
 import { Button } from "@/components/ui/button"
-import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
+import { fmtDate, fmtMoney } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
@@ -31,6 +33,7 @@ import { report } from "@/lib/feedback"
 import type { Invoice, Student } from "@/domain/types"
 
 type BillSort = "number" | "created" | "student" | "grade" | "total" | "status"
+type DateBasis = "created" | "paid"
 type Filter = "all" | "pending" | "draft" | "pending_approval" | "awaiting_payment" | "to_confirm" | "paid" | "void"
 
 export default function Page() {
@@ -53,6 +56,9 @@ function BillingPage() {
   // owner 2026-10-06: sync to the URL (?filter=) so a reload or shared link keeps it — the ?open=/?new=/?renew=/?slip= deep-links above are untouched
   const [filter, setFilter] = useQueryState<Filter>("filter", "all")
   const [taxOpen, setTaxOpen] = useState(false)
+  // owner 2026-11-15: date range like Sessions / Attendance / Summaries (usePeriod) — by day created, or by day the money arrived
+  const period = usePeriod("month")
+  const [basis, setBasis] = useQueryState<DateBasis>("by", "created")
   const [showVoid, setShowVoid] = useQueryState<"0" | "1">("void", "0")
   const [showDone, setShowDone] = useQueryState<"0" | "1">("done", "1")
   const [q, setQ] = useState("")
@@ -79,12 +85,13 @@ function BillingPage() {
     })
 
   // BL-10: every card says exactly what it counts
-  const month = toDateStr(new Date()).slice(0, 7)
+  const payDay = (p: Invoice["payments"][number]) => p.paidOn ?? p.recordedAt.slice(0, 10)
+  const inPeriod = (d: string) => d >= period.from && d <= period.to
   const cards = [
     { key: "pending_approval" as Filter, icon: FileClockIcon, tone: "amber" as const, label: "รออนุมัติ PDF", value: rows.filter((r) => r.inv.status === "pending_approval").length, unit: "ใบ" },
     { key: "awaiting_payment" as Filter, icon: HourglassIcon, tone: "sky" as const, label: "รอชำระ", value: kpiMoney(rows.filter((r) => ["approved", "sent"].includes(r.inv.status)).reduce((a, r) => a + r.total - r.paid, 0)), unit: "" },
     { key: "to_confirm" as Filter, icon: WalletIcon, tone: "special" as const, label: "รอยืนยันยอดเงิน", value: rows.filter((r) => r.toConfirm).length, unit: "รายการ" },
-    { key: "paid" as Filter, icon: BadgeCheckIcon, tone: "emerald" as const, label: "รับเงินแล้วเดือนนี้", value: kpiMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && p.recordedAt.slice(0, 7) === month).reduce((a, p) => a + p.amount, 0)), unit: "" },
+    { key: "paid" as Filter, icon: BadgeCheckIcon, tone: "emerald" as const, label: period.mode === "month" ? "รับเงินแล้วเดือนนี้" : "รับเงินแล้วในช่วงนี้", value: kpiMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && inPeriod(payDay(p))).reduce((a, p) => a + p.amount, 0)), unit: "" },
   ]
 
   const voidCount = rows.filter((r) => r.inv.status === "void").length
@@ -96,6 +103,8 @@ function BillingPage() {
     // owner 2026-10-07: Done (paid) and Void are show / hide toggles — picking that status on a card always shows it
     .filter((r) => showVoid === "1" || filter === "void" || r.inv.status !== "void")
     .filter((r) => showDone === "1" || filter === "paid" || r.inv.status !== "paid" || r.toConfirm)
+    // the date range narrows the history views (All / Paid / Void); Pending and the "needs action" cards always show everything open
+    .filter((r) => !["all", "paid", "void"].includes(filter) || (basis === "paid" ? r.inv.payments.some((p) => inPeriod(payDay(p))) : inPeriod(r.inv.createdAt.slice(0, 10))))
     .filter((r) => {
       if (filter === "all") return true
       if (filter === "pending") return isPending(r)
@@ -214,14 +223,16 @@ function BillingPage() {
         ))}
       </KpiRow>
 
-      <ListBar search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" />}>
-        {/* owner 2026-10-07: All / Pending switch the view; Done / Void are show-hide toggles (the cards above still filter one status) */}
-        <Segmented label="สถานะ" value={filter} onChange={(v) => setFilter(v)}
-          options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-warning-soft px-1.5 text-xs text-warning-ink tabular-nums">{pendingCount}</span>}</> }]} />
-        <ShowMenu label="แสดง" items={[
-          { key: "done", label: "Done", on: showDone === "1", count: doneCount, onChange: (v) => setShowDone(v ? "1" : "0") },
-          { key: "void", label: "Void", on: showVoid === "1", count: voidCount, onChange: (v) => setShowVoid(v ? "1" : "0") },
-        ]} />
+      {/* owner 2026-11-15: All / Pending sit before Search (status slot, like Summaries); "by day created / paid" is folded into the แสดง menu */}
+      <ListBar period={<>{period.control}<InfoTip text="ช่วงวันที่กรองตามวันที่สร้างใบ หรือวันที่เงินเข้า (เลือกในเมนู แสดง) · ใช้กับมุมมอง All / Done / Void — Pending และการ์ดที่รอดำเนินการแสดงทุกใบที่ค้างเสมอ ไม่ว่าสร้างเมื่อไหร่" /></>} search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / ชื่อนักเรียน" />}
+        status={<Segmented label="สถานะ" value={filter} onChange={(v) => setFilter(v)}
+          options={[{ value: "all" as Filter, label: "All" }, { value: "pending" as Filter, label: <>Pending{pendingCount > 0 && <span className="rounded-full bg-warning-soft px-1.5 text-xs text-warning-ink tabular-nums">{pendingCount}</span>}</> }]} />}>
+        <ShowMenu label="แสดง"
+          pick={{ label: "ช่วงวันที่ตาม", value: basis, onChange: (v) => setBasis(v as DateBasis), options: [{ value: "created", label: "วันที่สร้าง" }, { value: "paid", label: "วันรับเงิน" }] }}
+          items={[
+            { key: "done", label: "Done", on: showDone === "1", count: doneCount, onChange: (v) => setShowDone(v ? "1" : "0") },
+            { key: "void", label: "Void", on: showVoid === "1", count: voidCount, onChange: (v) => setShowVoid(v ? "1" : "0") },
+          ]} />
         <ColumnsMenu id="billing-v2" columns={columns} />
       </ListBar>
 
@@ -232,7 +243,7 @@ function BillingPage() {
         sort={sort} onSort={toggle} minWidth={1080} empty="ไม่มีใบแจ้งหนี้ในหมวดนี้" />
       <Pager {...pg} unit="ใบ" />
 
-      <SalesTaxDialog open={taxOpen} onOpenChange={setTaxOpen} />
+      <SalesTaxDialog open={taxOpen} onOpenChange={setTaxOpen} onOpenInvoice={(id) => { setTaxOpen(false); setOpenId(id) }} />
       {familyOpen && <FamilyInvoiceDialog onClose={() => setFamilyOpen(false)} onCreated={(id) => setOpenId(id)} />}
       {renewing && <RenewalDraftsDialog branchIds={scope.ids} onClose={() => setRenewing(false)} />}
       <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} defaultStudentId={presetStudent} renewEntitlementId={renewFrom} onClose={() => setOpenId(null)} />

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import type { DateStr } from "@/domain/types"
 import { Checkbox } from "@/components/ui/checkbox"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 
 export function Page({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -192,18 +192,34 @@ export function ShowChip({ label, on, count, onChange }: { label: string; on: bo
  * Design System › ShowMenu (2026-11-13, owner): several show / hide toggles (Billing "Done" · "Void") folded into ONE chip with a
  * dropdown of checkboxes. Looks like any other dropdown (grey pill, no accent); it names what is on: "แสดง · Done, Void".
  */
-export function ShowMenu({ label, items }: { label: string; items: { key: string; label: string; on: boolean; count?: number; onChange: (v: boolean) => void }[] }) {
+export function ShowMenu({ label, items, pick }: {
+  label: string; items: { key: string; label: string; on: boolean; count?: number; onChange: (v: boolean) => void }[]
+  /** owner 2026-11-15: one "pick one" setting folded in above the toggles (Billing: date range by created / paid) */
+  pick?: { label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }
+}) {
   const on = items.filter((i) => i.on)
+  const picked = pick?.options.find((o) => o.value === pick.value)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={
         <button type="button" aria-label={label}
           className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-3xl border border-transparent bg-input/50 px-3 text-sm whitespace-nowrap outline-none transition-colors hover:bg-input/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30" />
       }>
-        {label}{on.length > 0 && <> · {on.map((i) => i.label).join(", ")}</>}
+        {label}{(picked || on.length > 0) && <> · {[picked?.label, ...on.map((i) => i.label)].filter(Boolean).join(", ")}</>}
         <ChevronDownIcon className="size-4 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-auto min-w-44">
+        {pick && (
+          <>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{pick.label}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={pick.value} onValueChange={(v) => pick.onChange(String(v))}>
+                {pick.options.map((o) => <DropdownMenuRadioItem key={o.value} value={o.value}>{o.label}</DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {items.map((i) => (
           // a menu row with a real checkbox on the left; the menu stays open so several can be ticked
           <DropdownMenuItem key={i.key} closeOnClick={false} onClick={() => i.onChange(!i.on)}>
