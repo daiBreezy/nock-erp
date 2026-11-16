@@ -137,7 +137,8 @@ function Survey() {
   if (phase === "invalid") return <Centered><XCircleIcon className="size-10 text-muted-foreground" /><p className="text-center text-sm">{t.invalid[error]}</p></Centered>
   if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-success" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
   const token = tk!
-  const chip = (on: boolean) => cn("min-h-12 rounded-2xl border px-4 py-3 text-left text-base leading-snug", on ? "border-primary bg-primary text-primary-foreground" : "bg-background")
+  // owner 2026-11-16: an outlined list, text to the left; the picked one gets the brand border + soft fill (same as the other parent chips)
+  const chip = (on: boolean) => cn("min-h-12 justify-start rounded-2xl border px-4 py-3 text-left text-base leading-snug", on ? "border-primary bg-primary/10 font-medium text-primary" : "border-border bg-background")
   return (
     <div className="mx-auto min-h-dvh max-w-lg bg-background pb-28">
       <ShrinkHeader title={t.title(token.year)} subtitle={`${token.brand === "liclass" ? "Liclass" : "NockAcademy"} · ${token.branchName}`} lang={lang} onLang={preview ? undefined : setLang} />

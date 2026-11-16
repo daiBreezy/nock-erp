@@ -77,9 +77,8 @@ export async function POST(req: Request) {
     saved = await addRequest({ ...base, kind: "home", home: { lat, lng, addressNote, address: [parts.line, parts.area].filter(Boolean).join(" ") || undefined, addressParts: parts.line || parts.area ? parts : undefined, province: clip(b.home?.province, 60), postcode } })
     text = notice(w.view.brand, "reqHome", nameArg(child.nickname))
   } else if (b.kind === "exit") {
-    if (!b.lastDate || !/^\d{4}-\d{2}-\d{2}$/.test(b.lastDate)) return NextResponse.json({ ok: false, error: "เลือกวันเรียนวันสุดท้าย" }, { status: 400 })
-    saved = await addRequest({ ...base, kind: "exit", lastDate: b.lastDate, reasonIds: (b.reasonIds ?? []).slice(0, 8) })
-    text = notice(w.view.brand, "reqExit", nameArg(child.nickname))
+    // owner 2026-11-16: stopping is never done by the parent — they tell the admin in the chat
+    return NextResponse.json({ ok: false, error: "แจ้งลาออกผ่านแอปไม่ได้ กรุณาติดต่อแอดมินทางแชท" }, { status: 403 })
   } else {
     return NextResponse.json({ ok: false, error: "kind" }, { status: 400 })
   }

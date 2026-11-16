@@ -212,23 +212,27 @@
   body { background: white !important; }
   section { break-inside: avoid; }
 }
-/* Dashboard → page with ?focus= (owner 2026-10-07): what you came here to do is highlighted and pulses a few times.
-   Design System (2026-11-10): a rounded tinted block with a thin inner line — the old square 2px outline clashed with
-   the rounded cards it sits in. Table rows can't take a radius, so their cells carry the tint instead. */
+/* Dashboard → page with ?focus= (owner 2026-10-07): what you came here to do flashes 5 times, then it is back to normal
+   (owner 2026-11-16: no banner, no leftover tint). The tint is an inset shadow so the element's own background and
+   shape stay as they are between flashes; table rows can't take a radius, so their cells carry the flash instead. */
 @keyframes focus-pulse {
   0%, 100% { background-color: color-mix(in oklab, var(--primary) 8%, var(--card)); }
   50% { background-color: color-mix(in oklab, var(--primary) 16%, var(--card)); }
 }
 .focus-hit {
   border-radius: calc(var(--radius) * 1.8);
-  background-color: color-mix(in oklab, var(--primary) 8%, var(--card));
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 28%, transparent);
-  animation: focus-pulse 1.1s ease-in-out 4;
+  animation: focus-pulse 1.1s ease-in-out 5;
   position: relative;
   z-index: 1;
 }
-tr.focus-hit { box-shadow: none; }
-tr.focus-hit > td { background-color: color-mix(in oklab, var(--primary) 8%, var(--card)); animation: focus-pulse 1.1s ease-in-out 4; }
+/* a table row flashes as ONE row (owner 2026-11-16): the tint on every cell and an outline only along the TOP edge —
+   no lines between the cells, no sides, no rounded corners */
+@keyframes focus-pulse-cell {
+  0%, 100% { box-shadow: inset 0 2px 0 0 transparent, inset 0 0 0 999px transparent; }
+  50% { box-shadow: inset 0 2px 0 0 color-mix(in oklab, var(--primary) 55%, transparent), inset 0 0 0 999px color-mix(in oklab, var(--primary) 14%, transparent); }
+}
+tr.focus-hit { animation: none; box-shadow: none; border-radius: 0; }
+tr.focus-hit > td { animation: focus-pulse-cell 1.1s ease-in-out 5; }
 
 /* AI สรุปงานวันนี้ (owner 2026-10-12): an animated aurora gradient behind the card. The gradient (and its brightness /
    saturation pulse) lives on a ::before layer, so the filter never touches the text on top. */

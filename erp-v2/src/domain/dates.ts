@@ -125,3 +125,24 @@ export function fmtMoney(n: number): string {
 export function dayShort(w: Weekday) {
   return TH_DAYS[w]
 }
+
+/**
+ * How long ago something happened, as a label the UI translates (owner 2026-11-16): under 1 h → minutes · up to 24 h → the
+ * time of day it happened ("14:00") · beyond that → yesterday / N days / N months / N years ago. Instants in ms.
+ */
+export type AgoLabel = { kind: "now" | "minutes" | "clock" | "yesterday" | "days" | "months" | "years"; n: number; clock?: string }
+export function agoLabel(at: number, now: number): AgoLabel {
+  const min = Math.max(0, Math.floor((now - at) / 60_000))
+  if (min < 1) return { kind: "now", n: 0 }
+  if (min < 60) return { kind: "minutes", n: min }
+  if (min < 24 * 60) {
+    const d = new Date(at)
+    return { kind: "clock", n: 0, clock: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` }
+  }
+  const days = Math.floor(min / (24 * 60))
+  if (days < 2) return { kind: "yesterday", n: 1 }
+  if (days < 30) return { kind: "days", n: days }
+  if (days < 365) return { kind: "months", n: Math.floor(days / 30) }
+  return { kind: "years", n: Math.floor(days / 365) }
+}
+

@@ -47,4 +47,15 @@ export const BILLING_PROMO: Record<string, Entry> = {
   "ดูตัวอย่างได้ทุกคนที่เห็นเมนูนี้ · ดาวน์โหลด / แชร์ได้เฉพาะ Director / Super Admin": { en: "Anyone who sees this menu can preview · only Director / Super Admin can download or share", ja: "プレビューはこのメニューが見える全員が可能 · ダウンロード/共有は Director / Super Admin のみ" },
   "ดูทั้งหมด": { en: "View all", ja: "すべて表示" },
   "ดาวน์โหลดทั้งหมด (PDF)": { en: "Download all (PDF)", ja: "すべてダウンロード（PDF）" },
+  // owner 2026-11-16: Noti stack — demo button
+  "จำลอง Noti หลายใบ": { en: "Simulate several notifications", ja: "通知を複数シミュレート" },
+  // owner 2026-11-16: floating notification preview from the sidebar bell
+  "แจ้งเตือนล่าสุด": { en: "Latest notifications", ja: "最新の通知" },
+  "ไม่มีแจ้งเตือน": { en: "No notifications", ja: "通知はありません" },
+  // owner 2026-11-16: Noti time — clock time up to 24 h, then relative days / months / years
+  "{0} วันที่แล้ว": { en: "{0} days ago", ja: "{0}日前" },
+  "1 เดือนที่แล้ว": { en: "1 month ago", ja: "1か月前" },
+  "1 ปีที่แล้ว": { en: "1 year ago", ja: "1年前" },
+  "{0} เดือนที่แล้ว": { en: "{0} months ago", ja: "{0}か月前" },
+  "{0} ปีที่แล้ว": { en: "{0} years ago", ja: "{0}年前" },
 }

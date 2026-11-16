@@ -144,13 +144,6 @@ export function CardsPreview({ view }: { view: "cards" | "line" }) {
           <RequestCard preview r={req({ kind: "leave", status: "done", sessions: leaveSessions.slice(0, 1), handledBy: "u_ploy", handledAt: at(0, "09:30"), result: "บันทึกลา 1 คาบ (หักโควตา)" })} />
           <RequestCard preview r={req({ id: "demo_leave_no", kind: "leave", status: "declined", sessions: leaveSessions.slice(0, 1), handledBy: "u_ploy", handledAt: at(0, "09:35"), result: "คาบนี้เริ่มไปแล้ว — บันทึกลาย้อนหลังไม่ได้ค่ะ" })} /></div> },
       ]} />
-      <FlowSection title="Flow แจ้งลาออก" steps={[
-        { title: "ผู้ปกครองส่งจาก LINE", hint: "อื่นๆ › แจ้งลาออก", node: <Outcome>เลือกน้อง + วันเรียนวันสุดท้าย + เหตุผล + หมายเหตุ → ส่ง</Outcome> },
-        { title: "การ์ดเข้า Inbox", hint: "รอดำเนินการ", node: <RequestCard preview r={req({ kind: "exit", lastDate: addDays(today, 14), reasonIds: reasons.slice(0, 2).map((x) => x.id), note: "ย้ายบ้านค่ะ" })} /> },
-        { title: "Admin จัดการ", hint: "รับเรื่อง → โทรคุย → ปิดการออก (ต่อด้วย Flow แจ้งหยุดเรียน)", node: <div className="space-y-3">
-          <RequestCard preview r={req({ kind: "exit", status: "done", lastDate: addDays(today, 14), reasonIds: reasons.slice(0, 1).map((x) => x.id), handledBy: "u_ploy", handledAt: at(0, "09:40"), result: "รับเรื่องแจ้งออกแล้ว — โทรคุยกับผู้ปกครอง แล้วปิดเรื่องในหน้านักเรียน" })} />
-          <RequestCard preview r={req({ id: "demo_exit_no", kind: "exit", status: "declined", lastDate: addDays(today, 14), handledBy: "u_ploy", handledAt: at(0, "09:45"), result: "ผู้ปกครองขอยกเลิกเรื่องแล้ว — เรียนต่อตามเดิมค่ะ" })} /></div> },
-      ]} />
       <FlowSection title="Flow ขอ / ยกเลิกรอบรถ" steps={[
         { title: "ผู้ปกครองส่งจาก LINE", hint: "ตารางเรียน › การ์ดคาบ › ขอรถ", node: <Outcome>เลือกวันที่จะขอรถรับ / ส่ง หรือยกเลิกรถที่จองไว้ (+ ผู้ปกครองนั่งไปด้วย) → ส่ง</Outcome> },
         { title: "การ์ดเข้า Inbox", hint: "รอดำเนินการ — เห็นที่นั่งว่างของแต่ละรอบ", node: <RequestCard preview r={busReq({ note: "วันอังคารแม่ไปรับไม่ทันค่ะ" })} /> },

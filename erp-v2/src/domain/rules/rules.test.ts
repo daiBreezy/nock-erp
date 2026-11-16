@@ -1,5 +1,6 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
+import { agoLabel } from "../dates"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, setBranchBrands, sameDayInYears, missingSeriesRows, holidayForBrand, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
@@ -3301,5 +3302,27 @@ describe("Accounting outstanding (owner 2026-11-15)", () => {
       inv("d", "void", "2026-11-06"), inv("e", "sent", "2026-10-20", pay("2026-11-07", false)), inv("f", "sent", "2026-10-20"),
     ], "2026-11-01", "2026-11-30")
     expect(r.map((x) => [x.inv.id, x.reason])).toEqual([["e", "unconfirmed"], ["a", "sent"], ["b", "draft"]])
+  })
+})
+
+describe("agoLabel (Noti time, owner 2026-11-16)", () => {
+  const now = new Date(2026, 10, 16, 18, 0, 0).getTime()
+  const ago = (min: number) => agoLabel(now - min * 60_000, now)
+  it("minutes under an hour, then the clock time up to 24 h", () => {
+    expect(ago(0)).toMatchObject({ kind: "now" })
+    expect(ago(12)).toMatchObject({ kind: "minutes", n: 12 })
+    expect(ago(59)).toMatchObject({ kind: "minutes", n: 59 })
+    expect(ago(60)).toMatchObject({ kind: "clock", clock: "17:00" })
+    expect(ago(600)).toMatchObject({ kind: "clock", clock: "08:00" }) // the old "600 นาที"
+    expect(ago(24 * 60 - 1)).toMatchObject({ kind: "clock" })
+  })
+  it("beyond 24 h: yesterday · N days · N months · N years", () => {
+    expect(ago(24 * 60)).toMatchObject({ kind: "yesterday" })
+    expect(ago(47 * 60)).toMatchObject({ kind: "yesterday" })
+    expect(ago(3 * 24 * 60)).toMatchObject({ kind: "days", n: 3 })
+    expect(ago(29 * 24 * 60)).toMatchObject({ kind: "days", n: 29 })
+    expect(ago(30 * 24 * 60)).toMatchObject({ kind: "months", n: 1 })
+    expect(ago(364 * 24 * 60)).toMatchObject({ kind: "months", n: 12 })
+    expect(ago(365 * 24 * 60)).toMatchObject({ kind: "years", n: 1 })
   })
 })

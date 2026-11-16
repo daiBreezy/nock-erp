@@ -759,7 +759,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
 }) {
   // owner 2026-10-19: bus rides can be asked for / cancelled where the school runs a bus (Liclass, or already riding)
   const hasBus = child.brand === "liclass" || child.busDays.length > 0
-  const [mode, setMode] = useState<"exit" | "return" | "home" | null>(child.left ? "return" : initial === "home" && !hasBus ? null : initial === "exit" || initial === "home" ? initial : null)
+  const [mode, setMode] = useState<"exit" | "return" | "home" | null>(child.left ? "return" : initial === "home" && !hasBus ? null : initial === "home" ? initial : null)
   // the header carries the back arrow while a form is open (owner 2026-11-09)
   useEffect(() => {
     onDetail(mode ? () => setMode(null) : null)
@@ -790,6 +790,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
     setMsg(r.ok ? { ok: true, text: t.sent } : { ok: false, text: r.error ?? "ส่งไม่สำเร็จ" })
     if (r.ok) { setMode(null); setReasons([]); setNote(""); setStartDate("") }
   }
+  const actions: (readonly ["return" | "home", string, string])[] = child.left ? [["return", t.returnReq, t.returnSub]] : hasBus ? [["home", t.homeReq, t.homeReqSub]] : []
   const ready = mode === "exit" ? !!lastDate : mode === "home" ? !!homeLoc : mode === "return"
   return (
     <div className="space-y-3">
@@ -801,8 +802,8 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
             <span className="min-w-0 flex-1 font-medium">{t.language}</span>
             <NativeSelect className="w-32 shrink-0" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
           </div>
-          {paid && (child.left ? [["return", t.returnReq, t.returnSub]] as const
-            : [...(hasBus ? [["home", t.homeReq, t.homeReqSub]] as const : []), ["exit", t.exitReq, t.exitReqSub]] as const).map(([k, title, sub]) => (
+          {/* owner 2026-11-16: parents can NOT stop studying from the app — they talk to the admin in the chat */}
+          {paid && actions.map(([k, title, sub]) => (
             <Button variant="row" size="inline" key={k} type="button" onClick={() => { setMode(k); setMsg(null) }} className="flex w-full items-center gap-3 px-3 py-3 text-left">
               <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span><span className="block truncate text-xs text-muted-foreground">{sub}</span></span>
               <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />

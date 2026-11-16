@@ -40,7 +40,10 @@ import { ExitAlert, NoteAlert, ParentRequestWatcher } from "@/components/app/exi
 import { startScreenTranslation } from "@/lib/screen-translate"
 import { ThemeTuner } from "./theme-tuner"
 import { ThemeChip } from "./theme-settings"
-import { FocusBanner } from "./focus-banner"
+import { FocusHighlight } from "./focus-banner"
+import { NotificationPeek } from "./notification-peek"
+import { peekClose, peekEnter, peekLeave } from "./noti-peek-state"
+import { useSidePanel } from "@/hooks/use-mobile"
 
 const noopSubscribe = () => () => {}
 
@@ -199,12 +202,13 @@ function Shell({ children }: { children: ReactNode }) {
         </header>
         {/* keyed on the language: switching it re-renders every page so all t() calls pick it up */}
         {/* owner 2026-10-15: Inbox runs edge to edge — no padding around it */}
-        <main key={lang} className={cn("min-w-0 flex-1", pathname !== "/inbox" && "p-3 sm:p-6")}>{allowed ? <><FocusBanner />{children}</> : <NoAccess />}</main>
+        <main key={lang} className={cn("min-w-0 flex-1", pathname !== "/inbox" && "p-3 sm:p-6")}>{allowed ? <><FocusHighlight />{children}</> : <NoAccess />}</main>
         {/* owner 2026-10-13: Nock, the helper — on every page, for everyone */}
         {/* owner 2026-10-15: Settings › ระบบ › AI (Nock) can turn it off for everyone */}
         {nockOn && <NockWidget />}
         {/* owner 2026-10-15: Noti — notification popups top-right, on the Toast design */}
         <NotiToaster />
+        <NotificationPeek />
         <ExitAlert />
         <NoteAlert />
         <ParentRequestWatcher />
@@ -262,16 +266,19 @@ function SmartSearch() {
   )
 }
 
-/** แจ้งเตือน (owner 2026-10-07): a plain menu row like every other item — one line, no outline, red count badge */
+/** แจ้งเตือน (owner 2026-10-07): a plain menu row like every other item — one line, no outline, red count badge.
+ *  owner 2026-11-16: on a desktop screen, hovering it shows the latest notifications in the Noti column at the right of the screen. */
 function NotificationCard() {
   const me = useStore((s) => s.me())
   const count = useStore((s) => s.notifications.filter((n) => visibleTo(n, me) && isUnread(n, me)).length)
   const pathname = usePathname()
   const t = useT()
+  const desktop = useSidePanel()
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SidebarMenuButton isActive={pathname === "/notifications"} tooltip={count ? `${t("แจ้งเตือน")} · ${count}` : t("แจ้งเตือน")} render={<Link href="/notifications" />}>
+        <SidebarMenuButton isActive={pathname === "/notifications"} tooltip={desktop ? undefined : count ? `${t("แจ้งเตือน")} · ${count}` : t("แจ้งเตือน")} render={<Link href="/notifications" />}
+          onPointerEnter={desktop ? peekEnter : undefined} onPointerLeave={desktop ? () => peekLeave() : undefined} onClick={peekClose}>
           <span className="relative">
             <BellIcon className="size-4" />
             {count > 0 && <span className="absolute -top-1 -right-1 hidden size-2 rounded-full bg-danger ring-2 ring-sidebar group-data-[collapsible=icon]:block" />}
