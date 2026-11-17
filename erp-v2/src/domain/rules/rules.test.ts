@@ -1371,6 +1371,14 @@ describe("Credit Note: refund or keep as course credit (owner 2026-09-30)", () =
     expect(Refund.refundableItems(paid, totals, [earlier]).map((i) => i.key)).toEqual(["line:l1", "bus"])
   })
 
+  it("the course equipment fee is its own tickable item, apart from the tuition (owner 2026-11-17)", () => {
+    const withFee = { ...monthPkg, courseFee: 400 }
+    const t = invoiceTotals(paid, { branch, courses: [withFee], classes: [k], holidays: [] })
+    const items = Refund.refundableItems(paid, t, [])
+    expect(items.find((i) => i.key === "line:l1")!.max).toBe(4500)
+    expect(items.find((i) => i.key === "courseFee:l1")).toMatchObject({ max: 400, courseId: "c1" })
+  })
+
   it("suggests the unused share when the student stops mid-month", () => {
     // Oct 2026 Tuesdays: 6, 13, 20, 27 → stop from 20 Oct = 2 of 4 unused
     expect(Refund.unusedShare(totals.lines[0], "2026-10-20")).toEqual({ unused: 2, of: 4, amount: 2250 })
@@ -2994,6 +3002,26 @@ describe("promotions: Family Promotion + bonus hours (owner 2026-11-05)", () => 
     const t = invoiceTotals(inv, { branch: b, courses: [pkg], classes: [klass({ id: "k90", minutes: 90 })], holidays: [] })
     expect(t.promotion).toBe(1200)
     expect(t.lines[0].family).toBeUndefined()
+  })
+  it("the admin can stack both, or use Family only (owner 2026-11-17); the system's pick stays 'best'", () => {
+    const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }
+    const b = { ...branch, promotions: [{ id: "p", name: "Big", type: "pct" as const, value: 20, unit: "hour" as const, minDuration: 10, active: true }] }
+    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "h10", classIds: ["k90"], startDate: "2026-09-29", periods: 1, leftover: "drop" }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [], familyPromoPct: 10 }
+    const ctx = { branch: b, courses: [pkg], classes: [klass({ id: "k90", minutes: 90 })], holidays: [] }
+    expect(invoiceTotals({ ...inv, familyMode: "best" }, ctx).promotion).toBe(1200)
+    const both = invoiceTotals({ ...inv, familyMode: "both" }, ctx)
+    expect(both.promotion).toBe(1200 + 600) // 20% branch + 10% family
+    expect(both.lines[0].promotionName).toMatch(/Big \+ Family/)
+    const fam = invoiceTotals({ ...inv, familyMode: "family" }, ctx)
+    expect(fam.promotion).toBe(600)
+    expect(fam.lines[0].family).toBe(true)
+  })
+  it("stacked discounts never exceed the tuition", () => {
+    const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }
+    const b = { ...branch, promotions: [{ id: "p", name: "Huge", type: "pct" as const, value: 95, unit: "hour" as const, minDuration: 10, active: true }] }
+    const inv: Invoice = { id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "h10", classIds: ["k90"], startDate: "2026-09-29", periods: 1, leftover: "drop" }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [], familyPromoPct: 15, familyMode: "both" }
+    const t = invoiceTotals(inv, { branch: b, courses: [pkg], classes: [klass({ id: "k90", minutes: 90 })], holidays: [] })
+    expect(t.promotion).toBeLessThanOrEqual(t.course)
   })
   it("bonus hours add free time to the hour pack and no money off", () => {
     const pkg: Course = { ...monthPkg, id: "h10", unit: "hour", duration: 10, price: 6000 }

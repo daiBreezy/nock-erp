@@ -1421,6 +1421,9 @@ export interface Invoice {
   promotionId?: ID | null
   /** Family Promotion % set on this invoice (owner 2026-11-05): system-wide, off the tuition of every course on it */
   familyPromoPct?: number
+  /** how Family Promotion meets a branch promotion (owner 2026-11-17: the admin decides): best = the bigger one (system's pick) ·
+   *  both = stack them · family = Family only. Unset = best. */
+  familyMode?: "best" | "both" | "family"
   noteToParent: string
   status: InvoiceStatus
   pdf: "none" | "generating" | "ready" | "failed"

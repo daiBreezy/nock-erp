@@ -58,4 +58,11 @@ export const BILLING_PROMO: Record<string, Entry> = {
   "1 ปีที่แล้ว": { en: "1 year ago", ja: "1年前" },
   "{0} เดือนที่แล้ว": { en: "{0} months ago", ja: "{0}か月前" },
   "{0} ปีที่แล้ว": { en: "{0} years ago", ja: "{0}年前" },
+  // owner 2026-11-17: the admin decides how Family Promotion meets a branch promotion; refund lists every charge
+  "ถ้าสาขามีโปรฯ ด้วย": { en: "If the branch also has a promotion", ja: "支店のプロモーションもある場合" },
+  "Family Promotion กับโปรสาขา": { en: "Family Promotion with branch promotion", ja: "ファミリー割と支店プロモーション" },
+  "ใช้อันที่ลดมากกว่า": { en: "Use the bigger discount", ja: "割引が大きい方を適用" },
+  "ใช้ทั้งคู่ (ซ้อน)": { en: "Use both (stack)", ja: "両方を適用（重ねる）" },
+  "ระบบเลือกให้ก่อน = อันที่ลดมากกว่า · Admin เปลี่ยนเป็นซ้อนทั้งคู่ หรือใช้เฉพาะ Family ได้ตามที่เห็นสมควร · ส่วนลดรวมไม่เกินค่าเรียน": { en: "The system picks the bigger discount first · the admin can switch to stacking both or Family only as they see fit · total discount never exceeds the tuition", ja: "システムは割引が大きい方を先に選択 · 管理者の判断で両方の重ね適用またはファミリー割のみに変更可 · 合計割引は授業料を超えません" },
+  "ค่าอุปกรณ์/ค่าคอร์ส · {0}": { en: "Equipment / course fee · {0}", ja: "教材・コース費 · {0}" },
 }

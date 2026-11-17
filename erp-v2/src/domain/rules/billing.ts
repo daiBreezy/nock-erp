@@ -257,7 +257,9 @@ export interface InvoiceTotals {
 /** round up to the nearest `step` (owner Row 34: Liclass bills up to the next ฿10 — 3,524 → 3,530) */
 export const roundUpTo = (n: number, step: number) => (step > 0 ? Math.ceil(n / step) * step : n)
 
-export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true, familyPct = 0): LineQuote {
+export type FamilyMode = NonNullable<Invoice["familyMode"]>
+
+export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }, promotions = true, familyPct = 0, familyMode: FamilyMode = "best"): LineQuote {
   const course = ctx.courses.find((c) => c.id === line.courseId)
   // a student who attends part of a class (1 of 2 hours) is quoted on their own part — sessions follow their minutes
   const klasses = line.classIds.map((id) => ctx.classes.find((c) => c.id === id)).filter((k): k is Klass => !!k)
@@ -273,21 +275,25 @@ export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Cour
   const amount = quote?.total ?? 0
   // each course gets its own best promotion (a promotion is per package type + duration)
   const promo = course && purchase && promotions ? bestPromotion(ctx.branch, purchase, amount, line.startDate) : null
-  // Family Promotion: % off the tuition only; if a branch promotion is worth more it wins (no stacking)
+  // Family Promotion: % off the tuition only. The admin picks how it meets a branch promotion (owner 2026-11-17):
+  // best (system's pick) = the bigger one wins · both = stacked (never more than the tuition) · family = Family only
   const fam = familyPct > 0 ? Math.round((amount * familyPct) / 100) : 0
-  const useFamily = fam > (promo?.discount ?? 0)
+  const branchOff = promo?.discount ?? 0
+  const stack = familyMode === "both" && fam > 0 && branchOff > 0
+  const useFamily = fam > 0 && (familyMode === "family" || stack || fam > branchOff)
+  const famName = `Family Promotion −${familyPct}%`
   // course fee (equipment) is charged on top of the price on every purchase
   return {
     line, course, klasses, quote, amount, courseFee: course?.courseFee ?? 0,
-    promotion: useFamily ? fam : promo?.discount ?? 0,
-    promotionName: useFamily ? `Family Promotion −${familyPct}%` : promo?.promotion.name,
+    promotion: stack ? Math.min(amount, fam + branchOff) : useFamily ? fam : branchOff,
+    promotionName: stack ? `${promo!.promotion.name} + ${famName}` : useFamily ? famName : promo?.promotion.name,
     family: useFamily || undefined,
     bonusMinutes: bonus?.minutes ?? 0, bonusName: bonus?.promotion.name,
   }
 }
 
 export function invoiceTotals(inv: Invoice, ctx: { branch: Branch; courses: Course[]; classes: Klass[]; holidays: Holiday[] }): InvoiceTotals {
-  const lines = inv.lines.map((l) => quoteLine(l, ctx, inv.promotionId !== null, inv.familyPromoPct ?? 0))
+  const lines = inv.lines.map((l) => quoteLine(l, ctx, inv.promotionId !== null, inv.familyPromoPct ?? 0, inv.familyMode))
   const sum = (f: (l: LineQuote) => number) => lines.reduce((a, l) => a + f(l), 0)
   const course = sum((l) => l.amount), courseFee = sum((l) => l.courseFee), promotion = sum((l) => l.promotion)
   const bus = busTotal(inv.bus, busRate(ctx.branch, inv.busFeeId))

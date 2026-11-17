@@ -22,7 +22,9 @@ export function refundableItems(inv: Invoice, totals: InvoiceTotals, notes: Cred
   notes.filter((n) => n.invoiceId === inv.id && n.status !== "void").flatMap((n) => n.items).forEach((i) => done.set(i.key, (done.get(i.key) ?? 0) + i.amount))
   const firstCourse = totals.lines[0]?.line.courseId
   const items: (CreditNoteItem & { max: number })[] = [
-    ...totals.lines.map((l) => ({ key: `line:${l.line.id}`, label: l.course?.name ?? "คอร์ส", courseId: l.line.courseId, amount: 0, max: l.amount + l.courseFee - l.promotion })),
+    // owner 2026-11-17: every charge is its own tickable line — the course tuition (our formula) and its equipment fee apart
+    ...totals.lines.map((l) => ({ key: `line:${l.line.id}`, label: l.course?.name ?? "คอร์ส", courseId: l.line.courseId, amount: 0, max: l.amount - l.promotion })),
+    ...totals.lines.filter((l) => l.courseFee > 0).map((l) => ({ key: `courseFee:${l.line.id}`, label: `ค่าอุปกรณ์/ค่าคอร์ส · ${l.course?.name ?? "คอร์ส"}`, courseId: l.line.courseId, amount: 0, max: l.courseFee })),
     { key: "bus", label: "ค่ารถ", courseId: firstCourse, amount: 0, max: totals.bus },
     { key: "busExtra", label: "ค่ารถเพิ่ม (รอบก่อน)", courseId: firstCourse, amount: 0, max: totals.busExtra },
     { key: "book", label: "ค่าหนังสือ", courseId: firstCourse, amount: 0, max: totals.book },

@@ -89,6 +89,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   // sections work like an FAQ: opening one closes the others (owner 2026-11-05)
   const [openSec, setOpenSec] = useState(studentId ? 3 : 1)
   const [familyOn, setFamilyOn] = useState(invoice?.familyPromoPct != null)
+  // how Family Promotion meets a branch promotion — the admin decides (owner 2026-11-17); the system starts on "best"
+  const [familyMode, setFamilyMode] = useState<NonNullable<Invoice["familyMode"]>>(invoice?.familyMode ?? "best")
   const [concession, setConcession] = useState(invoice?.concession?.amount ?? 0)
   const [concessionRemark, setConcessionRemark] = useState(invoice?.concession?.remark ?? "")
 
@@ -195,7 +197,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const siblingHours = siblingInvoices.map((i) => ({ inv: i, hours: invoiceHours(invoiceTotals(i, ctx)) }))
   const familyTier = studentId ? familyPromotion([{ studentId, hours: invoiceHours({ lines: baseLines }) }, ...siblingHours.map((s) => ({ studentId: s.inv.studentId, hours: s.hours }))]) : null
   const familyPct = familyOn && familyTier ? familyTier.pct : 0
-  const totals = invoiceTotals({ ...draft, familyPromoPct: familyPct || undefined }, ctx)
+  const totals = invoiceTotals({ ...draft, familyPromoPct: familyPct || undefined, familyMode: familyPct ? familyMode : undefined }, ctx)
   const errors = [
     ...(!studentId ? ["เลือกนักเรียน"] : []),
     ...courseLines.filter((l) => l.overlapRemark !== undefined && !l.overlapRemark.trim()).map((l) => `นักเรียนมีแพ็กเกจ ${courses.find((c) => c.id === l.courseId)?.name ?? ""} อยู่แล้ว — ใส่เหตุผลที่ซื้อซ้ำ`),
@@ -203,7 +205,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   ]
 
   const submit = () => {
-    const r = save({ ...draft, familyPromoPct: familyPct || undefined })
+    const r = save({ ...draft, familyPromoPct: familyPct || undefined, familyMode: familyPct ? familyMode : undefined })
     if (report(r, (v) => `บันทึกแล้ว · เลขที่ ${v.number} (ใบจริง — มีปัญหาให้ยกเลิก ไม่ลบ)`)) onSaved(r.value)
   }
 
@@ -291,6 +293,15 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               </p>
             </div>
             <Button size="sm" variant={familyOn ? "secondary" : "default"} onClick={() => setFamilyOn(!familyOn)}>{familyOn ? <><CheckIcon /> ใส่แล้ว (กดเพื่อเอาออก)</> : "ใส่ Family Promotion"}</Button>
+            {/* owner 2026-11-17: the admin decides how it meets the branch promotion — the system's pick is "ใช้อันที่ลดมากกว่า" */}
+            {familyOn && (
+              <div className="flex w-full flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">ถ้าสาขามีโปรฯ ด้วย</span>
+                <Segmented label="Family Promotion กับโปรสาขา" value={familyMode} onChange={setFamilyMode}
+                  options={[{ value: "best", label: "ใช้อันที่ลดมากกว่า" }, { value: "both", label: "ใช้ทั้งคู่ (ซ้อน)" }, { value: "family", label: "เฉพาะ Family" }]} />
+                <InfoTip text="ระบบเลือกให้ก่อน = อันที่ลดมากกว่า · Admin เปลี่ยนเป็นซ้อนทั้งคู่ หรือใช้เฉพาะ Family ได้ตามที่เห็นสมควร · ส่วนลดรวมไม่เกินค่าเรียน" />
+              </div>
+            )}
           </div>
         )}
 
