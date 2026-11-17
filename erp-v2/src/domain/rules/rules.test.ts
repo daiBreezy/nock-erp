@@ -527,7 +527,11 @@ describe("crm", () => {
   it("validateLead requires the fields the pipeline card depends on", () => {
     expect(validateLead({ name: "", childGrade: "P5", subject: "Math", phone: "08x" })).toMatch(/ชื่อ/)
     expect(validateLead({ name: "Mom", childGrade: "", subject: "Math", phone: "08x" })).toMatch(/ระดับชั้น/)
-    expect(validateLead({ name: "Mom", childGrade: "P5", subject: "Math", phone: "" })).toMatch(/เบอร์โทร/)
+    expect(validateLead({ name: "Mom", childGrade: "P5", subject: "Math", phone: "" })).toMatch(/เบอร์โทรหรือ LINE ID/)
+    expect(validateLead({ name: "Mom", childGrade: "P5", subject: "Math", phone: "", lineId: "@mom" })).toBeNull() // phone is not required (owner 2026-11-17)
+    // added from the chat: the LINE account is known → the name alone is enough, grade / subject / phone come later
+    expect(validateLead({ name: "สมชาย", childGrade: "", subject: "", phone: "", lineUserId: "U1" }, { quick: true })).toBeNull()
+    expect(validateLead({ name: " ", childGrade: "", subject: "", phone: "", lineUserId: "U1" }, { quick: true })).toMatch(/ชื่อ/)
     expect(validateLead({ name: "Mom", childGrade: "P5", subject: "Math", phone: "08x" })).toBeNull()
   })
 

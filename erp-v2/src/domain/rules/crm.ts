@@ -104,14 +104,18 @@ export function restoreStage(l: Pick<Lead, "archivedFrom">): LeadStage {
 
 /** every subject a lead is interested in (owner 2026-10-29) — older leads have only `subject` */
 export function leadSubjects(l: Pick<Lead, "subject" | "subjects">): string[] {
-  return l.subjects?.length ? l.subjects : [l.subject]
+  return l.subjects?.length ? l.subjects : l.subject ? [l.subject] : []
 }
 
-export function validateLead(l: Pick<Lead, "name" | "childGrade" | "subject" | "phone">): string | null {
+/** A lead needs a name and a way to reach them. Added from the chat (owner 2026-11-17) the LINE account is already known,
+ *  so the name is all that is asked — grade / subject / phone come later. Added by hand: grade + subject (the pipeline
+ *  card depends on them) and a phone OR a LINE ID (the phone alone is not required any more). */
+export function validateLead(l: Pick<Lead, "name" | "childGrade" | "subject" | "phone"> & Partial<Pick<Lead, "lineId" | "lineUserId">>, opts?: { quick?: boolean }): string | null {
   if (!l.name.trim()) return "ใส่ชื่อผู้ปกครองหรือผู้ติดต่อ"
+  if (opts?.quick) return null
   if (!l.childGrade.trim()) return "ใส่ระดับชั้นของลูก"
   if (!l.subject.trim()) return "เลือกวิชาที่สนใจ"
-  if (!l.phone.trim()) return "ใส่เบอร์โทรติดต่อ"
+  if (!l.phone.trim() && !l.lineId?.trim()) return "ใส่เบอร์โทรหรือ LINE ID ติดต่อ"
   return null
 }
 

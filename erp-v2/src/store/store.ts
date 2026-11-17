@@ -299,7 +299,8 @@ type Store = DB & UIState & {
   /** owner 2026-11-05: confirming the slip enrols the student at once; the receipt(s) are issued LATER — together or one per student */
   issueReceipts: (invoiceIds: ID[], mode: "combined" | "separate") => Result
 
-  saveLead: (l: Lead) => Result<Lead>
+  /** `quick` = added from a chat (name + the LINE account already known) — grade / subject / phone can wait */
+  saveLead: (l: Lead, opts?: { quick?: boolean }) => Result<Lead>
   moveLeadStage: (id: ID, stage: LeadStage) => Result
   addLeadNote: (id: ID, text: string) => Result
   /** the short close-lead form (owner 2026-10-05): step, main + other reasons, where they went, follow-up day */
@@ -3014,11 +3015,11 @@ export const useStore = create<Store>()(
       },
 
       // ---------------- CRM ----------------
-      saveLead: (input) => {
+      saveLead: (input, opts) => {
         const s = get()
         const perm = requirePerm(s.me(), "lead.manage")
         if (!perm.ok) return perm
-        const err = CRM.validateLead(input)
+        const err = CRM.validateLead(input, opts)
         if (err) return fail(err)
         const l = { ...input, name: People.splitParentTitle(input.name).name, phone: People.formatPhone(input.phone) }
         set({ leads: s.leads.some((x) => x.id === l.id) ? s.leads.map((x) => (x.id === l.id ? l : x)) : [l, ...s.leads] })

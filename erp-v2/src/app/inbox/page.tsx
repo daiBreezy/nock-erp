@@ -374,6 +374,10 @@ export default function InboxPage() {
                   {selected.group && family && <><span aria-hidden>·</span><span className="min-w-0 truncate">{family.name}</span></>}
                 </div>
               </div>
+              {/* owner 2026-11-17: someone who just added the school's LINE (still a Visitor — no Customer/Lead) gets "Add Lead" right here */}
+              {!selected.group && !family && !lead && (
+                <Button size="sm" onClick={() => setCreatingLead(true)}><UserPlusIcon /> Add Lead</Button>
+              )}
               {/* owner 2026-10-05: assignee is an action next to the side-panel button, same size as the others */}
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label="มอบหมายผู้ดูแล" className={cn(!selected.assigneeId && "text-muted-foreground")} />}>
@@ -582,6 +586,7 @@ export default function InboxPage() {
         <LeadDialog
           initialName={selected.name}
           initial={{ source: SOURCE_OF_CHANNEL[selected.channel], assigneeId: selected.assigneeId }}
+          chat={{ lineLabel: selected.id.startsWith("line_") ? selected.id.slice(5) : selected.name, lineUserId: selected.id.startsWith("line_") ? selected.id.slice(5) : undefined }}
           onClose={() => setCreatingLead(false)}
           onSaved={(newLead) => report(linkLead(selected.id, newLead.id), `สร้างและผูก Lead "${newLead.name}" แล้ว`)}
         />
