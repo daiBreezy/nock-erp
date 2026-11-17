@@ -61,7 +61,7 @@ export function RichMenuCard({ branch }: { branch: Branch }) {
           <p className="font-medium">{tx("Catalog คอร์ส")}</p>
           <p className="text-xs text-muted-foreground">{branch.catalogLink ? tx("อัปเดตล่าสุด {0} · แก้คอร์ส / คลาสแล้วกดอัปเดต (ลิงก์เดิม ไม่ต้องแก้เมนู)", [fmtDateTime(branch.catalogLink.updatedAt)]) : tx("ยังไม่มีลิงก์")}</p>
         </div>
-        <Button size="sm" variant="outline" render={<a href={`/liff/catalog?preview=${branch.id}`} target="_blank" rel="noreferrer" />}><ExternalLinkIcon /> {tx("ดูตัวอย่าง")}</Button>
+        <Button size="sm" variant="outline" nativeButton={false} render={<a href={`/liff/catalog?preview=${branch.id}`} target="_blank" rel="noreferrer" />}><ExternalLinkIcon /> {tx("ดูตัวอย่าง")}</Button>
         {branch.catalogLink && <Button size="sm" variant="outline" onClick={() => copy(branch.catalogLink!.url)}><CopyIcon /> {tx("คัดลอกลิงก์")}</Button>}
         <Button size="sm" disabled={busy} onClick={refresh}><RefreshCwIcon className={busy ? "animate-spin" : undefined} /> {branch.catalogLink ? tx("อัปเดต") : tx("สร้างลิงก์")}</Button>
       </div>
