@@ -380,6 +380,11 @@ type Store = DB & UIState & {
    *  LINE yet, and only a LINE account no other family has; returns how many came back */
   restoreLineLinks: (links: { lineUserId: string; familyId: ID; familyName?: string }[]) => number
   linkConversationToLead: (conversationId: ID, leadId: ID) => Result
+  /** a LINE group ↔ one family. Unlike linkConversationToFamily it never writes the group id into the family's LINE account */
+  linkGroupToFamily: (conversationId: ID, familyId: ID) => Result
+  /** says who a member of a LINE group is. `parentIndex` picks which guardian of the family (sets that guardian's own lineUserId);
+   *  null clears the role. A follower is someone outside the ERP (relative) — never added to the family. */
+  setGroupMember: (conversationId: ID, lineUserId: string, role: { kind: "parent"; parentIndex: number } | { kind: "student"; studentId: ID } | { kind: "follower" } | null) => Result
 }
 
 /** the branch a run belongs to (weekly runs on the branch; one-off runs on their own record) */
@@ -3637,8 +3642,12 @@ export const useStore = create<Store>()(
         })
         const seen = new Set(s.messages.map((m) => m.id))
         const fresh = messages.filter((m) => !seen.has(m.id))
-        if (!fresh.length && !changed) return
-        set({ conversations: Array.from(convMap.values()), messages: fresh.length ? [...s.messages, ...fresh] : s.messages })
+        const allMessages = fresh.length ? [...s.messages, ...fresh] : s.messages
+        // a LINE group whose writers the ERP already knows links itself to their family (owner 2026-11-12) — checked on every poll,
+        // because staff may have linked a family's LINE account after the group's first message
+        const auto = Inbox.autoGroupLinks(Array.from(convMap.values()), allMessages, s.families)
+        if (!fresh.length && !changed && !auto.changed) return
+        set({ conversations: auto.conversations, families: auto.families, messages: allMessages })
       },
 
       restoreLineLinks: (links) => {
@@ -3663,6 +3672,35 @@ export const useStore = create<Store>()(
             ? s.families.map((f) => (f.id === familyId ? { ...f, lineUserId, parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f))
             : s.families,
         })
+        return OK
+      },
+
+      linkGroupToFamily: (conversationId, familyId) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        const conv = s.conversations.find((c) => c.id === conversationId)
+        if (!conv?.group) return fail("ไม่ใช่แชทกลุ่ม")
+        if (!s.families.some((f) => f.id === familyId)) return fail("ไม่พบครอบครัวนี้")
+        // a different family → the roles chosen for the old one no longer mean anything
+        set({ conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, familyId, leadId: null, members: c.familyId === familyId ? c.members : undefined } : c)) })
+        return OK
+      },
+
+      setGroupMember: (conversationId, lineUserId, role) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "inbox.manage")
+        if (!perm.ok) return perm
+        const conv = s.conversations.find((c) => c.id === conversationId)
+        if (!conv?.group) return fail("ไม่ใช่แชทกลุ่ม")
+        if (role && role.kind !== "follower" && !conv.familyId) return fail("ผูกกลุ่มกับครอบครัวก่อน")
+        const members = { ...(conv.members ?? {}) }
+        if (role) members[lineUserId] = role.kind === "parent" ? { kind: "parent" } : role
+        else delete members[lineUserId]
+        let families = s.families
+        // a guardian's LINE account lives on the guardian, so their own 1:1 chat can find the family later too — one account = one guardian
+        families = families.map((f) => f.id !== conv.familyId ? f : { ...f, parents: f.parents.map((p, i) => (role?.kind === "parent" && i === role.parentIndex ? { ...p, lineUserId, lineLinked: true } : p.lineUserId === lineUserId ? { ...p, lineUserId: undefined } : p)) })
+        set({ families, conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, members } : c)) })
         return OK
       },
 

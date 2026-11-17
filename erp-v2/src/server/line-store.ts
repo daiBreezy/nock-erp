@@ -83,13 +83,14 @@ export async function getAll(): Promise<Store> {
 
 const convId = (lineUserId: string) => `line_${lineUserId}`
 
-export function findOrCreateConversation(store: Store, lineUserId: string, displayName: string | null): Conversation {
+export function findOrCreateConversation(store: Store, lineUserId: string, displayName: string | null, group = false): Conversation {
   const id = convId(lineUserId)
   const existing = store.conversations.find((c) => c.id === id)
   if (existing) return existing
   const conv: Conversation = {
     id, branchId: "", name: displayName ?? lineUserId, familyId: null, leadId: null,
     channel: "line", assigneeId: null, lastMessageAt: new Date().toISOString(), unread: false,
+    ...(group && { group: true }),
   }
   store.conversations.push(conv)
   return conv
@@ -100,15 +101,39 @@ export interface MessageExtra {
   meta?: ChatMessageMeta
 }
 
-/** One webhook "message" event → find/create the conversation, append the message, flag unread. */
-export async function recordInboundMessage(lineUserId: string, displayName: string | null, text: string, extra?: MessageExtra): Promise<void> {
+export interface GroupSender {
+  userId: string
+  /** null when LINE won't reveal it (member never accepted the OA's terms) */
+  name: string | null
+}
+
+/**
+ * One webhook "message" event → find/create the conversation, append the message, flag unread.
+ * `chatId` = the LINE userId (1:1) or the groupId/roomId (group). For a group, `displayName` is the group's name and
+ * `sender` says who in it wrote the message — a member whose name LINE hides gets a stable "สมาชิก #n" per group.
+ */
+export async function recordInboundMessage(chatId: string, displayName: string | null, text: string, extra?: MessageExtra, group?: { sender: GroupSender | null }): Promise<void> {
   await mutate((store) => {
-    const conv = findOrCreateConversation(store, lineUserId, displayName)
+    const conv = findOrCreateConversation(store, chatId, displayName, !!group)
     const at = new Date().toISOString()
     conv.lastMessageAt = at
     conv.unread = true
     if (displayName && conv.name !== displayName) conv.name = displayName
-    store.messages.push({ id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, conversationId: conv.id, author: "parent", senderId: null, text, at, ...extra })
+    let sender: ChatMessage["sender"]
+    if (group?.sender) {
+      const { userId, name } = group.sender
+      const mine = store.messages.filter((m) => m.conversationId === conv.id && m.sender)
+      const known = [...mine].reverse().find((m) => m.sender!.userId === userId)?.sender?.name
+      const seen = new Set(mine.map((m) => m.sender!.userId))
+      const order = [...seen]
+      // LINE hid the name → the same person's own 1:1 chat with us (same userId) already knows it
+      const direct = store.conversations.find((c) => c.id === convId(userId) && !c.group)?.name
+      const resolved = name ?? (direct && direct !== userId ? direct : null)
+      sender = { userId, name: resolved ?? known ?? `สมาชิก #${(order.includes(userId) ? order.indexOf(userId) : order.length) + 1}` }
+      // a real name arrived after earlier "สมาชิก #n" messages from the same person → fix those too
+      if (resolved) for (const m of mine) if (m.sender!.userId === userId) m.sender!.name = resolved
+    }
+    store.messages.push({ id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, conversationId: conv.id, author: "parent", senderId: null, text, at, ...(sender && { sender }), ...extra })
   })
 }
 

@@ -72,11 +72,30 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Soft shadow scale (Design System 2026-11-12) — base-luma "การ์ดเงานุ่ม": wide blur, low opacity,
+     layered (tight contact + diffuse ambient), no hard spread. Overrides Tailwind defaults so every
+     shadow-sm/md/lg/xl across the app + /kit softens at once. Colour per theme = --shadow-color.
+     Each layer's % is its real alpha (soft = 0.04–0.16). Tune only here. */
+  --shadow-2xs: 0 1px 2px 0 color-mix(in oklab, var(--shadow-color) 5%, transparent);
+  --shadow-xs: 0 1px 2px 0 color-mix(in oklab, var(--shadow-color) 5%, transparent),
+    0 1px 4px 0 color-mix(in oklab, var(--shadow-color) 4%, transparent);
+  --shadow-sm: 0 1px 2px 0 color-mix(in oklab, var(--shadow-color) 5%, transparent),
+    0 4px 12px -2px color-mix(in oklab, var(--shadow-color) 7%, transparent);
+  --shadow-md: 0 2px 4px -1px color-mix(in oklab, var(--shadow-color) 5%, transparent),
+    0 8px 20px -4px color-mix(in oklab, var(--shadow-color) 9%, transparent);
+  --shadow-lg: 0 4px 8px -2px color-mix(in oklab, var(--shadow-color) 6%, transparent),
+    0 16px 32px -8px color-mix(in oklab, var(--shadow-color) 11%, transparent);
+  --shadow-xl: 0 8px 16px -4px color-mix(in oklab, var(--shadow-color) 7%, transparent),
+    0 28px 56px -12px color-mix(in oklab, var(--shadow-color) 13%, transparent);
+  --shadow-2xl: 0 12px 24px -6px color-mix(in oklab, var(--shadow-color) 9%, transparent),
+    0 40px 72px -16px color-mix(in oklab, var(--shadow-color) 16%, transparent);
 }
 
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+  /* soft-shadow tint (see --shadow-* in @theme) — cool near-black reads softer than pure black */
+  --shadow-color: oklch(0.21 0.03 265);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -124,6 +143,8 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+  /* on dark surfaces depth comes mostly from the ring; keep shadow pure black and faint */
+  --shadow-color: oklch(0 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
@@ -216,8 +237,8 @@
    (owner 2026-11-16: no banner, no leftover tint). The tint is an inset shadow so the element's own background and
    shape stay as they are between flashes; table rows can't take a radius, so their cells carry the flash instead. */
 @keyframes focus-pulse {
-  0%, 100% { background-color: color-mix(in oklab, var(--primary) 8%, var(--card)); }
-  50% { background-color: color-mix(in oklab, var(--primary) 16%, var(--card)); }
+  0%, 100% { box-shadow: inset 0 0 0 1px transparent, inset 0 0 0 999px transparent; }
+  50% { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 40%, transparent), inset 0 0 0 999px color-mix(in oklab, var(--primary) 14%, transparent); }
 }
 .focus-hit {
   border-radius: calc(var(--radius) * 1.8);

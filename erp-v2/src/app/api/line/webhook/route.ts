@@ -5,7 +5,8 @@ import { getAll, recordInboundMessage, saveLineImage } from "@/server/line-store
 interface LineWebhookEvent {
   type: string
   message?: { id?: string; type: string; text?: string }
-  source?: { userId?: string }
+  /** type "user" = 1:1 chat · "group" / "room" = shared chat (groupId/roomId set; userId = who wrote it, may be absent) */
+  source?: { type?: string; userId?: string; groupId?: string; roomId?: string }
 }
 interface LineWebhookBody {
   events?: LineWebhookEvent[]
@@ -14,6 +15,30 @@ interface LineWebhookBody {
 async function fetchDisplayName(userId: string, token: string): Promise<string | null> {
   try {
     const res = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return null
+    const data = (await res.json()) as { displayName?: string }
+    return data.displayName ?? null
+  } catch {
+    return null
+  }
+}
+
+/** group / room name — only groups have one (rooms don't) */
+async function fetchGroupName(groupId: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/group/${groupId}/summary`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return null
+    const data = (await res.json()) as { groupName?: string }
+    return data.groupName ?? null
+  } catch {
+    return null
+  }
+}
+
+/** who wrote a message in a group/room — the plain profile endpoint can't see group members, this one can (null if they never accepted the OA's terms) */
+async function fetchMemberName(kind: "group" | "room", chatId: string, userId: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/${kind}/${chatId}/member/${userId}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) })
     if (!res.ok) return null
     const data = (await res.json()) as { displayName?: string }
     return data.displayName ?? null
@@ -48,15 +73,28 @@ export async function POST(req: Request) {
     const isText = msg?.type === "text" && !!msg.text
     const isImage = msg?.type === "image" && !!msg.id
     if (event.type !== "message" || (!isText && !isImage)) continue
-    const userId = event.source?.userId
-    if (!userId) continue
-    const isNew = !known.has(`line_${userId}`)
-    const displayName = isNew && token ? await fetchDisplayName(userId, token) : null
-    if (isText) await recordInboundMessage(userId, displayName, msg!.text!)
+    const src = event.source
+    const groupKind = src?.type === "group" && src.groupId ? "group" : src?.type === "room" && src.roomId ? "room" : null
+    // a group's messages key on the group (one thread for everyone in it); a 1:1 chat keys on the person
+    const chatId = groupKind === "group" ? src!.groupId : groupKind === "room" ? src!.roomId : src?.userId
+    if (!chatId) continue
+    const isNew = !known.has(`line_${chatId}`)
+    let displayName: string | null = null
+    let group: { sender: { userId: string; name: string | null } | null } | undefined
+    if (groupKind) {
+      if (isNew && token && groupKind === "group") displayName = await fetchGroupName(chatId, token)
+      if (isNew && !displayName) displayName = groupKind === "group" ? "กลุ่ม LINE" : "ห้องแชท LINE"
+      const senderId = src?.userId
+      group = { sender: senderId ? { userId: senderId, name: token ? (await fetchMemberName(groupKind, chatId, senderId, token)) ?? (await fetchDisplayName(senderId, token)) : null } : null }
+    } else {
+      displayName = isNew && token ? await fetchDisplayName(chatId, token) : null
+    }
+    if (isText) await recordInboundMessage(chatId, displayName, msg!.text!, undefined, group)
     else {
       const saved = token ? await saveLineImage(msg!.id!, token) : false
-      await recordInboundMessage(userId, displayName, saved ? "📷 ส่งรูปภาพ" : "📷 ส่งรูปภาพ (ดึงรูปจาก LINE ไม่สำเร็จ)", saved ? { kind: "image", meta: { formKind: "image", mediaId: msg!.id! } } : undefined)
+      await recordInboundMessage(chatId, displayName, saved ? "📷 ส่งรูปภาพ" : "📷 ส่งรูปภาพ (ดึงรูปจาก LINE ไม่สำเร็จ)", saved ? { kind: "image", meta: { formKind: "image", mediaId: msg!.id! } } : undefined, group)
     }
+    known.add(`line_${chatId}`)
   }
 
   return NextResponse.json({ ok: true })

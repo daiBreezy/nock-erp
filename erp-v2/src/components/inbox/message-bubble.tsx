@@ -7,13 +7,15 @@ import { fmtDateTime } from "@/domain/dates"
 import type { ChatMessage, Conversation, Staff } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { avatarTone, initial } from "@/components/app/subject-color"
+import { MEMBER_ROLE_LABEL } from "@/domain/rules/inbox"
 
 /**
  * Plain text message / internal note — the default rendering for any message without a `kind`.
  * owner 2026-10-15 (like ChatGPT): our side = grey bubble on the right, the parent = plain text on the left, no colour ·
- * no time on the bubble — the day is a separator above, the date & time (and who sent it) show on hover
+ * (2026-11-12: the parent's bubble is a faint grey outline, ours a grey fill) · no time on the bubble — the day is a separator above, the date & time (and who sent it) show on hover
  */
-export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { message: ChatMessage; conversation: Conversation; staff: Staff[]; onUseAsSlip?: (mediaId: string) => void }) {
+export function MessageBubble({ message, conversation, staff, onUseAsSlip, memberLabel, continued }: { message: ChatMessage; conversation: Conversation; staff: Staff[]; onUseAsSlip?: (mediaId: string) => void; memberLabel?: { name: string; role: "parent" | "student" | "follower" | null }; continued?: boolean }) {
   const sender = message.senderId ? staff.find((s) => s.id === message.senderId)?.nickname : undefined
   if (message.author === "internal") {
     return (
@@ -27,10 +29,16 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { m
   }
   const isStaff = message.author === "staff"
   const isImage = message.meta?.formKind === "image"
+  // LINE group: several people share one thread → name + avatar say which of them wrote it (colour stable per person)
+  const member = !isStaff && conversation.group && message.sender ? { userId: message.sender.userId, name: memberLabel?.name ?? message.sender.name, role: memberLabel?.role ?? null } : undefined
   return (
-    <div className={cn("flex", isStaff && "justify-end")}>
-      <SentAt message={message} who={isStaff ? sender ?? "ทีมงาน" : conversation.name} align={isStaff ? "end" : "start"}>
-        <div className={cn("text-sm leading-relaxed whitespace-pre-wrap", isStaff ? "max-w-[75%] rounded-3xl bg-muted px-4 py-2.5" : "max-w-[85%] py-1", isStaff && isImage && "bg-transparent p-0")}>
+    // a run of messages from the same person in a group shares ONE avatar + name (the next ones sit closer, under the first)
+    <div className={cn("flex", isStaff && "justify-end", member && "items-start gap-2.5", member && continued && "-mt-4")}>
+      {member && (continued ? <span className="size-7 shrink-0" aria-hidden /> : <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(member.userId))}>{initial(member.name)}</span>)}
+      <div className={cn("min-w-0", isStaff ? "max-w-[75%]" : "max-w-[85%]")}>
+      {member && !continued && <div className="mb-1 px-1 text-xs font-medium text-muted-foreground">{member.name}{member.role && <span className="font-normal"> · {MEMBER_ROLE_LABEL[member.role]}</span>}</div>}
+      <SentAt message={message} who={isStaff ? sender ?? "ทีมงาน" : member?.name ?? conversation.name} align={isStaff ? "end" : "start"}>
+        <div className={cn("text-sm leading-relaxed whitespace-pre-wrap", "w-fit rounded-3xl px-3.5 py-2", isStaff ? "bg-muted" : "border border-border", isImage && "border-0 bg-transparent p-0")}>
           {isImage ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- parent's LINE photo served by our own route */}
@@ -44,6 +52,7 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip }: { m
           ) : message.text}
         </div>
       </SentAt>
+      </div>
     </div>
   )
 }

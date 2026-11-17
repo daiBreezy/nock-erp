@@ -2,8 +2,9 @@
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { BookOpenIcon, CalendarSearchIcon, FileSignatureIcon, InfoIcon, PenLineIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon } from "lucide-react"
+import { BookOpenIcon, CalendarSearchIcon, InfoIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon, UsersIcon, BadgeCheckIcon, TargetIcon, UserRoundIcon, UserXIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ExitRequestDialog } from "@/components/app/student-exit"
 import { BroadcastDialog } from "@/components/inbox/broadcast-dialog"
@@ -13,30 +14,30 @@ import { CatalogRequestCard } from "@/components/inbox/catalog-request-card"
 import { CalendarPanel } from "@/components/inbox/calendar-panel"
 import { SendEnrollDialog } from "@/components/inbox/send-enroll-dialog"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
-import { Pill } from "@/components/app/badges"
 import { FamilyForm } from "@/components/app/family-form"
 import { FamilySheet } from "@/components/app/family-sheet"
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { avatarTone, initial } from "@/components/app/subject-color"
-import { ComposeDialog } from "@/components/inbox/compose-dialog"
 import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { FormSubmissionBubble } from "@/components/inbox/form-submission-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
 import { ExitFormChatCard, isExitFormMessage, ParentRequestChatCard, EnrollSubmissionChatCard, isEnrollSubmissionMessage } from "@/components/inbox/parent-cards"
 import { SendFormDialog } from "@/components/inbox/send-form-dialog"
+import { GroupSheet } from "@/components/inbox/group-sheet"
+import { groupMemberLabel } from "@/domain/rules/inbox"
 import { LeadDialog } from "@/components/crm/lead-dialog"
 import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Marker, MarkerContent } from "@/components/ui/marker"
-import { fmtDate, fmtDateTime } from "@/domain/dates"
-import { chatDayLabel, groupByDay, QUICK_REPLIES, CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationName, conversationType, type ConversationType, formLinkOf, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
+import { fmtDate } from "@/domain/dates"
+import { chatDayLabel, chatListTime, groupByDay, QUICK_REPLIES, CHANNEL_LABEL, CONVERSATION_TYPE_LABEL, conversationName, conversationType, type ConversationType, formLinkOf, SOURCE_OF_CHANNEL, unreadCount } from "@/domain/rules/inbox"
 import { can } from "@/domain/rules/permissions"
 import type { ChatMessage, Conversation, FormSubmission, FormType, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useQueryState, useToday } from "@/lib/hooks"
+import { useBranch, useNow, useQueryState, useToday } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Textarea } from "@/components/ui/textarea"
@@ -95,7 +96,6 @@ export default function InboxPage() {
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)
   }
-  const [composing, setComposing] = useState(false)
   const [sendingEnroll, setSendingEnroll] = useState(false)
   const [draft, setDraft] = useState("")
   // owner 2026-10-19: another page prepared a message for this chat (e.g. "ขอหมุดบ้าน" on Transport › Zones) — it waits in
@@ -112,6 +112,11 @@ export default function InboxPage() {
   const [openLeadId, setOpenLeadId] = useState<ID | null>(null)
   const [openFamilyId, setOpenFamilyId] = useState<ID | null>(null)
   const [linking, setLinking] = useState(false)
+  const now = useNow()
+  const [groupInfo, setGroupInfo] = useState(false)
+  const viaGroup = (fn: () => void) => (selected?.group ? setConfirmGroupSend(() => fn) : fn())
+  // a LINE group: everyone in it sees what we send → ask once before any form / catalog goes in (owner 2026-11-12)
+  const [confirmGroupSend, setConfirmGroupSend] = useState<(() => void) | null>(null)
   const [pickingLink, setPickingLink] = useState(false)
   const [creatingFamily, setCreatingFamily] = useState(false)
   const [creatingLead, setCreatingLead] = useState(false)
@@ -278,7 +283,6 @@ export default function InboxPage() {
               {/* owner 2026-10-09: search is an icon like Broadcast — opens the box only when needed */}
               <Button size="icon-sm" variant={searching || search ? "default" : "outline"} aria-label="ค้นหา" title="ค้นหาชื่อ" onClick={() => { if (searching && !search) setSearching(false); else setSearching(true) }}><SearchIcon /></Button>
               <Button size="icon-sm" variant="outline" aria-label="Broadcast" title="Broadcast — ส่งถึงทุกคน" onClick={() => setBroadcasting(true)}><MegaphoneIcon /></Button>
-              <Button size="icon-sm" variant="outline" aria-label="เริ่มบทสนทนาใหม่" onClick={() => setComposing(true)}><PenLineIcon /></Button>
             </div>
           </div>
           {(searching || search) && (
@@ -294,25 +298,21 @@ export default function InboxPage() {
             <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} aria-label="ผู้ดูแล"
               options={assigneeChips.map((a) => ({ value: a.key, label: `${a.label} (${a.count})` }))} />
           </div>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="สถานะการอ่าน">
-            {([{ value: "all", label: "ทั้งหมด" }, { value: "unread", label: "ยังไม่อ่าน" }, { value: "read", label: "อ่านแล้ว" }] as const).map((item) => (
-              <Button variant="ghost" size="inline"
-                key={item.value}
-                type="button"
-                aria-pressed={readFilter === item.value}
-                onClick={() => setReadFilter(item.value)}
-                className={cn("rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", readFilter === item.value ? "border-primary/20 bg-primary/10 text-primary" : "border-transparent bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground")}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
+          {/* owner 2026-11-12: read status as tabs (pick one, the list changes); the unread count rides on its label */}
+          <Tabs value={readFilter} onValueChange={(v) => setReadFilter(v as typeof readFilter)}>
+            <TabsList variant="line" aria-label="สถานะการอ่าน" className="w-full">
+              <TabsTrigger value="all">ทั้งหมด</TabsTrigger>
+              <TabsTrigger value="unread">{unreadCount(conversations) > 0 ? `ยังไม่อ่าน ${unreadCount(conversations)}` : "ยังไม่อ่าน"}</TabsTrigger>
+              <TabsTrigger value="read">อ่านแล้ว</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
           {filtered.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">ไม่พบบทสนทนา</p>}
           {filtered.map((c) => {
             const lm = lastMessage(c.id)
-            const type = conversationType(c)
+            const assignee = c.assigneeId ? staff.find((s) => s.id === c.assigneeId)?.nickname : undefined
+            // owner 2026-11-12: a row is three lines — name … time / last message / status C·L · assignee · group
             return (
               <Button variant="row" size="inline" key={c.id} onClick={() => select(c.id)}
                 className={cn("flex w-full items-start gap-2.5 rounded-2xl p-2.5 text-left hover:bg-muted/60", selected?.id === c.id && "bg-muted")}>
@@ -320,17 +320,22 @@ export default function InboxPage() {
                   {initial(c.name)}
                   {c.unread && <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full border-2 border-card bg-primary" />}
                 </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
                     <span className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>{c.name}</span>
-                    <span className="shrink-0 text-2xs text-muted-foreground">{lm ? fmtDateTime(lm.at).split(" ")[1] : ""}</span>
+                    <span className="shrink-0 text-2xs text-muted-foreground">{lm ? chatListTime(lm.at, now) : ""}</span>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-1">
-                    {isLive(c.id) && <Pill tone="blue" className="px-1.5 py-0 text-2xs"><RadioIcon className="size-2.5" /> LIVE</Pill>}
-                    <Pill tone={type === "customer" ? "green" : type === "lead" ? "amber" : "gray"} className="px-1.5 py-0 text-2xs">{CONVERSATION_TYPE_LABEL[type]}</Pill>
-                    <span className="truncate text-xs text-muted-foreground">{lm?.text ?? "—"}</span>
+                  <div className={cn("truncate text-xs", c.unread ? "font-medium text-foreground" : "text-muted-foreground")}>{lm ? `${c.group && lm.sender ? `${lm.sender.name}: ` : ""}${lm.text}` : "—"}</div>
+                  {/* owner 2026-11-12: chips were too busy → one quiet grey line, icon + word, separated by centre dots (no boxes). Type slot is fixed width so rows line up; empty ones are fainter */}
+                  <div className="flex items-center gap-1.5 pt-0.5 text-2xs text-muted-foreground">
+                    <TypeMark type={conversationType(c)} />
+                    <span aria-hidden>·</span>
+                    <span className={cn("inline-flex min-w-0 items-center gap-1", !assignee && "opacity-60")}>
+                      {assignee ? <UserCheckIcon className="size-3 shrink-0" /> : <UserXIcon className="size-3 shrink-0" />}
+                      <span className="truncate">{assignee ?? "-"}</span>
+                    </span>
+                    {c.group && <><span aria-hidden>·</span><span className="inline-flex shrink-0 items-center gap-1"><UsersIcon className="size-3" /> กลุ่ม</span></>}
                   </div>
-                  <div className="mt-0.5 text-2xs text-muted-foreground">{c.assigneeId ? staff.find((s) => s.id === c.assigneeId)?.nickname : "ยังไม่มอบหมาย"}</div>
                 </div>
               </Button>
             )
@@ -359,16 +364,16 @@ export default function InboxPage() {
             <div className="flex items-center gap-3 px-4 py-3">
               <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(selected.id))}>{initial(selected.name)}</span>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold">{selected.name}</span>
-                  {isLive(selected.id) && <Pill tone="blue"><RadioIcon className="size-2.5" /> LIVE — LINE จริง</Pill>}
-                  <Pill tone={conversationType(selected) === "customer" ? "green" : conversationType(selected) === "lead" ? "amber" : "gray"}>{CONVERSATION_TYPE_LABEL[conversationType(selected)]}</Pill>
+                <span className="block truncate text-sm font-semibold">{selected.name}</span>
+                {/* owner 2026-11-12: no chips in the header either — one quiet grey line like the list: channel · group · family · type */}
+                <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
+                  <TypeMark type={conversationType(selected)} />
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex shrink-0 items-center gap-1">{isLive(selected.id) && <RadioIcon className="size-3" aria-label="LIVE — LINE จริง" />}{CHANNEL_LABEL[selected.channel]}</span>
+                  {selected.group && <><span aria-hidden>·</span><span className="inline-flex shrink-0 items-center gap-1"><UsersIcon className="size-3" /> แชทกลุ่ม</span></>}
+                  {selected.group && family && <><span aria-hidden>·</span><span className="min-w-0 truncate">{family.name}</span></>}
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">{CHANNEL_LABEL[selected.channel]}</p>
               </div>
-              {lead && (
-                <Button size="sm" variant="outline" onClick={() => setSendingFormOpen(true)}><FileSignatureIcon /> ส่งฟอร์ม</Button>
-              )}
               {/* owner 2026-10-05: assignee is an action next to the side-panel button, same size as the others */}
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label="มอบหมายผู้ดูแล" className={cn(!selected.assigneeId && "text-muted-foreground")} />}>
@@ -377,16 +382,15 @@ export default function InboxPage() {
                 <DropdownMenuContent align="end" className="w-48">
                   {staff.filter((s) => s.active && s.branchIds.includes(branch.id) && can(s, "inbox.manage")).map((s) => (
                     <DropdownMenuItem key={s.id} onClick={() => report(assign(selected.id, s.id), "มอบหมายแล้ว")}>
-                      <CheckIcon className={cn(selected.assigneeId === s.id ? "opacity-100" : "opacity-0")} /> {s.nickname}
+                      {s.nickname} <CheckIcon className={cn("ml-auto", selected.assigneeId === s.id ? "opacity-100" : "opacity-0")} />
                     </DropdownMenuItem>
                   ))}
                   {selected.assigneeId && <><DropdownMenuSeparator /><DropdownMenuItem onClick={() => report(assign(selected.id, null), "ยกเลิกมอบหมายแล้ว")}>ยกเลิกมอบหมาย</DropdownMenuItem></>}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button size="icon-sm" variant={calOpen ? "default" : "outline"} aria-label="ปฏิทิน / หาเวลาว่าง" title="ปฏิทิน / หาเวลาว่าง" onClick={() => setCalOpen((o) => !o)}><CalendarSearchIcon /></Button>
               <Button
                 size="icon-sm" variant="outline" aria-label="ข้อมูลติดต่อ"
-                onClick={() => { if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
+                onClick={() => { if (selected.group) setGroupInfo(true); else if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
               >
                 <InfoIcon />
               </Button>
@@ -401,7 +405,7 @@ export default function InboxPage() {
                 {groupByDay(thread).map((g) => (
                   <Fragment key={g.day}>
                     <Marker variant="separator" className="py-1"><MarkerContent>{chatDayLabel(g.day, today)}</MarkerContent></Marker>
-                    {g.items.map((m) => {
+                    {g.items.map((m, i) => {
                       if (m.kind === "form_request") return <FormRequestBubble key={m.id} message={m} submissions={submissions} />
                       if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} submissions={submissions} onChanged={pollSubmissions} />
                       if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
@@ -410,7 +414,7 @@ export default function InboxPage() {
                       if (isEnrollSubmissionMessage(m)) return <EnrollSubmissionChatCard key={m.id} message={m} conversation={selected} />
                       const link = formLinkOf(m)
                       if (link) return <FormLinkBubble key={m.id} message={m} answered={link.form === "custom" ? formResponses.some((r) => r.token === link.token) : link.form === "exit" && thread.some((x) => isExitFormMessage(x) && (x.meta?.formKind === "exit_form" ? x.meta.token === link.token : x.at > m.at))} />
-                      return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} />
+                      return <MessageBubble key={m.id} message={m} conversation={selected} staff={staff} onUseAsSlip={useAsSlip} continued={!!m.sender && g.items[i - 1]?.author === "parent" && g.items[i - 1]?.sender?.userId === m.sender.userId} memberLabel={selected.group && m.sender ? groupMemberLabel(selected, m.sender, family ?? undefined, kids) : undefined} />
                     })}
                   </Fragment>
                 ))}
@@ -422,24 +426,28 @@ export default function InboxPage() {
                 {!draft && (
                   <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
                     {QUICK_REPLIES.map((q) => (
-                      <Button key={q} size="sm" variant="outline" className="shrink-0 rounded-full font-normal text-muted-foreground" onClick={() => { setDraft(q); composer.current?.focus() }}>{q}</Button>
+                      <Button key={q} size="sm" variant="ghost" className="shrink-0 rounded-full bg-muted font-normal text-muted-foreground hover:bg-muted/70" onClick={() => { setDraft(q); composer.current?.focus() }}>{q}</Button>
                     ))}
                   </div>
                 )}
                 {/* one rounded box: + · text · send (Claude-style) */}
-                <div className={cn("flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60", isNote && "border-warning bg-warning-soft/60")}>
+                <div className={cn("flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-[color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30", isNote && "border-warning bg-warning-soft/60 focus-within:border-warning focus-within:ring-warning/30")}>
                   {/* owner 2026-10-05: "+" before the type bar — send a form or a photo into this chat */}
                   <DropdownMenu>
                     <DropdownMenuTrigger render={<Button size="icon" variant="ghost" className="rounded-full text-muted-foreground" aria-label="แนบฟอร์ม / รูปภาพ" />}><PlusIcon /></DropdownMenuTrigger>
                     <DropdownMenuContent side="top" align="start" className="w-44">
-                      <DropdownMenuSub>
+                      {/* owner 2026-11-12: the calendar helps WRITE a message (pick free times → "ใส่ในข้อความ"), so it lives with the other things that go into a message, not in the header */}
+                      <DropdownMenuItem onClick={() => setCalOpen((o) => !o)}><CalendarSearchIcon /> ปฏิทิน / หาเวลาว่าง</DropdownMenuItem>
+                      {/* a LINE group = everyone in it sees the message → family-private links (forms · catalog · invoice) are hidden there */}
+                      {(!selected.group || family) && <DropdownMenuSub>
                         <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-80 whitespace-nowrap">
                           {/* owner 2026-10-19: existing families too (e.g. a second child) — the child gets its own lead on send */}
-                          <DropdownMenuItem disabled={!lead && !family} onClick={() => { setFormType("test"); setSendingFormOpen(true) }}><ClipboardListIcon /> Test Form{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={!lead && !family} onClick={() => { setFormType("trial"); setSendingFormOpen(true) }}><GraduationCapIcon /> Trial{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={!lead && !family} onClick={() => setSendingEnroll(true)}><UserPlusIcon /> Enroll{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.enroll} />}</DropdownMenuItem>
-                          {kids.length > 1 ? (
+                          <DropdownMenuItem disabled={!lead && !family} onClick={() => viaGroup(() => { setFormType("test"); setSendingFormOpen(true) })}><ClipboardListIcon /> Test Form{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead && !family} onClick={() => viaGroup(() => { setFormType("trial"); setSendingFormOpen(true) })}><GraduationCapIcon /> Trial{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!lead && !family} onClick={() => viaGroup(() => setSendingEnroll(true))}><UserPlusIcon /> Enroll{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.enroll} />}</DropdownMenuItem>
+                          {/* leaving is a private matter between us and the guardian — never in a group */}
+                          {!selected.group && (kids.length > 1 ? (
                             <DropdownMenuSub>
                               <DropdownMenuSubTrigger><LogOutIcon /> ลาออก<Sent at={sentAt.exit} /></DropdownMenuSubTrigger>
                               <DropdownMenuSubContent>
@@ -451,25 +459,25 @@ export default function InboxPage() {
                             </DropdownMenuSub>
                           ) : (
                             <DropdownMenuItem disabled={!kids.length} onClick={() => setExitStudent(kids[0])}><LogOutIcon /> ลาออก{!kids.length ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={sentAt.exit} />}</DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem disabled={!family} onClick={async () => report(await sendSurveyToChat(selected.id), "ส่งแบบสอบถามความพึงพอใจแล้ว")}><HeartHandshakeIcon /> ความพึงพอใจ{!family ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={sentAt.survey} />}</DropdownMenuItem>
+                          ))}
+                          <DropdownMenuItem disabled={!family} onClick={() => viaGroup(async () => report(await sendSurveyToChat(selected.id), "ส่งแบบสอบถามความพึงพอใจแล้ว"))}><HeartHandshakeIcon /> ความพึงพอใจ{!family ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={sentAt.survey} />}</DropdownMenuItem>
                           {customForms.length > 0 && (
                             <DropdownMenuGroup>
                               <DropdownMenuSeparator />
                               <DropdownMenuLabel>ฟอร์มที่สร้างเอง</DropdownMenuLabel>
                               {customForms.map((f) => (
-                                <DropdownMenuItem key={f.id} disabled={!family} onClick={() => formSender.start(f)}>
+                                <DropdownMenuItem key={f.id} disabled={!family} onClick={() => viaGroup(() => formSender.start(f))}>
                                   <ClipboardListIcon /><span className="truncate">{f.name}</span>{!family ? <Hint>เฉพาะลูกค้า</Hint> : <Sent at={lastAt(thread.filter((m) => m.author === "staff" && m.text.includes("token=pc_") && m.text.includes(`“${f.name}”`)).map((m) => m.at))} />}
                                 </DropdownMenuItem>
                               ))}
                             </DropdownMenuGroup>
                           )}
                         </DropdownMenuSubContent>
-                      </DropdownMenuSub>
+                      </DropdownMenuSub>}
                       <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>
                       {/* owner 2026-10-22: the branch's course catalog — the parent filters grade / subject and taps a class */}
-                      <DropdownMenuItem onClick={async () => report(await sendCatalogToChat(selected.id), "ส่ง Catalog แล้ว")}><BookOpenIcon /> Catalog คอร์ส<Sent at={linkSent("pk_")} /></DropdownMenuItem>
-                      {kids.length > 1 ? (
+                      {(!selected.group || family) && <DropdownMenuItem onClick={() => viaGroup(async () => report(await sendCatalogToChat(selected.id), "ส่ง Catalog แล้ว"))}><BookOpenIcon /> Catalog คอร์ส<Sent at={linkSent("pk_")} /></DropdownMenuItem>}
+                      {!selected.group && (kids.length > 1 ? (
                         <DropdownMenuSub>
                           <DropdownMenuSubTrigger><ReceiptIcon /> ใบแจ้งหนี้</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
@@ -483,25 +491,26 @@ export default function InboxPage() {
                         <DropdownMenuItem disabled={!kids.length && !lead} onClick={() => openInvoice()}>
                           <ReceiptIcon /> ใบแจ้งหนี้{!kids.length && !lead ? <Hint>ผูกแชทก่อน</Hint> : null}
                         </DropdownMenuItem>
-                      )}
+                      ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
                   {/* grows with the text (times from the Calendar Preview come in several lines) · Enter sends, Shift+Enter = new line */}
                   <Textarea ref={composer} rows={1} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }}
-                    placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn("max-h-40 min-h-9 flex-1", draft ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none bg-transparent px-1 py-2 text-sm outline-none placeholder:text-muted-foreground")} />
+                    placeholder="พิมพ์ตอบผู้ปกครอง… (// สำหรับโน้ตภายใน)" className={cn("max-h-40 min-h-9 flex-1", draft ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:ring-0")} />
                   <Button size="icon" className="rounded-full" onClick={submit} disabled={!draft.trim() || sending} aria-label={sending ? "กำลังส่ง…" : "ส่ง"}>{sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon />}</Button>
                 </div>
-                <div className="flex items-center justify-between px-3 text-2xs text-muted-foreground">
-                  <span>พิมพ์ <code className="rounded bg-muted px-1">{"//"}</code> ขึ้นต้น = โน้ตภายใน ผู้ปกครองไม่เห็น</span>
-                  {isLive(selected.id) ? (
-                    <span className="inline-flex items-center gap-1 text-info"><RadioIcon className="size-3" /> ข้อความไหลจาก LINE จริง — sync ทุก 4 วิ</span>
-                  ) : (
-                    <Button variant="link" size="inline" className="inline-flex items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
-                      <SparklesIcon className="size-3" /> จำลองข้อความจากผู้ปกครอง
-                    </Button>
-                  )}
-                </div>
+                {/* owner 2026-11-12: the line under the box was crowded (3 notes wrapping) → only what matters: a group warning, or the demo's "simulate" link. "//" is already in the placeholder; the LINE live note is the radio icon in the header */}
+                {(selected.group || !isLive(selected.id)) && (
+                  <div className="flex min-w-0 items-center justify-between gap-2 px-3 text-2xs whitespace-nowrap text-muted-foreground">
+                    {selected.group ? <span className="inline-flex min-w-0 items-center gap-1 text-warning-ink"><UsersIcon className="size-3 shrink-0" /><span className="truncate">ส่งเข้ากลุ่ม · ทุกคนในกลุ่มเห็น</span></span> : <span />}
+                    {!isLive(selected.id) && (
+                      <Button variant="link" size="inline" className="inline-flex shrink-0 items-center gap-1 hover:text-foreground hover:underline" onClick={() => { if (report(simulateReply(selected.id), "จำลองข้อความตอบกลับแล้ว")) openConversation(selected.id) }}>
+                        <SparklesIcon className="size-3" /> จำลองข้อความจากผู้ปกครอง
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -514,13 +523,27 @@ export default function InboxPage() {
       )}
       {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} onClose={() => setInvoicePanel(null)} />}
       {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} onInvoice={() => openInvoice()} />}
-      {composing && <ComposeDialog onClose={() => setComposing(false)} onSent={(id) => { setComposing(false); if (id) select(id) }} />}
       {sendingFormOpen && selected && (lead || family) && (
         <SendFormDialog
           leadId={lead?.id ?? null} branchId={lead?.branchId ?? selected.branchId} conversationId={selected.id}
-          lineUserId={lead?.lineUserId ?? family?.lineUserId ?? (selected.id.startsWith("line_") ? selected.id.slice(5) : "")} initialType={formType} initialSubjects={formSubjects}
+          lineUserId={selected.group ? selected.id.slice(5) : lead?.lineUserId ?? family?.lineUserId ?? (selected.id.startsWith("line_") ? selected.id.slice(5) : "")} initialType={formType} initialSubjects={formSubjects}
           onClose={() => { setSendingFormOpen(false); setFormType(undefined); setFormSubjects(undefined) }}
         />
+      )}
+      {groupInfo && selected?.group && <GroupSheet conversationId={selected.id} onClose={() => setGroupInfo(false)} />}
+      {confirmGroupSend && (
+        <Dialog open onOpenChange={(o) => !o && setConfirmGroupSend(null)}>
+          <DialogContent className="lg:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>ส่งเข้ากลุ่มนี้?</DialogTitle>
+              <DialogDescription>ทุกคนในกลุ่ม “{selected?.name}” จะเห็นลิงก์นี้ รวมถึงญาติที่ไม่ได้เป็นสมาชิกครอบครัว — ส่งเฉพาะเรื่องที่ไม่เป็นส่วนตัว</DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmGroupSend(null)}>ยกเลิก</Button>
+              <Button onClick={() => { const go = confirmGroupSend; setConfirmGroupSend(null); go() }}>ส่งเข้ากลุ่ม</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
       {linking && selected && (
         <Dialog open onOpenChange={(o) => !o && setLinking(false)}>
@@ -573,6 +596,23 @@ export default function InboxPage() {
 }
 
 /** why a menu item is greyed out — small, on the right, never wraps the label */
+const TYPE_MARK = {
+  customer: { Icon: BadgeCheckIcon, text: "Cust", label: "Customer · ลูกค้า", empty: false },
+  lead: { Icon: TargetIcon, text: "Lead", label: "Lead · ลีด", empty: false },
+  contact: { Icon: UserRoundIcon, text: "Vist", label: "Visitor · ยังไม่ผูกกับ Customer / Lead", empty: true },
+} as const
+
+/** status of a chat in the list: icon + a 4-letter word in a fixed-width slot (so every row lines up), grey; hover says what it means */
+function TypeMark({ type }: { type: ConversationType }) {
+  const { Icon, text, label, empty } = TYPE_MARK[type]
+  return (
+    <HoverCard>
+      <HoverCardTrigger render={<span className={cn("inline-flex w-11 shrink-0 items-center gap-1", empty && "opacity-60")} />}><Icon className="size-3 shrink-0" /> {text}</HoverCardTrigger>
+      <HoverCardContent side="top" className="w-auto px-2.5 py-1.5 text-xs">{label}</HoverCardContent>
+    </HoverCard>
+  )
+}
+
 function Hint({ children }: { children: React.ReactNode }) {
   return <span className="ml-auto pl-3 text-2xs font-normal">{children}</span>
 }
