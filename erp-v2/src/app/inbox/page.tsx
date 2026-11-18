@@ -447,8 +447,8 @@ export default function InboxPage() {
                         <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-80 whitespace-nowrap">
                           {/* owner 2026-10-19: existing families too (e.g. a second child) — the child gets its own lead on send */}
-                          <DropdownMenuItem disabled={!lead && !family} onClick={() => viaGroup(() => { setFormType("test"); setSendingFormOpen(true) })}><ClipboardListIcon /> Test Form{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.test} />}</DropdownMenuItem>
-                          <DropdownMenuItem disabled={!lead && !family} onClick={() => viaGroup(() => { setFormType("trial"); setSendingFormOpen(true) })}><GraduationCapIcon /> Trial{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.trial} />}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => viaGroup(() => { setFormType("test"); setSendingFormOpen(true) })}><ClipboardListIcon /> Test Form<Sent at={sentAt.test} /></DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => viaGroup(() => { setFormType("trial"); setSendingFormOpen(true) })}><GraduationCapIcon /> Trial<Sent at={sentAt.trial} /></DropdownMenuItem>
                           <DropdownMenuItem disabled={!lead && !family} onClick={() => viaGroup(() => setSendingEnroll(true))}><UserPlusIcon /> Enroll{!lead && !family ? <Hint>ผูกแชทก่อน</Hint> : <Sent at={sentAt.enroll} />}</DropdownMenuItem>
                           {/* leaving is a private matter between us and the guardian — never in a group */}
                           {!selected.group && (kids.length > 1 ? (
@@ -527,7 +527,7 @@ export default function InboxPage() {
       )}
       {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} onClose={() => setInvoicePanel(null)} />}
       {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} onInvoice={() => openInvoice()} />}
-      {sendingFormOpen && selected && (lead || family) && (
+      {sendingFormOpen && selected && (
         <SendFormDialog
           leadId={lead?.id ?? null} branchId={lead?.branchId ?? selected.branchId} conversationId={selected.id}
           lineUserId={selected.group ? selected.id.slice(5) : lead?.lineUserId ?? family?.lineUserId ?? (selected.id.startsWith("line_") ? selected.id.slice(5) : "")} initialType={formType} initialSubjects={formSubjects}

@@ -4,7 +4,7 @@
 // so the UI can always show success or a human-readable error (no silent failures).
 
 import { create } from "zustand"
-import { createJSONStorage, persist } from "zustand/middleware"
+import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
 import { addDays, at, fmtDate, TH_DAYS_FULL, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
@@ -23,7 +23,8 @@ import * as BusR from "@/domain/rules/bus"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { withLinkedCourseSummary, withLinkedFamilyDemo } from "./linked-demo"
 import { withTransportDemo } from "./transport-demo"
-import { keepLineLinks, restoreLinks } from "./keep-line-links"
+import { keepLineLinks, restoreLinks, withoutLineLink } from "./keep-line-links"
+import { createIdbStorage } from "./idb-storage"
 import * as Sum from "@/domain/rules/summaries"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
@@ -61,6 +62,8 @@ type Store = DB & UIState & {
   setBranch: (id: ID) => void
   setClockOffset: (ms: number) => void
   resetData: () => void
+  /** owner 2026-11-18: test a flow again from zero — the sample data comes back and this LINE account is a brand-new Visitor (other links stay) */
+  restartAsVisitor: (lineUserId: string) => void
 
   createClass: (d: Sch.ClassDraft & { name: string; grades: string[] }) => Result<{ klass: Klass; sessions: number }>
   /** Create New Class (owner design): one form → one class per row of weekday + start–end time */
@@ -363,6 +366,8 @@ type Store = DB & UIState & {
    *  Lazily creates that child's Lead first if this is an "Add another Student" child (`leadId: null`). */
   /** applyChanges: the parent edited details of a family/child we already have — staff confirmed updating them */
   /** opts.newFamily (owner 2026-10-29): the admin decided the family on file with the same phone / LINE is a different family */
+  /** a form came back for a chat with no Lead → make the Lead from the answers (idempotent: an existing one is returned as it is) */
+  createLeadFromSubmission: (sub: FormSubmission) => Result<Lead>
   approveTestTrialSubmission: (sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean }) => Result<{ sessionId: ID; studentId: ID; leadId: ID }>
 
   openConversation: (id: ID) => void
@@ -480,17 +485,16 @@ const L = (s: { branches: Branch[] }, roomId: ID | null) => s.branches.flatMap((
 let lastMove: { sessions: Session[]; classes: Klass[]; entitlements: Entitlement[] } | null = null
 
 const isParentPage = () => typeof window !== "undefined" && window.location.pathname.startsWith("/liff")
-let warnedFull = false
-const safeStorage: Storage | { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void; removeItem: (k: string) => void } = {
-  getItem: (k) => { try { return isParentPage() ? null : localStorage.getItem(k) } catch { return null } },
-  setItem: (k, v) => {
-    if (isParentPage()) return
-    try { localStorage.setItem(k, v) } catch (e) {
-      if (!warnedFull) { warnedFull = true; console.warn("NockERP: browser storage is full — changes stay until the page is closed", e) }
-    }
+// owner 2026-11-18: the data lives in IndexedDB, not localStorage (5.8 MB did not fit the ~5 MB localStorage gets, and a write that
+// did not fit was skipped silently — new Leads vanished on the next reload). See store/idb-storage.ts. The parent app in LINE
+// never reads or writes staff data.
+const idb = createIdbStorage<Partial<Store>>({
+  disabled: isParentPage,
+  onSaveError: (e) => {
+    console.error("NockERP: could not save to the browser", e)
+    void import("@/lib/toast").then((m) => m.toast.error("บันทึกข้อมูลลงเครื่องไม่สำเร็จ — สิ่งที่ทำล่าสุดอาจหายถ้ารีโหลดหน้า"))
   },
-  removeItem: (k) => { try { localStorage.removeItem(k) } catch { /* ignore */ } },
-}
+})
 
 export const useStore = create<Store>()(
   persist(
@@ -675,6 +679,7 @@ export const useStore = create<Store>()(
       },
 
       resetData: () => set({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(get(), buildSeed())))), clockOffset: 0 }),
+      restartAsVisitor: (lineUserId) => set({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(withoutLineLink(get(), lineUserId), buildSeed())))), clockOffset: 0 }),
 
       // ---------------- classes & sessions ----------------
       createClass: (d) => {
@@ -3425,6 +3430,23 @@ export const useStore = create<Store>()(
         return OK
       },
 
+      createLeadFromSubmission: (sub) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        const existing = s.leads.find((x) => x.id === sub.primaryLeadId)
+        if (existing) return { ok: true, value: existing }
+        const conv = s.conversations.find((c) => c.id === sub.conversationId)
+        const lead = CRM.leadFromSubmission(sub, { nowIso: s.now().toISOString(), assigneeId: conv?.assigneeId ?? s.userId })
+        if (!lead.name.trim()) return fail("ฟอร์มนี้ไม่มีชื่อผู้ปกครอง — สร้าง Lead ไม่ได้")
+        set({
+          leads: [lead, ...s.leads],
+          // the chat that sent the form now has its Lead (only when it has neither a Lead nor a family yet)
+          conversations: s.conversations.map((c) => (c.id === sub.conversationId && !c.leadId && !c.familyId ? { ...c, leadId: lead.id, assigneeId: c.assigneeId ?? lead.assigneeId } : c)),
+        })
+        return { ok: true, value: lead }
+      },
+
       approveTestTrialSubmission: (sub, opts) => {
         const s = get()
         const perm = requirePerm(s.me(), "session.manage")
@@ -3728,7 +3750,10 @@ export const useStore = create<Store>()(
       // owner 2026-10-14: the demo data outgrew a phone's browser storage (LINE's in-app browser ≈ 5 MB) and the
       // QuotaExceeded error took the whole page down — a write that doesn't fit is skipped, the app keeps running.
       // The parent app in LINE never writes staff data at all.
-      storage: createJSONStorage(() => safeStorage),
+      storage: idb.storage,
+      // read the saved data first (hydrate() below, and the gate that holds the screen until it is done) — then, and only then, changes are saved
+      skipHydration: true,
+      onRehydrateStorage: () => () => idb.enableWrites(),
       // bump when the data model changes; older saved data is replaced by fresh sample data
       version: 121, // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
       migrate: (old, from) => (from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store),
@@ -3737,6 +3762,9 @@ export const useStore = create<Store>()(
     },
   ),
 )
+
+// read the saved data now (client only) — every screen waits for it (components/app/store-ready.tsx)
+if (typeof window !== "undefined") void useStore.persist.rehydrate()
 
 // the holiday rules need to know each branch's brand (Liclass / NockAcademy keep different calendars) — keep that in step with the branches
 Sch.setBranchBrands(useStore.getState().branches)

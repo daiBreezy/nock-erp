@@ -53,3 +53,14 @@ export function restoreLinks<T extends { families: Family[]; conversations: Conv
   return { ...db, families, conversations, restored: back.length }
 }
 
+
+/** Start over as a brand-new parent (owner 2026-11-18): the family that carried this LINE account loses it, so a reseed
+ *  (keepLineLinks) brings that family back as the sample one and its chat turns back into a Visitor — every other
+ *  linked family keeps its link. */
+export function withoutLineLink<T extends { families?: Family[]; conversations?: Conversation[] }>(old: T, lineUserId: string): T {
+  return {
+    ...old,
+    families: old.families?.map((f) => (f.lineUserId === lineUserId ? { ...f, lineUserId: undefined } : f)),
+    conversations: old.conversations?.filter((c) => c.id !== `line_${lineUserId}`),
+  }
+}

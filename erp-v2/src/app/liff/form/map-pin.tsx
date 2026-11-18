@@ -13,7 +13,7 @@ const BANGKOK: LatLng = { lat: 13.7563, lng: 100.5018 }
  * or use the phone's location. OpenStreetMap tiles — no API key. The pin is a CSS dot (bundlers break Leaflet's
  * default marker images).
  */
-export function MapPin({ value, onChange, locateLabel }: { value?: LatLng; onChange: (v: LatLng) => void; locateLabel: string }) {
+export function MapPin({ value, onChange, onLocate, locateLabel }: { value?: LatLng; onChange: (v: LatLng) => void; /** only the phone's own location button (not a tap on the map) — e.g. to fill the address fields */ onLocate?: (v: LatLng) => void; locateLabel: string }) {
   const box = useRef<HTMLDivElement>(null)
   const map = useRef<LMap | null>(null)
   const marker = useRef<Marker | null>(null)
@@ -47,6 +47,7 @@ export function MapPin({ value, onChange, locateLabel }: { value?: LatLng; onCha
     const ll = { lat: p.coords.latitude, lng: p.coords.longitude }
     map.current?.setView(ll, 17)
     ;(box.current as (HTMLDivElement & { _place?: (ll: LatLng) => void }) | null)?._place?.(ll)
+    onLocate?.(ll)
   })
 
   return (

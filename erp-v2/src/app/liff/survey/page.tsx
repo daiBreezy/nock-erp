@@ -140,7 +140,7 @@ function Survey() {
   // owner 2026-11-16: an outlined list, text to the left; the picked one gets the brand border + soft fill (same as the other parent chips)
   const chip = (on: boolean) => cn("min-h-12 justify-start rounded-2xl border px-4 py-3 text-left text-base leading-snug", on ? "border-primary bg-primary/10 font-medium text-primary" : "border-border bg-background")
   return (
-    <div className="mx-auto min-h-dvh max-w-lg bg-background pb-28">
+    <div className="mx-auto min-h-dvh max-w-lg bg-background pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <ShrinkHeader title={t.title(token.year)} subtitle={`${token.brand === "liclass" ? "Liclass" : "NockAcademy"} · ${token.branchName}`} lang={lang} onLang={preview ? undefined : setLang} />
       <main className="space-y-4 p-4">
         <Card><p className="text-xl font-semibold">{t.hello(token.familyName)}</p><p className="text-sm text-muted-foreground">{t.intro}</p></Card>
@@ -187,7 +187,7 @@ function Survey() {
         <Card title={t.courses} sub={t.optional}><Textarea rows={3} className="text-base" value={courses} onChange={(e) => setCourses(e.target.value)} /></Card>
         <Card title={`${t.message} *`} error={tried && missing.message}><Textarea rows={5} className="text-base" value={message} onChange={(e) => setMessage(e.target.value)} /></Card>
       </main>
-      <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto max-w-lg">
           {tried && Object.values(missing).some(Boolean) && <p className="mb-2 text-center text-xs text-danger">{t.need}</p>}
           <Button className="h-12 w-full text-base" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>

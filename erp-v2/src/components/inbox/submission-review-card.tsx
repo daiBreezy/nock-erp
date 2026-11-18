@@ -6,15 +6,17 @@ import { CalendarIcon, CheckIcon, ClipboardListIcon, GraduationCapIcon, PencilIc
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
 import { fmtDate } from "@/domain/dates"
-import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import { FORM_TYPE_LABEL, canEditTogether } from "@/domain/rules/forms"
 import { matchExistingFamily, submissionChanges } from "@/domain/rules/people"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { FormOfferSlot, FormSubmission } from "@/domain/types"
 import { approveSubmission, editSubmissionSlot, rejectSubmission } from "@/lib/forms"
 import { report } from "@/lib/feedback"
+import { tx } from "@/lib/i18n"
 import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
-import { SlotPicker } from "./slot-picker"
+import { SlotPicker, VisitPicker } from "./slot-picker"
 import { FamilyMatchChoice } from "@/components/app/family-match-choice"
 
 
@@ -38,7 +40,16 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const [editingPick, setEditingPick] = useState<number | null>(null)
   const [editSubject, setEditSubject] = useState("")
   const [editSlot, setEditSlot] = useState<FormOfferSlot | null>(null)
+  // owner 2026-11-18: a form answered as ONE visit asks first — change one subject (they may split) or move all of them together
+  const [ask, setAsk] = useState<number | null>(null)
+  const [visitEdit, setVisitEdit] = useState<{ key: string; bySubject: Record<string, FormOfferSlot> } | null>(null)
+  const [visitMode, setVisitMode] = useState(false)
+  const oneVisit = canEditTogether(sub.type, sub.picks)
+  const idle = editingPick === null && ask === null && !visitMode
   const [busy, setBusy] = useState(false)
+  // owner 2026-11-18: a form can come back for a chat that has no Lead — the answers are enough to make one
+  const noLead = !leads.some((l) => l.id === sub.primaryLeadId)
+  const [askLead, setAskLead] = useState(false)
 
   const matchedFamily = sub.status === "pending" ? matchExistingFamily(families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) }) : null
   // a child we already know (test → trial) or a family on file: what did the parent change in this form?
@@ -52,20 +63,39 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const approve = async () => {
     setBusy(true)
     try {
-      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges, newFamily }), changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว")) onChanged()
+      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges, newFamily }), (v) => (v.createdLead ? "อนุมัติแล้ว + สร้าง Lead จากฟอร์ม — สร้างคาบเรียนจริงแล้ว" : changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว"))) onChanged()
     } finally {
       setBusy(false)
     }
   }
-  const reject = async () => {
+  const reject = async (createLead = false) => {
     setBusy(true)
     try {
-      if (report(await rejectSubmission(sub), "ปฏิเสธฟอร์มแล้ว")) onChanged()
+      if (report(await rejectSubmission(sub, { createLead }), createLead ? "ปฏิเสธฟอร์มแล้ว — เก็บข้อมูลไว้เป็น Lead" : "ปฏิเสธฟอร์มแล้ว")) { setAskLead(false); onChanged() }
     } finally {
       setBusy(false)
     }
   }
-  const startEdit = (i: number) => { setEditingPick(i); setEditSubject(sub.picks[i].chosenSubject); setEditSlot(null) }
+  const onPencil = (i: number) => { if (oneVisit) setAsk(i); else startEdit(i) }
+  const saveVisit = async () => {
+    if (!visitEdit) return
+    setBusy(true)
+    try {
+      // every subject keeps its place in the form, each moves to its own part of the new shared visit
+      for (let i = 0; i < sub.picks.length; i++) {
+        const slot = visitEdit.bySubject[sub.picks[i].chosenSubject]
+        if (!slot) continue
+        const r = await editSubmissionSlot(sub, i, sub.picks[i].chosenSubject, slot)
+        if (!r.ok) { report(r, ""); return }
+      }
+      report({ ok: true, value: undefined }, tx("ย้ายทั้ง {0} วิชาแล้ว — ยังนัดพร้อมกัน", [sub.picks.length]))
+      setVisitMode(false); setVisitEdit(null)
+      onChanged()
+    } finally {
+      setBusy(false)
+    }
+  }
+  const startEdit = (i: number) => { setAsk(null); setEditingPick(i); setEditSubject(sub.picks[i].chosenSubject); setEditSlot(null) }
   const saveEdit = async () => {
     if (editingPick === null || !editSlot) return
     setBusy(true)
@@ -100,8 +130,8 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
         {sub.picks.map((pick, i) => (
           <div key={i} className="flex items-center gap-1.5 text-xs">
             <span>{pick.chosenSubject} · {fmtDate(pick.chosenSlot.date, { weekday: true })} {pick.chosenSlot.start} น. {pick.chosenSlot.source === "class" ? "(คลาสเดิม)" : ""}</span>
-            {sub.status === "pending" && editingPick === null && (
-              <Button variant="link" size="inline" type="button" className="text-muted-foreground hover:text-foreground" aria-label="แก้ไขวิชานี้" onClick={() => startEdit(i)}><PencilIcon className="size-3" /></Button>
+            {sub.status === "pending" && idle && (
+              <Button variant="link" size="inline" type="button" className="text-muted-foreground hover:text-foreground" aria-label="แก้ไขวิชานี้" onClick={() => onPencil(i)}><PencilIcon className="size-3" /></Button>
             )}
           </div>
         ))}
@@ -123,6 +153,32 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
       )}
 
 
+      {sub.status === "pending" && ask !== null && (
+        <div className="mt-2 space-y-2 rounded-lg border bg-background p-2.5">
+          <p className="text-xs font-medium">ฟอร์มนี้มีหลายวิชา — จะแก้แบบไหน?</p>
+          <Button variant="outline" size="inline" type="button" className="block w-full rounded-lg p-2 text-left" onClick={() => startEdit(ask)}>
+            <span className="block text-sm font-medium">แก้แยกวิชา <span className="font-normal text-muted-foreground">{sub.picks[ask].chosenSubject}</span></span>
+            <span className="block text-xs font-normal text-muted-foreground">เปลี่ยนเฉพาะวิชานี้ — วัน เวลา อาจแยกกัน</span>
+          </Button>
+          <Button variant="outline" size="inline" type="button" className="block w-full rounded-lg p-2 text-left" onClick={() => { setAsk(null); setVisitMode(true); setVisitEdit(null) }}>
+            <span className="block text-sm font-medium">{tx("แก้รวมทั้ง {0} วิชา", [sub.picks.length])}</span>
+            <span className="block text-xs font-normal text-muted-foreground">ย้ายไปด้วยกัน — วัน เวลา ยังคงเดิม (นัดพร้อมกัน)</span>
+          </Button>
+          <Button size="xs" variant="ghost" onClick={() => setAsk(null)}>ยกเลิก</Button>
+        </div>
+      )}
+
+      {sub.status === "pending" && visitMode && (
+        <div className="mt-2 space-y-2 rounded-lg border bg-background p-2">
+          <VisitPicker branch={branch} staff={staff} sessions={sessions} classes={classes} holidays={holidays} now={now}
+            subjects={[...new Set(sub.picks.map((p) => p.chosenSubject))]} selectedKey={visitEdit?.key ?? null} onPick={(key, bySubject) => setVisitEdit((cur) => (cur?.key === key ? null : { key, bySubject }))} />
+          <div className="flex gap-1.5">
+            <Button size="xs" disabled={!visitEdit || busy} onClick={saveVisit}>บันทึก</Button>
+            <Button size="xs" variant="ghost" onClick={() => { setVisitMode(false); setVisitEdit(null) }}>ยกเลิก</Button>
+          </div>
+        </div>
+      )}
+
       {sub.status === "pending" && editingPick !== null && (
         <div className="mt-2 space-y-2 rounded-lg border bg-background p-2">
           <SlotPicker
@@ -139,10 +195,10 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
       )}
       </ConfirmationBody>
 
-      {sub.status === "pending" && editingPick === null && (
+      {sub.status === "pending" && idle && (
         <ConfirmationActions>
-          <Button size="sm" variant="outline" className="text-danger" disabled={busy} onClick={reject}><XIcon /> ปฏิเสธ</Button>
-          <Button size="sm" disabled={busy} onClick={approve}><CheckIcon /> อนุมัติ</Button>
+          <Button size="sm" variant="outline" className="text-danger" disabled={busy} onClick={() => (noLead ? setAskLead(true) : reject())}><XIcon /> ปฏิเสธ</Button>
+          <Button size="sm" disabled={busy} onClick={approve}><CheckIcon /> {noLead ? "อนุมัติ / สร้าง Lead" : "อนุมัติ"}</Button>
         </ConfirmationActions>
       )}
       {sub.status === "approved" && (
@@ -156,6 +212,21 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
         </ConfirmationResult>
       )}
       {sub.status === "rejected" && <ConfirmationResult>ไม่ได้สร้างคาบเรียน</ConfirmationResult>}
+      {askLead && (
+        <Dialog open onOpenChange={(o) => !o && setAskLead(false)}>
+          <DialogContent className="lg:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>เก็บข้อมูลนี้เป็น Lead ไว้ก่อนไหม?</DialogTitle>
+              <DialogDescription>แชทนี้ยังไม่มี Lead แต่ผู้ปกครองกรอกข้อมูลมาครบแล้ว — ก่อนปฏิเสธฟอร์ม จะสร้าง Lead จากข้อมูลนี้ไว้ติดตามต่อไหม</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" disabled={busy} onClick={() => setAskLead(false)}>ยกเลิก</Button>
+              <Button variant="outline" disabled={busy} onClick={() => reject(false)}>ปฏิเสธเลย ไม่สร้าง</Button>
+              <Button disabled={busy} onClick={() => reject(true)}>สร้าง Lead แล้วปฏิเสธ</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Confirmation>
   )
 }

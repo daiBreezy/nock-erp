@@ -27,7 +27,7 @@ export function buildFormPrefill(input: {
     : [{ name: input.lead.name, phone: input.lead.phone, lineId: input.lead.lineId || undefined, primary: true }]
   return {
     parents,
-    familyName: f?.name, familyNameEn: f?.nameEn,
+    familyName: f?.name, familyNameEn: f?.nameEn, childGrade: input.lead.childGrade || undefined,
     address: f?.address, addressParts: f?.addressParts, postcode: f?.postcode, province: f?.province, location: f?.location, addressNote: f?.addressNote,
     acquisitions: f?.sources?.length ? f.sources : [input.lead.source], taxInfo: f?.taxInfo,
     students: input.students.map((s) => ({
@@ -118,6 +118,23 @@ function slotsOverlap(aStart: TimeStr, aMinutes: number, bStart: TimeStr, bMinut
   const a0 = toMinutes(aStart), a1 = a0 + aMinutes
   const b0 = toMinutes(bStart), b1 = b0 + bMinutes
   return overlaps(a0, a1, b0, b1)
+}
+
+/** Editing a Test with 2+ subjects asks first (owner 2026-11-18): change ONE subject (the times may then differ) or move ALL of them
+ *  together (still one visit). A Trial never asks — its subjects are booked separately and can never share a time. */
+export function canEditTogether(type: FormType, picks: unknown[]): boolean {
+  return type === "test" && picks.length >= 2
+}
+
+/** Trial (owner 2026-11-18): a child can try several subjects on the same DAY but never two at the same TIME — does this
+ *  slot overlap one the child already picked for another subject? `except` = the subject being (re)picked. */
+export function slotClashes(slot: Pick<FormOfferSlot, "date" | "start" | "minutes">, chosen: Record<string, Pick<FormOfferSlot, "date" | "start" | "minutes">>, except?: string): boolean {
+  return Object.entries(chosen).some(([subject, x]) => subject !== except && x.date === slot.date && slotsOverlap(x.start, x.minutes, slot.start, slot.minutes))
+}
+
+/** every subject picked separately (Trial) → no two picks may overlap in time */
+export function picksClash(chosen: Record<string, Pick<FormOfferSlot, "date" | "start" | "minutes">>): boolean {
+  return Object.entries(chosen).some(([subject, x]) => slotClashes(x, chosen, subject))
 }
 
 /** First subject-qualified, active teacher of this branch with no overlapping session that date. */

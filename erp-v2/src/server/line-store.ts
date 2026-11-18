@@ -156,6 +156,18 @@ export async function markRead(conversationId: string): Promise<void> {
   })
 }
 
+/** Start the chat over (owner 2026-11-18, testing from zero): the messages go, the conversation stays as a fresh unread-free
+ *  Visitor chat with the LINE display name. Returns how many messages were removed. */
+export async function clearChat(conversationId: string): Promise<number> {
+  return mutate((store) => {
+    const before = store.messages.length
+    store.messages = store.messages.filter((m) => m.conversationId !== conversationId)
+    const conv = store.conversations.find((c) => c.id === conversationId)
+    if (conv) { conv.unread = false; conv.familyId = null; conv.leadId = null }
+    return before - store.messages.length
+  })
+}
+
 export function lineUserIdOf(conversationId: string): string | null {
   return conversationId.startsWith("line_") ? conversationId.slice(5) : null
 }

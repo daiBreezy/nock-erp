@@ -1,8 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { addDays, fmtDate, toDateStr } from "@/domain/dates"
-import { findOfferSlots } from "@/domain/rules/forms"
+import { addDays, endTime, fmtDate, toDateStr } from "@/domain/dates"
+import { commonSlots, findOfferSlots } from "@/domain/rules/forms"
 import type { Branch, FormOfferSlot, Holiday, Klass, Session, Staff } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { Pill } from "../app/badges"
@@ -84,6 +84,55 @@ export function SlotPicker({
                         {slot.fits2h === false ? "ว่าง · 1 ชม." : "ว่าง"}
                       </Pill>
                     )}
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+
+/** Move every subject of a one-visit form TOGETHER (owner 2026-11-18): only dates + times where all of them are free at once —
+ *  the same list the parent was offered. Picking one gives each subject its own part of that visit. */
+export function VisitPicker({ branch, staff, sessions, classes, holidays, now, subjects, selectedKey, onPick }: {
+  branch: Branch; staff: Staff[]; sessions: Session[]; classes: Klass[]; holidays: Holiday[]; now: Date
+  subjects: string[]; selectedKey: string | null; onPick: (key: string, bySubject: Record<string, FormOfferSlot>) => void
+}) {
+  const [from, setFrom] = useState(toDateStr(now))
+  const [to, setTo] = useState(addDays(toDateStr(now), 14))
+  const times = useMemo(() => {
+    const offers = subjects.map((subject) => ({ subject, slots: findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now }) }))
+    return commonSlots(offers, subjects)
+  }, [subjects, branch, staff, sessions, classes, holidays, from, to, now])
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof times>()
+    times.forEach((x) => map.set(x.date, [...(map.get(x.date) ?? []), x]))
+    return [...map.entries()]
+  }, [times])
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="mb-1 text-xs">ช่วงวันที่</Label>
+        <DateRangePicker plain from={from} to={to} className="w-full justify-start" onChange={(r) => { setFrom(r.from); setTo(r.to) }} />
+      </div>
+      <p className="text-xs text-muted-foreground">{subjects.join(" + ")}</p>
+      {times.length === 0 && <p className="text-xs text-muted-foreground">ไม่มีเวลาที่ว่างพร้อมกันทุกวิชาในช่วงที่เลือก — ลองขยายวันที่ หรือแก้แยกวิชา</p>}
+      <div className="max-h-64 space-y-2 overflow-y-auto">
+        {grouped.map(([date, day]) => (
+          <div key={date}>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">{fmtDate(date, { weekday: true })}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {day.map((x) => {
+                const key = `${x.date} ${x.start}`
+                const active = selectedKey === key
+                return (
+                  <Button variant="ghost" size="inline" key={key} type="button" onClick={() => onPick(key, x.bySubject)}
+                    className={cn("rounded-full border px-2.5 py-1 text-xs tabular-nums transition-colors", active ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted")}>
+                    {x.start}–{endTime(x.start, x.minutes)}
                   </Button>
                 )
               })}

@@ -65,3 +65,23 @@ describe("LINE group chats", () => {
     expect(store.lineUserIdOf("line_Cgroup1")).toBe("Cgroup1")
   })
 })
+
+describe("start over from zero (owner 2026-11-18)", () => {
+  it("clearChat removes one chat's messages and unlinks it, leaving other chats alone", async () => {
+    await store.recordInboundMessage("Utest1", "ผู้ทดสอบ", "สวัสดี")
+    await store.recordInboundMessage("Utest1", "ผู้ทดสอบ", "อยากสมัครเรียน")
+    await store.recordInboundMessage("Uother", "คนอื่น", "ทัก")
+    expect(await store.clearChat("line_Utest1")).toBe(2)
+    const all = await store.getAll()
+    expect(all.messages.some((m) => m.conversationId === "line_Utest1")).toBe(false)
+    expect(all.messages.some((m) => m.conversationId === "line_Uother")).toBe(true)
+    expect(all.conversations.find((c) => c.id === "line_Utest1")).toMatchObject({ familyId: null, leadId: null })
+  })
+  it("removeLinks forgets only that LINE account's link", async () => {
+    const links = await import("./line-links")
+    await links.upsertLinks([{ lineUserId: "Ua", familyId: "f1", familyName: "A" }, { lineUserId: "Ub", familyId: "f2", familyName: "B" }])
+    expect(await links.removeLinks("Ua")).toBe(1)
+    expect((await links.readLinks()).map((l) => l.lineUserId)).toEqual(["Ub"])
+    expect(await links.removeLinks("Ua")).toBe(0)
+  })
+})

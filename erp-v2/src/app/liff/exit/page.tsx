@@ -119,7 +119,7 @@ function ExitForm() {
   if (phase === "done") return <Centered><CheckCircle2Icon className="size-12 text-success" /><p className="text-lg font-semibold">{t.done}</p><p className="max-w-xs text-center text-sm text-muted-foreground">{t.doneSub}</p></Centered>
   const tk = tok!
   return (
-    <div className="mx-auto min-h-dvh max-w-lg bg-background pb-28">
+    <div className="mx-auto min-h-dvh max-w-lg bg-background pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <ShrinkHeader title={t.title} subtitle={`${tk.brand === "liclass" ? "Liclass" : "NockAcademy"} · ${tk.branchName}`} lang={lang} onLang={preview ? undefined : setLang} />
       <main className="space-y-4 p-4">
         <Card>
@@ -168,7 +168,7 @@ function ExitForm() {
         <Card title={t.comment}><Textarea rows={5} className="text-base" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t.commentPh} /></Card>
         <label className="flex items-center gap-2 px-1 text-sm"><Checkbox checked={contactOk} onCheckedChange={(v) => setContactOk(!!v)} />{t.contact}</label>
       </main>
-      <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto max-w-lg">
           {tried && (!reasonId || !comeBack) && <p className="mb-2 text-center text-xs text-danger">{!reasonId ? t.needReason : t.comeBack}</p>}
           <Button className="h-12 w-full text-base" disabled={phase === "sending"} onClick={submit}><SendIcon /> {phase === "sending" ? t.sending : t.submit}</Button>

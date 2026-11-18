@@ -10,7 +10,7 @@ import { ShrinkHeader } from "@/components/forms/shrink-header"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
-import { commonSlots } from "@/domain/rules/forms"
+import { commonSlots, picksClash, slotClashes } from "@/domain/rules/forms"
 import { CatalogApp } from "../catalog/catalog-app"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
 import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
@@ -35,7 +35,8 @@ interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOff
 let seq = 0
 const emptyParent = (name = ""): ParentBlock => ({ ...emptyParentDraft(name), editing: true })
 const emptyEnroll = (): EnrollFieldsValue => ({ subjects: [], courseIds: [], pkg: "month", times: [], startDate: "", bus: false, placement: true, classIds: [] })
-const emptyStudent = (grade: string): StudentBlock => ({ ...emptyStudentDraft(grade), key: `st${seq++}`, activeSubjects: [], chosen: {}, editing: true, enroll: emptyEnroll() })
+/** the subjects are the ones the admin offered from the chat (owner 2026-11-18) — every child starts with all of them, the parent only picks a time */
+const emptyStudent = (grade: string, subjects: string[] = []): StudentBlock => ({ ...emptyStudentDraft(grade), key: `st${seq++}`, activeSubjects: subjects, chosen: {}, editing: true, enroll: emptyEnroll() })
 const fullName = joinName
 /** the one visit a child's picks make up: same date+start for every subject, 2 h when 2+ subjects */
 const visitOf = (s: Pick<StudentBlock, "chosen">) => {
@@ -45,16 +46,18 @@ const visitOf = (s: Pick<StudentBlock, "chosen">) => {
 const ageOf = (birth: string) => { if (!birth) return null; const b = new Date(birth), n = new Date(); return n.getFullYear() - b.getFullYear() - (n < new Date(n.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0) }
 
 /** Sample data so the owner/staff can open /liff/form?preview=test|trial without LINE (nothing is sent). */
-function previewData(type: FormType): { offers: FormSubjectOffer[]; grades: string[]; prefill: FormPrefill | null } {
+function previewData(type: FormType, fresh = false): { offers: FormSubjectOffer[]; grades: string[]; prefill: FormPrefill | null } {
   const days = [1, 2, 4].map((n) => addDays(toDateStr(new Date()), n))
   const slots = (subject: string) => days.flatMap((d, i) => ["10:00", "13:00", "16:00"].map((start, j) => ({ id: `${subject}-${i}-${j}`, date: d, start, minutes: 60, source: "generic" as const, teacherId: null, roomId: null, classId: null, sessionId: null })))
-  const offers = ["คณิต", "อังกฤษ", "วิทย์"].map((subject) => ({ subject, slots: slots(subject) }))
+  // the admin offered 2 subjects from the chat — that is all the parent sees
+  const offers = ["คณิต", "อังกฤษ"].map((subject) => ({ subject, slots: slots(subject) }))
   // owner 2026-10-15: every preview comes filled in, so you can click through without typing
-  const prefill: FormPrefill | null = type === "trial" || type === "test" ? {
+  // a first-time parent: nothing on file, but the admin already chose the child's grade when making the form
+  const prefill: FormPrefill | null = fresh ? { parents: [], students: [], childGrade: "ป.5" } : type === "trial" || type === "test" ? {
     parents: [{ name: "สมชาย ใจดี", phone: "089-555-1212", altPhones: ["02-111-2222"], relationship: "คุณพ่อ", email: "somchai@mail.com", primary: true }],
     address: "123/45 ถ.สุขุมวิท แขวงคลองตันเหนือ เขตวัฒนา", province: "กรุงเทพฯ", postcode: "10110", acquisitions: ["walkin", "facebook"],
     location: { lat: 13.7309, lng: 100.5849 }, addressNote: "หมู่บ้านพฤกษา ซอย 2 หลังซ้ายมือ ประตูสีเขียว",
-    students: [{ name: "ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5", birthDate: "2015-03-12", school: "โรงเรียนสาธิต", note: "ชอบคณิต แต่ยังไม่มั่นใจเรื่องโจทย์ปัญหา", interests: ["คณิต"] }],
+    students: [{ name: "ภูมิ ใจดี", nickname: "ภูมิ", grade: "ป.5", birthDate: "2015-03-12", school: "โรงเรียนสาธิต", note: "ชอบคณิต แต่ยังไม่มั่นใจเรื่องโจทย์ปัญหา", interests: ["คณิต", "อังกฤษ"] }],
   } : null
   return { offers, grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], prefill }
 }
@@ -111,8 +114,8 @@ export function LiffForm() {
     } else setParents([emptyParent(lineName)])
     const subjects = offerList.map((o) => o.subject)
     setStudents(p?.students.length
-      ? p.students.map((s) => ({ ...emptyStudent(s.grade), ...studentDraftOf(s), activeSubjects: (s.interests ?? []).filter((x) => subjects.includes(x)), editing: false }))
-      : [emptyStudent(gradeList[0] ?? "")])
+      ? p.students.map((s) => ({ ...emptyStudent(s.grade, subjects), ...studentDraftOf(s), editing: false }))
+      : [emptyStudent(p?.childGrade ?? "", subjects)])
   }
 
   useEffect(() => {
@@ -161,7 +164,7 @@ export function LiffForm() {
         return
       }
       if (preview) {
-        const d = previewData(preview)
+        const d = previewData(preview, params.get("fresh") === "1")
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview"); setSeparate(preview === "trial")
         setSubjectNames({ "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } })
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
@@ -212,8 +215,11 @@ export function LiffForm() {
   const setStudent = (key: string, patch: Partial<StudentBlock>) => setStudents((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s)))
 
   const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim())
-  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? (enroll.classOffers ? (enroll.classOffers.length ? enrollClassValid(s.enroll) : !!s.enroll.startDate) : enrollValid(s.enroll)) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj])))
+  const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? (enroll.classOffers ? (enroll.classOffers.length ? enrollClassValid(s.enroll) : !!s.enroll.startDate) : enrollValid(s.enroll)) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj]) && !(separate && picksClash(s.chosen))))
 
+  /** the child's surname box left empty = the main parent's surname (owner 2026-11-18) */
+  const parentLast = parents[primaryIdx]?.last.trim() ?? ""
+  const withLast = (s: StudentBlock): StudentBlock => (s.last.trim() ? s : { ...s, last: parentLast })
   const parentsPayload = () => parents.map((p, i) => parentInputOf(p, i === primaryIdx))
   /** the household answers, as both submit APIs take them */
   const familyPayload = () => ({
@@ -233,7 +239,7 @@ export function LiffForm() {
         body: JSON.stringify({
           token, lineUserId: lineUserId || undefined, lineName: displayName || undefined, parents: parentsPayload(), lang, acceptedTerms: true,
           ...familyPayload(),
-          children: students.map((s) => ({ ...studentInputOf(s), ...s.enroll, ...(enroll.plan ? { courseIds: [enroll.plan.course.id], periods: enroll.plan.periods } : {}) })),
+          children: students.map((s) => ({ ...studentInputOf(withLast(s)), ...s.enroll, ...(enroll.plan ? { courseIds: [enroll.plan.course.id], periods: enroll.plan.periods } : {}) })),
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false, error: "ส่งไม่สำเร็จ — เครือข่ายมีปัญหา ลองอีกครั้ง" }))
       if (!res.ok) { setError(res.error ?? "ส่งไม่สำเร็จ"); setPhase("ready"); return }
@@ -248,7 +254,7 @@ export function LiffForm() {
           parents: parentsPayload(),
           ...familyPayload(),
           students: students.map((s) => ({
-            ...studentInputOf(s),
+            ...studentInputOf(withLast(s)),
             picks: Object.entries(s.chosen).map(([subject, slot]) => ({ chosenSubject: subject, chosenSlotId: slot.id })),
           })),
         }),
@@ -269,11 +275,11 @@ export function LiffForm() {
   const stepIndex = STEP_KEYS.indexOf(step)
   const summary = (
     <Summary t={t} lang={lang} names={names} separate={separate} parents={parents} primaryIdx={primaryIdx} fam={fam} linked={lineUserId ? displayName : undefined}
-      students={students} onEdit={phase === "done" ? undefined : (s) => setStep(s)} enroll={enroll} />
+      students={students.map(withLast)} onEdit={phase === "done" ? undefined : (s) => setStep(s)} enroll={enroll} />
   )
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="min-h-screen bg-background pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-lg space-y-4 p-4">
         <ShrinkHeader className="-mx-4 -mt-4" title={enroll ? te.title : t.formTitle(formType)} subtitle={`${brandName}${branchName ? ` · ${branchName}` : ""}`} lang={lang} onLang={preview ? undefined : setLang} />
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-success-soft px-3 py-2.5 text-sm text-success-ink"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
@@ -317,14 +323,14 @@ export function LiffForm() {
             ))}
 
             <Card>
-              <FamilyFields t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
+              <FamilyFields hideName t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
             </Card>
           </section>
         ) : step === "student" ? (
           <section className="space-y-3">
-            <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={enroll ? te.studentSub : t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent(grades[0] ?? "")])}><PlusIcon /> {t.addStudent}</Button>} />
+            <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={enroll ? te.studentSub : t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent("", offers.map((o) => o.subject))])}><PlusIcon /> {t.addStudent}</Button>} />
             {students.map((s, i) => (
-              <StudentCard key={s.key} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll} separate={separate}
+              <StudentCard key={s.key} lastPh={parentLast} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll} separate={separate}
                 onChange={(patch) => setStudent(s.key, patch)} onRemove={students.length > 1 ? () => setStudents((ss) => ss.filter((x) => x.key !== s.key)) : undefined} />
             ))}
           </section>
@@ -341,7 +347,7 @@ export function LiffForm() {
 
       {phase !== "done" && (
         <footer className="fixed inset-x-0 bottom-0 border-t bg-background/95 backdrop-blur">
-          <div className="mx-auto flex max-w-lg items-center gap-2 p-3">
+          <div className="mx-auto flex max-w-lg items-center gap-2 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <Button variant="ghost" onClick={() => (liffRef.current ? liffRef.current.closeWindow() : setStep("parent"))}>{t.cancel}</Button>
             <span className="ml-auto" />
             {stepIndex > 0 && <Button variant="secondary" onClick={() => setStep(STEP_KEYS[stepIndex - 1])}><ChevronLeftIcon /> {t.back}</Button>}
@@ -349,7 +355,6 @@ export function LiffForm() {
             {step === "student" && <Button disabled={!studentsValid} onClick={() => setStep("summary")}>{t.next} <ChevronRightIcon /></Button>}
             {step === "summary" && <Button disabled={phase === "submitting"} onClick={submit}>{phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />} {t.submit}</Button>}
           </div>
-          {((step === "parent" && !parentsValid) || (step === "student" && !studentsValid)) && <p className="pb-2 text-center text-2xs text-muted-foreground">{t.required}</p>}
         </footer>
       )}
     </div>
@@ -380,13 +385,10 @@ function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormL
   )
 }
 
-function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove, enroll, separate }: {
-  t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]; enroll: EnrollInfo | null; separate?: boolean
+function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove, enroll, separate, lastPh }: {
+  lastPh?: string; t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]; enroll: EnrollInfo | null; separate?: boolean
   onChange: (patch: Partial<StudentBlock>) => void; onRemove?: () => void
 }) {
-  // changing the subjects changes which times fit them all → the old pick is cleared
-  const toggleSubject = (subject: string) =>
-    onChange({ activeSubjects: s.activeSubjects.includes(subject) ? s.activeSubjects.filter((x) => x !== subject) : [...s.activeSubjects, subject], chosen: {} })
   // one list: only times every chosen subject is free at together (owner 2026-09-30) — 2+ subjects = one 2-hour visit
   const times = commonSlots(offers, s.activeSubjects)
   const picked = visitOf(s)
@@ -402,7 +404,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
               {onRemove && <Button size="icon-xs" variant="ghost" className="text-danger" aria-label={t.remove} onClick={onRemove}><TrashIcon /></Button>}
             </span>
           </div>
-          <StudentFields t={t} value={s} onChange={onChange} grades={grades} gradeLabel={names.grade} />
+          <StudentFields t={t} value={s} onChange={onChange} grades={grades} gradeLabel={names.grade} lastPh={lastPh} />
         </>
       ) : (
         <div className="space-y-1.5">
@@ -422,18 +424,11 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
         <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} classOffers={enroll.classOffers} plan={enroll.plan} busOffered={enroll.busOffered}
           value={s.enroll} onChange={(patch) => onChange({ enroll: { ...s.enroll, ...patch } })} minDate={toDateStr(new Date())} />
       ) : (<>
+      {/* owner 2026-11-18: the admin chose the subjects from the chat — the parent sees them (no ticking) and only picks a time */}
       <div className="space-y-2 border-t pt-3">
-        <p className="text-sm font-semibold">{t.subjects} *</p>
-        <p className="-mt-1.5 text-xs text-muted-foreground">{t.subjectsSub}</p>
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-          {offers.map((o) => {
-            const on = s.activeSubjects.includes(o.subject)
-            return (
-              <label key={o.subject} className={cn("flex cursor-pointer items-center gap-2 rounded-2xl border px-3 py-2 text-sm", on ? "border-primary bg-primary/10" : "text-muted-foreground")}>
-                <Checkbox checked={on} onCheckedChange={() => toggleSubject(o.subject)} /> {names.subject(o.subject)}
-              </label>
-            )
-          })}
+        <p className="text-sm font-semibold">{t.subjectsFor(formType)}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {s.activeSubjects.map((subject) => <span key={subject} className="rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium">{names.subject(subject)}</span>)}
         </div>
       </div>
 
@@ -444,13 +439,15 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
           <div className="space-y-1">
             {(offers.find((o) => o.subject === subject)?.slots ?? []).toSorted((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).map((x) => {
               const active = s.chosen[subject]?.id === x.id
+              // Trial: several subjects on one day is fine, two at the same time is not (owner 2026-11-18)
+              const clash = !active && slotClashes(x, s.chosen, subject)
               return (
-                <Button variant="row" size="inline" key={x.id} type="button" onClick={() => onChange({ chosen: { ...s.chosen, [subject]: x } })}
-                  className={cn("flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition", active ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted")}>
+                <Button variant="row" size="inline" key={x.id} type="button" disabled={clash} onClick={() => onChange({ chosen: { ...s.chosen, [subject]: x } })}
+                  className={cn("flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition disabled:opacity-40", active ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted")}>
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded-full border-2", active ? "border-primary" : "border-muted-foreground/50")}>{active && <span className="size-2 rounded-full bg-primary" />}</span>
                   <span>
                     <span className="block text-sm font-medium tabular-nums">{x.start}–{endTime(x.start, x.minutes)}</span>
-                    <span className="block text-xs text-muted-foreground">{fmtFormDate(x.date, lang)}</span>
+                    <span className="block text-xs text-muted-foreground">{fmtFormDate(x.date, lang)}{clash && ` · ${t.clash}`}</span>
                   </span>
                 </Button>
               )
@@ -460,10 +457,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
       ))}
       {!separate && s.activeSubjects.length > 0 && (
         <div className="space-y-2 border-t pt-3">
-          <div>
-            <p className="text-sm font-semibold">{t.schedule(formType)} *</p>
-            <p className="text-xs text-muted-foreground">{t.commonTimes(s.activeSubjects.length)}</p>
-          </div>
+          <p className="text-sm font-semibold">{t.schedule(formType)} *</p>
           {times.length === 0 && <Empty>{t.noCommon}</Empty>}
           <div className="space-y-1">
             {times.map((x) => {

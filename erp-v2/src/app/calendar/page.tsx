@@ -119,7 +119,19 @@ function CalendarView() {
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [view, single, today, linkedSession])
 
-  const [openId, setOpenId] = useState<string | null>(() => (linkedSession && allSessions.some((x) => x.id === linkedSession) ? linkedSession : null))
+  const [openId, setOpenId] = useState<string | null>(null)
+  // owner 2026-11-18 ("ดูในปฏิทิน" must show WHERE the class is): jump to that class's card in whichever view is open, centre it and
+  // flash it (the same flash the Dashboard shortcuts use) — the side panel stays closed so it does not cover the spot
+  useEffect(() => {
+    if (!linkedSession) return
+    let tries = 0
+    const t = setInterval(() => {
+      const el = document.querySelector<HTMLElement>(`[data-session-id="${linkedSession}"]`)
+      if (el) { clearInterval(t); el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" }); el.classList.add("focus-hit"); setTimeout(() => el.classList.remove("focus-hit"), 6500) }
+      else if (++tries > 20) clearInterval(t)
+    }, 150)
+    return () => clearInterval(t)
+  }, [linkedSession])
   const [prefill, setPrefill] = useState<ClassPrefill | null>(null)
   const [moving, setMoving] = useState<{ id: string; target: MoveTarget } | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
@@ -335,7 +347,7 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
   const c = subjectColor(s.subject)
   const live = w.state === "live"
   return (
-    <Button variant="ghost" size="inline"
+    <Button variant="ghost" size="inline" data-session-id={s.id}
       draggable={canMove(s)}
       onDragStart={(e) => { e.dataTransfer.setData("text/session", s.id); e.dataTransfer.effectAllowed = "move" }}
       onClick={(e) => { e.stopPropagation(); onOpen(s.id) }}

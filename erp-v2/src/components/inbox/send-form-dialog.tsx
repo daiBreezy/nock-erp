@@ -5,6 +5,7 @@ import { CalendarClockIcon, CalendarRangeIcon, CheckIcon, ChevronLeftIcon, SendI
 import { addDays, fmtDate, fromMinutes, toDateStr, toMinutes } from "@/domain/dates"
 import { siblingLead } from "@/domain/rules/crm"
 import { buildFormPrefill, commonSlots, findOfferSlots, FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import { SOURCE_OF_CHANNEL } from "@/domain/rules/inbox"
 import type { FormOfferSlot, FormSubjectOffer, FormType, ID } from "@/domain/types"
 import { sendTestTrialForm } from "@/lib/forms"
 import { report } from "@/lib/feedback"
@@ -89,18 +90,32 @@ export function SendFormDialog({
     ? subjects.map((s) => ({ subject: s, slots: combined.filter((c) => visitPicks.has(`${c.date} ${c.start}`)).map((c) => c.bySubject[s]) }))
     : offers.map((o) => ({ subject: o.subject, slots: o.slots.filter((x) => subjectPicks[o.subject]?.has(x.id)) }))
   const pickedCount = chosen.reduce((a, o) => a + o.slots.length, 0)
-  const offersReady = subjects.length > 0 && chosen.every((o) => o.slots.length > 0) && (!!leadId || !!childGrade)
+  const offersReady = subjects.length > 0 && chosen.every((o) => o.slots.length > 0) && (lead ? !!(lead.childGrade || knownStudents.length || childGrade) : !!childGrade)
   const missing = oneVisit ? (visitPicks.size ? [] : [subjects.join(" + ")]) : chosen.filter((o) => !o.slots.length).map((o) => o.subject)
 
   const send = async () => {
     setSending(true)
     try {
       let useLead = lead
-      if (!useLead) {
-        if (!family) return report({ ok: false, error: "ผูกแชทนี้กับครอบครัวก่อน" }, "")
+      // a lead added from the chat has only a name + LINE — the grade the admin picks here goes onto it (owner 2026-11-18)
+      if (lead && !lead.childGrade && childGrade) {
+        const saved = saveLead({ ...lead, childGrade, subject: lead.subject || subjects[0] }, { quick: true })
+        if (!saved.ok) return report(saved, "")
+        useLead = saved.value
+      }
+      if (!useLead && family) {
         const made = saveLead(siblingLead(family, { id: uid("ld"), branchId, childGrade, subject: subjects[0], by: me, now: now.toISOString() }))
         if (!made.ok) return report(made, "")
         useLead = made.value
+      }
+      if (!useLead) {
+        // owner 2026-11-18: a Visitor (no Lead, no family) can be sent the form too — only the id is minted here; the Lead is made from
+        // the answers when the form comes back (approve → "อนุมัติ / สร้าง Lead", or decline → "เก็บเป็น Lead ไว้ไหม?")
+        const conv = conversations.find((c) => c.id === conversationId)
+        useLead = {
+          id: uid("ld"), branchId, name: conv?.name ?? "", childGrade, subject: subjects[0], subjects, source: conv ? SOURCE_OF_CHANNEL[conv.channel] : "line", stage: "new",
+          assigneeId: conv?.assigneeId ?? null, phone: "", lineId: "", createdAt: now.toISOString(), notes: [], convertedStudentId: null, ...(lineUserId ? { lineUserId } : {}),
+        }
       }
       const r = await sendTestTrialForm({
         leadId: useLead.id, branchId, conversationId, lineUserId, type,
@@ -147,9 +162,22 @@ export function SendFormDialog({
                 <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted/60 p-3">
                   <UsersIcon className="size-4 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">ลูกค้าเดิม — นักเรียนคนใหม่ของครอบครัว</p>
-                    <p className="text-xs text-muted-foreground">{family?.name} · สร้าง Lead ให้นักเรียนคนนี้ตอนส่ง · อนุมัติแล้วเข้าครอบครัวเดิม</p>
+                    {family ? (<>
+                      <p className="text-sm font-medium">ลูกค้าเดิม — นักเรียนคนใหม่ของครอบครัว</p>
+                      <p className="text-xs text-muted-foreground">{family.name} · สร้าง Lead ให้นักเรียนคนนี้ตอนส่ง · อนุมัติแล้วเข้าครอบครัวเดิม</p>
+                    </>) : (<>
+                      <p className="text-sm font-medium">ยังไม่มี Lead — ส่งฟอร์มได้เลย</p>
+                      <p className="text-xs text-muted-foreground">ผู้ปกครองกรอกกลับมาแล้ว ระบบสร้าง Lead จากข้อมูลในฟอร์มให้ตอนอนุมัติ</p>
+                    </>)}
                   </div>
+                  <NativeSelect className="h-9 w-36 bg-background" value={childGrade} onChange={(e) => setChildGrade(e.target.value)} placeholder="ชั้นของนักเรียน *" options={branch.grades.map((g) => ({ value: g, label: g }))} />
+                </section>
+              )}
+
+              {lead && !lead.childGrade && !knownStudents.length && (
+                <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-muted/60 p-3">
+                  <UsersIcon className="size-4 text-muted-foreground" />
+                  <p className="min-w-0 flex-1 text-sm font-medium">ชั้นของนักเรียน — ผู้ปกครองเห็นเลือกไว้ให้แล้ว</p>
                   <NativeSelect className="h-9 w-36 bg-background" value={childGrade} onChange={(e) => setChildGrade(e.target.value)} placeholder="ชั้นของนักเรียน *" options={branch.grades.map((g) => ({ value: g, label: g }))} />
                 </section>
               )}

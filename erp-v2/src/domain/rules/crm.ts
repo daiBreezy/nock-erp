@@ -1,7 +1,7 @@
 // CRM lead pipeline (Phase 2 rebuild). Spec ref: new-erp/js/crm.js (stage list + grouping).
 
 import { daysBetween, fmtDate, toDateStr } from "../dates"
-import type { DateStr, Family, ID, Lead, LeadStage, Result, Student } from "../types"
+import type { DateStr, Family, FormSubmission, ID, Lead, LeadStage, Result, Student } from "../types"
 
 export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   new: "ลูกค้าใหม่",
@@ -117,6 +117,19 @@ export function validateLead(l: Pick<Lead, "name" | "childGrade" | "subject" | "
   if (!l.subject.trim()) return "เลือกวิชาที่สนใจ"
   if (!l.phone.trim() && !l.lineId?.trim()) return "ใส่เบอร์โทรหรือ LINE ID ติดต่อ"
   return null
+}
+
+/** A form came back for a chat that has no Lead (owner 2026-11-18: "ข้อมูลเรามันแน่นเกินกว่าจะสร้าง Lead แล้ว") — everything a Lead
+ *  needs is in the answers: the main parent, their phone / LINE, the child's grade and the subjects they picked. The Lead takes the
+ *  form's own `primaryLeadId`, so the submission and the new Lead already point at each other. */
+export function leadFromSubmission(sub: Pick<FormSubmission, "primaryLeadId" | "branchId" | "parents" | "studentGrade" | "picks" | "acquisitions" | "lineUserId">, o: { nowIso: string; assigneeId: ID | null }): Lead {
+  const parent = sub.parents.find((p) => p.primary) ?? sub.parents[0]
+  const subjects = [...new Set(sub.picks.map((p) => p.chosenSubject))]
+  return {
+    id: sub.primaryLeadId, branchId: sub.branchId, name: parent?.name ?? "", childGrade: sub.studentGrade, subject: subjects[0] ?? "", subjects,
+    source: sub.acquisitions?.[0] ?? "line", stage: "new", assigneeId: o.assigneeId, phone: parent?.phone ?? "", lineId: parent?.lineId ?? "",
+    createdAt: o.nowIso, notes: [], convertedStudentId: null, ...(sub.lineUserId ? { lineUserId: sub.lineUserId } : {}),
+  }
 }
 
 /** Last time staff actually reached out — the most recent note, or creation if nothing's logged yet.

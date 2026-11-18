@@ -10,6 +10,8 @@
 
 import { PlusIcon, TrashIcon, CheckIcon } from "lucide-react"
 import { MapPin } from "@/app/liff/form/map-pin"
+import { reverseGeocode } from "@/lib/reverse-geocode"
+import { MultiPick } from "@/components/app/multi-pick"
 import { DICT, REL_KEYS, relFromStored, relToStored, SOURCE_KEYS, type RelKey } from "@/app/liff/form/i18n"
 import { InfoTip } from "@/components/app/info-tip"
 import { NativeSelect } from "@/components/app/native-select"
@@ -86,12 +88,12 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
         <F label={t.relationship}>
           <NativeSelect value={p.rel} onChange={(e) => onChange({ rel: e.target.value as RelKey | "" })} placeholder={t.select} options={REL_KEYS.map((k) => ({ value: k, label: t.rel[k] }))} />
         </F>
-        <F label={t.birthDate}><Input type="date" value={p.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
+        <F label={optional(t, t.birthDate)}><Input type="date" value={p.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
       </Group>
       <Group title={t.grpContact}>
         {/* LINE is linked by opening the form in LINE (or from the Inbox) — nobody types a LINE ID (owner 2026-10-15) */}
         {linked && <p className="flex items-center gap-1.5 rounded-3xl bg-success-soft/60 px-3 py-2 text-sm text-success-ink"><CheckIcon className="size-4" />{t.lineLinked(linked)}</p>}
-        <F label={t.email}><Input type="email" value={p.email} onChange={(e) => onChange({ email: e.target.value })} /></F>
+        <F label={optional(t, t.email)}><Input type="email" value={p.email} onChange={(e) => onChange({ email: e.target.value })} /></F>
         <div className="min-w-0 space-y-1.5">
           <Label className="text-xs">{t.phone} *</Label>
           {p.phones.map((ph, k) => (
@@ -113,27 +115,23 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
   )
 }
 
-export function FamilyFields({ t, value: f, onChange, parentLast, errors = {} }: { t: FieldsDict; value: FamilyDraft; onChange: (patch: Partial<FamilyDraft>) => void; parentLast: string; errors?: Errors }) {
+export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, hideName }: {
+  t: FieldsDict; value: FamilyDraft; onChange: (patch: Partial<FamilyDraft>) => void; parentLast: string; errors?: Errors
+  /** the parent's form (owner 2026-11-18): the family is named after the parent's surname, so nobody is asked for it — the admin panels still show it */
+  hideName?: boolean
+}) {
   return (
     // owner 2026-11-09: ONE field per line (province and postcode too), every group under its heading
     <div className="space-y-4">
-      <Group title={t.grpFamily} first>
+      {!hideName && <Group title={t.grpFamily} first>
         <F label={optional(t, t.familyName)} hint={t.familyNameSub} error={errors.name}><Input value={f.name} placeholder={t.familyNamePh(parentLast.trim())} onChange={(e) => onChange({ name: e.target.value })} /></F>
         <F label={optional(t, t.familyNameEn)}><Input lang="en" value={f.nameEn} placeholder="English" onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
+      </Group>}
+      {/* owner 2026-11-18: a dropdown you can tick several in — saves the space the 7 boxes took */}
+      <Group title={t.acquisition} sub={t.acquisitionSub} first={hideName}>
+        <MultiPick value={f.acquisitions} onChange={(acquisitions) => onChange({ acquisitions })} placeholder={t.select} options={SOURCE_KEYS.map((k) => ({ value: k, label: t.src[k] }))} />
       </Group>
-      <Group title={t.acquisition} sub={t.acquisitionSub}>
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-          {SOURCE_KEYS.map((k) => {
-            const on = f.acquisitions.includes(k)
-            return (
-              <label key={k} className={cn("flex cursor-pointer items-center gap-2 rounded-2xl border px-3 py-2 text-sm", on ? "border-primary bg-primary/10" : "text-muted-foreground")}>
-                <Checkbox checked={on} onCheckedChange={() => onChange({ acquisitions: on ? f.acquisitions.filter((x) => x !== k) : [...f.acquisitions, k] })} /> {t.src[k]}
-              </label>
-            )
-          })}
-        </div>
-      </Group>
-      <Group title={t.address} sub={`${t.addressSub} · ${t.pinSub}`}>
+      <Group title={optional(t, t.address)} sub={t.pinSub}>
         <AddressFields t={t} value={f} onChange={onChange} errors={errors} />
       </Group>
       {/* the checkbox's own label is this group's heading — no second title above it */}
@@ -151,10 +149,12 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {} }:
   )
 }
 
-export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) => g, province, maxBirth, errors = {} }: {
+export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) => g, province, maxBirth, lastPh, errors = {} }: {
   t: FieldsDict; value: StudentDraft; onChange: (patch: Partial<StudentDraft>) => void; grades: string[]; gradeLabel?: (g: string) => string
   /** the branch's province — its schools come first in the school list */
   province?: string; maxBirth?: string; errors?: Errors
+  /** the parent's surname, shown faded in the surname box (owner 2026-11-18) — the form uses it when the box is left empty */
+  lastPh?: string
 }) {
   const age = ageOf(s.birthDate)
   const full = joinName(s)
@@ -165,7 +165,7 @@ export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) 
     <div className="space-y-4">
       <Group title={t.grpStudentName} first>
         <F label={`${t.firstName} *`} error={errors.name}><Input value={s.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
-        <F label={t.lastName}><Input value={s.last} onChange={(e) => onChange({ last: e.target.value })} /></F>
+        <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>
         <F label={t.nickname} error={errors.nickname}><Input value={s.nickname} placeholder={s.first} onChange={(e) => onChange({ nickname: e.target.value })} /></F>
         <F label={optional(t, t.nameEn)}><Input lang="en" value={s.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
         <F label={optional(t, t.nicknameEn)}><Input lang="en" value={s.nicknameEn} placeholder={autoNickEn || "English"} onChange={(e) => onChange({ nicknameEn: e.target.value })} /></F>
@@ -177,9 +177,9 @@ export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) 
         <F label={optional(t, t.gender)}>
           <NativeSelect value={s.gender} onChange={(e) => onChange({ gender: e.target.value as Gender | "" })} placeholder={t.select} options={(["male", "female"] as const).map((g) => ({ value: g, label: t.genders[g] }))} />
         </F>
-        <F label={`${t.birthDate}${age !== null ? ` · ${t.age(age)}` : ""}`} error={errors.birthDate}><Input type="date" max={maxBirth} value={s.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
+        <F label={`${optional(t, t.birthDate)}${age !== null ? ` · ${t.age(age)}` : ""}`} error={errors.birthDate}><Input type="date" max={maxBirth} value={s.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
       </Group>
-      <Group title={t.school}>
+      <Group title={optional(t, t.school)}>
         <SchoolPicker value={s.school} schoolId={s.schoolId} province={province} onChange={(v) => onChange({ school: v.school ?? "", schoolId: v.schoolId })} />
       </Group>
       <Group title={t.note}>
@@ -195,9 +195,16 @@ export type AddressDraft = Pick<FamilyDraft, "address" | "parts" | "province" | 
  *  The LINE form, the admin family panel AND the parent app's "pin home" page all use this one block. `address` is recomposed from the parts. */
 export function AddressFields({ t, value: f, onChange, errors = {} }: { t: FieldsDict; value: AddressDraft; onChange: (patch: Partial<AddressDraft>) => void; errors?: Errors }) {
   const setPart = (k: keyof AddressParts, v: string) => { const parts = { ...f.parts, [k]: v }; onChange({ parts, address: composeAddress(parts) }) }
+  // owner 2026-11-18: "ใช้ตำแหน่งปัจจุบัน" fills province / postcode / address / area from the pin — what the map cannot know stays for the parent
+  const fill = async (ll: { lat: number; lng: number }) => {
+    const a = await reverseGeocode(ll.lat, ll.lng)
+    if (!a) return
+    const parts = { ...f.parts, ...(a.line ? { line: a.line } : {}), ...(a.area ? { area: a.area } : {}) }
+    onChange({ ...(a.province ? { province: a.province } : {}), ...(a.postcode ? { postcode: a.postcode } : {}), parts, address: composeAddress(parts) })
+  }
   return (
     <>
-      <MapPin value={f.location} onChange={(location) => onChange({ location })} locateLabel={t.locate} />
+      <MapPin value={f.location} onChange={(location) => onChange({ location })} onLocate={fill} locateLabel={t.locate} />
       <F label={t.province}><Input value={f.province} onChange={(e) => onChange({ province: e.target.value })} /></F>
       <F label={t.postcode} error={errors.postcode}><Input inputMode="numeric" maxLength={5} value={f.postcode} onChange={(e) => onChange({ postcode: e.target.value })} /></F>
       <F label={t.addrPart.line}><Input value={f.parts.line ?? ""} placeholder={t.addrLinePh} onChange={(e) => setPart("line", e.target.value)} /></F>

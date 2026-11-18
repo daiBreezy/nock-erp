@@ -68,4 +68,36 @@ export const BILLING_PROMO: Record<string, Entry> = {
   // owner 2026-11-17: Add Lead from a chat asks only the name (LINE account known); phone is optional
   "ระดับชั้นของลูก": { en: "Child's grade", ja: "お子さまの学年" },
   "ใส่เบอร์โทรหรือ LINE ID ติดต่อ": { en: "Enter a phone number or LINE ID", ja: "電話番号またはLINE IDを入力してください" },
+  // owner 2026-11-18: Demo panel — start a LINE test from zero
+  "ทดสอบกับ LINE จริง — เริ่มใหม่จาก 0": { en: "Test with real LINE — start over from 0", ja: "実LINEでテスト — 0からやり直す" },
+  "เริ่มใหม่": { en: "Start over", ja: "やり直す" },
+  "ล้างข้อความในแชทด้วย": { en: "Also clear the chat messages", ja: "チャットのメッセージも消す" },
+  "ข้อมูลตัวอย่างทั้งหมดกลับเป็นค่าเริ่มต้นด้วย (เหมือนปุ่มรีเซ็ต) · LINE อื่นที่ผูกไว้ยังคงเดิม": { en: "All sample data also returns to its defaults (like the reset button) · other linked LINE accounts stay as they are", ja: "サンプルデータもすべて初期値に戻ります（リセットボタンと同じ）· 他の連携済みLINEはそのまま" },
+  "ต้องเป็นแชท LINE จริง": { en: "Must be a real LINE chat", ja: "実際のLINEチャットが必要です" },
+  "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้": { en: "Cannot reach the server", ja: "サーバーに接続できません" },
+  "เริ่มใหม่ไม่สำเร็จ": { en: "Could not start over", ja: "やり直せませんでした" },
+  "เริ่มใหม่แล้ว — กลับเป็น Visitor, ล้างแชทแล้ว, ข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้น": { en: "Started over — back to Visitor, chat cleared, sample data reset", ja: "やり直しました — 訪問者に戻り、チャットを消去、サンプルデータを初期化" },
+  "เริ่มใหม่แล้ว — กลับเป็น Visitor, ข้อมูลตัวอย่างกลับเป็นค่าเริ่มต้น": { en: "Started over — back to Visitor, sample data reset", ja: "やり直しました — 訪問者に戻り、サンプルデータを初期化" },
+  // owner 2026-11-18: editing a form sent as one visit asks first — one subject or all together
+  "ฟอร์มนี้มีหลายวิชา — จะแก้แบบไหน?": { en: "This form has several subjects — how do you want to edit it?", ja: "このフォームには複数の科目があります — どのように変更しますか？" },
+  "แก้แยกวิชา": { en: "Edit one subject", ja: "科目ごとに変更" },
+  "เปลี่ยนเฉพาะวิชานี้ — วัน เวลา อาจแยกกัน": { en: "Change only this subject — the dates and times may differ", ja: "この科目だけ変更 — 日時が分かれる場合があります" },
+  "แก้รวมทั้ง {0} วิชา": { en: "Edit all {0} subjects together", ja: "{0}科目をまとめて変更" },
+  "ย้ายไปด้วยกัน — วัน เวลา ยังคงเดิม (นัดพร้อมกัน)": { en: "Move them together — still the same date and time (one visit)", ja: "まとめて移動 — 日時は同じまま（同時に実施）" },
+  "ย้ายทั้ง {0} วิชาแล้ว — ยังนัดพร้อมกัน": { en: "Moved all {0} subjects — still one visit", ja: "{0}科目を移動しました — 同時実施のまま" },
+  "ไม่มีเวลาที่ว่างพร้อมกันทุกวิชาในช่วงที่เลือก — ลองขยายวันที่ หรือแก้แยกวิชา": { en: "No time is free for every subject in this range — widen the dates or edit one subject", ja: "この期間に全科目が同時に空いている時間はありません — 期間を広げるか科目ごとに変更してください" },
+  "ช่วงวันที่": { en: "Date range", ja: "期間" },
+  // owner 2026-11-18: a form can come back for a chat with no Lead — approve makes the Lead, decline offers to keep it
+  "ยังไม่มี Lead — ส่งฟอร์มได้เลย": { en: "No Lead yet — you can send the form anyway", ja: "リードはまだありません — そのままフォームを送れます" },
+  "ผู้ปกครองกรอกกลับมาแล้ว ระบบสร้าง Lead จากข้อมูลในฟอร์มให้ตอนอนุมัติ": { en: "Once the parent fills it in, the Lead is created from the form when you approve", ja: "保護者が入力して返送すると、承認時にフォームの内容からリードを作成します" },
+  "ปฏิเสธฟอร์มแล้ว — เก็บข้อมูลไว้เป็น Lead": { en: "Form declined — the details are kept as a Lead", ja: "フォームを却下しました — 内容はリードとして保存しました" },
+  "อนุมัติ / สร้าง Lead": { en: "Approve / Create Lead", ja: "承認 / リード作成" },
+  "เก็บข้อมูลนี้เป็น Lead ไว้ก่อนไหม?": { en: "Keep these details as a Lead first?", ja: "この内容をリードとして保存しますか？" },
+  "แชทนี้ยังไม่มี Lead แต่ผู้ปกครองกรอกข้อมูลมาครบแล้ว — ก่อนปฏิเสธฟอร์ม จะสร้าง Lead จากข้อมูลนี้ไว้ติดตามต่อไหม": { en: "This chat has no Lead yet, but the parent filled in everything — before declining the form, create a Lead from these details to follow up?", ja: "このチャットにはリードがありませんが、保護者は全て入力済みです — 却下する前に、この内容からリードを作成してフォローしますか？" },
+  "ปฏิเสธเลย ไม่สร้าง": { en: "Decline, don't create", ja: "作成せずに却下" },
+  "สร้าง Lead แล้วปฏิเสธ": { en: "Create Lead, then decline", ja: "リードを作成して却下" },
+  "ฟอร์มนี้ไม่มีชื่อผู้ปกครอง — สร้าง Lead ไม่ได้": { en: "This form has no parent name — a Lead cannot be created", ja: "このフォームには保護者名がないため、リードを作成できません" },
+  "อนุมัติแล้ว + สร้าง Lead จากฟอร์ม — สร้างคาบเรียนจริงแล้ว": { en: "Approved + Lead created from the form — the real session is booked", ja: "承認 + フォームからリードを作成 — 実際のコマを作成しました" },
+  // owner 2026-11-18: data now lives in IndexedDB — say so if a save fails
+  "บันทึกข้อมูลลงเครื่องไม่สำเร็จ — สิ่งที่ทำล่าสุดอาจหายถ้ารีโหลดหน้า": { en: "Could not save to this device — your latest changes may be lost if you reload the page", ja: "この端末に保存できませんでした — ページを再読み込みすると直近の変更が失われる可能性があります" },
 }

@@ -93,7 +93,7 @@ export function FormRenderer({ form, answers, onChange, onSubmit, submitting, hi
         <Item key={it.kind === "field" ? it.field.id : it.section.id} it={it} answers={answers} set={set} errors={errors} highlight={highlight} onPick={onPick} count={count} />
       ))}
       {errCount > 0 && <p className="text-center text-xs text-danger">{tx("ยังตอบไม่ครบ {0} ข้อ", [errCount])}</p>}
-      {sticky ? <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 px-4 py-3 backdrop-blur"><div className="mx-auto max-w-lg">{buttons}</div></div> : buttons}
+      {sticky ? <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur"><div className="mx-auto max-w-lg">{buttons}</div></div> : buttons}
     </div>
   )
 }

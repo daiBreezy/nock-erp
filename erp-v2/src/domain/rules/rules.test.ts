@@ -1,7 +1,7 @@
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import { agoLabel } from "../dates"
-import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Conversation, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, setBranchBrands, sameDayInYears, missingSeriesRows, holidayForBrand, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, isBackdated, defaultBusLegs, setAllBusLegs, usesNoBus, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
@@ -13,10 +13,12 @@ import * as Sum from "./summaries"
 import * as Pay from "./billing"
 import { chatDayLabel, groupByDay } from "./inbox"
 import { composeAddress } from "./address"
+import { addressFromNominatim } from "../../lib/reverse-geocode"
+import { keepLineLinks, withoutLineLink } from "../../store/keep-line-links"
 import { findFamilyDuplicates, findStudentDuplicates, familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
-import { advanceStage, canSetStage, daysAgo, groupOf, restoreStage, siblingLead, validateLead } from "./crm"
-import { allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel } from "./forms"
+import { advanceStage, canSetStage, daysAgo, groupOf, leadFromSubmission, restoreStage, siblingLead, validateLead } from "./crm"
+import { allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel, slotClashes, picksClash, canEditTogether } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage, invoiceBundleMessage, receiptMessage, voidMessage, familyReceiptMessage } from "./messages"
 import * as Refund from "./refunds"
@@ -3356,5 +3358,81 @@ describe("agoLabel (Noti time, owner 2026-11-16)", () => {
     expect(ago(30 * 24 * 60)).toMatchObject({ kind: "months", n: 1 })
     expect(ago(364 * 24 * 60)).toMatchObject({ kind: "months", n: 12 })
     expect(ago(365 * 24 * 60)).toMatchObject({ kind: "years", n: 1 })
+  })
+})
+
+describe("start over as a new parent (owner 2026-11-18)", () => {
+  const fam = (id: string, lineUserId?: string) => ({ id, name: id, lineUserId, parents: [] }) as unknown as Family
+  const conv = (id: string) => ({ id, name: id, familyId: null, leadId: null }) as unknown as Conversation
+  it("only the family carrying that LINE account loses it; its chat is dropped so the server hands it back as a Visitor", () => {
+    const old = { families: [fam("a", "U1"), fam("b", "U2")], conversations: [conv("line_U1"), conv("line_U2")] }
+    const r = withoutLineLink(old, "U1")
+    expect(r.families.map((f) => f.lineUserId)).toEqual([undefined, "U2"])
+    expect(r.conversations.map((c) => c.id)).toEqual(["line_U2"])
+  })
+  it("after the reseed the family is the sample one again and only the other link is kept", () => {
+    const fresh = { families: [fam("a"), fam("b")], conversations: [] as Conversation[] }
+    const out = keepLineLinks(withoutLineLink({ families: [fam("a", "U1"), fam("b", "U2")], conversations: [conv("line_U1"), conv("line_U2")] }, "U1"), fresh)
+    expect(out.families.find((f) => f.id === "a")?.lineUserId).toBeUndefined()
+    expect(out.families.find((f) => f.id === "b")?.lineUserId).toBe("U2")
+  })
+})
+
+describe("Trial: several subjects the same day, never the same time (owner 2026-11-18)", () => {
+  const slot = (date: string, start: string, minutes = 60) => ({ date, start, minutes })
+  it("a slot clashes only with another subject's overlapping slot on the same date", () => {
+    const chosen = { math: slot("2026-11-19", "10:00"), eng: slot("2026-11-19", "13:00") }
+    expect(slotClashes(slot("2026-11-19", "10:00"), chosen, "sci")).toBe(true) // same time as math
+    expect(slotClashes(slot("2026-11-19", "10:30"), chosen, "sci")).toBe(true) // overlaps math (10:00–11:00)
+    expect(slotClashes(slot("2026-11-19", "11:00"), chosen, "sci")).toBe(false) // right after math: same day is fine
+    expect(slotClashes(slot("2026-11-20", "10:00"), chosen, "sci")).toBe(false) // another day
+    expect(slotClashes(slot("2026-11-19", "10:00"), chosen, "math")).toBe(false) // re-picking the same subject
+  })
+  it("picksClash finds any overlapping pair", () => {
+    expect(picksClash({ a: slot("2026-11-19", "10:00"), b: slot("2026-11-19", "11:00") })).toBe(false)
+    expect(picksClash({ a: slot("2026-11-19", "10:00"), b: slot("2026-11-19", "10:00") })).toBe(true)
+  })
+})
+
+describe("address from the map pin (owner 2026-11-18)", () => {
+  it("maps a Thai Nominatim answer onto the form's address fields", () => {
+    expect(addressFromNominatim({ address: { house_number: "111/111", road: "ซอยทองหล่อ 10", suburb: "คลองตันเหนือ", city_district: "วัฒนา", state: "กรุงเทพมหานคร", postcode: "10110" } }))
+      .toEqual({ province: "กรุงเทพมหานคร", postcode: "10110", line: "111/111 ซอยทองหล่อ 10", area: "คลองตันเหนือ วัฒนา" })
+  })
+  it("gives nothing when OSM knows nothing, and keeps what it does know", () => {
+    expect(addressFromNominatim({})).toBeNull()
+    expect(addressFromNominatim({ address: { state: "ชลบุรี", postcode: "20110" } })).toEqual({ province: "ชลบุรี", postcode: "20110", line: "", area: "" })
+  })
+})
+
+describe("the grade the admin set reaches the parent's form (owner 2026-11-18)", () => {
+  it("a lead with no student yet still hands its grade to the first child", () => {
+    const lead = { name: "สมชาย", phone: "", lineId: "", childGrade: "ป.5", subject: "คณิต", source: "line" as const }
+    expect(buildFormPrefill({ lead, students: [], assessments: [] }).childGrade).toBe("ป.5")
+    expect(buildFormPrefill({ lead: { ...lead, childGrade: "" }, students: [], assessments: [] }).childGrade).toBeUndefined()
+  })
+})
+
+describe("editing a Test with several subjects asks first (owner 2026-11-18)", () => {
+  it("asks for a Test with 2+ subjects, never for one subject or a Trial", () => {
+    expect(canEditTogether("test", [1, 2])).toBe(true)
+    expect(canEditTogether("test", [1])).toBe(false)
+    expect(canEditTogether("trial", [1, 2])).toBe(false) // Trial subjects can never share a time
+  })
+})
+
+describe("a form comes back for a chat with no Lead (owner 2026-11-18)", () => {
+  const sub = {
+    primaryLeadId: "ld_new", branchId: "br1", studentGrade: "ป.5", lineUserId: "U1", acquisitions: ["walkin" as const],
+    parents: [{ name: "คุณแม่", phone: "0811111111", primary: false }, { name: "จอร์จ จอจี้", phone: "0899999999", lineId: "george", primary: true }],
+    picks: [{ chosenSubject: "คณิต", chosenSlot: { date: "2026-11-19", start: "09:00" } }, { chosenSubject: "อังกฤษ", chosenSlot: { date: "2026-11-19", start: "09:00" } }],
+  } as unknown as Parameters<typeof leadFromSubmission>[0]
+  it("the Lead is made from the answers and takes the form's own lead id", () => {
+    const l = leadFromSubmission(sub, { nowIso: "2026-11-18T03:00:00Z", assigneeId: "u1" })
+    expect(l).toMatchObject({ id: "ld_new", branchId: "br1", name: "จอร์จ จอจี้", phone: "0899999999", lineId: "george", lineUserId: "U1", childGrade: "ป.5", subject: "คณิต", subjects: ["คณิต", "อังกฤษ"], source: "walkin", stage: "new", assigneeId: "u1" })
+  })
+  it("falls back to the first parent, and to LINE as the source", () => {
+    const l = leadFromSubmission({ ...sub, parents: [{ name: "คุณแม่", phone: "0811111111" }] as never, acquisitions: undefined }, { nowIso: "x", assigneeId: null })
+    expect(l).toMatchObject({ name: "คุณแม่", source: "line", assigneeId: null })
   })
 })

@@ -240,7 +240,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                               {cell.map((s) => (
                                 // one wrapper per session, so the cell's dividers fall between sessions — not under the room line
                                 // owner 2026-10-15: the whole card opens the session — not just the class name (buttons inside keep their own job)
-                                <div key={s.id} role="button" tabIndex={-1} className="cursor-pointer outline-2 -outline-offset-2 outline-transparent transition-[outline-color] hover:outline-primary/50"
+                                <div key={s.id} data-session-id={s.id} role="button" tabIndex={-1} className="cursor-pointer outline-2 -outline-offset-2 outline-transparent transition-[outline-color] hover:outline-primary/50"
                                   onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, input, textarea, [role=menu], [role=menuitem], [role=dialog]")) onOpen(s.id) }}>
                                 <SessionBlock s={s}
                                   room={<RoomLine inCell sessions={[s]} classes={classes}

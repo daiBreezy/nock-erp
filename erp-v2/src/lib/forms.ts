@@ -52,14 +52,26 @@ export async function sendTestTrialForm(input: {
  *  already merged into one shared 2-hour room block by `submitForm` — no cross-submission grouping is
  *  needed here since each `FormSubmission` row is already one whole child (see `groupId` for how staff
  *  can tell "these children arrived together" without approval being forced to happen together too). */
-export async function approveSubmission(sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean }): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID }>> {
+export async function approveSubmission(sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean }): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID; createdLead: boolean }>> {
+  // a form sent from a chat that has no Lead (owner 2026-11-18): the answers already hold everything — make the Lead, then approve as usual
+  const store = useStore.getState()
+  const createdLead = !store.leads.some((l) => l.id === sub.primaryLeadId)
+  if (createdLead) {
+    const made = store.createLeadFromSubmission(sub)
+    if (!made.ok) return made
+  }
   const r = useStore.getState().approveTestTrialSubmission(sub, opts)
   if (!r.ok) return r
   await postJson("/api/forms/review", { id: sub.id, status: "approved", sessionId: r.value.sessionId, studentId: r.value.studentId })
-  return r
+  return { ok: true, value: { ...r.value, createdLead } }
 }
 
-export async function rejectSubmission(sub: FormSubmission): Promise<Result> {
+/** declining a form — `createLead` keeps what the parent filled in as a Lead first (owner 2026-11-18) */
+export async function rejectSubmission(sub: FormSubmission, opts?: { createLead?: boolean }): Promise<Result> {
+  if (opts?.createLead) {
+    const made = useStore.getState().createLeadFromSubmission(sub)
+    if (!made.ok) return made
+  }
   await postJson("/api/forms/review", { id: sub.id, status: "rejected" })
   return { ok: true, value: undefined }
 }

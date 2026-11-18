@@ -39,3 +39,19 @@ export function upsertLinks(input: Omit<LineLink, "at">[]): Promise<number> {
   queue = result.catch(() => undefined)
   return result
 }
+
+/** Forget a LINE account's link (owner 2026-11-18: "start over as a new parent") — the one place a link is ever removed, so a
+ *  reset is not undone by the ERP putting the link back by itself. Returns how many were removed. */
+export function removeLinks(lineUserId: string): Promise<number> {
+  const result = queue.then(async () => {
+    const links = await readLinks()
+    const kept = links.filter((l) => l.lineUserId !== lineUserId)
+    if (kept.length !== links.length) {
+      await fs.mkdir(DATA_DIR, { recursive: true })
+      await fs.writeFile(FILE, JSON.stringify({ links: kept }, null, 2), "utf8")
+    }
+    return links.length - kept.length
+  })
+  queue = result.catch(() => undefined)
+  return result
+}

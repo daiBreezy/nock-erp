@@ -1597,6 +1597,8 @@ export interface FormPrefill {
   taxInfo?: { customerName: string; taxId: string; address: string }
   familyName?: string
   familyNameEn?: string
+  /** the grade the admin chose / the lead already has — the first child's grade starts here (owner 2026-11-18) */
+  childGrade?: string
   students: ({ name: string; nickname?: string; grade: string; birthDate?: DateStr; school?: string; note?: string; interests?: string[] } & FormStudentExtras)[]
 }
 
