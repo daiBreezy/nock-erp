@@ -63,8 +63,8 @@ export async function downloadReports(d: ReportData, opts: { scope: string; peri
   sheet("แหล่งที่มา", ["แหล่ง", "Lead", "สมัคร", "Conversion", "วันถึงสมัคร", "รายได้"], d.crm.sources.map((x) => [x.source, x.leads, x.enrolled, x.conversion, x.medianDays, x.revenue]), [6], [4])
   sheet("Cohort", ["Cohort", "คน", ...Array.from({ length: 13 }, (_, n) => `M${n}`)],
     d.cohortByBranchYear.map((g) => { const [b, y] = g.key.split("|"); return [`${opts.branchOf(b)} ${Number(y) + 543}`, g.size, ...g.cells] }), [], Array.from({ length: 13 }, (_, n) => n + 3))
-  sheet("คาดการณ์", ["เดือน", "ต่อคอร์ส (คาดการณ์)", "ใบที่รอจ่าย", "รวม"],
-    d.forecast.byMonth.map((x, m) => [m + 1, x?.renewals ?? null, x?.open ?? null, x?.total ?? null]).filter((r) => r[3] !== null), [2, 3, 4])
+  sheet("คาดการณ์", ["เดือน", "ต่อคอร์ส (คาดการณ์)", "ใบที่รอจ่าย", "นักเรียนใหม่ (คาดการณ์)", "รวม"],
+    d.forecast.byMonth.map((x, m) => [m + 1, x?.renewals ?? null, x?.open ?? null, x?.fresh ?? null, x?.total ?? null]).filter((r) => r[4] !== null), [2, 3, 4, 5])
   sheet("Need Attention", ["เรื่อง", "รายละเอียด", "จำนวน"], d.attention.map((a) => [a.title, a.detail, a.count]))
 
   const buf = await wb.xlsx.writeBuffer()

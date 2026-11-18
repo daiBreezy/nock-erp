@@ -7,6 +7,7 @@
 //   Content — the table, full width
 // Same width and spacing everywhere; Calendar and Inbox stay full-screen work areas.
 import { Children, Fragment, isValidElement, type ReactNode } from "react"
+import { KpiGroup } from "@/components/app/kpi"
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, SearchIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -54,7 +55,7 @@ export function KpiRow({ children }: { children: React.ReactNode }) {
     : n === 4 ? "grid-cols-2 lg:grid-cols-4"
     : n === 6 ? "grid-cols-[repeat(2,minmax(0,18rem))] sm:grid-cols-[repeat(3,minmax(0,18rem))]"
     : "grid-cols-[repeat(2,minmax(0,18rem))] sm:grid-cols-[repeat(3,minmax(0,18rem))] lg:grid-cols-[repeat(5,minmax(0,18rem))]"
-  return <div className={cn("grid gap-3", cols)}>{children}</div>
+  return <KpiGroup className={cn("grid gap-3", cols)}>{children}</KpiGroup>
 }
 
 /** filters on the left (branch chip first), `end` on the right */

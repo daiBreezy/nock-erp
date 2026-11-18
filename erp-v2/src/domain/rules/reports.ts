@@ -85,6 +85,96 @@ export function periodRange(key: PeriodKey, today: DateStr, custom?: Range): Ran
 
 export const daysIn = (r: Range) => Math.round((parseDate(r.to).getTime() - parseDate(r.from).getTime()) / 86_400_000) + 1
 
+// ---------- Year · Period · Compare (owner 2026-11-18) ----------
+
+/**
+ * The period the page is about:
+ *  · to-date (the running month / quarter / year, up to today): mtd · qtd · ytd — only for the running year
+ *  · complete stretches of the chosen year: a quarter (q1–q4) · a month · the whole year
+ *  · custom: own dates
+ */
+export type SpanKey = "mtd" | "qtd" | "ytd" | "year" | "q1" | "q2" | "q3" | "q4" | "month" | "custom"
+/**
+ * Compare with:
+ *  · "none"
+ *  · "prev" — the stretch right before, in calendar units: MoM (month before) · QoQ (quarter before) · YoY (year before);
+ *             a custom range has no calendar unit, so it is the same number of days right before
+ *  · a year — the same stretch of that year (YoY)
+ */
+export type CompareChoice = "none" | "prev" | number
+export interface ReportFilter { year: number; span: SpanKey; /** 0–11, for span "month" */ month: number; custom: Range; compare: CompareChoice }
+export interface ResolvedFilter {
+  range: Range
+  /** null = compare with nothing */
+  prev: Range | null
+  /** the year the numbers are about (the running year for a to-date stretch) */
+  year: number
+  /** the year the monthly chart sets against (the year before when comparing with the stretch before) */
+  compareYear: number | null
+  /** the running year — "now" numbers and the forecast mean something only then */
+  isCurrentYear: boolean
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0")
+const lastDayOf = (y: number, m0: number) => toDateStr(new Date(y, m0 + 1, 0))
+export const isToDateSpan = (s: SpanKey) => s === "mtd" || s === "qtd" || s === "ytd"
+
+/** a complete stretch with its natural ends (a quarter's last day even if that is still ahead) */
+function spanBounds(span: "year" | "q1" | "q2" | "q3" | "q4" | "month", y: number, month: number): Range {
+  if (span === "month") return { from: `${y}-${pad2(month + 1)}-01`, to: lastDayOf(y, month) }
+  if (span === "year") return { from: `${y}-01-01`, to: `${y}-12-31` }
+  const m0 = (Number(span.slice(1)) - 1) * 3
+  return { from: `${y}-${pad2(m0 + 1)}-01`, to: lastDayOf(y, m0 + 2) }
+}
+
+/** months a to-date stretch is stepped back for "the one before" */
+const BEFORE_MONTHS: Partial<Record<SpanKey, number>> = { mtd: 1, month: 1, qtd: 3, q1: 3, q2: 3, q3: 3, q4: 3, ytd: 12, year: 12 }
+
+/**
+ * Year + period + compare → the two date ranges every report number is computed over. Nothing runs past today. A stretch
+ * still running (mtd · qtd · ytd, or a quarter / month cut at today) is compared with the SAME days of the other stretch,
+ * so the two are fair — e.g. QTD 1 Oct–18 Nov against 1 Jul–18 Aug (QoQ), or 1 Oct–18 Nov of last year (YoY).
+ */
+export function resolveFilter(f: ReportFilter, today: DateStr): ResolvedFilter {
+  const cur = Number(today.slice(0, 4))
+  const cap = (d: DateStr) => (d > today ? today : d)
+  const toDate = isToDateSpan(f.span), custom = f.span === "custom"
+  const natural = toDate || custom ? null : spanBounds(f.span as "year" | "q1" | "q2" | "q3" | "q4" | "month", f.year, f.month)
+  const range: Range =
+    f.span === "mtd" ? { from: monthStart(today), to: today }
+    : f.span === "qtd" ? { from: quarterStart(today), to: today }
+    : f.span === "ytd" ? { from: `${cur}-01-01`, to: today }
+    : custom ? periodRange("custom", today, f.custom)
+    : { from: cap(natural!.from), to: cap(natural!.to) }
+  /** still running: the stretch is compared by the same days, not by its whole length */
+  const partial = toDate || (!!natural && natural.to > range.to)
+  const baseYear = custom ? Number(range.from.slice(0, 4)) : toDate ? cur : f.year
+  const stepBack = (months: number): Range => ({ from: shiftMonths(range.from, -months), to: partial ? shiftMonths(range.to, -months) : addDays(range.from, -1) })
+
+  let prev: Range | null = null
+  let compareYear: number | null = null
+  if (f.compare === "prev") {
+    const months = BEFORE_MONTHS[f.span]
+    if (months !== undefined) {
+      // a complete month / quarter / year ends the day before this one starts; a running one ends on the same day
+      prev = f.span === "year" || f.span === "ytd" ? { from: shiftMonths(range.from, -12), to: shiftMonths(range.to, -12) } : stepBack(months)
+    } else {
+      const n = daysIn(range)
+      prev = { from: addDays(range.from, -n), to: addDays(range.from, -1) }
+    }
+    compareYear = baseYear - 1
+  } else if (typeof f.compare === "number") {
+    compareYear = f.compare
+    const dy = f.compare - baseYear
+    if (toDate || custom) prev = { from: shiftMonths(range.from, 12 * dy), to: shiftMonths(range.to, 12 * dy) }
+    else {
+      const other = spanBounds(f.span as "year" | "q1" | "q2" | "q3" | "q4" | "month", f.compare, f.month)
+      prev = { from: other.from, to: partial ? shiftMonths(range.to, 12 * dy) : cap(other.to) }
+    }
+  }
+  return { range, prev, year: baseYear, compareYear, isCurrentYear: custom ? range.to >= today : toDate || f.year === cur }
+}
+
 /** What each period is compared with (owner: not "MoM" on every card) — YTD against the same dates last year. */
 export function compareRange(key: PeriodKey, r: Range): Range {
   if (key === "ytd" || key === "yoy") return { from: shiftMonths(r.from, -12), to: key === "yoy" ? addDays(shiftMonths(addDays(r.to, 1), -12), -1) : shiftMonths(r.to, -12) }
@@ -217,16 +307,43 @@ const packageOrder = (k: string) => { const n = parseFloat(k); return (k.endsWit
 
 /** Package × grade: how many packages each grade bought. */
 export function packageByGrade(rows: RevenueRow[], r: Range) {
-  const cells = new Map<string, number>()
+  const cells = new Map<string, number>(), money = new Map<string, number>()
   const grades = new Set<string>(), keys = new Set<string>()
   for (const x of rows) if (inRange(x.date, r) && !x.credit) for (const l of x.lines) {
     grades.add(l.grade); keys.add(l.packageKey)
     cells.set(`${l.grade}|${l.packageKey}`, (cells.get(`${l.grade}|${l.packageKey}`) ?? 0) + l.units)
+    money.set(`${l.grade}|${l.packageKey}`, (money.get(`${l.grade}|${l.packageKey}`) ?? 0) + l.amount)
   }
-  return { grades: sortGradesLike([...grades]), keys: [...keys].sort((a, b) => packageOrder(a) - packageOrder(b)), count: (g: string, k: string) => cells.get(`${g}|${k}`) ?? 0 }
+  return { grades: sortGradesLike([...grades]), keys: [...keys].sort((a, b) => packageOrder(a) - packageOrder(b)), count: (g: string, k: string) => cells.get(`${g}|${k}`) ?? 0, amount: (g: string, k: string) => money.get(`${g}|${k}`) ?? 0 }
 }
 const GRADE_ORDER = ["อ.1", "อ.2", "อ.3", "ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"]
 const sortGradesLike = (gs: string[]) => gs.sort((a, b) => (GRADE_ORDER.indexOf(a) + 1 || 99) - (GRADE_ORDER.indexOf(b) + 1 || 99))
+
+/**
+ * Bestselling package × subject (owner 2026-11-18): which package-type sells most for each subject — units (Volume)
+ * and tuition (Value). A multi-subject line counts its units for each subject and splits its tuition evenly, the same
+ * way the Subject Engine splits revenue. Subjects are ranked by total units (bestselling first).
+ */
+export function packageBySubject(rows: RevenueRow[], r: Range) {
+  const u = new Map<string, number>(), v = new Map<string, number>(), subjTotal = new Map<string, number>()
+  const subjects = new Set<string>(), keys = new Set<string>()
+  for (const x of rows) if (inRange(x.date, r) && !x.credit) for (const l of x.lines) {
+    keys.add(l.packageKey)
+    for (const s of l.subjects) {
+      subjects.add(s)
+      const key = `${s}|${l.packageKey}`
+      u.set(key, (u.get(key) ?? 0) + l.units)
+      v.set(key, (v.get(key) ?? 0) + l.amount / l.subjects.length)
+      subjTotal.set(s, (subjTotal.get(s) ?? 0) + l.units)
+    }
+  }
+  return {
+    subjects: [...subjects].sort((a, b) => (subjTotal.get(b) ?? 0) - (subjTotal.get(a) ?? 0)),
+    keys: [...keys].sort((a, b) => packageOrder(a) - packageOrder(b)),
+    units: (s: string, k: string) => u.get(`${s}|${k}`) ?? 0,
+    amount: (s: string, k: string) => v.get(`${s}|${k}`) ?? 0,
+  }
+}
 
 /** Top families by money paid in the period — tenure counts from their first paid invoice ever. */
 export function topFamilies(rows: RevenueRow[], r: Range, ctx: { students: Pick<Student, "id" | "nickname" | "familyId">[]; families: Pick<Family, "id" | "name">[]; today: DateStr }) {
@@ -623,10 +740,11 @@ export function roomUtilization(branch: Branch, sessions: Pick<Session, "date" |
 }
 
 /** How full each active class is against its suggested size (Single 3 / Group 6). */
-export function classFill(classes: Pick<Klass, "id" | "name" | "branchId" | "active" | "kind" | "type" | "studentIds" | "teacherId" | "periodId">[], capacity: { single: number; group: number }) {
+export function classFill(classes: Pick<Klass, "id" | "name" | "branchId" | "active" | "kind" | "type" | "studentIds" | "teacherId" | "periodId" | "weekday" | "start" | "minutes">[], capacity: { single: number; group: number }) {
   return classes.filter((k) => k.active && k.kind === "learning").map((k) => {
     const cap = capacity[k.type]
-    return { id: k.id, name: k.name, branchId: k.branchId, teacherId: k.teacherId, students: k.studentIds.length, capacity: cap, fill: k.studentIds.length / cap }
+    // owner 2026-11-18: the class's weekday + time so the fill list says when each class runs
+    return { id: k.id, name: k.name, branchId: k.branchId, teacherId: k.teacherId, weekday: k.weekday, start: k.start, minutes: k.minutes, students: k.studentIds.length, capacity: cap, fill: k.studentIds.length / cap }
   }).sort((a, b) => a.fill - b.fill)
 }
 
@@ -806,6 +924,33 @@ export function lostLeads(leads: Pick<Lead, "stage" | "archivedFrom" | "createdA
   return FUNNEL_STEPS.slice(0, -1).map((s, i) => ({ key: s.key, label: s.label, count: xs.filter((l) => stageRank(l) >= s.min && stageRank(l) < FUNNEL_STEPS[i + 1].min).length }))
 }
 
+/**
+ * Lost leads by the course (subject of interest) and the teacher who ran their Test/Trial (owner 2026-11-18) — knowing
+ * which course / teacher loses the most leads. The teacher comes from the lead's assessment → session; when the session
+ * carries no teacher (older demo records), `fallbackTeacher` resolves the teacher who would have run the Test/Trial (the
+ * subject's teacher at that branch). A lead with no teacher at all counts under "no teacher" (teacherId = null).
+ */
+export function lostLeadBreakdown<L extends Pick<Lead, "id" | "stage" | "subject" | "createdAt">>(
+  leads: L[], r: Range,
+  ctx: { assessments: Pick<Assessment, "leadId" | "sessionId">[]; teacherOfSession: (sessionId: ID) => ID | null; fallbackTeacher?: (lead: L) => ID | null },
+) {
+  const xs = leads.filter((l) => l.stage === "archived" && inRange(l.createdAt.slice(0, 10), r))
+  const sessionsOf = new Map<string, string[]>()
+  for (const a of ctx.assessments) sessionsOf.set(a.leadId, [...(sessionsOf.get(a.leadId) ?? []), a.sessionId])
+  const course = new Map<string, number>(), teacher = new Map<ID | null, number>()
+  for (const l of xs) {
+    course.set(l.subject, (course.get(l.subject) ?? 0) + 1)
+    let tId: ID | null = null
+    for (const sid of sessionsOf.get(l.id) ?? []) { const t = ctx.teacherOfSession(sid); if (t) { tId = t; break } }
+    if (!tId) tId = ctx.fallbackTeacher?.(l) ?? null
+    teacher.set(tId, (teacher.get(tId) ?? 0) + 1)
+  }
+  return {
+    byCourse: [...course.entries()].map(([subject, count]) => ({ subject, count })).sort((a, b) => b.count - a.count),
+    byTeacher: [...teacher.entries()].map(([teacherId, count]) => ({ teacherId, count })).sort((a, b) => b.count - a.count),
+  }
+}
+
 // ---------- R3: cohort retention ----------
 
 export const COHORT_MONTHS = 24 // owner 2026-10-07: up to 24 months (the page switches 12 / 24)
@@ -890,6 +1035,17 @@ export function avgNewRevenue(rows: RevenueRow[], events: StudentEvent[], today:
   const fresh = new Set(events.filter((e) => e.kind === "new" && e.date >= from && e.date <= to).map((e) => e.studentId))
   const sumNew = rows.filter((x) => fresh.has(x.studentId) && x.date >= from && x.date <= to && !x.credit)
   return { perMonth: sumNew.reduce((a, x) => a + x.total, 0) / 3, students: fresh.size / 3 }
+}
+
+/**
+ * New students the run-rate expects (owner 2026-11-18: the year's estimate counts them — one number for the money, not a
+ * sum to do by hand). Each month from the current one on gets the recent monthly average of new students' revenue
+ * (`avgNewRevenue`); the month in progress only for the days still to come. Months already over = null.
+ */
+export function newStudentForecast(perMonth: number, today: DateStr): (number | null)[] {
+  const cur = Number(today.slice(5, 7)) - 1, day = Number(today.slice(8, 10))
+  const dim = new Date(Number(today.slice(0, 4)), cur + 1, 0).getDate()
+  return Array.from({ length: 12 }, (_, m) => (m < cur ? null : Math.round(m === cur ? (perMonth * (dim - day)) / dim : perMonth)))
 }
 
 // ---------- why students leave (exit form, owner 2026-10-05) ----------

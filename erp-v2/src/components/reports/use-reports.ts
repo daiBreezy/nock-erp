@@ -18,7 +18,10 @@ import { tx, uiLang } from "@/lib/i18n"
 /** taught already: today's finished sessions ("ended") and every earlier one ("closed") */
 const isOver = (st: string) => st === "ended" || st === "closed"
 
-export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.Range) {
+/** compare with nothing: a range before any record, so every "change" reads as "no data to compare" (null) */
+const NO_PREV: R.Range = { from: "1900-01-01", to: "1900-01-02" }
+
+export function useReports(branchIds: string[], filter: R.ResolvedFilter) {
   const now = useNow(60_000)
   const today = toDateStr(now)
   const s = useStore()
@@ -33,22 +36,30 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
 
   return useMemo(() => {
     const rows = allRows.filter((x) => ids.has(x.branchId))
-    const range = R.periodRange(period, today, custom)
-    const prev = R.compareRange(period, range)
+    const range = filter.range
+    const prev = filter.prev ?? NO_PREV
     const students = s.students.filter((x) => ids.has(x.branchId))
     const studentIds = new Set(students.map((x) => x.id))
     const ents = entitlementsAll.filter((e) => studentIds.has(e.studentId))
     const leaves = s.leaves.filter((l) => studentIds.has(l.studentId))
     const sessions = s.sessions.filter((x) => ids.has(x.branchId))
     const events = R.studentEvents({ students, entitlements: ents, rows, today })
-    const year = Number(today.slice(0, 4))
+    const thisYearNow = Number(today.slice(0, 4))
+    // owner 2026-11-18: the chosen year (not always the running one) and the year it is set against
+    const year = filter.year
+    const cmpYear = filter.compareYear
     // the oldest record we have — comparisons reaching before it would compare against missing data
     const since = rows[0]?.date ?? null
 
     const countState = (date: string, st: R.StudentStateOn) => students.filter((x) => R.stateOn(x.id, date, ents, leaves) === st).length
-    const active = countState(today, "active")
-    const paused = countState(today, "paused")
+    // owner 2026-11-18: as of the end of the chosen stretch — today while the year is running, its last day for a past year
+    const asOf = range.to < today ? range.to : today
+    const active = countState(asOf, "active")
+    const paused = countState(asOf, "paused")
     const activeAtStart = countState(addDays(range.from, -1), "active")
+    // owner 2026-11-18: "how many are studying" against the SAME date of the compared stretch (the page's compare setting)
+    const comparable = !!filter.prev && !!since && prev.from >= since
+    const activePrev = filter.prev ? countState(prev.to, "active") : null
 
     // the period strip: every period with its own comparison
     const strip = R.PERIODS.filter((p) => R.STRIP_PERIODS.includes(p.key)).map((p) => {
@@ -110,6 +121,9 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       monthly: Array.from({ length: 12 }, (_, m) => attMonthly.find((r) => r.key === `${year}-${String(m + 1).padStart(2, "0")}`)?.rate ?? null),
       leavers: R.frequentLeavers(ended, s.attendance, range),
       cancelled: R.cancellations(sessions, range),
+      // owner 2026-11-18: the same numbers for the compared stretch (only where the sessions reach back that far)
+      prev: { total: R.attendanceRate(ended, s.attendance, prev), cancelled: R.cancellations(sessions, prev) },
+      comparable: !!filter.prev && prev.from >= sessionSince,
     }
     const operations = {
       since: sessionSince,
@@ -134,6 +148,22 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       sankey: R.leadSankey(leads, range, appts),
       sources: R.leadSources(leads, rows, range),
       lost: R.lostLeads(leads, range),
+      // owner 2026-11-18: which course / teacher the lost leads were lost from — teacher from the Test/Trial session, or
+      // (demo records with no session) the subject's teacher at that branch, spread deterministically by the lead id
+      lostBy: (() => {
+        const hash = (k: string) => { let x = 2166136261; for (const c of k) x = Math.imul(x ^ c.charCodeAt(0), 16777619); return (x >>> 0) / 4294967296 }
+        const teachersOf = (branchId: string, subject: string) => {
+          const fromClasses = [...new Set(s.classes.filter((k) => k.active && k.branchId === branchId && (k.subject === subject || k.subjects?.includes(subject)) && k.teacherId).map((k) => k.teacherId as string))]
+          if (fromClasses.length) return fromClasses
+          return s.staff.filter((st) => st.active && st.branchIds.includes(branchId) && st.roles.includes("teacher") && st.subjects.includes(subject)).map((st) => st.id)
+        }
+        const b = R.lostLeadBreakdown(leads, range, {
+          assessments: s.assessments,
+          teacherOfSession: (sid) => s.sessions.find((x) => x.id === sid)?.teacherId ?? null,
+          fallbackTeacher: (l) => { const cands = teachersOf(l.branchId, l.subject); return cands.length ? cands[Math.floor(hash(l.id) * cands.length)] : null },
+        })
+        return { byCourse: b.byCourse, byTeacher: b.byTeacher.map((x) => ({ ...x, name: (x.teacherId && s.staff.find((st) => st.id === x.teacherId)?.nickname) || tx("ไม่ระบุครู") })) }
+      })(),
       lostReasons: [...leads.filter((l) => l.stage === "archived" && R.inRange(l.createdAt.slice(0, 10), range))
         .reduce((m, l) => { const k = l.lost ? Loss.reasonLabel(l.lost.reasonId, s.system.lossReasons, uiLang()) : l.archiveReason || tx("ไม่ระบุ"); return m.set(k, (m.get(k) ?? 0) + 1) }, new Map<string, number>())]
         .map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
@@ -146,7 +176,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       perBranch: branches.map((b) => { const f = R.leadFunnel(leads.filter((l) => l.branchId === b.id), range, appts); return { id: b.id, name: b.name, leads: f[0].count, enrolled: f[f.length - 1].count, conversion: f[f.length - 1].ofAll } }),
       monthly: {
         thisYear: Array.from({ length: 12 }, (_, m) => { const k = `${year}-${String(m + 1).padStart(2, "0")}`; return k > today.slice(0, 7) ? null : leads.filter((l) => l.createdAt.startsWith(k)).length }),
-        lastYear: Array.from({ length: 12 }, (_, m) => leads.filter((l) => l.createdAt.startsWith(`${year - 1}-${String(m + 1).padStart(2, "0")}`)).length || null),
+        lastYear: Array.from({ length: 12 }, (_, m) => (cmpYear === null ? null : leads.filter((l) => l.createdAt.startsWith(`${cmpYear}-${String(m + 1).padStart(2, "0")}`)).length || null)),
       },
     }
     const cohortByBranchYear = R.cohortRetention({ students, entitlements: ents, rows, today, groupOf: (st, joined) => `${st.branchId}|${joined.slice(0, 4)}` })
@@ -155,11 +185,18 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
     const renewalUsed = R.renewalRate(events, R.periodRange("6m", today)) ?? 0.8
     const openInvoices = s.invoices.filter((i) => ids.has(i.branchId) && (i.status === "approved" || i.status === "sent"))
       .map((i) => ({ studentId: i.studentId, amount: invoiceTotals(i, { branch: s.branches.find((b) => b.id === i.branchId)!, courses: s.courses, classes: s.classes, holidays: s.holidays }).total, date: (i.sentAt ?? i.createdAt).slice(0, 10) }))
-    const fc = R.forecastRevenue({ today, until: `${year}-12-31`, renewal: renewalUsed, entitlements: ents, rows, openInvoices })
+    const fc = R.forecastRevenue({ today, until: `${thisYearNow}-12-31`, renewal: renewalUsed, entitlements: ents, rows, openInvoices })
+    const newAvg = R.avgNewRevenue(rows, events, today)
+    const newFc = R.newStudentForecast(newAvg.perMonth, today)
     const forecast = {
       renewal: renewalUsed, open: openInvoices.reduce((a, o) => a + o.amount, 0), openCount: openInvoices.length,
-      byMonth: Array.from({ length: 12 }, (_, m) => { const f = fc.get(`${year}-${String(m + 1).padStart(2, "0")}`); return f ? { renewals: f.renewals, open: f.open, total: f.renewals + f.open } : null }),
-      newAvg: R.avgNewRevenue(rows, events, today),
+      // owner 2026-11-18: renewals + invoices waiting + the new students the recent pace brings — one number per month
+      byMonth: Array.from({ length: 12 }, (_, m) => {
+        if (year !== thisYearNow) return null // a past year has nothing left to forecast
+        const f = fc.get(`${year}-${String(m + 1).padStart(2, "0")}`), fresh = newFc[m] ?? 0
+        return f || fresh ? { renewals: f?.renewals ?? 0, open: f?.open ?? 0, fresh, total: (f?.renewals ?? 0) + (f?.open ?? 0) + fresh } : null
+      }),
+      newAvg,
     }
 
     const exits = R.exitSummary(students, range)
@@ -180,10 +217,10 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
     return {
       exits, surveyYears, surveyOf,
       attendanceTab, operations, crm, cohortByBranchYear, cohortMonthly, forecast,
-      today, now, range, prev, rows, events, students, since, comparable: !!since && prev.from >= since,
+      today, now, range, prev, rows, events, students, since, comparable, isCurrentYear: filter.isCurrentYear, asOf,
       kpi: {
         revenue: rev.total, revenueChange: R.change(rev.total, revPrev.total, prev, since),
-        active, paused, activeChange: R.change(active, activeAtStart, { from: range.from, to: range.from }, since),
+        active, paused, activePrev, activeChange: comparable && activePrev !== null ? active - activePrev : null, activeAtStart,
         weekSessions, attendance: att.rate, attendanceChange: att.rate !== null && attPrev.rate !== null ? Math.round((att.rate - attPrev.rate) * 1000) / 10 : null,
         attention: attention.length,
       },
@@ -191,14 +228,17 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
       // students studying now (active today) by school — Reports › นักเรียน (owner 2026-10-07)
       schools: R.schoolBreakdown(students.filter((x) => !x.archived && R.stateOn(x.id, today, ents, leaves) === "active"), (id) => s.branches.find((b) => b.id === id)?.province),
       monthly: {
-        thisYear: R.monthlyRevenue(rows, year, today), lastYear: R.monthlyRevenue(rows, year - 1, today), year,
-        // this month so far vs the same days last year
-        lastYearToDate: R.revenueIn(rows, { from: `${year - 1}${today.slice(4, 8)}01`, to: `${year - 1}${today.slice(4)}` }).total,
+        thisYear: R.monthlyRevenue(rows, year, year === thisYearNow ? today : `${year}-12-31`),
+        lastYear: cmpYear === null ? Array<number | null>(12).fill(null) : R.monthlyRevenue(rows, cmpYear, cmpYear === thisYearNow ? today : `${cmpYear}-12-31`),
+        year, compareYear: cmpYear,
+        // this month so far vs the same days of the other year (only meaningful while the year is running)
+        lastYearToDate: cmpYear === null || year !== thisYearNow ? 0 : R.revenueIn(rows, { from: `${cmpYear}${today.slice(4, 8)}01`, to: `${cmpYear}${today.slice(4)}` }).total,
       },
       byBranch: R.revenueByBranch(allRows.filter((x) => ids.has(x.branchId)), range, branches),
       bySubject: R.revenueBySubject(rows, range),
       packages: R.packageMix(rows, range),
       packageGrade: R.packageByGrade(rows, range),
+      packageSubject: R.packageBySubject(rows, range),
       families: R.topFamilies(rows, range, { students: s.students, families: s.families, today }),
       demand: (subject?: string) => R.demandByDayHour(sessions, range, { subject }),
       studentFlow: {
@@ -260,7 +300,7 @@ export function useReports(branchIds: string[], period: R.PeriodKey, custom?: R.
         return { label: b.name, byWeekday: w }
       }),
     }
-  }, [allRows, ids, period, custom, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, s.assessments, entitlementsAll])
+  }, [allRows, ids, filter, today, now, s.students, s.leaves, s.sessions, s.attendance, s.branches, s.staff, s.summaries, s.invoices, s.classes, s.leads, s.families, s.holidays, s.system, s.courses, s.surveyCampaigns, s.surveyResponses, s.assessments, entitlementsAll])
 }
 
 export type ReportData = ReturnType<typeof useReports>

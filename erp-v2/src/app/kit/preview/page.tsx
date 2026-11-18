@@ -130,12 +130,21 @@ function CardsDemo() {
 
 function KpiDemo() {
   return (
+    <div className="space-y-3">
     <KpiRow>
       <Kpi icon={BookOpenIcon} label="คลาสที่เปิดอยู่" value={128} tone="primary" />
       <Kpi icon={UsersIcon} label="นักเรียน" value={"1,240"} tone="emerald" />
       <Kpi icon={UserRoundIcon} label="ครู" value={36} tone="special" />
       <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={9} tone="amber" emphasis />
     </KpiRow>
+    {/* owner 2026-11-18: the second look — tonal (grey, no shadow) for numbers inside a section */}
+    <KpiRow>
+      <Kpi variant="tonal" label="จริงสะสมปีนี้" value="2.03M" />
+      <Kpi variant="tonal" label="+ คาดว่าจะเข้าอีก" value="253K" tone="primary" emphasis />
+      <Kpi variant="tonal" label="= ประมาณการทั้งปี" value="2.39M" sub="ต่อคอร์ส" />
+      <Kpi variant="tonal" icon={UsersIcon} label="นักเรียน" value={36} />
+    </KpiRow>
+    </div>
   )
 }
 

@@ -1891,12 +1891,73 @@ describe("Reports R2 — attendance + operations (owner 2026-10-01)", () => {
     const branch = { id: "b1", rooms: [{ id: "r1", name: "ห้อง 1" }] } as unknown as Branch
     const u = Rep.roomUtilization(branch, [ses("s1", { minutes: 120 })], r, { since: "2026-09-10", closed: (d) => d === "2026-09-11", hoursOn: (d) => (d <= "2026-09-12" ? { open: "09:00", close: "19:00" } : null) })
     expect(u[0]).toMatchObject({ booked: 120, open: 1200, rate: 0.1 })
-    const fill = Rep.classFill([{ id: "k", name: "k", branchId: "b1", active: true, kind: "learning", type: "single", studentIds: ["a", "b", "c", "d"], teacherId: null }], { single: 3, group: 6 })
+    const fill = Rep.classFill([{ id: "k", name: "k", branchId: "b1", active: true, kind: "learning", type: "single", studentIds: ["a", "b", "c", "d"], teacherId: null, weekday: 1, start: "09:00", minutes: 120 }], { single: 3, group: 6 })
     expect(fill[0].fill).toBeCloseTo(4 / 3)
+    expect(fill[0]).toMatchObject({ weekday: 1, start: "09:00" })
+  })
+})
+
+describe("Reports filters — year · period · compare (owner 2026-11-18)", () => {
+  const today = "2026-11-18"
+  const f = (x: Partial<Rep.ReportFilter> = {}): Rep.ReportFilter => ({ year: 2026, span: "ytd", month: 0, custom: { from: "2026-11-01", to: "2026-11-10" }, compare: 2025, ...x })
+  const R = (x: Partial<Rep.ReportFilter>) => Rep.resolveFilter(f(x), today)
+  it("YTD: 1 Jan to today, against the same dates of the year before (YoY)", () => {
+    const r = R({})
+    expect(r.range).toEqual({ from: "2026-01-01", to: today })
+    expect(r.prev).toEqual({ from: "2025-01-01", to: "2025-11-18" })
+    expect(r).toMatchObject({ compareYear: 2025, isCurrentYear: true, year: 2026 })
+    expect(R({ compare: "prev" }).prev).toEqual({ from: "2025-01-01", to: "2025-11-18" }) // the stretch before a year IS the year before
+  })
+  it("MTD: against the same days of last month (MoM), or of the same month last year (YoY)", () => {
+    expect(R({ span: "mtd" }).range).toEqual({ from: "2026-11-01", to: today })
+    expect(R({ span: "mtd", compare: "prev" }).prev).toEqual({ from: "2026-10-01", to: "2026-10-18" })
+    expect(R({ span: "mtd" }).prev).toEqual({ from: "2025-11-01", to: "2025-11-18" })
+    // a short last month clamps the day (31 Mar → 28 Feb)
+    expect(Rep.resolveFilter(f({ span: "mtd", compare: "prev" }), "2026-03-31").prev).toEqual({ from: "2026-02-01", to: "2026-02-28" })
+  })
+  it("QTD: against the same days of the quarter before (QoQ), or of the same quarter last year (YoY)", () => {
+    expect(R({ span: "qtd" }).range).toEqual({ from: "2026-10-01", to: today })
+    expect(R({ span: "qtd", compare: "prev" }).prev).toEqual({ from: "2026-07-01", to: "2026-08-18" })
+    expect(R({ span: "qtd" }).prev).toEqual({ from: "2025-10-01", to: "2025-11-18" })
+  })
+  it("a complete quarter: QoQ = the calendar quarter before (Q1 → last year's Q4); YoY = the same quarter of the other year", () => {
+    const q3 = R({ span: "q3", compare: "prev" })
+    expect(q3.range).toEqual({ from: "2026-07-01", to: "2026-09-30" })
+    expect(q3.prev).toEqual({ from: "2026-04-01", to: "2026-06-30" }) // exactly Q2 — not "92 days before"
+    expect(R({ span: "q1", compare: "prev" }).prev).toEqual({ from: "2025-10-01", to: "2025-12-31" })
+    expect(R({ span: "q2" }).prev).toEqual({ from: "2025-04-01", to: "2025-06-30" })
+  })
+  it("a complete month: MoM = the calendar month before, with its real length; YoY = the same month of the other year", () => {
+    expect(R({ span: "month", month: 2, compare: "prev" })).toMatchObject({ range: { from: "2026-03-01", to: "2026-03-31" }, prev: { from: "2026-02-01", to: "2026-02-28" } })
+    expect(R({ span: "month", month: 0, compare: "prev" }).prev).toEqual({ from: "2025-12-01", to: "2025-12-31" })
+    expect(R({ span: "month", month: 1 }).prev).toEqual({ from: "2025-02-01", to: "2025-02-28" })
+    expect(Rep.resolveFilter(f({ span: "month", month: 1, year: 2024, compare: 2023 }), today).range.to).toBe("2024-02-29")
+  })
+  it("a past year is complete: the whole year against the whole year before", () => {
+    const r = R({ year: 2025, span: "year", compare: 2024 })
+    expect(r.range).toEqual({ from: "2025-01-01", to: "2025-12-31" })
+    expect(r.prev).toEqual({ from: "2024-01-01", to: "2024-12-31" })
+    expect(r.isCurrentYear).toBe(false)
+    expect(R({ year: 2025, span: "year", compare: "prev" }).prev).toEqual({ from: "2024-01-01", to: "2024-12-31" })
+  })
+  it("no comparison = no previous range; a custom range steps back by its own length, or by whole years", () => {
+    expect(R({ compare: "none" }).prev).toBeNull()
+    const c = R({ span: "custom", custom: { from: "2026-11-01", to: "2026-11-10" }, compare: "prev" })
+    expect(c.prev).toEqual({ from: "2026-10-22", to: "2026-10-31" })
+    expect(Rep.daysIn(c.prev!)).toBe(Rep.daysIn(c.range))
+    const y = R({ span: "custom", custom: { from: "2026-11-01", to: "2026-12-31" } })
+    expect(y.range).toEqual({ from: "2026-11-01", to: today }) // never past today
+    expect(y.prev).toEqual({ from: "2025-11-01", to: "2025-11-18" })
   })
 })
 
 describe("Reports R3 — CRM, cohort, forecast (owner 2026-10-01)", () => {
+  it("new-student forecast: nothing for past months, the days left of this month, then the full average", () => {
+    const f = Rep.newStudentForecast(30_000, "2026-11-18")
+    expect(f.slice(0, 10).every((x) => x === null)).toBe(true)
+    expect(f[10]).toBe(Math.round((30_000 * 12) / 30)) // Nov: 30 days, 18 gone, 12 left
+    expect(f[11]).toBe(30_000)
+  })
   const lead = (stage: Lead["stage"], extra: Partial<Lead> = {}) => ({ stage, createdAt: "2026-09-05T10:00:00.000Z", source: "line", convertedStudentId: null, ...extra }) as Lead
   it("funnel counts every step a lead reached; archived ones at the step they stopped", () => {
     const leads = [lead("new"), lead("tested"), lead("archived", { archivedFrom: "trialed" }), lead("enrolled", { convertedStudentId: "a" })]

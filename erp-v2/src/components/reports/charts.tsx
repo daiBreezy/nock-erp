@@ -32,6 +32,33 @@ export function Delta({ value, invert, className }: { value: number | null; inve
   )
 }
 
+/**
+ * The change of a number, three kinds (owner 2026-11-18 — each says what it is):
+ *  · `Delta`      money / large amounts → percent          ↑ 12%
+ *  · `DeltaCount` people · courses · leads → the difference  ↑ 4   (a percent of a small base misleads: +250% = 3 more)
+ *  · `DeltaPts`   a rate (retention, churn …) → percentage POINTS   ↑ 3.8 จุด   (80% → 84% is +4 points, not +5%)
+ * The arrow is the direction; the colour is good / bad — `invert` for numbers where less is better (lost, churn).
+ * `null` = nothing to compare with → "—" (never a 0, which would claim "no change").
+ */
+function ChangeView({ up, flat, good, children, className }: { up: boolean; flat: boolean; good: boolean; children: React.ReactNode; className?: string }) {
+  if (flat) return <span className={cn("inline-flex items-center gap-0.5 text-xs font-medium tabular-nums text-muted-foreground", className)}>{children}</span>
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-medium tabular-nums", good ? "text-success" : "text-danger", className)}>
+      {up ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />}{children}
+    </span>
+  )
+}
+export function DeltaCount({ value, invert, className }: { value: number | null; invert?: boolean; className?: string }) {
+  if (value === null) return <span className={cn("text-xs text-muted-foreground", className)}>—</span>
+  const up = value > 0
+  return <ChangeView up={up} flat={value === 0} good={invert ? !up : up} className={className}>{value === 0 ? "0" : fmtNum(Math.abs(value))}</ChangeView>
+}
+export function DeltaPts({ value, invert, className }: { value: number | null; invert?: boolean; className?: string }) {
+  if (value === null) return <span className={cn("text-xs text-muted-foreground", className)}>—</span>
+  const up = value > 0
+  return <ChangeView up={up} flat={value === 0} good={invert ? !up : up} className={className}>{value === 0 ? "0" : Math.abs(value)} {tx("จุด")}</ChangeView>
+}
+
 /** A report card. `center` = content centred in the card's height · `fill` = content stretched to the card's height
  *  (owner 2026-10-01: cards side by side are the same height — the content should fill it, not leave a gap). */
 export { InfoTip } from "@/components/app/info-tip"
@@ -44,7 +71,9 @@ export function Panel({ title, sub, hint, action, children, className, center, f
   sub?: ReactNode; hint?: string; action?: ReactNode; children: ReactNode; className?: string; center?: boolean; fill?: boolean }) {
   return (
     <section className={cn("flex min-w-0 flex-col rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/10 sm:p-5", className)}>
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      {/* owner 2026-11-18: every card header is at least one control tall (h-9) — a card with a switch in its header and a
+          neighbour without one used to start their content at different heights */}
+      <div className="mb-3 flex min-h-9 flex-wrap content-center items-baseline gap-x-2 gap-y-1">
         <h2 className="text-base font-semibold">{title}</h2>
         {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
         {/* owner 2026-10-07: formulas / definitions behind a "?" — read on hover, the card stays clean */}
@@ -65,8 +94,10 @@ const TH_MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "�
 
 /** Jan…Dec bars: this year (solid) next to last year (light). Months not reached yet stay empty. Hovering a month
  *  shows a card with both years and the change (owner ref 2026-10-01). */
-export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastYearToDate, todayLabel, forecast, height = "h-48" }: {
+export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastYearToDate, todayLabel, forecast, height = "h-48", thisLabel, lastLabel }: {
   thisYear: (number | null)[]; lastYear: (number | null)[]; current: number; unit?: string
+  /** the legend names — the years when the page picked them; `lastLabel` null = nothing is compared (no second series, no note) */
+  thisLabel?: string; lastLabel?: string | null
   /** bar area height — shorter when the card sits next to a short one (no empty space in the pair) */
   height?: string
   /** the month in progress compares with the same dates last year (1–N), not last year's whole month */
@@ -103,8 +134,8 @@ export function MonthBars({ thisYear, lastYear, current, unit = "", currentLastY
         {TH_MONTH_SHORT.map((m, i) => <span key={m} className={cn("flex-1", (hover === i || (hover === null && i === current)) && "font-semibold text-foreground")}>{monthShort(i)}</span>)}
       </div>
       <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" />{tx("ปีนี้")}</span>
-        {hasLast ? <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/25" />{tx("ปีที่แล้ว")}</span> : <span>{tx("ยังไม่มีข้อมูลปีที่แล้ว (ไม่ได้ Import)")}</span>}
+        <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary" />{thisLabel ?? tx("ปีนี้")}</span>
+        {lastLabel === null ? null : hasLast ? <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/25" />{lastLabel ?? tx("ปีที่แล้ว")}</span> : <span>{lastLabel ? tx("ยังไม่มีข้อมูล {0}", [lastLabel]) : tx("ยังไม่มีข้อมูลปีที่แล้ว (ไม่ได้ Import)")}</span>}
         {forecast && <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-primary/15" style={{ backgroundImage: STRIPES }} />{tx("คาดการณ์")}</span>}
       </div>
     </div>
@@ -271,17 +302,21 @@ export function HoverText({ label, children }: { label: string; children: ReactN
   )
 }
 
-/** Heatmap table — darker = more. Empty cells stay blank so the eye finds the busy spots. */
-export function Heatmap<R extends string | number, C extends string | number>({ rows, cols, rowLabel, colLabel, value, fmt = fmtNum, corner }: {
+/** Heatmap table — darker = more. Empty cells stay blank so the eye finds the busy spots.
+ *  Rows stretch to fill the card. With `labelWidth` the columns are FIXED (owner 2026-11-18, so a switch between two data
+ *  sets never makes it jump): a label column of that width, every other column the same width, and `minRows` keeps the
+ *  table at least as tall as the taller set. */
+export function Heatmap<R extends string | number, C extends string | number>({ rows, cols, rowLabel, colLabel, value, fmt = fmtNum, corner, labelWidth, minRows = 0 }: {
   rows: R[]; cols: C[]; rowLabel: (r: R) => ReactNode; colLabel: (c: C) => ReactNode; value: (r: R, c: C) => number; fmt?: (n: number) => string; corner?: string
+  labelWidth?: string; minRows?: number
 }) {
-  // rows stretch to fill the card (inside a Panel with `fill`); never shorter than h-7
   const max = Math.max(1, ...rows.flatMap((r) => cols.map((c) => value(r, c))))
+  const fixed = !!labelWidth
   return (
     <div className="flex-1 overflow-x-auto">
-      <table className="h-full w-full border-separate border-spacing-0.5 text-xs">
+      <table className={cn("h-full w-full border-separate border-spacing-0.5 text-xs", fixed && "table-fixed")} style={fixed && minRows ? { minHeight: `${minRows * 36 + 34}px` } : undefined}>
         <thead>
-          <tr><th className="px-1 py-1 text-left font-normal text-muted-foreground">{corner}</th>{cols.map((c) => <th key={String(c)} className="px-1 py-1 font-normal text-muted-foreground">{colLabel(c)}</th>)}</tr>
+          <tr><th style={fixed ? { width: labelWidth } : undefined} className="px-1 py-1 text-left font-normal text-muted-foreground">{corner}</th>{cols.map((c) => <th key={String(c)} className="px-1 py-1 font-normal whitespace-nowrap text-muted-foreground">{colLabel(c)}</th>)}</tr>
         </thead>
         <tbody>
           {rows.map((r) => (
@@ -291,7 +326,7 @@ export function Heatmap<R extends string | number, C extends string | number>({ 
                 const v = value(r, c)
                 const x = v / max
                 return (
-                  <td key={String(c)} className={cn("h-7 min-w-9 rounded-md text-center tabular-nums", x > 0.55 ? "text-primary-foreground" : "text-foreground")}
+                  <td key={String(c)} className={cn("rounded-md text-center tabular-nums", fixed ? "h-9" : "h-7 min-w-9", x > 0.55 ? "text-primary-foreground" : "text-foreground")}
                     style={{ background: v ? tint(x) : "var(--color-muted)" }}>{v ? fmt(v) : ""}</td>
                 )
               })}

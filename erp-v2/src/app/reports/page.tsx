@@ -1,27 +1,27 @@
 "use client"
 
 import { KpiRow, Page, PageHeader, Segmented, Tabs } from "@/components/app/page-layout"
-import { Kpi } from "@/components/app/kpi"
+import { Kpi, KpiGroup, abbreviate } from "@/components/app/kpi"
 import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { InfoIcon, BanknoteIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, SparklesIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { InfoIcon, BanknoteIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, UsersIcon, UserCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
-import { Delta, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
-import { DateRangePicker } from "@/components/app/date-range-picker"
+import { Delta, DeltaCount, DeltaPts, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { SummaryTab } from "@/components/reports/summary-tab"
 import { Sankey } from "@/components/reports/sankey"
 import { useReports, type ReportData } from "@/components/reports/use-reports"
+import { ReportFilterBar, compareOf, initialFilter, spanName, type FilterState } from "@/components/reports/filter-bar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { addDays, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
+import { endTime, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
 import { can, canCompareBranches, crossBranch, reportBranchIds } from "@/domain/rules/permissions"
-import { BUSINESS_SHORT, COMPARE_LABEL, LEAD_PATHS, PERIODS, type FlowEntry, type FlowExit, type stockFlow, scopeBranchIds, type PeriodKey, type Range, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
+import { BUSINESS_SHORT, resolveFilter, type CompareChoice, type FlowEntry, type FlowExit, type stockFlow, scopeBranchIds, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
+import { subjectAbbr } from "@/domain/rules/settings"
 import { reasonLabel } from "@/domain/rules/loss"
 import type { Branch, SurveyCampaign, SurveyResponse, Weekday } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -35,15 +35,11 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { HUE, tagChip, tagHex } from "@/components/app/tags"
 import { RoleChip, type ROLE_TONE } from "@/components/app/badges"
 import { subjectHex } from "@/components/app/subject-color"
-import { AI_TONE } from "@/components/app/ai"
 import { tx, uiLang, nm, sj } from "@/lib/i18n"
 import { Checkbox } from "@/components/ui/checkbox"
 
-type Tab = "summary" | "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
-/** the sky-blue sparkle that marks AI-written content */
-const AiSparkles = ({ className }: { className?: string }) => <SparklesIcon className={cn(className, AI_TONE.text)} />
+type Tab = "overview" | "revenue" | "students" | "attendance" | "operations" | "crm" | "satisfaction"
 const TABS: { id: Tab; label: string; soon?: string }[] = [
-  { id: "summary", label: "สรุป" },
   { id: "overview", label: "ภาพรวม" },
   { id: "revenue", label: "รายได้" },
   { id: "students", label: "นักเรียน" },
@@ -77,17 +73,39 @@ function Reports() {
   // owner 2026-10-07: read by region (BKK / CBR), by business (NAS / LIS), both, or one branch
   const branchIds = useMemo(() => scopeBranchIds(scope, allowedBranches), [scope, allowedBranches])
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "overview")
-  const [period, setPeriod] = useState<PeriodKey>("ytd")
   const today = toDateStr(useNow(60_000))
-  const [custom, setCustom] = useState<Range>(() => ({ from: addDays(today, -29), to: today }))
+  const curYear = Number(today.slice(0, 4))
+  // owner 2026-11-18: Year · Period · Compare — two buttons (components/reports/filter-bar.tsx); opens on this year, YTD, against last year
+  const [fs, setFs] = useState<FilterState>(() => initialFilter(today))
+  const invoices = useStore((s) => s.invoices)
+  const years = useMemo(() => {
+    const first = Math.min(curYear, ...invoices.map((i) => Number(i.createdAt.slice(0, 4))))
+    return Array.from({ length: curYear - first + 1 }, (_, k) => curYear - k)
+  }, [invoices, curYear])
+  const cmpChoice: CompareChoice = compareOf(fs, today)
+  const filter = useMemo(() => resolveFilter({ year: fs.year, span: fs.span, month: fs.month, custom: fs.custom, compare: cmpChoice }, today), [fs, cmpChoice, today])
+  const year = filter.year, span = fs.span
   const [showAttention, setShowAttention] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
-  const d = useReports(branchIds, period, period === "custom" ? custom : undefined)
+  const d = useReports(branchIds, filter)
   // the Satisfaction tab's filters sit where the periods sit on the other tabs (owner 2026-10-22: same spacing)
   const [sat, setSat] = useState<SatFilter>({ year: null, subject: "", grade: "" })
   // survey answers live on the form server — pull new ones in (unhappy families notify their managers)
   useEffect(() => { pullSurveyResponses() }, [])
-  const periodLabel = period === "custom" ? `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}` : tx(PERIODS.find((p) => p.key === period)!.label)
+  const periodLabel = span === "custom" ? `${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`
+    : span === "ytd" ? tx("ตั้งแต่ต้นปี") : span === "qtd" ? tx("ตั้งแต่ต้นไตรมาส") : span === "mtd" ? tx("ตั้งแต่ต้นเดือน")
+    : span === "year" ? tx("ปี {0}", [yearOf(year)]) : `${spanName(fs)} ${yearOf(year)}`
+  /** what the "change" figures are against — empty when nothing is compared */
+  /** Buddhist years in 2 digits (2568 → 68) — the same short form the dates use; other languages keep the full year */
+  const shortYear = (y: number) => { const v = yearOf(y); return v > 2400 ? String(v).slice(-2) : v }
+  const cmpLabel = filter.prev === null ? "" : cmpChoice === "prev"
+    ? (span === "mtd" || span === "month" ? tx("vs เดือนก่อน (MoM)") : span === "qtd" || /^q\d$/.test(span) ? tx("vs ไตรมาสก่อน (QoQ)") : tx("vs ช่วงก่อนหน้า"))
+    : tx("vs ปี {0}", [shortYear(cmpChoice as number)])
+  const cmpName = filter.prev === null ? "" : cmpChoice === "prev"
+    ? (span === "mtd" || span === "month" ? tx("เดือนก่อน") : span === "qtd" || /^q\d$/.test(span) ? tx("ไตรมาสก่อน") : tx("ช่วงก่อนหน้า"))
+    : tx("ปี {0}", [shortYear(cmpChoice as number)])
+  const cmp: Cmp = { label: cmpLabel, name: cmpName }
+  /** the Revenue tab's strip highlights the card that is the chosen stretch (the running year to date) */
   const scopeOptions = buildScopeOptions(allowedBranches, allowed.length === branches.length).filter((o) => o.value !== "all")
   const scopeLabel = scopeOptions.find((o) => o.value === scope)?.label ?? scopeOptions[0]?.label ?? ""
   const showCompare = compare && branchIds.length > 1
@@ -104,7 +122,7 @@ function Reports() {
   return (
     <Page className="space-y-5 print:max-w-none print:space-y-3">
       <title>Reports · NockERP</title>
-      <PageHeader title={<span className="inline-flex items-center gap-2">Reports <HoverCard><HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="รายละเอียดรายงาน" className="rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}><InfoIcon className="size-4" /></HoverCardTrigger><HoverCardContent className="max-w-sm">{scopeLabel} · {periodLabel}{period !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {tx("· เทียบ")} {fmtDate(d.prev.from, { year: d.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(d.prev.to, { year: d.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</HoverCardContent></HoverCard></span>}
+      <PageHeader title={<span className="inline-flex items-center gap-2">Reports <HoverCard><HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="รายละเอียดรายงาน" className="rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}><InfoIcon className="size-4" /></HoverCardTrigger><HoverCardContent className="max-w-sm">{scopeLabel} · {periodLabel}{span !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {filter.prev && <>{tx("· เทียบ")} {fmtDate(filter.prev.from, { year: filter.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(filter.prev.to, { year: filter.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}</>}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</HoverCardContent></HoverCard></span>}
         description="รายงานสรุปข้อมูลในหัวข้อต่างๆ"
         actions={<>
           {allowed.length > 1 && <BranchChip className="print:hidden" value={scope} onChange={setScope} options={scopeOptions} active={false} />}
@@ -120,38 +138,29 @@ function Reports() {
 
       {/* headline numbers */}
       <KpiRow>
-        <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{tx(COMPARE_LABEL[period])}</span></>} />
-        <Kpi icon={UsersIcon} label={tx("นักเรียน Active")} value={fmtNum(d.kpi.active)} sub={<><Delta value={d.kpi.activeChange} /> <span>{tx("vs ต้นช่วง · Pause")} {d.kpi.paused}</span></>} />
-        <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><Delta value={d.kpi.attendanceChange} /> <span>{tx(COMPARE_LABEL[period])}</span> <InfoTip text={tx("อัตราเข้าเรียน = มา ÷ (มา + ลา)")} /></>} />
-        <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} />
+        <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>} />
+        <Kpi icon={UsersIcon} label={d.asOf === d.today ? tx("นักเรียน Active") : tx("นักเรียน Active · {0}", [fmtDate(d.asOf)])} value={fmtNum(d.kpi.active)} sub={<><DeltaCount value={d.kpi.activeChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>}
+          info={tx("ลาพักยาว (Pause) {0} คน", [d.kpi.paused])} />
+        <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><DeltaPts value={d.kpi.attendanceChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span> <InfoTip className="size-4 align-top" text={tx("อัตราเข้าเรียน = มา ÷ (มา + ลา)")} /></>} />
+        {/* "needs attention" is about now — a past year has none */}
+        {d.isCurrentYear && <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} />}
       </KpiRow>
 
       {/* owner 2026-10-07: tabs + periods stick under the top bar while scrolling — always one tap away */}
       <div className="sticky top-14 z-10 -mx-3 flex flex-col gap-3 border-b border-transparent bg-background/95 px-3 py-2 backdrop-blur sm:-mx-6 sm:px-6 print:hidden">
         {/* owner 2026-10-09: underline = which topic · grey boxes = which period */}
         <Tabs value={tab} onChange={setTab}
-          options={TABS.map((t) => ({ value: t.id, icon: t.id === "summary" ? AiSparkles : undefined, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-2xs text-muted-foreground">{t.soon}</span>}</> }))} />
-        {/* periods: rolling · to-date · complete-period comparisons · custom dates — not on Satisfaction, which is one
-            survey round a year (owner 2026-10-09: a year switch AND a period made no sense together) */}
-        {tab === "satisfaction" ? <SatisfactionFilters d={d} f={sat} onChange={setSat} /> : <div className="flex flex-wrap items-center gap-2">
-          {(["rolling", "todate", "compare"] as const).map((g) => (
-            <Segmented key={g} value={period} onChange={setPeriod}
-              options={PERIODS.filter((p) => p.group === g).map((p) => ({ value: p.key, label: p.short, title: tx(p.hint) }))} />
-          ))}
-          <div className="inline-flex h-9 items-center rounded-full bg-muted p-1">
-            <DateRangePicker segment from={custom.from} to={custom.to} max={today} active={period === "custom"} onChange={(r) => { setCustom(r); setPeriod("custom") }} />
-          </div>
-          {period === "custom" && <span className="text-sm font-medium tabular-nums">{fmtDate(custom.from, { year: custom.from.slice(0, 4) !== custom.to.slice(0, 4) })} – {fmtDate(custom.to, { year: true })}</span>}
-        </div>}
+          options={TABS.map((t) => ({ value: t.id, label: <>{tx(t.label)}{t.soon && <span className="ml-1 text-2xs text-muted-foreground">{t.soon}</span>}</> }))} />
+        {/* Year · Period · Compare (owner 2026-11-18) — not on Satisfaction, which is one survey round a year */}
+        {tab === "satisfaction" ? <SatisfactionFilters d={d} f={sat} onChange={setSat} /> : <ReportFilterBar today={today} years={years} state={fs} onChange={setFs} filter={filter} />}
       </div>
 
-      {tab === "summary" && <SummaryTab d={d} period={period} periodLabel={periodLabel} scopeLabel={scopeLabel} />}
-      {tab === "overview" && <Overview d={d} compare={showCompare} periodLabel={periodLabel} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
-      {tab === "revenue" && <RevenueTab d={d} compare={showCompare} period={period} periodLabel={periodLabel} />}
-      {tab === "students" && <StudentsTab d={d} compare={showCompare} onOpen={setOpenId} />}
-      {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} onOpen={setOpenId} />}
+      {tab === "overview" && <Overview d={d} compare={showCompare} periodLabel={periodLabel} cmp={cmp} onAllRevenue={() => setTab("revenue")} onAllStudents={() => setTab("students")} />}
+      {tab === "revenue" && <RevenueTab d={d} compare={showCompare} periodLabel={periodLabel} cmp={cmp} />}
+      {tab === "students" && <StudentsTab d={d} compare={showCompare} cmp={cmp} onOpen={setOpenId} />}
+      {tab === "attendance" && <AttendanceTab d={d} compare={showCompare} cmp={cmp} onOpen={setOpenId} />}
       {tab === "operations" && <OperationsTab d={d} compare={showCompare} />}
-      {tab === "crm" && <CrmTab d={d} compare={showCompare} />}
+      {tab === "crm" && <CrmTab d={d} compare={showCompare} cmp={cmp} />}
       {tab === "satisfaction" && <SatisfactionTab d={d} compare={showCompare} f={sat} />}
       {TABS.find((t) => t.id === tab)?.soon && <Empty>{tx("แท็บนี้อยู่ในรอบ")} {TABS.find((t) => t.id === tab)!.soon}  {tx("— คุยสเปกแล้ว ยังไม่ได้สร้าง")}</Empty>}
 
@@ -165,30 +174,33 @@ function Reports() {
 
 // ---------------- Overview ----------------
 
-function Overview({ d, compare, periodLabel, onAllRevenue, onAllStudents }: { d: ReportData; compare: boolean; periodLabel: string; onAllRevenue: () => void; onAllStudents: () => void }) {
+function Overview({ d, compare, periodLabel, cmp, onAllRevenue, onAllStudents }: { d: ReportData; compare: boolean; periodLabel: string; cmp: Cmp; onAllRevenue: () => void; onAllStudents: () => void }) {
   return (
     <div className="space-y-4">
       {/* owner 2026-10-21: students | courses side by side — the same questions, per student and per course */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel fill title={tx("นักเรียน")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}
           action={<Button variant="link" size="inline" type="button" className="text-xs text-primary" onClick={onAllStudents}>{tx("ดูทั้งหมด ›")}</Button>}>
-          <StudentOverview d={d} periodLabel={periodLabel} />
+          <StudentOverview d={d} periodLabel={periodLabel} cmp={cmp} />
         </Panel>
         <Panel fill title={tx("คอร์ส")} hint={tx("ตอนนี้ = วันนี้ · ในช่วงนี้ = {0} — นับทีละคอร์สที่นักเรียนถือ · ชี้ ⓘ ที่แต่ละช่องเพื่อดูว่านับอย่างไร", [periodLabel])}>
-          <CourseOverview d={d} periodLabel={periodLabel} />
+          <CourseOverview d={d} periodLabel={periodLabel} cmp={cmp} />
         </Panel>
       </div>
 
       {/* owner 2026-10-20: leads right under the students · 2026-10-21: one section with the funnel (the same leads) */}
-      <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้ · ทุก Lead วิ่งผ่านทั้ง 4 คอลัมน์ — แต่ละคอลัมน์รวมกันเท่ากับ Lead ใหม่ · มาตามนัด = มาอย่างน้อย 1 นัด (เช็คชื่อมา หรือบันทึกผลแล้ว) · ไม่มา = พลาดทุกนัด · Conversion = สมัครแล้ว ÷ Lead ใหม่", [periodLabel])}>
-        <LeadOverview d={d} />
+      <Panel title="Lead" hint={tx("{0} · Lead ที่เข้ามาในช่วงนี้ · ช่องทาง = มาจากไหน · เส้นทาง = กี่ % มานัด Test / Trial · ผล = Test & Trial กี่ % สมัคร + หลุดกี่ %", [periodLabel])}>
+        <LeadOverview d={d} cmp={cmp} />
       </Panel>
 
       {/* owner 2026-10-21: revenue by type lives on the Revenue tab · monthly revenue | Subject Engine side by side */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("รายได้รายเดือน")} hint={tx("ปี {0} เทียบปีที่แล้ว · ลายทาง = คาดการณ์ (ต่อคอร์ส {1} + ใบที่รอจ่าย)", [yearOf(d.monthly.year), fmtPct(d.forecast.renewal)])}>
-          <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} forecast={d.forecast.byMonth.map((x) => x?.total ?? null)}
-            currentLastYearToDate={d.monthly.lastYearToDate} todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
+        <Panel title={tx("รายได้รายเดือน")} sub={tx("ทั้งปี {0}", [yearOf(d.monthly.year)])}
+          hint={d.isCurrentYear ? tx("ปี {0} เทียบปีที่แล้ว · ลายทาง = คาดการณ์ (ต่อคอร์ส {1} + ใบที่รอจ่าย + นักเรียนใหม่ตามอัตราเดิม)", [yearOf(d.monthly.year), fmtPct(d.forecast.renewal)]) : tx("ปี {0} · ทั้ง 12 เดือน (ยอดจริง)", [yearOf(d.monthly.year)])}>
+          <MonthBars thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={d.isCurrentYear ? Number(d.today.slice(5, 7)) - 1 : -1}
+            thisLabel={String(yearOf(d.monthly.year))} lastLabel={d.monthly.compareYear === null ? null : String(yearOf(d.monthly.compareYear))}
+            forecast={d.isCurrentYear ? d.forecast.byMonth.map((x) => x?.total ?? null) : undefined}
+            currentLastYearToDate={d.isCurrentYear && d.monthly.compareYear !== null ? d.monthly.lastYearToDate : undefined} todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
         </Panel>
         <Panel title="Subject Engine" hint={tx("รายได้ค่าเรียนแยกวิชา · คอร์สหลายวิชาแบ่งเท่าๆ กัน")} center><SubjectEngine d={d} /></Panel>
       </div>
@@ -215,46 +227,71 @@ function DemandPanel({ d }: { d: ReportData }) {
     <Panel title="Demand Heatmap" hint={tx("จำนวนนักเรียนในคาบ · วัน × เวลาเริ่ม · 08:00–21:00")}
       action={<NativeSelect className="h-8 w-36" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tx("ทุกวิชา")}
         options={[...new Set(d.bySubject.map((x) => x.subject))].map((x) => ({ value: x, label: sj(x) }))} />}>
-      <Heatmap rows={demand.hours} cols={DAYS} rowLabel={(h) => `${String(h).padStart(2, "0")}:00`} colLabel={(w) => weekdayShort(w)} value={(h, w) => demand.count(w, h)} />
+      {/* owner 2026-11-18: wide card = days down the left, hours across the top · a squeezed card (< 42rem, measured on the card,
+          not the screen) swaps them — hours down the left, days across the top — so 14 hours never get crushed */}
+      <div className="@container">
+        <div className="hidden @2xl:block">
+          <Heatmap rows={DAYS} cols={demand.hours} labelWidth="3rem" rowLabel={(w) => weekdayShort(w)} colLabel={(h) => `${String(h).padStart(2, "0")}:00`} value={(w, h) => demand.count(w, h)} />
+        </div>
+        <div className="@2xl:hidden">
+          <Heatmap rows={demand.hours} cols={DAYS} labelWidth="3.5rem" rowLabel={(h) => `${String(h).padStart(2, "0")}:00`} colLabel={(w) => weekdayShort(w)} value={(h, w) => demand.count(w, h)} />
+        </div>
+      </div>
     </Panel>
   )
 }
 
 /** the students' numbers — on the Students tab and on the Overview (owner 2026-10-20: numbers, not a chart) */
-function StudentStats({ d }: { d: ReportData }) {
+function StudentStats({ d, cmp }: { d: ReportData; cmp: Cmp }) {
   const f = d.studentFlow
   const net = f.newCount + f.returning - f.lost
+  const ok = d.comparable
+  // seven narrow tiles: the change only (what it is against is on the line under the filter)
+  const netPrev = f.newPrev + f.returningPrev - f.lostPrev
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-      <Stat label={tx("Active วันนี้")} value={fmtNum(d.kpi.active)} />
-      <Stat label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="text-warning" />
-      <Stat label={tx("ใหม่")} value={`+${f.newCount}`} tone="text-success" sub={<Delta value={d.comparable && f.newPrev ? Math.round(((f.newCount - f.newPrev) / f.newPrev) * 1000) / 10 : null} />} />
-      <Stat label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="text-success" />
-      <Stat label="Lost" value={`−${f.lost}`} tone="text-danger" sub={<Delta value={d.comparable && f.lostPrev ? Math.round(((f.lost - f.lostPrev) / f.lostPrev) * 1000) / 10 : null} invert />} />
-      <Stat label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone={net < 0 ? "text-danger" : undefined} />
-      <Stat label={tx("อัตราต่อคอร์ส")} value={fmtPct(f.renewal)} sub={<span>{tx("ก่อนหน้า")} {d.comparable ? fmtPct(f.renewalPrev) : "—"}</span>} />
-    </div>
+    <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+      <Kpi variant="tonal" label={d.asOf === d.today ? tx("Active วันนี้") : tx("Active · {0}", [fmtDate(d.asOf)])} value={fmtNum(d.kpi.active)} sub={dCount(cmp, ok, d.kpi.active, d.kpi.activePrev)} />
+      <Kpi variant="tonal" label={tx("Pause (ลาพักยาว)")} value={fmtNum(d.kpi.paused)} tone="amber" emphasis />
+      <Kpi variant="tonal" label={tx("ใหม่")} value={`+${f.newCount}`} tone="emerald" emphasis sub={dCount(cmp, ok, f.newCount, f.newPrev)} />
+      <Kpi variant="tonal" label={tx("กลับมาซื้อใหม่")} value={`+${f.returning}`} tone="emerald" emphasis sub={dCount(cmp, ok, f.returning, f.returningPrev)} />
+      <Kpi variant="tonal" label="Churn" value={`−${f.lost}`} tone="red" emphasis sub={dCount(cmp, ok, f.lost, f.lostPrev, true)} />
+      <Kpi variant="tonal" label="Net" value={`${net > 0 ? "+" : ""}${net}`} tone="red" emphasis={!!(net < 0)} sub={dCount(cmp, ok, net, netPrev)} />
+      <Kpi variant="tonal" label={tx("อัตราต่อคอร์ส")} value={fmtPct(f.renewal)} sub={dPts(cmp, ok, f.renewal, f.renewalPrev)} />
+    </KpiGroup>
   )
 }
 
-const pctDelta = (a: number, b: number | undefined, ok: boolean) => (ok && b ? Math.round(((a - b) / b) * 1000) / 10 : null)
-/** the vs-before line under a number — nothing at all when there is nothing to compare (owner 2026-10-20: no "—" clutter) */
-const deltaSub = (v: number | null, invert?: boolean) => (v === null ? undefined : <Delta value={v} invert={invert} />)
+
+/** what the page compares with: `label` ("vs ปี 2568" — empty when nothing is compared) and `name` ("ปี 2568") */
+type Cmp = { label: string; name: string }
+/**
+ * The change line under a number (owner 2026-11-18): nothing compared → null (the line stays, blank) · no data to compare →
+ * "—" · otherwise counts → the difference, rates → points. Where less is better, pass `invert`.
+ */
+const dCount = (cmp: Cmp | undefined, ok: boolean, now: number | null, before: number | null | undefined, invert?: boolean) =>
+  !cmp?.label ? null : ok && now !== null && before != null ? <DeltaCount value={now - before} invert={invert} /> : <DeltaCount value={null} />
+const dPts = (cmp: Cmp | undefined, ok: boolean, now: number | null, before: number | null | undefined, invert?: boolean) =>
+  !cmp?.label ? null : ok && now !== null && before != null ? <DeltaPts value={Math.round((now - before) * 1000) / 10} invert={invert} /> : <DeltaPts value={null} />
+
+const dPct = (cmp: Cmp | undefined, ok: boolean, now: number | null, before: number | null | undefined, invert?: boolean) =>
+  !cmp?.label ? null : ok && now !== null && before ? <Delta value={Math.round(((now - before) / Math.abs(before)) * 1000) / 10} invert={invert} /> : <Delta value={null} />
 
 type Figure = { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string
+  /** the change under the value (a line is always kept, blank when empty) */
+  delta?: React.ReactNode
   /** the full name when the chip shows a short one (said in the hover) */
   full?: string }
 
 // owner 2026-10-21: colours come from the tags (components/app/tags) — the same as the students list's status chips
 const FLOW_COLOR = (k: FlowEntry | FlowExit) => tagHex("studentFlow", k)
-const FLOW_LABEL: Record<FlowEntry | FlowExit, string> = { start: "มีอยู่แล้วต้นช่วง", new: "ใหม่", returning: "กลับมาซื้อใหม่", active: "เรียนอยู่", paused: "พัก", grace: "รอต่อ", future: "ซื้อแล้ว ยังไม่เริ่ม", lost: "Lost" }
+const FLOW_LABEL: Record<FlowEntry | FlowExit, string> = { start: "มีอยู่แล้วต้นช่วง", new: "ใหม่", returning: "กลับมาซื้อใหม่", active: "เรียนอยู่", paused: "พัก", grace: "รอต่อ", future: "ซื้อแล้ว ยังไม่เริ่ม", lost: "Churn" }
 const FLOW_HINT: Partial<Record<FlowEntry | FlowExit, string>> = {
   start: "เรียนอยู่ในวันก่อนเริ่มช่วงนี้ (รวมที่แพ็กเกจเพิ่งหมดไม่ถึง 30 วัน และที่ย้ายมาจากระบบเดิม)",
   new: "ซื้อแพ็กเกจครั้งแรกในช่วงนี้",
   returning: "เคยหลุด (ไม่มีแพ็กเกจเกิน 30 วัน) แล้วกลับมาซื้อในช่วงนี้",
   grace: "แพ็กเกจหมดแล้ว ยังไม่ครบ 30 วัน — ตามให้ต่อก่อนกลายเป็น Lost",
   future: "จ่ายแล้ว แพ็กเกจยังไม่ถึงวันเริ่ม",
-  lost: "แพ็กเกจหมดเกิน 30 วันแล้วไม่ซื้อต่อ",
+  lost: "แพ็กเกจหมดเกิน 30 วันแล้วไม่ซื้อต่อ · % ของแถวนี้ = Churn rate (÷ ทั้งหมดในช่วงนี้)",
 }
 
 /**
@@ -262,79 +299,137 @@ const FLOW_HINT: Partial<Record<FlowEntry | FlowExit, string>> = {
  * then the flow itself (Sankey): how each one came in over the period → where it is at the period's end. It follows the
  * period chips (the 12-month chart didn't, so it went); each student / course is counted once, left = right.
  */
-function StockSection({ stats, flow, unit, periodLabel }: { stats: Figure[]; flow: ReturnType<typeof stockFlow>; unit: "คน" | "คอร์ส"; periodLabel: string }) {
-  const today = flow.end === toDateStr(useNow(60_000))
-  const node = (k: FlowEntry | FlowExit, m: Map<string, number>) => ({ key: k, label: tx(FLOW_LABEL[k]), value: m.get(k) ?? 0, color: FLOW_COLOR(k), hint: FLOW_HINT[k] && tx(FLOW_HINT[k]!) })
-  const came = (flow.left.get("new") ?? 0) + (flow.left.get("returning") ?? 0)
-  const head = (title: string, value: number, label: string, sub: React.ReactNode, right?: boolean) => (
-    <div className={cn(right && "text-right")}>
-      <p className="text-xs text-muted-foreground">{title}</p>
-      {/* owner 2026-10-21: the number sits on the outer edge — left of its words on the left, after them on the right */}
-      <p className={cn("mt-0.5 flex items-baseline gap-1.5", right && "flex-row-reverse")}><span className="text-2xl font-semibold tabular-nums">{fmtNum(value)}</span><span className="text-sm text-muted-foreground">{label}</span></p>
-      <p className={cn("flex items-center gap-2 text-2xs text-muted-foreground tabular-nums", right && "justify-end")}>{sub}</p>
-    </div>
-  )
+/** owner 2026-11-18: the in/out flow as numbers (the Sankey moved to the Students tab) — the two heads on a line, then
+ *  the entry nodes and the end nodes each as a row of coloured chips; hover a chip for how it's counted. */
+function FlowNumbers({ total, cmpName, columns }: { total: number; cmpName?: string; columns: { head: React.ReactNode; nodes: { key: string; label: string; value: number; color: string; hint?: string; prev?: number }[] }[] }) {
   return (
-    <div className="flex flex-1 flex-col gap-5">
-      {/* what the flow can't show (owner 2026-10-21: the boxed strip with an ⓘ each was cluttered) — one chip per number,
-          name + value; hover the chip for how it's counted and the period before */}
-      <div className="flex flex-wrap gap-1">
-        {/* short names keep the chips on one line in a half-width card */}
-        {stats.map((x) => (
-          <HoverCard key={x.label}>
-            <HoverCardTrigger render={<span tabIndex={0} className="inline-flex h-8 cursor-default items-center gap-1 rounded-full bg-muted/70 px-2 text-xs whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40" />}>
-              {x.label} <span className={cn("text-sm font-semibold tabular-nums text-foreground", x.tone)}>{x.value}</span>
-            </HoverCardTrigger>
-            {(x.info || x.sub) && <HoverCardContent side="bottom" align="start" className="max-w-72 space-y-1 leading-relaxed">{x.full && <p className="font-semibold">{x.full}</p>}{x.info && <p>{x.info}</p>}{x.sub && <p className="text-muted-foreground">{x.sub}</p>}</HoverCardContent>}
-          </HoverCard>
-        ))}
-      </div>
-      <div className="mt-auto">
-        <Sankey total={flow.total} unit={unit} name={unit === "คน" ? "นักเรียน" : "คอร์ส"} size={{ w: 560, h: 260 }} minWidth="min-w-[18rem]"
-          heads={[
-            head(periodLabel, flow.total, tx(unit), tx("ต้นช่วง {0} · เข้ามา {1}", [fmtNum(flow.left.get("start") ?? 0), fmtNum(came)])),
-            head(today ? tx("วันนี้") : tx("สิ้นช่วง"), flow.right.get("active") ?? 0, tx("เรียนอยู่"),
-              <span className={cn("rounded-full px-2 py-0.5 font-semibold", flow.net < 0 ? "bg-danger-soft text-danger-ink" : "bg-success-soft text-success-ink")}>Net {flow.net > 0 ? "+" : flow.net < 0 ? "−" : ""}{Math.abs(flow.net)}</span>, true),
-          ]}
-          columns={[
-            { title: "", nodes: (["start", "new", "returning"] as const).map((k) => node(k, flow.left)).filter((n) => n.value) },
-            { title: "", nodes: (["active", "paused", "grace", "future", "lost"] as const).map((k) => node(k, flow.right)).filter((n) => n.value) },
-          ]}
-          flows={flow.flows} />
-      </div>
+    // owner 2026-11-18: like the Lead card — two columns split by one divider, each = its headline (left-aligned) over its list
+    <div className="grid gap-5 sm:grid-cols-2 sm:gap-0 sm:divide-x">
+      {columns.map((c, i) => (
+        <div key={i} className={cn("space-y-3", i ? "sm:pl-6" : "sm:pr-6")}>
+          {c.head}
+          <ul className="text-sm">
+            {c.nodes.length ? c.nodes.map((n) => (
+              <li key={n.key} className="flex items-center gap-2 border-t py-1.5 first:border-t-0">
+                <span className="size-2 shrink-0 rounded-full" style={{ background: n.color }} />
+                <span className="flex min-w-0 flex-1 items-center gap-1"><span className="truncate">{n.label}</span>{n.hint && <InfoTip text={n.hint} />}</span>
+                {/* the number, and what it was in the compared stretch — on hover (never a second % beside the share) */}
+                {n.prev !== undefined && cmpName ? (
+                  <HoverCard>
+                    <HoverCardTrigger render={<span tabIndex={0} className="flex cursor-default items-center gap-2 outline-none" />}>
+                      <span className="font-semibold tabular-nums">{fmtNum(n.value)}</span>
+                      <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">{fmtPct(total ? n.value / total : null)}</span>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="top" align="end" className="w-auto space-y-0.5 text-xs">
+                      <p className="text-muted-foreground">{cmpName}</p>
+                      <p className="flex items-center gap-2"><b className="tabular-nums">{fmtNum(n.prev)}</b><DeltaCount value={n.value - n.prev} invert={n.key === "lost"} /></p>
+                    </HoverCardContent>
+                  </HoverCard>
+                ) : (
+                  <>
+                    <span className="font-semibold tabular-nums">{fmtNum(n.value)}</span>
+                    <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">{fmtPct(total ? n.value / total : null)}</span>
+                  </>
+                )}
+              </li>
+            )) : <li className="py-1.5 text-xs text-muted-foreground">—</li>}
+          </ul>
+        </div>
+      ))}
     </div>
   )
 }
 
-const churnInfo = (unit: string) => tx("Lost ÷ ทุก{0}ในช่วงนี้ (ฝั่งซ้ายของ Sankey)", [tx(unit)])
+function StockSection({ stats, flow, before, ok, cmp, unit, periodLabel, chart }: { stats: Figure[]; flow: ReturnType<typeof stockFlow>; unit: "คน" | "คอร์ส"; periodLabel: string
+  /** the same flow for the compared stretch · is there data to compare with · what is compared */
+  before?: ReturnType<typeof stockFlow>; ok?: boolean; cmp?: Cmp
+  /** owner 2026-11-18: the Sankey only on the Students tab — the Overview shows the numbers alone */
+  chart?: boolean }) {
+  const today = flow.end === toDateStr(useNow(60_000))
+  const comparing = !!cmp?.label && !!before && !!ok
+  const node = (k: FlowEntry | FlowExit, m: Map<string, number>, bm?: Map<string, number>) => ({ key: k, label: tx(FLOW_LABEL[k]), value: m.get(k) ?? 0, color: FLOW_COLOR(k), hint: FLOW_HINT[k] && tx(FLOW_HINT[k]!), prev: comparing && bm ? (bm.get(k) ?? 0) : undefined })
+  const head = (title: string, value: number, label: string, sub: React.ReactNode, right?: boolean) => (
+    <div className={cn(right && "text-right")}>
+      <p className="text-xs text-muted-foreground">{title}</p>
+      {/* owner 2026-10-21: the number sits on the outer edge — left of its words on the left, after them on the right */}
+      <p className={cn("mt-0.5 flex items-baseline gap-1.5", right && "flex-row-reverse")}><span className="text-3xl font-semibold tabular-nums">{fmtNum(value)}</span><span className="text-sm text-muted-foreground">{label}</span></p>
+      <p className={cn("flex h-6 items-center gap-2 text-2xs text-muted-foreground tabular-nums", right && "justify-end")}>{sub}</p>
+    </div>
+  )
+  // owner 2026-11-18: under each headline number its change against the compared stretch (counts → the difference); the
+  // start / new split is already in the rows below, so the old "ต้นช่วง · เข้ามา" line gave way to it
+  const cmpTail = cmp?.label ? <span>{cmp.label}</span> : null
+  const leftHead = head(periodLabel, flow.total, tx(unit), <>{dCount(cmp, !!ok, flow.total, before?.total)} {cmpTail}</>)
+  const rightHeadOf = (right: boolean) => head(today ? tx("วันนี้") : tx("สิ้นช่วง"), flow.right.get("active") ?? 0, tx("เรียนอยู่"),
+    <>{dCount(cmp, !!ok, flow.right.get("active") ?? 0, before ? (before.right.get("active") ?? 0) : null)} {cmpTail}
+      <span className={cn("rounded-full px-2 py-0.5 font-semibold", flow.net < 0 ? "bg-danger-soft text-danger-ink" : "bg-success-soft text-success-ink")}>Net {flow.net > 0 ? "+" : flow.net < 0 ? "−" : ""}{Math.abs(flow.net)}</span></>, right)
+  const leftNodes = (["start", "new", "returning"] as const).map((k) => node(k, flow.left, before?.left)).filter((n) => n.value)
+  const rightNodes = (["active", "paused", "grace", "future", "lost"] as const).map((k) => node(k, flow.right, before?.right)).filter((n) => n.value)
+  // the rates (churn, renewal …) as equal tiles — hover for how each is counted and the period before
+  const statTiles = (
+    <div className="flex flex-wrap gap-2">
+      {stats.map((x) => (
+        <HoverCard key={x.label}>
+          <HoverCardTrigger render={<div tabIndex={0} className="min-w-24 flex-1 cursor-default rounded-2xl bg-muted/50 px-3 py-2 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/40" />}>
+            <p className="text-xs whitespace-nowrap text-muted-foreground">{x.label}</p>
+            <p className={cn("text-lg font-semibold tabular-nums", x.tone)}>{x.value}</p>
+            <p className="h-4 text-xs leading-4 text-muted-foreground">{x.delta}</p>
+          </HoverCardTrigger>
+          {(x.info || x.sub) && <HoverCardContent side="bottom" align="start" className="max-w-72 space-y-1 leading-relaxed">{x.full && <p className="font-semibold">{x.full}</p>}{x.info && <p>{x.info}</p>}{x.sub && <p className="text-muted-foreground">{x.sub}</p>}</HoverCardContent>}
+        </HoverCard>
+      ))}
+    </div>
+  )
+  return chart ? (
+    <div className="flex flex-1 flex-col gap-5">
+      {statTiles}
+      <div className="mt-auto">
+        <Sankey total={flow.total} unit={unit} name={unit === "คน" ? "นักเรียน" : "คอร์ส"} size={{ w: 560, h: 260 }} minWidth="min-w-[18rem]"
+          heads={[leftHead, rightHeadOf(true)]}
+          columns={[
+            { title: "", nodes: leftNodes },
+            { title: "", nodes: rightNodes },
+          ]}
+          flows={flow.flows} />
+      </div>
+    </div>
+  ) : (
+    <div className="flex flex-1 flex-col gap-5">
+      <FlowNumbers total={flow.total} cmpName={comparing ? cmp?.name : undefined} columns={[
+        { head: leftHead, nodes: leftNodes },
+        { head: rightHeadOf(false), nodes: rightNodes },
+      ]} />
+      <div className="mt-auto">{statTiles}</div>
+    </div>
+  )
+}
+
 const ptsSub = (now: number | null, before: number | null, ok: boolean) => (ok && before !== null ? <span>{tx("ก่อนหน้า")} {fmtPct(before)}</span> : undefined)
 
 /** Students on the Overview — rates on the strip, the flow under it (owner 2026-10-21) */
-function StudentOverview({ d, periodLabel }: { d: ReportData; periodLabel: string }) {
+function StudentOverview({ d, periodLabel, chart, cmp }: { d: ReportData; periodLabel: string; chart?: boolean; cmp?: Cmp }) {
   const f = d.studentFlow
   const fl = d.courseFlow.flow
   const ok = d.comparable
   return (
-    <StockSection unit="คน" periodLabel={periodLabel} flow={fl.now.student} stats={[
-      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.student.churn), tone: "text-danger", sub: ptsSub(fl.now.student.churn, fl.before.student.churn, ok), info: churnInfo("คน") },
-      { label: tx("นักเรียนต่อ"), full: tx("อัตรานักเรียนต่อ"), value: fmtPct(f.renewal), sub: ptsSub(f.renewal, f.renewalPrev, ok), info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
-      { label: "Returning", full: "Returning Student", value: fmtNum(f.backStudents), tone: "text-info", sub: deltaSub(pctDelta(f.backStudents, f.backStudentsPrev, ok)), info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
+    <StockSection unit="คน" periodLabel={periodLabel} chart={chart} flow={fl.now.student} before={fl.before.student} ok={ok} cmp={cmp} stats={[
+      { label: tx("นักเรียนต่อ"), full: tx("อัตรานักเรียนต่อ"), value: fmtPct(f.renewal), delta: dPts(cmp, ok, f.renewal, f.renewalPrev), sub: ptsSub(f.renewal, f.renewalPrev, ok), info: tx("นักเรียนที่แพ็กเกจหมดในช่วงนี้ ซื้อต่อกี่ % (นับรวมทุกคอร์สของนักเรียน — ต่อคอร์สไหนก็นับว่าต่อ)") },
+      { label: "Returning", full: "Returning Student", value: fmtNum(f.backStudents), tone: "text-info", delta: dCount(cmp, ok, f.backStudents, f.backStudentsPrev), sub: ok && cmp?.label ? <span>{cmp.name}: {fmtNum(f.backStudentsPrev)}</span> : undefined, info: tx("ลายาว (ขาด / ลา ติดกัน 3 คาบขึ้นไป) หรือ Pause แล้วกลับมาเรียนในช่วงนี้") },
     ]} />
   )
 }
 
 /** Courses on the Overview — per course a student holds: a student who stops maths but keeps English loses one course */
-function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string }) {
+function CourseOverview({ d, periodLabel, chart, cmp }: { d: ReportData; periodLabel: string; chart?: boolean; cmp?: Cmp }) {
   const c = d.courseFlow
   const f = d.studentFlow
   const fl = c.flow
   const ok = d.comparable
   return (
-    <StockSection unit="คอร์ส" periodLabel={periodLabel} flow={fl.now.course} stats={[
-      { label: "Churn", full: "Churn rate", value: fmtPct(fl.now.course.churn), tone: "text-danger", sub: ptsSub(fl.now.course.churn, fl.before.course.churn, ok), info: churnInfo("คอร์ส") },
-      { label: tx("คอร์สต่อ"), full: tx("อัตราคอร์สต่อ"), value: fmtPct(c.renewal), sub: ptsSub(c.renewal, c.prev.renewal, ok), info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
-      { label: "Returning", full: "Returning Course", value: fmtNum(f.backCourses), tone: "text-info", sub: deltaSub(pctDelta(f.backCourses, f.backCoursesPrev, ok)), info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
-      { label: "Act buy", full: "Course Actual buy", value: fmtNum(c.bought), sub: deltaSub(pctDelta(c.bought, c.boughtPrev, ok)), info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
+    <StockSection unit="คอร์ส" periodLabel={periodLabel} chart={chart} flow={fl.now.course} before={fl.before.course} ok={ok} cmp={cmp} stats={[
+      { label: tx("คอร์สต่อ"), full: tx("อัตราคอร์สต่อ"), value: fmtPct(c.renewal), delta: dPts(cmp, ok, c.renewal, c.prev.renewal), sub: ptsSub(c.renewal, c.prev.renewal, ok), info: tx("แพ็กเกจของคอร์สที่หมดในช่วงนี้ ซื้อคอร์สเดิมต่อกี่ % — กลับมาเรียนหลังพักไม่ใช่การต่อ (นับใน Returning Course)") },
+      { label: "Returning", full: "Returning Course", value: fmtNum(f.backCourses), tone: "text-info", delta: dCount(cmp, ok, f.backCourses, f.backCoursesPrev), sub: ok && cmp?.label ? <span>{cmp.name}: {fmtNum(f.backCoursesPrev)}</span> : undefined, info: tx("คอร์สที่พัก (ไม่ได้เรียน ติดกัน 3 คาบขึ้นไป) แล้วกลับมาเรียนในช่วงนี้") },
+      { label: "Act buy", full: "Course Actual buy", value: fmtNum(c.bought), delta: dCount(cmp, ok, c.bought, c.boughtPrev), sub: ok && cmp?.label ? <span>{cmp.name}: {fmtNum(c.boughtPrev)}</span> : undefined, info: tx("จำนวนคอร์สที่จ่ายเงินแล้วในช่วงนี้ — ทั้งซื้อใหม่และซื้อต่อ (ใบแจ้งหนี้ 1 ใบมีได้หลายคอร์ส)") },
       { label: tx("คอร์ส/คน"), full: tx("คอร์ส / นักเรียน"), value: c.studentsActive ? (c.active / c.studentsActive).toFixed(2) : "—", info: tx("คอร์ส Active ÷ นักเรียน Active — นักเรียนหนึ่งคนเรียนเฉลี่ยกี่คอร์ส") },
     ]} />
   )
@@ -345,77 +440,83 @@ function CourseOverview({ d, periodLabel }: { d: ReportData; periodLabel: string
  * headline number sits right above that column (the step cards next to the chart didn't line up with it):
  * new leads over the channels · booked over the ways · came over the appointments · enrolled + conversion over the outcome.
  */
-function LeadOverview({ d }: { d: ReportData }) {
+/**
+ * Leads on the Overview (owner 2026-11-18) — three columns, every row "No. (%)" and every % of ALL new leads, so each
+ * column adds up to 100%: ช่องทาง (where from) · Test / Trial (which way they went, + not booked yet) · Result
+ * (enrolled · lost · still talking; the headline = Conversion rate).
+ */
+function LeadOverview({ d, cmp }: { d: ReportData; cmp?: Cmp }) {
   const l = d.leadSummary
-  const ok = d.comparable
-  const KEEP = ["lead", "booked", "came", "enrolled"]
-  const shown = d.crm.funnel.filter((s) => KEEP.includes(s.key))
-  const f = shown.map((s, j) => ({ ...s, ofPrev: j && shown[j - 1].count ? s.count / shown[j - 1].count : null }))
-  const head = (i: number, title: string, extra?: React.ReactNode) => {
-    const last = i === f.length - 1
-    const sub = i ? tx("{0} จากขั้นก่อน", [fmtPct(f[i].ofPrev)]) : deltaSub(pctDelta(l.total, l.prev.total, ok))
-    return (
-      <div className={cn(last && "text-right")}>
-        <p className="text-xs text-muted-foreground">{title}</p>
-        <p className={cn("mt-0.5 flex items-baseline gap-1.5", last && "flex-row-reverse")}>
-          <span className="text-2xl font-semibold tabular-nums">{fmtNum(f[i].count)}</span>
-          {/* the same words as the boxes under it */}
-          <span className="truncate text-sm text-muted-foreground">{tx(f[i].key === "came" ? "มาตามนัด" : f[i].label)}</span>
-        </p>
-        {/* the result column's Conversion chip stacks under the "% จากขั้นก่อน" line — side by side it was wide enough
-            to reach back into the previous column's caption (they sit close together in a 4-column funnel) */}
-        {last && extra ? (
-          <span className="flex flex-col items-end gap-0.5 text-2xs text-muted-foreground tabular-nums"><span>{sub}</span>{extra}</span>
-        ) : (
-          <p className={cn("flex items-center gap-2 text-2xs text-muted-foreground tabular-nums", last && "justify-end")}>{sub}{extra}</p>
-        )}
-      </div>
-    )
-  }
-  return (
-    <LeadSankey d={d} heads={[
-      head(0, tx("ช่องทาง")),
-      head(1, tx("เส้นทาง")),
-      head(2, tx("นัด")),
-      head(3, tx("ผล"), <span className="rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">Conversion {fmtPct(l.conversion)}</span>),
-    ]} />
+  const total = l.total
+  const pct = (n: number) => fmtPct(total ? n / total : null)
+  const src = new Map(d.crm.sources.map((s) => [s.source, s.leads]))
+  const path = (k: string) => d.crm.paths.find((p) => p.key === k)?.leads ?? 0
+  const booked = path("test") + path("trial") + path("both")
+  const enrolled = d.crm.funnel[d.crm.funnel.length - 1].count
+  const lost = d.crm.lost.reduce((a, x) => a + x.count, 0)
+  const still = Math.max(0, total - enrolled - lost)
+  const SOURCES = ["facebook", "line", "website", "walkin", "phone", "referral"] as const
+  // best channels first, "other" always last
+  const ranked = [...[...SOURCES].sort((a, b) => (src.get(b) ?? 0) - (src.get(a) ?? 0)), "other" as const]
+  const [allSources, setAllSources] = useState(false)
+  const row = (label: string, n: number, color: string, tone?: string) => (
+    <li key={label} className="grid grid-cols-[1fr_3.5rem_2.25rem_3rem] items-center gap-2 border-t py-1.5 first:border-t-0">
+      <span className="truncate text-muted-foreground">{label}</span>
+      <ShareBar value={total ? n / total : 0} color={color} />
+      <span className={cn("text-right font-medium tabular-nums", tone)}>{fmtNum(n)}</span>
+      <span className="text-right text-xs text-muted-foreground tabular-nums">{pct(n)}</span>
+    </li>
   )
-}
-
-/** owner 2026-10-21: every box in the colour of its tag elsewhere in the system (components/app/tags) — appointments as
- *  check-ins (came = present, no-show = absent, ahead = an upcoming session), outcomes as CRM stages (enrolled, lost =
- *  archived, still talking = contact); channels have no tag of their own */
-const SANKEY_COLOR: Record<string, string> = {
-  source: HUE.indigo.hex,
-  came: tagHex("attendance", "present"), no_show: tagHex("attendance", "absent"), booked: tagHex("sessionState", "upcoming"), none: HUE.gray.hex,
-  enrolled: tagHex("leadStage", "enrolled"), open: tagHex("leadStage", "contact"), lost: tagHex("leadStage", "archived"),
-}
-/** owner 2026-10-21: the ways in the colours of the CRM stage tags — Test violet, Trial amber, not booked yet = contact
- *  (sky), enroll-now = closing (orange); both = one colour of its own (teal) */
-const WAY_COLOR: Record<string, string> = { test: tagHex("leadStage", "test"), trial: tagHex("leadStage", "trial"), both: HUE.teal.hex, direct: tagHex("leadStage", "closing"), none: tagHex("leadStage", "contact") }
-
-/** The lead pipeline as a Sankey: channel → way → came? → how it ended (rules leadSankey). */
-function LeadSankey({ d, heads }: { d: ReportData; heads: React.ReactNode[] }) {
-  const sk = d.crm.sankey
-  const [src, way, showed, end] = sk.columns
-  const p = Object.fromEntries(d.crm.paths.map((x) => [x.key, x.leads]))
-  const nodes = (m: Map<string, number>, keys: string[], label: (k: string) => string, color: (k: string) => string, hint?: (k: string) => string | undefined) =>
-    keys.filter((k) => m.get(k)).map((k) => ({ key: k, label: label(k), value: m.get(k)!, color: color(k), hint: hint?.(k) }))
-  const WAY_KEYS = LEAD_PATHS.map((x) => x.key) as string[]
-  const SHOWED: Record<string, string> = { came: "มาตามนัด", no_show: "ไม่มา", booked: "รอวันนัด", none: "ไม่ได้นัด" }
-  const END: Record<string, string> = { enrolled: "สมัครแล้ว", open: "ยังคุยอยู่", lost: "หลุด" }
+  const head = (title: React.ReactNode, big: React.ReactNode, sub: React.ReactNode) => (
+    <div>
+      <p className="text-xs text-muted-foreground">{title}</p>
+      <p className="mt-0.5 flex items-baseline gap-1.5">{big}</p>
+      <p className="flex h-6 items-center text-2xs text-muted-foreground">{sub}</p>
+    </div>
+  )
+  const num = (v: string, tone?: string) => <span className={cn("text-3xl font-semibold tabular-nums", tone)}>{v}</span>
+  // owner 2026-11-18: the change of each headline against the compared stretch — counts → the difference, the rate → points
+  const ok = d.comparable
+  const tail = cmp?.label ? <span>{cmp.label}</span> : null
+  const totalDelta = <>{dCount(cmp, ok, total, l.prev.total)} {tail}</>
+  const enrolledDelta = <>{dCount(cmp, ok, enrolled, l.prev.enrolled)} {tail}</>
+  const convDelta = <>{dPts(cmp, ok, l.conversion, l.prev.conversion)} {tail}</>
+  const why = (text: string) => <InfoTip text={text} />
   return (
-    <Sankey total={sk.total} heads={heads}
-      columns={[
-        { title: tx("ช่องทาง"), nodes: nodes(src, [...src.keys()].sort((a, b) => src.get(b)! - src.get(a)!), (k) => LEAD_SOURCE_LABEL[k as keyof typeof LEAD_SOURCE_LABEL] ?? k, () => SANKEY_COLOR.source) },
-        { title: tx("เส้นทาง"), nodes: nodes(way, WAY_KEYS, (k) => tx(LEAD_PATHS.find((x) => x.key === k)!.label), (k) => WAY_COLOR[k],
-          // owner 2026-10-21: the three ways are separate people — say what "all Test" is
-          (k) => k === "test" ? tx("Test ทั้งหมด {0} = อย่างเดียว {1} + ทั้ง Test + Trial {2}", [String((p.test ?? 0) + (p.both ?? 0)), String(p.test ?? 0), String(p.both ?? 0)])
-            : k === "trial" ? tx("Trial ทั้งหมด {0} = อย่างเดียว {1} + ทั้ง Test + Trial {2}", [String((p.trial ?? 0) + (p.both ?? 0)), String(p.trial ?? 0), String(p.both ?? 0)]) : undefined) },
-        { title: tx("นัด"), nodes: nodes(showed, Object.keys(SHOWED), (k) => tx(SHOWED[k]), (k) => SANKEY_COLOR[k]) },
-        { title: tx("ผล"), nodes: nodes(end, Object.keys(END), (k) => tx(END[k]), (k) => SANKEY_COLOR[k]) },
-      ]}
-      flows={sk.flows} />
+    <div className="grid gap-5 lg:grid-cols-3 lg:gap-0 lg:divide-x">
+      <div className="space-y-3 lg:pr-6">
+        {head(tx("ช่องทาง"), <>{num(fmtNum(total))}<span className="text-sm text-muted-foreground">({pct(total)})</span></>, totalDelta)}
+        <ul className="text-sm">{(allSources ? ranked : ranked.slice(0, 3)).map((k) => row(tx(LEAD_SOURCE_LABEL[k]), src.get(k) ?? 0, HUE.indigo.hex))}</ul>
+        {/* owner 2026-11-18: the top 3 channels, the rest on a click */}
+        <Button variant="link" size="inline" type="button" onClick={() => setAllSources((o) => !o)} className="text-xs text-primary hover:underline">
+          {allSources ? tx("แสดงน้อยลง") : tx("แสดงทั้งหมด ({0} ช่องทาง)", [ranked.length])}
+        </Button>
+      </div>
+      <div className="space-y-3 lg:px-6">
+        {head("Test / Trial", <>{num(fmtNum(booked))}<span className="text-sm text-muted-foreground">({pct(booked)})</span></>, tx("นัดทั้ง Test และ Trial {0} ราย — นับในทั้งสองแถว", [fmtNum(path("both"))]))}
+        <ul className="text-sm">
+          {row("Test", path("test") + path("both"), tagHex("leadStage", "test"))}
+          {row("Trial", path("trial") + path("both"), tagHex("leadStage", "trial"))}
+          {path("direct") > 0 && row(tx("สมัครเลย (ไม่นัด)"), path("direct"), tagHex("leadStage", "closing"))}
+          {row(tx("ยังไม่ได้นัด"), path("none"), HUE.gray.hex)}
+        </ul>
+      </div>
+      <div className="space-y-3 lg:pl-6">
+        {head(
+          // owner 2026-11-18: the two names are the caption (no "ผล" word) — each above its own number, the rate on the outer edge
+          <span className="flex justify-between gap-3">
+            <span className="flex items-center gap-1">{tx("คนสมัครแล้ว")}{why(tx("จาก Lead ใหม่ {0} ราย", [fmtNum(total)]))}</span>
+            <span className="flex items-center gap-1">Conversion rate{why(tx("สมัคร ÷ Lead ใหม่ทั้งหมด"))}</span>
+          </span>,
+          <span className="flex w-full items-baseline justify-between gap-3">{num(fmtNum(enrolled), "text-success")}{num(fmtPct(l.conversion), "text-primary")}</span>,
+          <span className="flex w-full justify-between gap-3"><span className="flex items-center gap-1">{enrolledDelta}</span><span className="flex items-center gap-1">{convDelta}</span></span>)}
+        <ul className="text-sm">
+          {row(tx("สมัครแล้ว"), enrolled, tagHex("leadStage", "enrolled"), "text-success")}
+          {row(tx("หลุด (Lost rate)"), lost, tagHex("leadStage", "archived"), "text-danger")}
+          {row(tx("ยังคุยอยู่"), still, tagHex("leadStage", "contact"))}
+        </ul>
+      </div>
+    </div>
   )
 }
 
@@ -462,8 +563,9 @@ function MembersConversion({ d }: { d: ReportData }) {
 
 /** NPS on the overview (owner 2026-10-21) — the latest survey round */
 function NpsOverview({ d }: { d: ReportData }) {
-  const year = d.surveyYears[0]
-  if (year === undefined) return null
+  // the survey of the chosen year; while the year is running and its round has not come yet, the latest round
+  const year = d.surveyYears.includes(d.monthly.year) ? d.monthly.year : d.isCurrentYear ? d.surveyYears[0] : undefined
+  if (year === undefined) return d.surveyYears.length ? <Panel title="NPS" sub={tx("ปี {0}", [yearOf(d.monthly.year)])}><Empty>{tx("ไม่มีแบบสอบถามของปีนี้")}</Empty></Panel> : null
   const cur = d.surveyOf(year)
   return <NpsCard year={year} responses={cur.responses.filter(Survey.isCurrent)} s={cur.summary} p={d.surveyOf(year - 1).summary} />
 }
@@ -516,17 +618,6 @@ function SplitRanks<T extends { id: string; name: string }>({ rows, cols }: { ro
   )
 }
 
-function Stat({ label, value, tone, sub, info, card, className }: { label: string; value: string; tone?: string; sub?: React.ReactNode; info?: string; className?: string
-  /** owner 2026-10-21: the Overview's students / courses / leads read like the period strip above them (same card, same size) */
-  card?: boolean }) {
-  return (
-    <div className={cn("flex h-full flex-col justify-center rounded-2xl p-3", card ? "bg-card ring-1 ring-foreground/10" : "bg-muted/50", className)}>
-      <p className="flex items-center gap-1 text-xs text-muted-foreground">{label}{info && <InfoTip text={info} />}</p>
-      <p className={cn("font-semibold tabular-nums", card ? "text-lg" : "text-2xl", tone)}>{value}</p>
-      {sub && <p className={cn("flex flex-wrap items-center gap-1 text-muted-foreground", card ? "text-2xs" : "text-2xs")}>{sub}</p>}
-    </div>
-  )
-}
 
 /** Branches ranked by revenue — two columns of five (like the ref) once there are more than five. */
 function BranchRevenue({ rows }: { rows: ReportData["byBranch"] }) {
@@ -552,18 +643,19 @@ function BranchRevenue({ rows }: { rows: ReportData["byBranch"] }) {
   )
 }
 
-function RevenueParts({ d }: { d: ReportData }) {
+function RevenueParts({ d, cmp }: { d: ReportData; cmp: Cmp }) {
   const parts = [[tx("ค่าเรียน"), d.rev.tuition, d.revPrev.tuition], [tx("ค่ารถ"), d.rev.bus, d.revPrev.bus], [tx("ค่าแรกเข้า / ค่าธรรมเนียม"), d.rev.advance, d.revPrev.advance], [tx("ค่าหนังสือ"), d.rev.book, d.revPrev.book], [tx("ใบลดหนี้ (หัก)"), -d.rev.credit, -d.revPrev.credit]] as const
   return (
     <ul className="divide-y text-sm">
       {parts.map(([label, now, before]) => (
         <li key={label} className="flex items-center gap-2 py-2">
           <span className="flex-1">{label}</span>
-          <span className={cn("tabular-nums", now < 0 && "text-danger")}>{fmtMoney(now)}</span>
-          <span className="w-16 text-right"><Delta value={d.comparable && before ? Math.round(((now - before) / Math.abs(before)) * 1000) / 10 : null} invert={label.startsWith("ใบลดหนี้")} /></span>
+          {/* owner 2026-11-18: the change first, the amount on the card's edge — a fixed width on both so the columns line up */}
+          <span className="w-16 text-right">{dPct(cmp, d.comparable, now, before, label.startsWith("ใบลดหนี้"))}</span>
+          <span className={cn("w-28 text-right tabular-nums", now < 0 && "text-danger")}>{fmtMoney(now)}</span>
         </li>
       ))}
-      <li className="flex items-center gap-2 py-2 font-semibold"><span className="flex-1">{tx("รวม")}</span><span className="tabular-nums">{fmtMoney(d.rev.total)}</span><span className="w-16" /></li>
+      <li className="flex items-center gap-2 py-2 font-semibold"><span className="flex-1">{tx("รวม")}</span><span className="w-16" /><span className="w-28 text-right tabular-nums">{fmtMoney(d.rev.total)}</span></li>
     </ul>
   )
 }
@@ -640,17 +732,10 @@ function PackageMix({ d }: { d: ReportData }) {
   const cell = (x: number) => cn("h-8 rounded-md text-center tabular-nums", x > 0.55 && "text-primary-foreground")
   return (
     <div className="flex flex-1 flex-col gap-3">
-      {/* the three types side by side: how the money splits */}
-      <div>
-        <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
-          {groups.map((g, i) => <div key={g.suffix} style={{ width: `${g.share * 100}%`, background: donutColor(i) }} title={`${tx(g.label)} ${fmtPct(g.share)}`} />)}
-        </div>
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {groups.map((g, i) => <span key={g.suffix} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: donutColor(i) }} />{uiLang() === "th" ? g.label.split(" ")[0] : tx(g.label)} <b className="font-medium text-foreground tabular-nums">{fmtPct(g.share)}</b></span>)}
-        </div>
-      </div>
+      {/* owner 2026-11-18: no split bar — the group rows and the %Mix column already say it */}
       <table className="w-full flex-1 border-separate border-spacing-0.5 text-sm">
-        <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("แพ็กเกจ")}</th><th className="font-normal">{tx("จำนวน")}</th><th className="font-normal">{tx("รายได้")}</th><th className="text-right font-normal">%Mix</th></tr></thead>
+        {/* owner 2026-11-18: the column-header row is the same height (h-6) as the matrix beside it, so both tables start level */}
+        <thead className="text-xs text-muted-foreground"><tr><th className="h-6 text-left font-normal">{tx("แพ็กเกจ")}</th><th className="h-6 font-normal">{tx("จำนวน")}</th><th className="h-6 font-normal">{tx("รายได้")}</th><th className="h-6 text-right font-normal">%Mix</th></tr></thead>
         {groups.map((g, i) => (
           <tbody key={g.suffix}>
             <tr className="font-medium">
@@ -674,65 +759,73 @@ function PackageMix({ d }: { d: ReportData }) {
   )
 }
 
+/** Bestselling packages (owner 2026-11-18): ONE card for "package × subject" and "package × grade" — a switch picks the
+ *  rows (วิชา | ระดับชั้น), another picks the number (จำนวน = Volume | รายได้ = Value); both sit on the header's line. */
+function BestsellerMatrix({ d }: { d: ReportData }) {
+  const ps = d.packageSubject, pg = d.packageGrade
+  const subjectNames = useStore((st) => st.system.subjectNames)
+  const [dim, setDim] = useState<"subject" | "grade">("subject")
+  const [metric, setMetric] = useState<"units" | "amount">("units")
+  const t = dim === "subject" ? { rows: ps.subjects, cols: ps.keys, units: ps.units, amount: ps.amount } : { rows: pg.grades, cols: pg.keys, units: pg.count, amount: pg.amount }
+  const has = t.rows.length > 0 && t.cols.length > 0
+  return (
+    <Panel title={dim === "subject" ? tx("แพ็กเกจ × วิชา") : tx("แพ็กเกจ × ระดับชั้น")} fill
+      hint={dim === "subject" ? tx("วิชาไหนซื้อแพ็กแบบไหนมากสุด · เรียงวิชาที่ขายดีก่อน") : tx("แต่ละชั้นซื้อแพ็กแบบไหนมากสุด")}
+      action={<div className="flex flex-wrap items-center gap-2">
+        <Segmented value={dim} onChange={setDim} options={[{ value: "subject", label: tx("วิชา") }, { value: "grade", label: tx("ระดับชั้น") }]} />
+        <Segmented value={metric} onChange={setMetric} options={[{ value: "units", label: tx("จำนวน") }, { value: "amount", label: tx("รายได้") }]} />
+      </div>}>
+      {has ? (
+        // fixed columns (one label width, the rest equal) · rows fill the card · never shorter than the taller set (subjects 3 · grades 6+)
+        <Heatmap rows={t.rows} cols={t.cols} corner={dim === "subject" ? tx("วิชา") : tx("ชั้น")} labelWidth="4.5rem" minRows={Math.max(ps.subjects.length, pg.grades.length)}
+          rowLabel={(r) => dim === "subject"
+            ? <span className="flex items-center gap-1.5 whitespace-nowrap" title={sj(r)}><span className="size-2 shrink-0 rounded-full" style={{ background: subjectHex(r) }} />{subjectAbbr(r, subjectNames)}</span>
+            : nm(r)}
+          colLabel={(k) => k /* owner 2026-11-18: 10h · 4w · 1m — h hour, w week, m month (the package key as it is, same in every language) */} value={(r, k) => (metric === "units" ? t.units(r, k) : t.amount(r, k))} fmt={metric === "units" ? fmtNum : fmtShort} />
+      ) : <Empty />}
+    </Panel>
+  )
+}
+
 // ---------------- Revenue ----------------
 
 const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 
-function RevenueTab({ d, compare, period, periodLabel }: { d: ReportData; compare: boolean; period: PeriodKey; periodLabel: string }) {
-  const pg = d.packageGrade
+function RevenueTab({ d, compare, periodLabel, cmp }: { d: ReportData; compare: boolean; periodLabel: string; cmp: Cmp }) {
+  const ok = d.comparable
+  const tail = cmp.label ? <span>{cmp.label}</span> : null
+  const avg = (r: { total: number; invoices: number }) => (r.invoices ? r.total / r.invoices : null)
   return (
     <div className="space-y-4">
-      {/* each period with its own comparison — not "MoM" everywhere (owner 2026-10-21: on the Revenue tab, was on the Overview) */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-        {d.strip.map((p) => (
-          <div key={p.key} className={cn("rounded-2xl bg-card p-3 ring-1 ring-foreground/10", p.key === period && "ring-2 ring-primary")}>
-            <p className="text-xs text-muted-foreground">{tx(p.label)}</p>
-            <p className="text-lg font-semibold tabular-nums">{fmtNum(p.value)}</p>
-            <p className="flex flex-wrap items-center gap-1 text-2xs text-muted-foreground"><Delta value={p.change} /> {tx(p.vs)}</p>
-            <p className="text-2xs text-muted-foreground">{fmtDate(p.range.from)} – {fmtDate(p.range.to)}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label={tx("รายได้รวม")} value={fmtShort(d.rev.total)} />
-        <Stat label={tx("ใบแจ้งหนี้ที่จ่ายแล้ว")} value={fmtNum(d.rev.invoices)} sub={<Delta value={d.comparable && d.revPrev.invoices ? Math.round(((d.rev.invoices - d.revPrev.invoices) / d.revPrev.invoices) * 1000) / 10 : null} />} />
-        <Stat label={tx("นักเรียนที่จ่าย")} value={fmtNum(d.rev.students)} />
-        <Stat label={tx("เฉลี่ยต่อใบ")} value={fmtShort(d.rev.invoices ? d.rev.total / d.rev.invoices : 0)} />
-      </div>
+      <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Kpi variant="tonal" label={tx("รายได้รวม")} value={fmtShort(d.rev.total)}
+          info={d.isCurrentYear ? (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{tx("ตามวันนี้ · ไม่ตามตัวกรองด้านบน")}</p>
+              {d.strip.map((p) => (
+                <div key={p.key} className="flex items-center gap-3 tabular-nums">
+                  <span className="min-w-24 flex-1">{tx(p.label)}</span>
+                  <span className="w-16 text-right font-medium" title={fmtNum(p.value)}>{abbreviate(p.value) ?? fmtNum(p.value)}</span>
+                  <span className="w-16 text-right"><Delta value={p.change} /></span>
+                </div>
+              ))}
+            </div>
+          ) : undefined} sub={<>{dPct(cmp, ok, d.rev.total, d.revPrev.total)} {tail}</>} />
+        <Kpi variant="tonal" label={tx("ใบแจ้งหนี้ที่จ่ายแล้ว")} value={fmtNum(d.rev.invoices)} sub={<>{dCount(cmp, ok, d.rev.invoices, d.revPrev.invoices)} {tail}</>} />
+        <Kpi variant="tonal" label={tx("นักเรียนที่จ่าย")} value={fmtNum(d.rev.students)} sub={<>{dCount(cmp, ok, d.rev.students, d.revPrev.students)} {tail}</>} />
+        <Kpi variant="tonal" label={tx("เฉลี่ยต่อใบ")} value={fmtShort(d.rev.invoices ? d.rev.total / d.rev.invoices : 0)} sub={<>{dPct(cmp, ok, avg(d.rev), avg(d.revPrev))} {tail}</>} />
+      </KpiGroup>
+      {/* owner 2026-11-18: chart + KPIs + forecast + monthly numbers — one card */}
+      <RevenueMonthsPanel d={d} />
       <div className="grid gap-4 lg:grid-cols-2">
-        <ForecastPanel d={d} />
-        <Panel title={tx("รายได้รายเดือน")} hint={tx("ปี {0} เทียบปีที่แล้ว", [yearOf(d.monthly.year)])} fill>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("เดือน")}</th><th className="text-right font-normal">{tx("ปีนี้")}</th><th className="text-right font-normal">{tx("ปีที่แล้ว")}</th><th className="text-right font-normal">{tx("เปลี่ยนแปลง")}</th></tr></thead>
-              <tbody>{TH_MONTHS.map((m, i) => {
-                const a = d.monthly.thisYear[i], b = d.monthly.lastYear[i]
-                if (a === null && !b) return null
-                return (
-                  <tr key={m} className="border-t">
-                    <td className="py-1.5">{tx(m)}</td>
-                    <td className="text-right tabular-nums">{a === null ? "—" : fmtMoney(a)}</td>
-                    <td className="text-right text-muted-foreground tabular-nums">{b ? fmtMoney(b) : "—"}</td>
-                    {/* the month in progress compares with the same days last year */}
-                    <td className="text-right"><Delta value={(() => { const base = i === Number(d.today.slice(5, 7)) - 1 ? d.monthly.lastYearToDate : b; return a !== null && base ? Math.round(((a - base) / base) * 1000) / 10 : null })()} /></td>
-                  </tr>
-                )
-              })}</tbody>
-            </table>
-          </div>
-        </Panel>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={tx("ประเภทรายได้")} hint={`${periodLabel} ${tx(COMPARE_LABEL[period])}`}><RevenueParts d={d} /></Panel>
+        <Panel title={tx("ประเภทรายได้")} hint={`${periodLabel} ${cmp.label}`}><RevenueParts d={d} cmp={cmp} /></Panel>
         <Panel title="Subject Engine" hint={tx("รายได้ค่าเรียนแยกวิชา")} center><SubjectEngine d={d} /></Panel>
       </div>
       {compare && <Panel title={tx("รายได้ตามสาขา")} hint={tx("ทุกสาขาในขอบเขต")}><BranchRevenue rows={d.byBranch} /></Panel>}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={tx("แพ็กเกจขายดี")} hint={tx("จำนวน (Volume) vs รายได้ (Value)")} fill><PackageMix d={d} /></Panel>
-        <Panel title={tx("แพ็กเกจ × ระดับชั้น")} hint={tx("จำนวนแพ็กที่แต่ละชั้นซื้อ")} fill>
-          {pg.grades.length ? <Heatmap rows={pg.grades} cols={pg.keys} rowLabel={(g) => nm(g)} colLabel={(k) => pkgName(k)} value={(g, k) => pg.count(g, k)} corner={tx("ชั้น")} /> : <Empty />}
-        </Panel>
+        {/* owner 2026-11-18: package × grade and package × subject merged — one card, a switch between them */}
+        <BestsellerMatrix d={d} />
       </div>
       <Panel title={tx("ครอบครัวทั้งหมด")} hint={tx("{0} ครอบครัวที่จ่ายในช่วงนี้", [d.families.length])}>
         <Families rows={d.families} split />
@@ -743,7 +836,7 @@ function RevenueTab({ d, compare, period, periodLabel }: { d: ReportData; compar
 
 // ---------------- Students ----------------
 
-function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; onOpen: (id: string) => void }) {
+function StudentsTab({ d, compare, cmp, onOpen }: { d: ReportData; compare: boolean; cmp: Cmp; onOpen: (id: string) => void }) {
   const f = d.studentFlow
   const net = f.newCount + f.returning - f.lost
   const name = (id: string) => d.students.find((x) => x.id === id)
@@ -751,11 +844,20 @@ function StudentsTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; 
   const [listOpen, setListOpen] = useState(false)
   return (
     <div className="space-y-4">
-      <StudentStats d={d} />
+      <StudentStats d={d} cmp={cmp} />
+      {/* owner 2026-11-18: the in/out flow (Sankey) lives here now — moved off the Overview, which shows the numbers alone */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel fill title={tx("การไหลเข้า–ออก · นักเรียน")} hint={tx("แต่ละคนนับครั้งเดียว · ซ้าย = ต้นช่วง + เข้ามา · ขวา = ตอนนี้ · {0}", [periodLabelOf(d)])}>
+          <StudentOverview d={d} periodLabel={periodLabelOf(d)} cmp={cmp} chart />
+        </Panel>
+        <Panel fill title={tx("การไหลเข้า–ออก · คอร์ส")} hint={tx("นับทีละคอร์สที่นักเรียนถือ · {0}", [periodLabelOf(d)])}>
+          <CourseOverview d={d} periodLabel={periodLabelOf(d)} cmp={cmp} chart />
+        </Panel>
+      </div>
       {/* owner 2026-10-07: what moved, not just how many — monthly in / out + the share of each in the period */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Panel title={tx("ความเคลื่อนไหวรายเดือน")} hint={tx("ปี {0} · เหนือเส้น = เข้า (ใหม่ + กลับมาเรียน) · ใต้เส้น = ออก (Lost + Pause) · ชี้ที่เดือนเพื่อดูตัวเลข", [yearOf(d.monthly.year)])} fill>
-          <MovementBars months={d.movementMonthly} current={Number(d.today.slice(5, 7)) - 1} />
+          <MovementBars months={d.movementMonthly} current={d.isCurrentYear ? Number(d.today.slice(5, 7)) - 1 : -1} />
         </Panel>
         <Panel title={tx("สัดส่วนในช่วงนี้")} hint={periodLabelOf(d)} fill
           action={events.length > 0 && <Button variant="link" size="inline" type="button" className="text-xs text-primary hover:underline" onClick={() => setListOpen(true)}>{tx("ดูรายชื่อ ›")}</Button>}>
@@ -853,7 +955,7 @@ function SchoolsPanel({ d }: { d: ReportData }) {
   const known = x.students - x.unknown
   const pct = (n: number) => (known ? Math.round((n / known) * 100) : 0)
   return (
-    <Panel title={tx("โรงเรียนของนักเรียน")} hint={tx("นักเรียน Active ตอนนี้ ตามสาขาที่เลือก · ไม่ขึ้นกับช่วงเวลา · แก้ชื่อโรงเรียนได้ที่ข้อมูลนักเรียน")}
+    <Panel title={tx("โรงเรียนของนักเรียน")} sub={tx("ตอนนี้")} hint={tx("นักเรียน Active ตอนนี้ ตามสาขาที่เลือก · ไม่ขึ้นกับช่วงเวลา · แก้ชื่อโรงเรียนได้ที่ข้อมูลนักเรียน")}
       action={views.length > 1 ? <Segmented value={use} onChange={setView} options={views.map((v) => ({ value: v.key, label: tx(v.label) }))} /> : undefined}>
       <div className="grid gap-6 lg:grid-cols-[14rem_1fr] lg:gap-0 lg:divide-x">
         <div className="grid grid-cols-3 gap-4 lg:grid-cols-1 lg:content-center lg:pr-6">
@@ -1012,24 +1114,24 @@ function RateRows({ rows, plain }: { rows: { key: string; label: React.ReactNode
   )
 }
 
-function AttendanceTab({ d, compare, onOpen }: { d: ReportData; compare: boolean; onOpen: (id: string) => void }) {
+function AttendanceTab({ d, compare, cmp, onOpen }: { d: ReportData; compare: boolean; cmp: Cmp; onOpen: (id: string) => void }) {
   const a = d.attendanceTab
+  const ok = a.comparable
   const name = (id: string) => d.students.find((x) => x.id === id)
   const days = [1, 2, 3, 4, 5, 6, 0].map((w) => a.byWeekday.find((r) => r.key === String(w)) ?? { key: String(w), present: 0, leave: 0, noQuota: 0, rate: null, sessions: 0 })
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">{tx("ข้อมูลการเข้าเรียนเริ่ม")} {fmtDate(a.since, { year: true })}  {tx("(คาบแรกในระบบ) · อัตรา = มา ÷ (มา + ลา) · เขียว = 80% ขึ้นไป · แดง = ต่ำกว่า 80%")}</p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat label={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)} tone={a.total.rate !== null && a.total.rate < 0.8 ? "text-danger" : undefined} />
-        <Stat label={tx("มา")} value={fmtNum(a.total.present)} tone="text-success" />
-        <Stat label={tx("ลา")} value={fmtNum(a.total.leave)} tone="text-warning" sub={<span>{tx("ไม่หักโควตา")} {a.noQuota}</span>} />
-        <Stat label={tx("คาบยกเลิก")} value={fmtNum(a.cancelled.total)} sub={<span>{tx("นักเรียนได้รับผล")} {a.cancelled.students}</span>} />
-        <Stat label={tx("ยกเลิกเพราะครูลา")} value={fmtNum(a.cancelled.teacher)} tone={a.cancelled.teacher ? "text-danger" : undefined} />
-        <Stat label={tx("หยุดช่วงพิเศษ / อื่นๆ")} value={`${a.cancelled.period} / ${a.cancelled.other}`} />
-      </div>
+      <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <Kpi variant="tonal" label={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)} tone="red" info={<>{tx("ข้อมูลการเข้าเรียนเริ่ม")} {fmtDate(a.since, { year: true })} {tx("(คาบแรกในระบบ) · อัตรา = มา ÷ (มา + ลา) · เขียว = 80% ขึ้นไป · แดง = ต่ำกว่า 80%")}</>} emphasis={!!(a.total.rate !== null && a.total.rate < 0.8)} sub={dPts(cmp, ok, a.total.rate, a.prev.total.rate)} />
+        <Kpi variant="tonal" label={tx("มา")} value={fmtNum(a.total.present)} tone="emerald" emphasis sub={dCount(cmp, ok, a.total.present, a.prev.total.present)} />
+        <Kpi variant="tonal" label={tx("ลา")} value={fmtNum(a.total.leave)} tone="amber" emphasis sub={dCount(cmp, ok, a.total.leave, a.prev.total.leave, true)} info={<>{tx("ไม่หักโควตา")} {a.noQuota}</>} />
+        <Kpi variant="tonal" label={tx("คาบยกเลิก")} value={fmtNum(a.cancelled.total)} sub={dCount(cmp, ok, a.cancelled.total, a.prev.cancelled.total, true)} info={<>{tx("นักเรียนได้รับผล")} {a.cancelled.students}</>} />
+        <Kpi variant="tonal" label={tx("ยกเลิกเพราะครูลา")} value={fmtNum(a.cancelled.teacher)} tone="red" emphasis={!!(a.cancelled.teacher)} sub={dCount(cmp, ok, a.cancelled.teacher, a.prev.cancelled.teacher, true)} />
+        <Kpi variant="tonal" label={tx("หยุดช่วงพิเศษ / อื่นๆ")} value={`${a.cancelled.period} / ${a.cancelled.other}`} />
+      </KpiGroup>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={tx("อัตราเข้าเรียนรายเดือน")} hint={tx("ปี {0}", [yearOf(d.monthly.year)])} center>
-          <MonthBars height="h-28" thisYear={a.monthly.map((x) => (x === null ? null : Math.round(x * 1000) / 10))} lastYear={a.monthly.map(() => null)} current={Number(d.today.slice(5, 7)) - 1} unit="%" />
+          <MonthBars height="h-28" thisYear={a.monthly.map((x) => (x === null ? null : Math.round(x * 1000) / 10))} lastYear={a.monthly.map(() => null)} lastLabel={null} current={d.isCurrentYear ? Number(d.today.slice(5, 7)) - 1 : -1} unit="%" />
         </Panel>
         <Panel title={tx("แยกตามวิชา")} center><RateRows rows={a.bySubject.map((r) => ({ key: r.key, label: sj(r.key), rate: r.rate, sub: tx("ลา {0}", [r.leave]) }))} /></Panel>
       </div>
@@ -1085,13 +1187,12 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const branchOf = (id: string) => nm(d.operations.rooms.find((b) => b.id === id)?.name ?? "")
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">{tx("นับเฉพาะคาบที่สอนจบแล้ว ตั้งแต่")} {fmtDate(o.since, { year: true })}  {tx("(คาบแรกในระบบ) · ชั่วโมงสอนของครูหลัก ใช้คิดค่าสอน Part-time")}</p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label={tx("ครูที่สอนในช่วงนี้")} value={fmtNum(o.teachers.filter((t) => t.sessions).length)} />
-        <Stat label={tx("ชั่วโมงสอนรวม")} value={hrs(o.teachers.reduce((a, t) => a + t.minutes, 0))} />
-        <Stat label={tx("ชั่วโมง Part-time")} value={hrs(partTimeMin)} tone="text-special-ink" />
-        <Stat label={tx("งานค้างของครู")} value={fmtNum(o.teachers.reduce((a, t) => a + t.unmarked + t.summariesPending, 0))} sub={<span>{tx("เช็คชื่อ + สรุปการเรียน")}</span>} />
-      </div>
+      <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Kpi variant="tonal" label={tx("ครูที่สอนในช่วงนี้")} value={fmtNum(o.teachers.filter((t) => t.sessions).length)} info={<>{tx("นับเฉพาะคาบที่สอนจบแล้ว ตั้งแต่")} {fmtDate(o.since, { year: true })} {tx("(คาบแรกในระบบ) · ชั่วโมงสอนของครูหลัก ใช้คิดค่าสอน Part-time")}</>} />
+        <Kpi variant="tonal" label={tx("ชั่วโมงสอนรวม")} value={hrs(o.teachers.reduce((a, t) => a + t.minutes, 0))} />
+        <Kpi variant="tonal" label={tx("ชั่วโมง Part-time")} value={hrs(partTimeMin)} tone="special" emphasis />
+        <Kpi variant="tonal" label={tx("งานค้างของครู")} value={fmtNum(o.teachers.reduce((a, t) => a + t.unmarked + t.summariesPending, 0))} sub={<span>{tx("เช็คชื่อ + สรุปการเรียน")}</span>} />
+      </KpiGroup>
       {/* owner 2026-10-21: moved here from the overview's lead section */}
       {members}
       <Panel title={tx("สุขภาพครู (Teacher Health)")} hint={tx("เรียงตามชั่วโมงสอน")}
@@ -1122,52 +1223,97 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
         ) : <Empty />}
       </Panel>
       {/* owner 2026-10-15: no teacher Workload here — comparing teachers on Reports is risky; it's on Staff, Director only */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={compare ? tx("การใช้ห้องตามสาขา") : tx("การใช้ห้อง")} hint={tx("ชั่วโมงที่มีคาบ ÷ ชั่วโมงที่สาขาเปิด")} fill>
-          <RateRows plain rows={compare
-            ? [...o.rooms].sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0)).map((b) => ({ key: b.id, label: nm(b.name), rate: b.rate, sub: hrs(b.booked) }))
-            : o.rooms.flatMap((b) => b.rooms.map((r) => ({ key: r.roomId, label: nm(r.name), rate: r.rate, sub: hrs(r.booked) })))} />
-        </Panel>
-        <Panel title={tx("ความเต็มของคลาส")} hint={tx("นักเรียน ÷ ขนาดที่แนะนำ (กลุ่ม 6 · เดี่ยว 3) · ว่างสุดอยู่บน · คนน้อย {0} · เกิน {1} คลาส", [low.length, over.length])} fill>
-          <RateRows plain rows={[...over, ...o.fill.filter((c) => c.fill <= 1)].slice(0, Math.max(12, over.length)).map((c) => ({
-            key: c.id, label: <span title={nm(c.name)}>{nm(c.name)}{compare && <span className="text-xs text-muted-foreground"> · {branchOf(c.branchId)}</span>}</span>,
-            rate: Math.min(1, c.fill), sub: `${c.students}/${c.capacity}`, tone: c.fill > 1 ? "#dc2626" : c.students <= 1 ? "#f59e0b" : undefined,
-          }))} />
-          <p className="mt-2 text-2xs text-muted-foreground"><span className="text-warning">■</span>  {tx("คนน้อย (≤ 1 คน) ·")} <span className="text-danger">■</span>  {tx("เกินขนาดแนะนำ (แสดงบนสุด)")}</p>
-        </Panel>
-      </div>
+      {/* owner 2026-11-18: Room use removed — the class fill (with each class's day + time) is what matters */}
+      <Panel title={tx("ความเต็มของคลาส")} sub={tx("ตอนนี้")} hint={tx("นักเรียน ÷ ขนาดที่แนะนำ (กลุ่ม 6 · เดี่ยว 3) · ว่างสุดอยู่บน · คนน้อย {0} · เกิน {1} คลาส", [low.length, over.length])} fill>
+        <RateRows plain rows={[...over, ...o.fill.filter((c) => c.fill <= 1)].slice(0, Math.max(12, over.length)).map((c) => ({
+          key: c.id, label: (
+            <span className="flex flex-col" title={nm(c.name)}>
+              <span className="truncate">{nm(c.name)}{compare && <span className="text-xs text-muted-foreground"> · {branchOf(c.branchId)}</span>}</span>
+              <span className="text-2xs text-muted-foreground tabular-nums">{weekdayShort(c.weekday)} · {c.start}–{endTime(c.start, c.minutes)}</span>
+            </span>
+          ),
+          rate: Math.min(1, c.fill), sub: `${c.students}/${c.capacity}`, tone: c.fill > 1 ? "#dc2626" : c.students <= 1 ? "#f59e0b" : undefined,
+        }))} />
+        <p className="mt-2 text-2xs text-muted-foreground"><span className="text-warning">■</span>  {tx("คนน้อย (≤ 1 คน) ·")} <span className="text-danger">■</span>  {tx("เกินขนาดแนะนำ (แสดงบนสุด)")}</p>
+      </Panel>
     </div>
   )
 }
 
 // ---------------- Forecast / Cohort / CRM (R3) ----------------
 
-/** What is expected to come in until the end of the year — renewals at the recent renewal rate + invoices waiting. */
-function ForecastPanel({ d }: { d: ReportData }) {
+/**
+ * Monthly revenue in ONE card (owner 2026-11-18: the chart, the forecast and the monthly table were the same story).
+ * Left: the chart with the three headline numbers under it. Right: every month of the year — actual this year, last year,
+ * the change, and what is still expected (renewals at the recent rate + invoices waiting; hover for the split).
+ * Always 12 rows, so the card never changes height with the month.
+ */
+function RevenueMonthsPanel({ d }: { d: ReportData }) {
   const f = d.forecast
-  const cur = Number(d.today.slice(5, 7)) - 1
-  const months = f.byMonth.map((x, m) => ({ m, x })).filter((r) => r.x && r.m >= cur)
-  const total = months.reduce((a, r) => a + r.x!.total, 0)
+  const run = d.isCurrentYear
+  const cur = run ? Number(d.today.slice(5, 7)) - 1 : -1
+  const coming = f.byMonth.reduce((a, x, m) => a + (x && m >= cur ? x.total : 0), 0)
   const actualYtd = d.monthly.thisYear.reduce<number>((a, v) => a + (v ?? 0), 0)
+  const cy = d.monthly.compareYear
+  const cmpTotal = d.monthly.lastYear.reduce<number>((a, v) => a + (v ?? 0), 0)
+  const year = String(yearOf(d.monthly.year)), cmpName = cy === null ? "" : String(yearOf(cy))
   return (
-    <Panel title={tx("คาดการณ์รายได้ถึงสิ้นปี")} center hint={tx("ต่อคอร์สตามอัตรา 6 เดือนล่าสุด {0} · ใบแจ้งหนี้ที่ส่งแล้วรอจ่าย {1} ใบ · ไม่รวมนักเรียนใหม่", [fmtPct(f.renewal), f.openCount])}>
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Stat label={tx("คาดว่าจะเข้าอีก")} value={fmtShort(total)} tone="text-primary" />
-          <Stat label={tx("ทั้งปี {0} (จริง + คาดการณ์)", [yearOf(d.monthly.year)])} value={fmtShort(actualYtd + total)} />
-          <Stat label={tx("นักเรียนใหม่ (ไม่ได้รวม)")} value={tx("+{0}/ด.", [fmtShort(f.newAvg.perMonth)])} sub={<span>{tx("เฉลี่ย 3 เดือนล่าสุด ·")} {Math.round(f.newAvg.students)}  {tx("คน/ด.")}</span>} />
+    <Panel title={tx("รายได้รายเดือน")} sub={tx("ทั้งปี {0}", [year])} fill
+      hint={run ? tx("ปี {0} เทียบปีที่แล้ว · คาดการณ์ = ต่อคอร์สตามอัตรา 6 เดือนล่าสุด {1} + ใบแจ้งหนี้ที่ส่งแล้วรอจ่าย {2} ใบ + นักเรียนใหม่ตามอัตรา 3 เดือนล่าสุด", [yearOf(d.monthly.year), fmtPct(f.renewal), f.openCount]) : tx("ปี {0} · ทั้ง 12 เดือน (ยอดจริง)", [yearOf(d.monthly.year)])}>
+      <div className="grid flex-1 gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+        <div className="flex flex-col gap-4 lg:pr-6">
+          <MonthBars height="h-64" thisYear={d.monthly.thisYear} lastYear={d.monthly.lastYear} current={cur}
+            thisLabel={year} lastLabel={cy === null ? null : cmpName}
+            forecast={run ? f.byMonth.map((x) => x?.total ?? null) : undefined}
+            currentLastYearToDate={run && cy !== null ? d.monthly.lastYearToDate : undefined}
+            todayLabel={`${Number(d.today.slice(8)) === 1 ? "" : "1–"}${Number(d.today.slice(8))} ${fmtDate(d.today).split(" ")[1] ?? ""}`} />
+          {/* owner 2026-11-18: one sum that reads left to right — real so far + still expected = the year. A year that is over has
+              nothing left to expect: what it made, its monthly average, and (if compared) the other year */}
+          <KpiGroup className="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {run ? (
+              <>
+                <Kpi variant="tonal" label={tx("จริงสะสมปีนี้")} value={fmtShort(actualYtd)} />
+                <Kpi variant="tonal" label={tx("+ คาดว่าจะเข้าอีก")} value={fmtShort(coming)} tone="primary" emphasis
+                  info={tx("ต่อคอร์ส + ใบแจ้งหนี้รอจ่าย + นักเรียนใหม่ตามอัตรา 3 เดือนล่าสุด ({0} คน/เดือน ≈ {1}/เดือน)", [Math.round(f.newAvg.students), fmtShort(f.newAvg.perMonth)])} />
+                <Kpi variant="tonal" label={tx("= ประมาณการทั้งปี")} value={fmtShort(actualYtd + coming)} />
+              </>
+            ) : (
+              <>
+                <Kpi variant="tonal" label={tx("รายได้ทั้งปี {0}", [year])} value={fmtShort(actualYtd)} />
+                <Kpi variant="tonal" label={tx("เฉลี่ยต่อเดือน")} value={fmtShort(actualYtd / 12)} />
+                {cy !== null && cmpTotal > 0 && <Kpi variant="tonal" label={tx("เทียบ {0}", [cmpName])} value={fmtShort(cmpTotal)} sub={<Delta value={cmpTotal ? Math.round(((actualYtd - cmpTotal) / cmpTotal) * 1000) / 10 : null} />} />}
+              </>
+            )}
+          </KpiGroup>
         </div>
-        <table className="w-full text-sm">
-          <thead className="text-xs text-muted-foreground"><tr><th className="text-left font-normal">{tx("เดือน")}</th><th className="text-right font-normal">{tx("ต่อคอร์ส (คาดการณ์)")}</th><th className="text-right font-normal">{tx("ใบที่รอจ่าย")}</th><th className="text-right font-normal">{tx("รวม")}</th></tr></thead>
-          <tbody>{months.map(({ m, x }) => (
-            <tr key={m} className="border-t">
-              <td className="py-1.5">{tx(TH_MONTHS[m])}{m === cur && <span className="ml-1 text-xs text-muted-foreground">{tx("(ที่เหลือของเดือน)")}</span>}</td>
-              <td className="text-right tabular-nums">{fmtMoney(x!.renewals)}</td>
-              <td className="text-right tabular-nums">{x!.open ? fmtMoney(x!.open) : "—"}</td>
-              <td className="text-right font-medium tabular-nums">{fmtMoney(x!.total)}</td>
-            </tr>
-          ))}</tbody>
-        </table>
+        <div className="flex flex-col lg:pl-6">
+          <table className="w-full flex-1 text-sm">
+            <thead className="text-xs text-muted-foreground"><tr>
+              {/* owner 2026-11-18: the other year · the forecast · the change · what it really was (the number that matters, on the edge) */}
+              <th className="text-left font-normal">{tx("เดือน")}</th>
+              {cy !== null && <th className="text-right font-normal">{cmpName}</th>}
+              {run && <th className="text-right font-normal">{tx("คาดการณ์")}</th>}
+              {cy !== null && <th className="text-right font-normal">{tx("เปลี่ยนแปลง")}</th>}
+              <th className="text-right font-normal">{tx("จริง")}</th>
+            </tr></thead>
+            <tbody>{TH_MONTHS.map((name, m) => {
+              const a = d.monthly.thisYear[m], b = d.monthly.lastYear[m]
+              const x = m >= cur ? f.byMonth[m] : null
+              // the month in progress compares with the same days of the other year
+              const base = m === cur ? d.monthly.lastYearToDate : b
+              const change = a !== null && base ? Math.round(((a - base) / base) * 1000) / 10 : null
+              return (
+                <tr key={name} className={cn("border-t", m === cur && "bg-muted/40 font-medium")}>
+                  <td className="py-1.5">{tx(name)}</td>
+                  {cy !== null && <td className="text-right text-muted-foreground tabular-nums">{b ? fmtNum(b) : "—"}</td>}
+                  {run && <td className="text-right tabular-nums" title={x ? tx("ต่อคอร์ส {0} + ใบรอจ่าย {1} + นักเรียนใหม่ {2}", [fmtNum(x.renewals), fmtNum(x.open), fmtNum(x.fresh)]) : undefined}>{x ? fmtNum(x.total) : "—"}</td>}
+                  {cy !== null && <td className="text-right"><Delta value={change} /></td>}
+                  <td className="text-right font-medium tabular-nums">{a === null ? "—" : fmtNum(a)}</td>
+                </tr>
+              )
+            })}</tbody>
+          </table>
+        </div>
       </div>
     </Panel>
   )
@@ -1191,11 +1337,18 @@ function ExitPanelReport({ d }: { d: ReportData }) {
             <li key={r.id} className="grid grid-cols-[minmax(0,15rem)_1fr_4.5rem] items-center gap-3">
               <span className="truncate">{reasonLabel(r.id, lossReasons, uiLang())}</span>
               <span className="flex h-2 overflow-hidden rounded-full bg-muted"><span className="bg-primary" style={{ width: `${(r.main / max) * 100}%` }} /><span className="bg-primary/30" style={{ width: `${(r.other / max) * 100}%` }} /></span>
-              <span className="text-right text-xs tabular-nums">{r.main}{r.other ? <span className="text-muted-foreground"> +{r.other}</span> : null}</span>
+              {/* two fixed slots so the numbers line up: "+other" (muted, optional) then the main count */}
+              <HoverCard>
+                <HoverCardTrigger render={<span tabIndex={0} className="flex cursor-default items-baseline justify-end gap-1.5 text-xs tabular-nums outline-none" />}>
+                  <span className="w-6 text-right text-muted-foreground">{r.other ? `+${r.other}` : ""}</span>
+                  <span className="w-6 text-right text-sm font-medium">{r.main}</span>
+                </HoverCardTrigger>
+                <HoverCardContent side="top" align="end" className="w-auto text-xs">{tx("เหตุผลหลัก {0} · เหตุผลอื่นที่เลือกด้วย {1}", [r.main, r.other])}</HoverCardContent>
+              </HoverCard>
             </li>
           ))}</ul>
         ) : <Empty>{tx("ยังไม่มีนักเรียนที่ปิดการออกในช่วงนี้")}</Empty>}
-        {e.reasons.length > 0 && <p className="mt-2 text-2xs text-muted-foreground">{tx("สีเข้ม = เหตุผลหลัก · สีอ่อน = เหตุผลอื่นที่เลือกด้วย")}</p>}
+        {e.reasons.length > 0 && <p className="mt-2 text-2xs text-muted-foreground">{tx("สีเข้ม = เหตุผลหลัก (ตัวเลขใหญ่) · สีอ่อน = เหตุผลอื่นที่เลือกด้วย (+ตัวเลขเล็ก)")}</p>}
       </Panel>
       {/* owner 2026-10-07: the headline only — NPS + will they come back; the rest opens in a popup */}
       <Panel title={tx("คะแนนจากผู้ปกครองที่ออก")} hint={tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")} fill
@@ -1219,15 +1372,15 @@ function ExitPanelReport({ d }: { d: ReportData }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto lg:max-w-2xl">
           <DialogHeader><DialogTitle>{tx("คะแนนจากผู้ปกครองที่ออก")}</DialogTitle><DialogDescription>{tx("เฉลี่ย 1–5 · NPS = % แนะนำ (9–10) − % ไม่แนะนำ (0–6)")}</DialogDescription></DialogHeader>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {(Object.keys(SC) as (keyof typeof SC)[]).map((k) => <Stat key={k} label={SC[k]} value={e.scores[k] === null ? "—" : e.scores[k]!.toFixed(1)} tone={e.scores[k] !== null && e.scores[k]! < 3.5 ? "text-danger" : undefined} />)}
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Stat label="NPS" value={e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`} tone={e.nps !== null && e.nps < 0 ? "text-danger" : "text-success"} />
-          <Stat label={tx("จะกลับมา")} value={String(e.comeBack.yes)} tone="text-success" />
-          <Stat label={tx("อาจจะ")} value={String(e.comeBack.maybe)} tone="text-warning" />
-          <Stat label={tx("คงไม่")} value={String(e.comeBack.no)} />
-        </div>
+        <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {(Object.keys(SC) as (keyof typeof SC)[]).map((k) => <Kpi variant="tonal" key={k} label={SC[k]} value={e.scores[k] === null ? "—" : e.scores[k]!.toFixed(1)} tone="red" emphasis={!!(e.scores[k] !== null && e.scores[k]! < 3.5)} />)}
+        </KpiGroup>
+        <KpiGroup className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Kpi variant="tonal" label="NPS" value={e.nps === null ? "—" : `${e.nps > 0 ? "+" : ""}${e.nps}`} tone={e.nps !== null && e.nps < 0 ? "red" : "emerald"} emphasis />
+          <Kpi variant="tonal" label={tx("จะกลับมา")} value={String(e.comeBack.yes)} tone="emerald" emphasis />
+          <Kpi variant="tonal" label={tx("อาจจะ")} value={String(e.comeBack.maybe)} tone="amber" emphasis />
+          <Kpi variant="tonal" label={tx("คงไม่")} value={String(e.comeBack.no)} />
+        </KpiGroup>
         {e.comments.length > 0 && (
           <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto border-t pt-2 text-xs">{e.comments.slice(0, 40).map((c, i) => <li key={i}>“{c.text}” <span className="text-muted-foreground">· {reasonLabel(c.reasonId, lossReasons, uiLang())} · {fmtDate(c.at.slice(0, 10))}</span></li>)}</ul>
         )}
@@ -1291,28 +1444,36 @@ function CohortPanel({ d, compare }: { d: ReportData; compare: boolean }) {
 
 const fmtMonthKey = (k: string) => `${monthShort(Number(k.slice(5, 7)) - 1)} ${yearOf(Number(k.slice(0, 4))) % 100}`
 
-function CrmTab({ d, compare }: { d: ReportData; compare: boolean }) {
+function CrmTab({ d, compare, cmp }: { d: ReportData; compare: boolean; cmp: Cmp }) {
   const c = d.crm
+  const lp = d.leadSummary.prev
+  const ok = d.comparable
   const enrolled = c.funnel[c.funnel.length - 1]
   const days = c.sources.map((x) => x.medianDays).filter((x): x is number => x !== null).sort((a, b) => a - b)
   const lostTotal = c.lost.reduce((a, x) => a + x.count, 0)
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <Stat label={tx("Lead ใหม่")} value={fmtNum(c.funnel[0].count)} />
-        <Stat label={tx("สมัครแล้ว")} value={fmtNum(enrolled.count)} tone="text-success" />
-        <Stat label="Conversion" value={fmtPct(enrolled.ofAll)} />
-        <Stat label={tx("วันถึงสมัคร (มัธยฐาน)")} value={days.length ? tx("{0} วัน", [days[Math.floor(days.length / 2)]]) : "—"} />
-        <Stat label={tx("Lead ที่ยังเปิดอยู่")} value={fmtNum(c.open)} sub={<Link href="/crm" className="text-primary">{tx("ตอนนี้ · ไปหน้า CRM ›")}</Link>} />
-      </div>
+      <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Kpi variant="tonal" label={tx("Lead ใหม่")} value={fmtNum(c.funnel[0].count)} sub={dCount(cmp, ok, c.funnel[0].count, lp.total)} />
+        <Kpi variant="tonal" label={tx("สมัครแล้ว")} value={fmtNum(enrolled.count)} tone="emerald" emphasis sub={dCount(cmp, ok, enrolled.count, lp.enrolled)} />
+        <Kpi variant="tonal" label="Conversion" value={fmtPct(enrolled.ofAll)} sub={dPts(cmp, ok, enrolled.ofAll, lp.conversion)} />
+        <Kpi variant="tonal" label={tx("วันถึงสมัคร (มัธยฐาน)")} value={days.length ? tx("{0} วัน", [days[Math.floor(days.length / 2)]]) : "—"} />
+        <Kpi variant="tonal" label={tx("Lead ที่ยังเปิดอยู่")} value={fmtNum(c.open)} sub={<Link href="/crm" className="text-primary">{tx("ตอนนี้ · ไปหน้า CRM ›")}</Link>} />
+      </KpiGroup>
       {/* owner 2026-10-20: the funnel moved to the overview */}
-      <Panel title={tx("Lead รายเดือน")} hint={tx("ปี {0} เทียบปีที่แล้ว", [yearOf(d.monthly.year)])}>
-          <MonthBars thisYear={c.monthly.thisYear} lastYear={c.monthly.lastYear} current={Number(d.today.slice(5, 7)) - 1} unit={tx(" ราย")} />
+      <Panel title={tx("Lead รายเดือน")} sub={tx("ทั้งปี {0}", [yearOf(d.monthly.year)])} hint={d.monthly.compareYear === null ? tx("ปี {0}", [yearOf(d.monthly.year)]) : tx("ปี {0} เทียบ {1}", [yearOf(d.monthly.year), yearOf(d.monthly.compareYear)])}>
+          <MonthBars thisYear={c.monthly.thisYear} lastYear={c.monthly.lastYear} current={d.isCurrentYear ? Number(d.today.slice(5, 7)) - 1 : -1}
+            thisLabel={String(yearOf(d.monthly.year))} lastLabel={d.monthly.compareYear === null ? null : String(yearOf(d.monthly.compareYear))} unit={tx(" ราย")} />
       </Panel>
-      <Panel title={tx("Lead ที่หลุด")} hint={tx("ปิดไปที่ขั้นไหน · เพราะอะไร — ข้อมูลสำคัญ ดูก่อนแหล่งที่มา")}>
+      <Panel title={tx("Lead ที่หลุด")} hint={tx("ปิดไปที่ขั้นไหน · เพราะอะไร · จากคอร์ส/ครูไหน — ข้อมูลสำคัญ ดูก่อนแหล่งที่มา")}>
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-0 lg:divide-x">
           <div className="lg:pr-8"><DonutLegend keepOrder title={tx("หลุดที่ขั้นไหน")} parts={c.lost.map((x) => ({ label: tx(x.label), value: x.count }))} center={fmtNum(lostTotal)} sub={tx("Lead ที่หลุด")} /></div>
           <div className="lg:pl-8"><DonutLegend title={tx("เหตุผล")} parts={c.lostReasons.map((x) => ({ label: x.reason, value: x.count }))} center={fmtNum(c.lostReasons.reduce((a, x) => a + x.count, 0))} sub={tx("มีเหตุผล")} /></div>
+        </div>
+        {/* owner 2026-11-18: which course + teacher the lost leads were lost from */}
+        <div className="mt-6 grid gap-6 border-t pt-5 lg:grid-cols-2 lg:gap-0 lg:divide-x">
+          <div className="lg:pr-8"><TopList title={tx("หลุดจากคอร์สไหน")} icon={<SchoolIcon className="size-4 text-muted-foreground" />} color={HUE.indigo.hex} rows={c.lostBy.byCourse.map((x) => ({ label: sj(x.subject), value: x.count }))} /></div>
+          <div className="lg:pl-8"><TopList title={tx("หลุดจากครูไหน")} icon={<UserCheckIcon className="size-4 text-muted-foreground" />} color="#be123c" rows={c.lostBy.byTeacher.map((x) => ({ label: x.name, value: x.count }))} /></div>
         </div>
         {(c.competitors.length > 0 || c.wantedTimes.length > 0) && (
           <div className="mt-6 grid gap-6 border-t pt-5 lg:grid-cols-2 lg:gap-0 lg:divide-x">
@@ -1481,13 +1642,13 @@ function SatisfactionTab({ d, compare, f }: { d: ReportData; compare: boolean; f
   const dNps = s.nps !== null && p.nps !== null ? s.nps - p.nps : null
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "text-danger" : "text-success"} sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-success" : "text-danger"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />
-        <Stat label={tx("ตอบแล้ว")} value={group ? String(s.responses) : `${s.responses}/${s.sent}`} sub={s.rate !== null ? <span>{fmtPct(s.rate)}</span> : undefined} />
-        <Stat label={tx("พอใจเฉลี่ย 5 ด้าน")} value={s.overall === null ? "—" : s.overall.toFixed(1)} sub={<span>{tx("ปีก่อน")} {p.overall === null ? "—" : p.overall.toFixed(1)}</span>} />
-        <Stat label={tx("ไม่แนะนำ (0–6)")} value={String(s.unhappy)} tone={s.unhappy ? "text-danger" : undefined} sub={<span>{tx("โทรคุยภายใน 3 วัน")}</span>} />
-        <Stat label={tx("ยังไม่ได้โทร")} value={String(toCall.length)} tone={toCall.some((x) => x.overdue) ? "text-danger" : undefined} sub={<span>{tx("เกิน 3 วัน")} {toCall.filter((x) => x.overdue).length}</span>} />
-      </div>
+      <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <Kpi variant="tonal" label="NPS" value={s.nps === null ? "—" : `${s.nps > 0 ? "+" : ""}${s.nps}`} tone={s.nps !== null && s.nps < 0 ? "red" : "emerald"} emphasis sub={dNps === null ? <span>{tx("ปีก่อน —")}</span> : <span className={dNps >= 0 ? "text-success" : "text-danger"}>{dNps >= 0 ? "▲" : "▼"} {Math.abs(dNps)}  {tx("จากปีก่อน (")}{p.nps})</span>} />
+        <Kpi variant="tonal" label={tx("ตอบแล้ว")} value={group ? String(s.responses) : `${s.responses}/${s.sent}`} sub={s.rate !== null ? <span>{fmtPct(s.rate)}</span> : undefined} />
+        <Kpi variant="tonal" label={tx("พอใจเฉลี่ย 5 ด้าน")} value={s.overall === null ? "—" : s.overall.toFixed(1)} sub={<span>{tx("ปีก่อน")} {p.overall === null ? "—" : p.overall.toFixed(1)}</span>} />
+        <Kpi variant="tonal" label={tx("ไม่แนะนำ (0–6)")} value={String(s.unhappy)} tone="red" emphasis={!!(s.unhappy)} sub={<span>{tx("โทรคุยภายใน 3 วัน")}</span>} />
+        <Kpi variant="tonal" label={tx("ยังไม่ได้โทร")} value={String(toCall.length)} tone="red" emphasis={!!(toCall.some((x) => x.overdue))} sub={<span>{tx("เกิน 3 วัน")} {toCall.filter((x) => x.overdue).length}</span>} />
+      </KpiGroup>
       {/* owner 2026-10-22: the NPS card is the Overview's own card (NPS · reasons · improve), filtered here */}
       <NpsCard year={year} responses={rs} s={s} p={p} />
       {/* owner 2026-10-22: satisfaction from low to high — each topic one 100% bar split by the five answers (a radar only
