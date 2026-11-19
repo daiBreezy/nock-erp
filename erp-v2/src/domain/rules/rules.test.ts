@@ -35,6 +35,9 @@ import * as Survey from "./survey"
 import { courseSummaryMessage, formLinkMessage, summaryMessage } from "./messages"
 import { awardFor, pointsByTeacher, suggestReferrers } from "./referral"
 import { isDefaultPresent } from "./attendance"
+import { ROLE_PERMISSIONS } from "./permissions"
+import { applyRollover, nextGrade, rolloverDate, rolloverState } from "./rollover"
+import { transferConflicts } from "./people"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -3568,5 +3571,50 @@ describe("Attendance opens on มา (owner 2026-11-19)", () => {
     expect(isDefaultPresent(se, "b", att, leaves, now)).toBe(false) // already marked leave — untouched
     expect(isDefaultPresent(se, "c", att, leaves, now)).toBe(false) // long leave
     expect(isDefaultPresent({ ...se, cancelled: true }, "a", att, leaves, now)).toBe(false)
+  })
+})
+
+describe("Manager / Area Manager work like an Admin and more (owner 2026-11-19)", () => {
+  it("every permission an Admin has, a Manager and an Area Manager have — plus sending the accounting files; Admin still cannot", () => {
+    for (const p of ROLE_PERMISSIONS.admin) { expect(ROLE_PERMISSIONS.manager).toContain(p); expect(ROLE_PERMISSIONS.area_manager).toContain(p) }
+    expect(ROLE_PERMISSIONS.manager).toContain("billing.export"); expect(ROLE_PERMISSIONS.area_manager).toContain("billing.export")
+    expect(ROLE_PERMISSIONS.admin).not.toContain("billing.export")
+    expect(ROLE_PERMISSIONS.manager).not.toContain("settings.manage")
+  })
+})
+
+describe("Transfer a teacher (owner 2026-11-19)", () => {
+  const se = (id: string, teacherId: string, date: string, start: string) => ({ id, teacherId, coTeacherIds: [], date, start, minutes: 60, cancelled: false, studentIds: [] }) as unknown as Session
+  it("a clash with the receiving teacher is reported (a warning, not a block); the past is never counted", () => {
+    const ss = [se("a1", "A", "2026-11-20", "10:00"), se("a2", "A", "2026-11-21", "10:00"), se("a0", "A", "2026-11-01", "10:00"), se("b1", "B", "2026-11-20", "10:30"), se("b2", "B", "2026-11-21", "12:00")]
+    expect(transferConflicts("A", "B", ss, "2026-11-10").map((x) => x.id)).toEqual(["a1"])
+    expect(transferConflicts("A", "B", ss, "2026-11-21").map((x) => x.id)).toEqual([])
+  })
+})
+
+describe("Yearly grade rollover (owner 2026-11-19)", () => {
+  const st = (id: string, grade: string, extra: Partial<Student> = {}) => ({ id, branchId: "b1", name: id, nickname: id, grade, usesBus: false, createdAt: "", createdBranchId: "b1", ...extra }) as Student
+  it("each grade moves up one; อ.3 → ป.1, ป.6 → ม.1, ม.6 graduates, unknown grades stay", () => {
+    expect(nextGrade("ป.5")).toBe("ป.6"); expect(nextGrade("อ.3")).toBe("ป.1"); expect(nextGrade("ป.6")).toBe("ม.1")
+    expect(nextGrade("ม.6")).toBe("graduated"); expect(nextGrade("พิเศษ")).toBeNull()
+  })
+  it("the reminder starts 7 days before and stays until this year's change is done", () => {
+    expect(rolloverState("2026-03-24", undefined, "nockacademy", "b1", [])).toEqual({ kind: "none" })
+    expect(rolloverState("2026-03-25", undefined, "nockacademy", "b1", [])).toMatchObject({ kind: "upcoming", daysLeft: 7 })
+    expect(rolloverState("2026-04-01", undefined, "nockacademy", "b1", [])).toMatchObject({ kind: "due" })
+    expect(rolloverState("2026-04-20", undefined, "nockacademy", "b1", [])).toMatchObject({ kind: "due" })
+    expect(rolloverState("2026-04-20", undefined, "nockacademy", "b1", [{ id: "r", branchId: "b1", year: 2026, at: "", by: "x", moved: 1, graduated: 0 }])).toEqual({ kind: "none" })
+    expect(rolloverState("2026-04-20", undefined, "nockacademy", "b2", [{ id: "r", branchId: "b1", year: 2026, at: "", by: "x", moved: 1, graduated: 0 }])).toMatchObject({ kind: "due" }) // another branch is not done
+  })
+  it("the Director's date per business type wins", () => {
+    expect(rolloverDate({ liclass: { month: 5, day: 16 } }, "liclass", 2026)).toBe("2026-05-16")
+    expect(rolloverDate({ liclass: { month: 5, day: 16 } }, "nockacademy", 2026)).toBe("2026-04-01")
+  })
+  it("applying moves everyone one grade, graduates ม.6, skips the excluded / archived / already graduated, and only this branch", () => {
+    const ss = [st("a", "ป.5"), st("b", "ม.6"), st("c", "ป.2"), st("d", "ป.3", { graduatedAt: "2025-04-01" }), st("e", "ป.4", { branchId: "b2" })]
+    const r = applyRollover(ss, "b1", "2026-04-01", new Set(["c"]))
+    expect(r.students.map((x) => x.grade)).toEqual(["ป.6", "ม.6", "ป.2", "ป.3", "ป.4"])
+    expect(r.students[1].graduatedAt).toBe("2026-04-01")
+    expect(r.moved).toBe(1); expect(r.graduated).toBe(1)
   })
 })

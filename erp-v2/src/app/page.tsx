@@ -1,4 +1,5 @@
 "use client"
+import { RolloverBanner } from "@/components/students/rollover-banner"
 import { useState } from "react"
 import { BanknoteIcon, CheckCircle2Icon, GraduationCapIcon, HistoryIcon, UserCheckIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
 import { Page, PageHeader, RangeStepper, Segmented } from "@/components/app/page-layout"
@@ -230,6 +231,8 @@ export default function DashboardPage() {
           {branchView && <ActivityButton items={recentActivity} today={today} />}
           {scope.select}
         </>} />
+      {/* owner 2026-11-19: yearly grade change reminder */}
+      <RolloverBanner branchId={branch.id} />
 
       {branchView && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

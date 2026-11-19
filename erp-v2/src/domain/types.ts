@@ -207,6 +207,8 @@ export interface Branch {
   blockDays?: Record<DateStr, ClassBlock[]>
   /** owner 2026-11-19: does this branch run a school bus? Unset = Liclass yes, NockAcademy no. Off hides every bus field and column */
   busEnabled?: boolean
+  /** owner 2026-11-19: the yearly grade change — "manual" (default) = the Admin approves it · "auto" = the system does it on the day */
+  gradeRolloverMode?: "manual" | "auto"
   /** owner 2026-11-19: "how did you hear about us?" — this branch's own list on the parent form (unset / empty = the 7 standard channels).
    *  A choice that is not a standard channel is counted as "other" in reports; the name the parent ticked is kept on the family */
   sourceOptions?: string[]
@@ -278,7 +280,12 @@ export interface SystemConfig {
   survey?: { from: string; to: string }
   /** owner 2026-10-15: turn Nock (the AI helper bubble) on / off for everyone — unset = on */
   aiHelper?: boolean
+  /** owner 2026-11-19: the day every student moves up a grade, per business type — set by the Director, shared with all branches (unset = 1 April) */
+  gradeRollover?: Partial<Record<Brand, { month: number; day: number }>>
 }
+
+/** one year's grade change at one branch (owner 2026-11-19) — kept so it never runs twice and the history shows who approved */
+export interface GradeRolloverRecord { id: ID; branchId: ID; year: number; at: string; by: ID | "auto"; moved: number; graduated: number }
 
 /** One reason a lead stopped / a student left. `for` = which form shows it; `contactOnly` = a lead we never got to
  *  talk to (couldn't reach / no reply). Labels in TH/EN/JP — the parent's exit form is in three languages. */
@@ -712,6 +719,8 @@ export interface Student {
   usesBus: boolean
   /** owner 2026-11-19: which legs the student rides — set with usesBus (unset on older students = both) */
   busLeg?: BusUse
+  /** owner 2026-11-19: finished the last grade (ม.6 / G12) at the yearly grade rollover — "จบการศึกษา", kept for history */
+  graduatedAt?: DateStr
   birthDate?: DateStr
   school?: string
   /** the Ministry of Education school code when picked from the national list (owner 2026-10-07) — reports group

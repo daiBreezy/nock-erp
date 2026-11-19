@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { navBadges } from "@/domain/rules/badges"
 import { branchHasBus } from "@/domain/rules/settings"
+import { GradeRolloverAuto } from "@/components/students/rollover-banner"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
 import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
@@ -211,6 +212,7 @@ function Shell({ children }: { children: ReactNode }) {
         <NotiToaster />
         <NotificationPeek />
         <ExitAlert />
+        <GradeRolloverAuto />
         <NoteAlert />
         <ParentRequestWatcher />
         <ScreenTranslator />

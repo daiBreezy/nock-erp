@@ -1,7 +1,7 @@
 // Families, students, staff and LINE linking (S4, S5, S6, F2, Flow E).
 
 import { GLOBAL_ROLES } from "./permissions"
-import { addDays } from "../dates"
+import { addDays, toMinutes } from "../dates"
 import type { DateStr, Family, FormParentInput, FormSubmission, Gender, ID, Lead, Parent, Result, Session, Staff, Student } from "../types"
 import { teachersOf } from "./scheduling"
 
@@ -293,6 +293,15 @@ export function validateStaff(s: Pick<Staff, "name" | "nickname" | "roles" | "br
 /** F2: a teacher with future sessions must be replaced before deactivation */
 export function futureSessionsOf(teacherId: ID, sessions: Session[], today: DateStr) {
   return sessions.filter((s) => !s.cancelled && s.date >= today && teachersOf(s).includes(teacherId))
+}
+
+/** owner 2026-11-19: Teacher A leaves → ALL of A's work goes to B, always. From the effective date on: A's sessions (and classes) → B.
+ *  A clash with B's own sessions is a WARNING, never a block. Returns A's sessions that overlap one of B's. */
+export function transferConflicts(fromId: ID, toId: ID, sessions: Session[], from: DateStr): Session[] {
+  const mine = futureSessionsOf(fromId, sessions, from)
+  const theirs = sessions.filter((s) => !s.cancelled && s.date >= from && teachersOf(s).includes(toId))
+  const end = (s: Session) => toMinutes(s.start) + s.minutes
+  return mine.filter((a) => theirs.some((b) => b.id !== a.id && b.date === a.date && toMinutes(b.start) < end(a) && toMinutes(a.start) < end(b)))
 }
 
 /** Every teacher currently teaching this student, from upcoming sessions — covers one-off/make-up sessions too, not just their entitlement's class. */

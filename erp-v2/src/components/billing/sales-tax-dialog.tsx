@@ -77,7 +77,7 @@ export function SalesTaxDialog({ open, onOpenChange, onOpenInvoice }: { open?: b
   const today = toDateStr(useNow(60_000))
   const [range, setRange] = useState(() => ({ from: today.slice(0, 8) + "01", to: endOfMonth(today) }))
   const [busy, setBusy] = useState(false)
-  // everyone with billing access may PREVIEW; downloading / sharing the files is for Director / Super Admin (billing.export)
+  // everyone with billing access may PREVIEW; downloading / sharing the files needs billing.export (Director / Super Admin / Manager / Area Manager)
   const canSend = can(me, "billing.export")
   const [tab, setTab] = useState<"tax" | "sets">("tax")
   const branches = s.branches.filter((b) => inBranch(me, b.id))

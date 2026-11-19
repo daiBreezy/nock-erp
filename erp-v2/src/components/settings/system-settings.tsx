@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { NOTIFY_LABEL, subjectAbbr } from "@/domain/rules/settings"
+import { rolloverDay } from "@/domain/rules/rollover"
 import type { Brand, FormLang, LossReason, NotifyKey, SystemConfig } from "@/domain/types"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
@@ -33,7 +34,7 @@ const BRANDS: { id: Brand; label: string }[] = [{ id: "nockacademy", label: "Noc
 /** Settings → System (owner 2026-10-06): was one long scroll of 7 cards — split into the same left-nav tab
  *  tabs as Settings → Branch, grouped by what an admin is actually trying to do. */
 const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIcon; body: () => React.ReactNode }[] = [
-  { id: "general", label: "ทั่วไป", icon: SlidersHorizontalIcon, body: () => <Preferences /> },
+  { id: "general", label: "ทั่วไป", icon: SlidersHorizontalIcon, body: () => <><Preferences /><GradeRolloverDay /></> },
   // owner 2026-10-13: subjects and holidays are different topics — one tab each
   { id: "subjects", label: "วิชา", icon: BookOpenIcon, body: () => <SubjectCatalog /> },
   { id: "holidays", label: "วันหยุด", icon: CalendarDaysIcon, body: () => <GlobalHolidays /> },
@@ -68,6 +69,28 @@ function AiHelperToggle() {
     <SettingsCard title={tx("AI Helper (Nock)")} hint={tx("ผู้ช่วย Nock ที่มุมจอ — ปิดแล้วทุกคนจะไม่เห็นปุ่ม Nock ในทุกหน้า (คลังความรู้ยังอยู่ เปิดกลับมาได้ทุกเมื่อ)")}
       action={<Switch checked={on} onCheckedChange={(v) => report(saveSystem({ ...sys, aiHelper: v }), v ? tx("เปิด AI Helper แล้ว") : tx("ปิด AI Helper แล้ว"))} aria-label={tx("เปิด/ปิด AI Helper")} />}>
       <p className="text-sm text-muted-foreground">{on ? tx("เปิดอยู่ — ทุกคนเห็น Nock ที่มุมจอ") : tx("ปิดอยู่ — ไม่มีใครเห็น Nock")}</p>
+    </SettingsCard>
+  )
+}
+
+/** owner 2026-11-19: the day every student moves up a grade, per business type — the Director sets it once, every branch of that type follows.
+ *  (Each branch then chooses Manual — the Admin approves — or Auto in its own Settings.) Saves as you change it. */
+const MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
+function GradeRolloverDay() {
+  const cfg = useStore((s) => s.system.gradeRollover)
+  const set = useStore((s) => s.setGradeRolloverDay)
+  return (
+    <SettingsCard title={tx("เลื่อนชั้นประจำปี (Grade Rollover)")} hint={tx("วันที่นักเรียนทุกคนขึ้นชั้นถัดไป ตั้งตามประเภทธุรกิจ แล้วส่งให้ทุกสาขา — แต่ละสาขาเลือกเองว่าจะกดอนุมัติ (Manual) หรือให้ระบบทำเอง (Auto) · เตือนล่วงหน้า 7 วัน · ม.6 จบการศึกษา")}>
+      <div className="space-y-2">
+        {BRANDS.map((b) => { const d = rolloverDay(cfg, b.id); return (
+          <div key={b.id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="w-32 font-medium">{b.label}</span>
+            <NativeSelect className="w-40" value={String(d.month)} onChange={(e) => report(set(b.id, Number(e.target.value), d.day), tx("บันทึกวันเลื่อนชั้นแล้ว"))}
+              options={MONTHS.map((m, i) => ({ value: String(i + 1), label: tx(m) }))} />
+            <Input className="w-20" type="number" min={1} max={31} value={d.day} onChange={(e) => report(set(b.id, d.month, Number(e.target.value)), tx("บันทึกวันเลื่อนชั้นแล้ว"))} />
+          </div>
+        ) })}
+      </div>
     </SettingsCard>
   )
 }

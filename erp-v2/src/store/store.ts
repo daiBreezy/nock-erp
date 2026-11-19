@@ -28,6 +28,7 @@ import { keepLineLinks, restoreLinks, withoutLineLink } from "./keep-line-links"
 import { createIdbStorage } from "./idb-storage"
 import * as Sum from "@/domain/rules/summaries"
 import * as Ref from "@/domain/rules/referral"
+import * as Rollover from "@/domain/rules/rollover"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
 import * as CourseR from "@/domain/rules/course"
@@ -38,7 +39,7 @@ import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as FB from "@/domain/rules/form-builder"
-import type { HomePin, CustomFormResponse, FormDef } from "@/domain/types"
+import type { HomePin, CustomFormResponse, FormDef, GradeRolloverRecord, Brand } from "@/domain/types"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
@@ -114,7 +115,8 @@ type Store = DB & UIState & {
   deactivateStaff: (id: ID, replacementId: ID | null) => Result<{ reassigned: number }>
   reactivateStaff: (id: ID) => Result
   /** NEGATIVE-ACTIONS.md §4: standalone hand-over A→B (future sessions + classes), without closing A's account. */
-  transferStaffWork: (fromId: ID, toId: ID) => Result<{ reassigned: number }>
+  /** owner 2026-11-19: `from` = the effective date (default today) — sessions on/after it move; classes + open leads always move */
+  transferStaffWork: (fromId: ID, toId: ID, from?: DateStr) => Result<{ reassigned: number; leads: number }>
   /** Staff panel › Note (owner 2026-10-09) */
   addStaffNote: (staffId: ID, text: string) => Result
   saveCourse: (c: Course) => Result<Course>
@@ -301,6 +303,12 @@ type Store = DB & UIState & {
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
   /** owner 2026-11-19: Referral points already paid out (1 point per referred family, shared by the referrer's teachers) */
   referralAwards: Ref.RefAward[]
+  /** owner 2026-11-19: yearly grade changes already done, per branch */
+  gradeRollovers: GradeRolloverRecord[]
+  /** move every student of the branch up a grade (the ones in `skip` stay). Admin approves it; Auto mode calls it with by = "auto" */
+  applyGradeRollover: (branchId: ID, skip?: ID[], by?: "auto") => Result<{ moved: number; graduated: number }>
+  /** the Director sets the day for a business type — shared with every branch */
+  setGradeRolloverDay: (brand: Brand, month: number, day: number) => Result
   /** the admin's match of what the parent typed in "who told you about us" — null clears it */
   setFamilyReferrer: (familyId: ID, referrerFamilyId: ID | null) => Result
   /** one slip for several invoices of the same family — confirming any of them confirms the whole slip */
@@ -660,6 +668,7 @@ export const useStore = create<Store>()(
       branchId: "br_thl",
       clockOffset: 0,
       referralAwards: [],
+      gradeRollovers: [],
 
       now: () => new Date(Date.now() + get().clockOffset),
       // roles / subjects of the branch picked in the top bar (owner 2026-10-09) — cached so selectors stay stable
@@ -1249,7 +1258,7 @@ export const useStore = create<Store>()(
       },
 
       // NEGATIVE-ACTIONS.md §4: hand over A→B as its own action — reassign every future session + class, A stays active.
-      transferStaffWork: (fromId, toId) => {
+      transferStaffWork: (fromId, toId, fromDate) => {
         const s = get()
         const perm = requirePerm(s.me(), "staff.manage")
         if (!perm.ok) return perm
@@ -1257,18 +1266,25 @@ export const useStore = create<Store>()(
         const from = s.staff.find((x) => x.id === fromId)
         const to = s.staff.find((x) => x.id === toId)
         if (!from || !to) return fail("ไม่พบพนักงาน")
-        const future = People.futureSessionsOf(fromId, s.sessions, toDateStr(s.now()))
+        if (!to.active) return fail("ผู้รับงานต้องเป็นพนักงานที่ยังใช้งานอยู่")
+        const today = toDateStr(s.now())
+        const eff = fromDate && fromDate > today ? fromDate : today // never rewrites the past — those classes stay with A (pay + history)
+        const future = People.futureSessionsOf(fromId, s.sessions, eff)
         const ids = new Set(future.map((x) => x.id))
         const swap = (x: { teacherId: ID | null; coTeacherIds: ID[] }) => ({
           teacherId: x.teacherId === fromId ? toId : x.teacherId,
           coTeacherIds: x.coTeacherIds.map((c) => (c === fromId ? toId : c)).filter((c, i, a) => a.indexOf(c) === i),
         })
+        // open leads A was following (not yet enrolled / archived) go to B too
+        const openLeads = s.leads.filter((l) => l.assigneeId === fromId && l.stage !== "enrolled" && l.stage !== "archived")
+        const leadIds = new Set(openLeads.map((l) => l.id))
         set({
           sessions: s.sessions.map((x) => (ids.has(x.id) ? { ...x, ...swap(x) } : x)),
           classes: s.classes.map((c) => (c.teacherId === fromId || c.coTeacherIds.includes(fromId) ? { ...c, ...swap(c) } : c)),
+          leads: s.leads.map((l) => (leadIds.has(l.id) ? { ...l, assigneeId: toId } : l)),
         })
-        log("class", [], "โอนงานครู", `${from.nickname} → ${to.nickname} · ${future.length} คาบในอนาคต`)
-        return { ok: true, value: { reassigned: future.length } }
+        log("class", [], "โอนงานครู", `${from.nickname} → ${to.nickname} · ${future.length} คาบ (ตั้งแต่ ${eff}) · ${openLeads.length} Lead`)
+        return { ok: true, value: { reassigned: future.length, leads: openLeads.length } }
       },
 
       reactivateStaff: (id) => {
@@ -3035,6 +3051,30 @@ export const useStore = create<Store>()(
         const group = Bill.paymentGroup(st.invoices.find((x) => x.id === invoiceId)!, st.invoices)
         const paid = group.every((x) => x.status === "paid")
         return { ok: true, value: { paid } }
+      },
+
+      applyGradeRollover: (branchId, skip = [], by) => {
+        const s = get()
+        if (!by) { const perm = requirePerm(s.me(), "student.manage"); if (!perm.ok) return perm }
+        const branch = s.branches.find((b) => b.id === branchId)
+        if (!branch) return fail("ไม่พบสาขา")
+        const today = toDateStr(s.now())
+        const state = Rollover.rolloverState(today, s.system.gradeRollover, branch.brand, branchId, s.gradeRollovers)
+        if (state.kind !== "due") return fail(state.kind === "upcoming" ? `ยังไม่ถึงวันเลื่อนชั้น (${fmtDate(state.date, { year: true })})` : "เลื่อนชั้นปีนี้ของสาขานี้ทำไปแล้ว")
+        const r = Rollover.applyRollover(s.students, branchId, today, new Set(skip))
+        const rec = { id: uid("gr"), branchId, year: state.year, at: s.now().toISOString(), by: by ?? s.userId, moved: r.moved, graduated: r.graduated }
+        set({ students: r.students, gradeRollovers: [...s.gradeRollovers, rec] })
+        log("profile", [], "เลื่อนชั้นประจำปี", `${branch.name} · เลื่อน ${r.moved} คน · จบการศึกษา ${r.graduated} คน${skip.length ? ` · ยกเว้น ${skip.length}` : ""}${by ? " · อัตโนมัติ" : ""}`)
+        return { ok: true, value: { moved: r.moved, graduated: r.graduated } }
+      },
+
+      setGradeRolloverDay: (brand, month, day) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "settings.manage")
+        if (!perm.ok) return perm
+        if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 28 + (month === 2 ? 0 : month === 4 || month === 6 || month === 9 || month === 11 ? 2 : 3)) return fail("วันที่ไม่ถูกต้อง")
+        set({ system: { ...s.system, gradeRollover: { ...s.system.gradeRollover, [brand]: { month, day } } } })
+        return OK
       },
 
       setFamilyReferrer: (familyId, referrerFamilyId) => {

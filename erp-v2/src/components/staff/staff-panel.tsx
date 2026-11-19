@@ -114,7 +114,13 @@ function StaffView({ s, onEdit }: { s: Staff; onEdit: () => void }) {
               <Button variant="outline" onClick={() => setTransferring(true)}><ArrowLeftRightIcon /> โอนงาน</Button>
               <Button variant="outline" className="ml-auto" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
             </>
-          ) : <Button className="ml-auto" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>}
+          ) : (
+            <>
+              {/* owner 2026-11-19: a teacher who already left can still hand their work over — always possible */}
+              <Button variant="outline" onClick={() => setTransferring(true)}><ArrowLeftRightIcon /> โอนงาน</Button>
+              <Button className="ml-auto" onClick={() => report(reactivate(s.id), `เปิดบัญชี ${s.nickname} แล้ว`)}>เปิดบัญชีใหม่</Button>
+            </>
+          )}
         </div>
       )}
       {leaving && <DeactivateDialog s={s} onClose={() => setLeaving(false)} />}
