@@ -5,11 +5,9 @@ import Link from "next/link"
 import { CalendarIcon, CheckIcon, ClipboardListIcon, GraduationCapIcon, PencilIcon, XIcon } from "lucide-react"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL, canEditTogether } from "@/domain/rules/forms"
 import { BUS_USE_LABEL, matchExistingFamily, PDPA_LABEL, submissionChanges } from "@/domain/rules/people"
-import { suggestReferrers } from "@/domain/rules/referral"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { FormOfferSlot, FormSubmission } from "@/domain/types"
@@ -19,6 +17,7 @@ import { tx } from "@/lib/i18n"
 import { useBranch, useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { SlotPicker, VisitPicker } from "./slot-picker"
+import { ReferrerPicker } from "./referrer-picker"
 import { FamilyMatchChoice } from "@/components/app/family-match-choice"
 
 
@@ -63,10 +62,6 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const [applyChanges, setApplyChanges] = useState(true)
   // owner 2026-11-19: "who told you about us" is free text — the system suggests the family, the admin confirms (or searches by hand)
   const [referrerId, setReferrerId] = useState<string | null>(null)
-  const [refQuery, setRefQuery] = useState("")
-  const refText = (refQuery || sub.referral || "").trim()
-  const suggestions = sub.status === "pending" && refText ? suggestReferrers(refText, families, students, knownFamily?.id) : []
-  const referrer = families.find((f) => f.id === referrerId)
 
   const approve = async () => {
     setBusy(true)
@@ -136,29 +131,8 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
         {sub.pdpa && <div>PDPA (ถ่ายภาพ): {PDPA_LABEL[sub.pdpa]}</div>}
       </div>
 
-      {sub.referral && (
-        <div className="mt-1.5 space-y-1.5 rounded-lg border bg-background p-2 text-xs">
-          <p><span className="text-muted-foreground">ใครแนะนำ (ผู้ปกครองพิมพ์):</span> <b>{sub.referral}</b></p>
-          {sub.status === "pending" ? (
-            <>
-              {referrer ? (
-                <p className="flex items-center gap-1.5"><CheckIcon className="size-3 text-success" /> ตรงกับ <b>{referrer.name}</b><Button variant="link" size="inline" type="button" onClick={() => setReferrerId(null)}>เปลี่ยน</Button></p>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-1.5">
-                    {suggestions.map((x) => (
-                      <Button key={x.family.id} variant="chip" size="inline" type="button" className="px-2.5 py-1 text-xs" onClick={() => setReferrerId(x.family.id)}>{x.family.name}<span className="ml-1 text-muted-foreground">· {x.why}</span></Button>
-                    ))}
-                    {!suggestions.length && <span className="text-muted-foreground">ยังเดาไม่ได้ — ค้นหาเอง</span>}
-                  </div>
-                  <Input value={refQuery} onChange={(e) => setRefQuery(e.target.value)} placeholder="ค้นหาชื่อผู้ปกครอง / นักเรียน" className="h-8 text-xs" />
-                </>
-              )}
-              <p className="text-2xs text-muted-foreground">ครูของคอร์สที่ครอบครัวนั้นเรียนได้คะแนนคนละเท่าๆ กัน (รวม 1 คะแนน) เมื่อครอบครัวใหม่ชำระเงินแล้ว</p>
-            </>
-          ) : null}
-        </div>
-      )}
+      {sub.referral && sub.status === "pending" && <div className="mt-1.5"><ReferrerPicker text={sub.referral} exceptFamilyId={knownFamily?.id} value={referrerId} onChange={setReferrerId} /></div>}
+      {sub.referral && sub.status !== "pending" && <p className="mt-1.5 text-xs"><span className="text-muted-foreground">ใครแนะนำ (ผู้ปกครองพิมพ์):</span> <b>{sub.referral}</b></p>}
 
       <div className="mt-1.5 space-y-1">
         {sub.picks.map((pick, i) => (

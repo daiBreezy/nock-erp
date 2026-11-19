@@ -381,7 +381,7 @@ function Study({ today, course, setCourse, kids, nick, t, lang, dayLabel, csId, 
   const inC = (x: { courseId?: string }) => !course || x.courseId === course
   const courseName = (id?: string) => courses.find((c) => c.id === id)?.name
   const tagOf = (k: ParentChild, courseId?: string) => [multi ? nick(k) : "", many && !course ? courseName(courseId) ?? "" : ""].filter(Boolean).join(" · ") || undefined
-  const hasBusOf = (k: ParentChild) => k.brand === "liclass" || k.busDays.length > 0
+  const hasBusOf = (k: ParentChild) => k.bus || k.busDays.length > 0
   const upcoming = kids.filter((k) => !k.left).flatMap((k) => k.upcoming.filter(inC).map((c) => ({ k, c }))).sort((a, b) => (a.c.date + a.c.start).localeCompare(b.c.date + b.c.start))
   const firstOfDay = new Set<string>()
   const ends = kids.flatMap((k) => (k.courseSummaries ?? []).filter(inC))
@@ -758,7 +758,7 @@ function RequestTab({ paid, setLang, updatedAt, view, child, t, lang, today, onR
   onRequest?: (input: ParentRequestInput) => Promise<{ ok: boolean; error?: string }>; requests?: ParentRequest[]; initial?: "leave" | "exit" | "bus" | "home"
 }) {
   // owner 2026-10-19: bus rides can be asked for / cancelled where the school runs a bus (Liclass, or already riding)
-  const hasBus = child.brand === "liclass" || child.busDays.length > 0
+  const hasBus = child.bus || child.busDays.length > 0
   const [mode, setMode] = useState<"exit" | "return" | "home" | null>(child.left ? "return" : initial === "home" && !hasBus ? null : initial === "home" ? initial : null)
   // the header carries the back arrow while a form is open (owner 2026-11-09)
   useEffect(() => {

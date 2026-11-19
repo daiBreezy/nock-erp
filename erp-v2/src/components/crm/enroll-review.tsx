@@ -13,6 +13,7 @@ import { report } from "@/lib/feedback"
 import { fetchEnrollSubmissions, markEnrollReviewed } from "@/lib/forms"
 import { useStore } from "@/store/store"
 import { FamilyMatchChoice } from "@/components/app/family-match-choice"
+import { ReferrerPicker } from "@/components/inbox/referrer-picker"
 
 const PKG = { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์", unsure: "ยังไม่แน่ใจ" } as const
 const DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"]
@@ -61,6 +62,7 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
   const [busy, setBusy] = useState(false)
   // owner 2026-10-29: the match is a suggestion — the admin picks รวม / แยก before approving
   const [newFamily, setNewFamily] = useState(false)
+  const [referrerId, setReferrerId] = useState<ID | null>(null)
   const inv = sub.invoiceId ? s.invoices.find((x) => x.id === sub.invoiceId) : undefined
   const invBranch = inv && s.branches.find((b) => b.id === inv.branchId)
   const owed = inv && invBranch ? Bill.owedOn(inv, Bill.invoiceTotals(inv, { branch: invBranch, courses: s.courses, classes: s.classes, holidays: s.holidays }).total) : 0
@@ -72,6 +74,8 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
     if (report(r, (v) => (inv ? `สร้างนักเรียน ${v.studentIds.length} คนแล้ว` : `สร้างนักเรียน ${v.studentIds.length} คนแล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย`))) {
       // owner 2026-11-19: the invoice travelled with the form — the slip goes on THAT invoice (to confirm in Billing); no second invoice
       if (inv && sub.slip && invOpen) report(s.recordPayment(inv.id, { amount: owed, method: "transfer", reference: "จากฟอร์มสมัครเรียน", slip: sub.slip, paidOn: toDateStr(s.now()) }), "บันทึกสลิปลงใบแจ้งหนี้แล้ว — ไปยืนยันยอดที่ Billing")
+      // owner 2026-11-19: who told them about us — the admin matched it; the family remembers, the teachers' point comes once they pay
+      if (referrerId) { const fid = useStore.getState().students.find((x) => x.id === r.value.studentIds[0])?.familyId; if (fid) useStore.getState().setFamilyReferrer(fid, referrerId) }
       await markEnrollReviewed(sub.id, "approved", r.value.studentIds)
       onDone(inv ? undefined : r.value.studentIds); onClose()
     }
@@ -93,6 +97,7 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
           {sub.taxInfo?.taxId && <p className="text-muted-foreground">ใบกำกับภาษี: {sub.taxInfo.customerName} · {sub.taxInfo.taxId}</p>}
           {matched ? <FamilyMatchChoice familyName={matched.name} reason="LINE หรือเบอร์ตรงกัน" newFamily={newFamily} onChange={setNewFamily} /> : <p className="text-xs text-muted-foreground">ครอบครัวใหม่</p>}
         </section>
+        {sub.referral && <ReferrerPicker text={sub.referral} exceptFamilyId={matched?.id} value={referrerId} onChange={setReferrerId} />}
         {sub.invoiceId && (
           <section className="space-y-1.5 rounded-2xl border p-3 text-sm">
             <p className="font-medium">ใบแจ้งหนี้ที่แนบไปกับฟอร์ม</p>

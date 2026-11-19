@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { navBadges } from "@/domain/rules/badges"
 import { branchHasBus } from "@/domain/rules/settings"
 import { GradeRolloverAuto } from "@/components/students/rollover-banner"
+import { EnrollInvoiceSync } from "@/components/forms/enroll-invoice-sync"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
 import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
@@ -213,6 +214,7 @@ function Shell({ children }: { children: ReactNode }) {
         <NotificationPeek />
         <ExitAlert />
         <GradeRolloverAuto />
+        <EnrollInvoiceSync />
         <NoteAlert />
         <ParentRequestWatcher />
         <ScreenTranslator />

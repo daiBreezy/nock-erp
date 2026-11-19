@@ -3,6 +3,7 @@
 // to the parent, packages left. Pure — the ERP builds it, the parent's phone only reads it.
 import type { Attendance, Brand, Branch, BusAddOn, HomePin, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
 import { addDays, endTime, toDateStr } from "../dates"
+import { branchHasBus } from "./settings"
 import { balance, leaveQuota, leavesUsed, packageCovers } from "./attendance"
 import { sessionState, subjectsOf, teachersOf } from "./scheduling"
 import { courseProgressRows, entitlementRounds, type ProgressRow } from "./summaries"
@@ -64,6 +65,8 @@ export interface ParentChild {
     done: number; sessions: number; present: number; leaves: number; leaveQuota: number
     /** first subject of the course (the coloured tile) + one line per weekly class with its own progress (owner ref 2026-11-06) */
     subject?: string; slots: { weekday: number; start: TimeStr; minutes: number; done: number; total: number }[] }[]
+  /** owner 2026-11-19: the branch runs a school bus (its Settings switch) — the bus actions show only then */
+  bus: boolean
   /** bus days ahead (pickup / drop-off), for students who bought the bus */
   busDays: { date: DateStr; pickup: boolean; dropoff: boolean; adult?: boolean }[]
   courseSummaries: ParentCourseSummary[]
@@ -217,7 +220,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     const left = stu.archived ? { since: stu.exit?.lastDate ?? stu.archived.at.slice(0, 10) } : undefined
     return {
       id: stu.id, nickname: stu.nickname, name: stu.name, nameEn: stu.nameEn, nicknameEn: stu.nicknameEn, grade: stu.grade,
-      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", upcoming, attendance, summaries, courses, packages, busDays, courseSummaries,
+      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", bus: branchHasBus(branch), upcoming, attendance, summaries, courses, packages, busDays, courseSummaries,
       // a child who left: history only — no classes ahead, no packages, no bus
       ...(left ? { left, upcoming: [], packages: [], busDays: [] } : {}),
     }
