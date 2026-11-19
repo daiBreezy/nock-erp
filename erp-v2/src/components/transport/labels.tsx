@@ -4,7 +4,6 @@
 // stop status (Done / OTW / Next / Cancel), the van badge and the driver — one look everywhere on the page.
 import { cycleChip, tagChip } from "@/components/app/tags"
 import { ArrowLeftRightIcon, BanIcon, BusIcon, CheckCheckIcon, ClockIcon, FlagIcon, MapPinCheckIcon, MapPinIcon, PencilIcon, UserXIcon } from "lucide-react"
-import { BUS_USE_LABEL } from "@/domain/rules/people"
 import type { StopStatus, TripPlan, DriverInfo } from "@/domain/rules/transport"
 import type { BusRound, BusZone } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -20,7 +19,7 @@ export function TripTypeChip({ kind, short }: { kind: BusRound["kind"] | "pickup
 
 /** how a student rides the bus (owner 2026-11-19) — the SAME tag as the Transport menu (TripTypeChip: P · D · Both); "not using" is just quiet text */
 export function BusUseChip({ use }: { use: "pickup" | "dropoff" | "both" | "none" }) {
-  return use === "none" ? <span className="text-xs text-muted-foreground">{BUS_USE_LABEL.none}</span> : <TripTypeChip kind={use} short />
+  return use === "none" ? <span className="text-muted-foreground">—</span> : <TripTypeChip kind={use} short />
 }
 
 export function TripStatusChip({ t }: { t: TripPlan }) {
