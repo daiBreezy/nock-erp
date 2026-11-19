@@ -10,6 +10,7 @@ import { InfoIcon, BanknoteIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileS
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
+import { TeacherPerformance } from "@/components/reports/teacher-performance"
 import { Delta, DeltaCount, DeltaPts, Donut, DonutLegend, Empty, InfoTip, TopList, fmtNum, fmtPct, fmtShort, Heatmap, MonthBars, Panel, Rank, ShareBar, donutColor, tint } from "@/components/reports/charts"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sankey } from "@/components/reports/sankey"
@@ -1176,6 +1177,8 @@ function AttendanceTab({ d, compare, cmp, onOpen }: { d: ReportData; compare: bo
 
 const hrs = (min: number) => tx("{0} ชม.", [(min / 60).toLocaleString("th-TH", { maximumFractionDigits: 1 })])
 
+const SHOW_TEACHER_HEALTH = false
+
 function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
   const members = <Panel title="Members Conversion rate" hint={tx("Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead) · Lead ที่เข้ามาในช่วงนี้")}><MembersConversion d={d} /></Panel>
   const o = d.operations
@@ -1195,6 +1198,9 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
       </KpiGroup>
       {/* owner 2026-10-21: moved here from the overview's lead section */}
       {members}
+      {/* owner 2026-11-19: Teacher Health hidden for now (kept below, switch SHOW_TEACHER_HEALTH on to bring it back); Teacher Performance (mock) replaces it */}
+      <TeacherPerformance teachers={o.teachers.flatMap((t) => (t.staff ? [t.staff] : []))} today={d.today} />
+      {SHOW_TEACHER_HEALTH && (
       <Panel title={tx("สุขภาพครู (Teacher Health)")} hint={tx("เรียงตามชั่วโมงสอน")}
         action={<label className="flex items-center gap-1.5 text-xs text-muted-foreground"><Checkbox checked={onlyPartTime} onCheckedChange={(v) => setOnlyPartTime(v === true)} />  {tx("เฉพาะ Part-time")}</label>}>
         {teachers.length ? (
@@ -1222,6 +1228,7 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
           </div>
         ) : <Empty />}
       </Panel>
+      )}
       {/* owner 2026-10-15: no teacher Workload here — comparing teachers on Reports is risky; it's on Staff, Director only */}
       {/* owner 2026-11-18: Room use removed — the class fill (with each class's day + time) is what matters */}
       <Panel title={tx("ความเต็มของคลาส")} sub={tx("ตอนนี้")} hint={tx("นักเรียน ÷ ขนาดที่แนะนำ (กลุ่ม 6 · เดี่ยว 3) · ว่างสุดอยู่บน · คนน้อย {0} · เกิน {1} คลาส", [low.length, over.length])} fill>
