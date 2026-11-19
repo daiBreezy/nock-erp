@@ -156,7 +156,7 @@ export function familyFromLead(
  *  of collapsing to the lead's single name/phone — used once the form actually collected full parent
  *  details (see approveTestTrialSubmission). The first parent listed is the one who logged into LINE to
  *  submit, so only they get `lineLinked`/`primary`; others can be corrected by staff afterwards. */
-export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { name?: string; nameEn?: string; address?: string; addressParts?: import("../types").AddressParts; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"]; referralText?: string; pdpa?: Family["pdpa"] }, lineUserId: string | undefined, id: ID): Family {
+export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { name?: string; nameEn?: string; address?: string; addressParts?: import("../types").AddressParts; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"]; referralText?: string; pdpa?: Family["pdpa"]; sourceLabels?: string[] }, lineUserId: string | undefined, id: ID): Family {
   // the parent marked "default contact" on the form is primary; none marked → the first one
   const primaryAt = Math.max(0, parents.findIndex((p) => p.primary))
   // owner 2026-10-15: the typed family name, else the main parent's surname, else the child's
@@ -182,6 +182,7 @@ export function familyFromSubmission(studentName: string, parents: FormParentInp
     sources: family.sources?.length ? family.sources : undefined,
     taxInfo: family.taxInfo,
     referralText: family.referralText?.trim() || undefined,
+    sourceLabels: family.sourceLabels?.length ? family.sourceLabels : undefined,
     pdpa: family.pdpa,
     lineUserId,
   }

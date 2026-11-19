@@ -263,3 +263,12 @@ export function removeFromClass(k: Klass, studentId: ID, sessions: Session[], no
   })
   return { klass: { ...k, studentIds: k.studentIds.filter((x) => x !== studentId) }, sessions: updated, removedFrom }
 }
+
+/** owner 2026-11-19: Attendance opens on มา for a student nobody has marked yet — but never over an existing mark, a long leave,
+ *  or a class that cannot be marked yet (a future one). Pure: the panel shows it, the "save" bar writes it. */
+export function isDefaultPresent(s: Session, studentId: ID, attendance: Attendance[], leaves: StudentLeave[], now: Date): boolean {
+  if (s.cancelled || s.rescheduledOut?.some((m) => m.studentId === studentId)) return false
+  if (attendance.some((a) => a.sessionId === s.id && a.studentId === studentId)) return false
+  if (activeLeave(studentId, s.date, leaves)) return false
+  return canMark(s, "present", now).ok
+}

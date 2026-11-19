@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { CalendarClockIcon, CalendarRangeIcon, CheckIcon, ChevronLeftIcon, SendIcon, UsersIcon } from "lucide-react"
-import { addDays, fmtDate, fromMinutes, toDateStr, toMinutes } from "@/domain/dates"
+import { addDays, fmtDate, fromMinutes, TH_DAYS_FULL, toDateStr, toMinutes } from "@/domain/dates"
 import { siblingLead } from "@/domain/rules/crm"
 import { buildFormPrefill, commonSlots, findOfferSlots, FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { SOURCE_OF_CHANNEL } from "@/domain/rules/inbox"
@@ -19,6 +19,7 @@ import { subjectHex } from "@/components/app/subject-color"
 import { uid } from "@/data/seed"
 import { Button } from "@/components/ui/button"
 import { Empty } from "@/components/app/empty"
+import { Segmented } from "@/components/app/page-layout"
 
 const TYPES: FormType[] = ["test", "trial"]
 
@@ -64,6 +65,11 @@ export function SendFormDialog({
   const [type, setType] = useState<FormType>(initialType ?? "test")
   const [subjects, setSubjects] = useState<string[]>(initialSubjects?.filter((x) => branch.subjects.includes(x)).length ? initialSubjects.filter((x) => branch.subjects.includes(x)) : lead?.subject && branch.subjects.includes(lead.subject) ? [lead.subject] : branch.subjects.slice(0, 1))
   const [visit, setVisit] = useState<"same" | "separate">("same")
+  // owner 2026-11-19: pick by Course or by Subject — Liclass opens on Course, NockAcademy on Subject, switchable any time.
+  // A course is just its subjects here (the times offered still come from each subject); its classes are shown so the admin sees what it leads to
+  const [by, setBy] = useState<"course" | "subject">(branch.brand === "liclass" ? "course" : "subject")
+  const [courseIds, setCourseIds] = useState<string[]>([])
+  const branchCourses = courses.filter((c) => c.branchId === branchId && c.active)
   const [from, setFrom] = useState(toDateStr(now))
   const [to, setTo] = useState(addDays(toDateStr(now), 14))
   // picks: one visit → keys "date start" of combined slots · per subject → slot ids per subject
@@ -81,6 +87,11 @@ export function SendFormDialog({
   })), [subjects, branch, staff, sessions, classes, holidays, from, to, now, courses])
   const combined = useMemo(() => (oneVisit ? commonSlots(offers, subjects) : []), [oneVisit, offers, subjects])
 
+  const toggleCourse = (id: string) => {
+    const next = courseIds.includes(id) ? courseIds.filter((x) => x !== id) : [...courseIds, id]
+    setCourseIds(next)
+    setSubjects([...new Set(next.flatMap((cid) => courses.find((c) => c.id === cid)?.subjects ?? []))].filter((x) => branch.subjects.includes(x)))
+  }
   const toggleSubject = (s: string) => setSubjects((xs) => (xs.includes(s) ? xs.filter((x) => x !== s) : [...xs, s]))
   const togglePick = (subject: string, id: string) => setSubjectPicks((p) => { const n = new Set(p[subject] ?? []); if (n.has(id)) n.delete(id); else n.add(id); return { ...p, [subject]: n } })
   const toggleVisit = (key: string) => setVisitPicks((p) => { const n = new Set(p); if (n.has(key)) n.delete(key); else n.add(key); return n })
@@ -183,8 +194,34 @@ export function SendFormDialog({
               )}
 
               <section className="space-y-2">
-                <StepTitle n={1} title="วิชา" hint="เลือกได้หลายวิชา" />
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <StepTitle n={1} title={by === "course" ? "คอร์ส" : "วิชา"} hint={by === "course" ? "เลือกได้หลายคอร์ส" : "เลือกได้หลายวิชา"} />
+                  <Segmented value={by} onChange={setBy} options={[{ value: "course", label: "ตามคอร์ส" }, { value: "subject", label: "ตามวิชา" }]} label="เลือกตาม" />
+                </div>
+                {by === "course" && (
+                  <div className="space-y-2">
+                    {branchCourses.length === 0 && <Empty>สาขานี้ยังไม่มีคอร์ส — สลับเป็น &quot;ตามวิชา&quot;</Empty>}
+                    {branchCourses.map((c) => {
+                      const on = courseIds.includes(c.id)
+                      const cls = classes.filter((k) => k.courseId === c.id && k.active)
+                      return (
+                        <div key={c.id} className={cn("rounded-2xl border p-3", on && "border-foreground/40 bg-muted/60")}>
+                          <Button variant="ghost" size="inline" type="button" aria-pressed={on} onClick={() => toggleCourse(c.id)} className="flex w-full items-center gap-2 text-left text-sm font-medium">
+                            <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
+                            <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                            <span className="shrink-0 text-xs font-normal text-muted-foreground">{c.subjects.join(" + ")}</span>
+                          </Button>
+                          {on && (
+                            <div className="mt-2 flex flex-wrap gap-1.5 pl-6">
+                              {cls.length ? cls.map((k) => <span key={k.id} className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{k.name}{` · ${TH_DAYS_FULL[k.weekday]} ${k.start}`}</span>) : <span className="text-xs text-muted-foreground">ยังไม่มีคลาสของคอร์สนี้</span>}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {by === "subject" && <div className="flex flex-wrap gap-2">
                   {branch.subjects.map((s) => {
                     const on = subjects.includes(s)
                     return (
@@ -194,7 +231,7 @@ export function SendFormDialog({
                       </Button>
                     )
                   })}
-                </div>
+                </div>}
               </section>
 
               {type === "test" && subjects.length > 1 && (

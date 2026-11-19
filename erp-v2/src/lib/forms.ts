@@ -29,7 +29,7 @@ export async function sendTestTrialForm(input: {
   const tokenRes = await postJson<{ ok: boolean; token?: FormToken; error?: string }>("/api/forms/token", {
     type: input.type, leadId: input.leadId, branchId: input.branchId,
     conversationId: input.conversationId, offers: input.offers, grades: input.grades,
-    branchName: input.branchName, brand: input.brand, bus: branchHasBus(useStore.getState().branches.find((b) => b.id === input.branchId)), lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames, visit: input.visit,
+    branchName: input.branchName, brand: input.brand, bus: branchHasBus(useStore.getState().branches.find((b) => b.id === input.branchId)), sources: useStore.getState().branches.find((b) => b.id === input.branchId)?.sourceOptions?.filter(Boolean), lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames, visit: input.visit,
   })
   if (!tokenRes.ok || !tokenRes.token) return { ok: false, error: tokenRes.error ?? "สร้างลิงก์ไม่สำเร็จ" }
 
@@ -121,7 +121,7 @@ export function enrollSnapshot(branchId: ID) {
   const branch = s.branches.find((b) => b.id === branchId)!
   const courses = s.courses.filter((c) => c.branchId === branchId && c.active && (!c.to || c.to >= new Date().toISOString().slice(0, 10)))
   return {
-    branchId, branchName: branch.name, brand: branch.brand, bus: branchHasBus(branch), lang: s.system.preferences.language, grades: branch.grades, subjects: branch.subjects, subjectNames: s.system.subjectNames,
+    branchId, branchName: branch.name, brand: branch.brand, bus: branchHasBus(branch), sources: branch.sourceOptions?.length ? branch.sourceOptions : undefined, lang: s.system.preferences.language, grades: branch.grades, subjects: branch.subjects, subjectNames: s.system.subjectNames,
     courses: courses.map((c) => ({ id: c.id, name: c.name, subjects: c.subjects, grades: c.grades, unit: c.unit, duration: c.duration, price: c.price + c.courseFee })),
   }
 }

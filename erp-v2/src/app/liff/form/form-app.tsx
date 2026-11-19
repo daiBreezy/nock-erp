@@ -85,6 +85,8 @@ export function LiffForm() {
   const [brandId, setBrandId] = useState<Brand>("nockacademy")
   /** owner 2026-11-19: the branch runs a school bus (Settings) — Liclass by default */
   const [busOffered, setBusOffered] = useState(false)
+  /** the branch's own "how did you hear about us" list (owner 2026-11-19) */
+  const [sourceOptions, setSourceOptions] = useState<string[] | undefined>()
   const brandName = brandId === "liclass" ? "Liclass" : "NockAcademy"
   const [lineUserId, setLineUserId] = useState("")
   const [displayName, setDisplayName] = useState("")
@@ -161,7 +163,7 @@ export function LiffForm() {
         }
         if (cancelled) return
         setToken(pf)
-        setBusOffered(tk.bus ?? tk.brand === "liclass")
+        setBusOffered(tk.bus ?? tk.brand === "liclass"); setSourceOptions(tk.sources)
         setInvoice(tk.invoice ?? (previewEnroll ? PREVIEW_INVOICE : null))
         setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: false, classOffers: tk.classOffers, plan: tk.plan })
         setGrades(tk.grades); setBranchName(tk.branchName); setBrandId(tk.brand); setSubjectNames(tk.subjectNames ?? {})
@@ -206,7 +208,7 @@ export function LiffForm() {
         if (cancelled) return
         if (!data.ok) { setError(data.error ?? "ลิงก์นี้ใช้ไม่ได้แล้ว"); setPhase("invalid"); return }
         if (!data.offers?.length) { setError("ยังไม่มีช่วงเวลาให้เลือก — ติดต่อสถาบันโดยตรง"); setPhase("invalid"); return }
-        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); if (data.brand) setBrandId(data.brand); setBusOffered(data.bus ?? data.brand === "liclass"); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
+        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); if (data.brand) setBrandId(data.brand); setBusOffered(data.bus ?? data.brand === "liclass"); setSourceOptions(data.sources); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
         if (!params.get("lang")) setLang(brandLang(data.brand ?? brandId))
         applyPrefill(data.prefill, data.grades ?? [], data.offers, profile.displayName)
         setPhase("ready")
@@ -233,7 +235,7 @@ export function LiffForm() {
   /** the household answers, as both submit APIs take them */
   const familyPayload = () => ({
     familyName: fam.name.trim() || undefined, familyNameEn: fam.nameEn.trim() || undefined,
-    familyAddress: fam.address || undefined, familyAddressParts: fam.address ? fam.parts : undefined, familyPostcode: fam.postcode || undefined, familyProvince: fam.province || undefined, acquisitions: fam.acquisitions.length ? fam.acquisitions : undefined,
+    familyAddress: fam.address || undefined, familyAddressParts: fam.address ? fam.parts : undefined, familyPostcode: fam.postcode || undefined, familyProvince: fam.province || undefined, acquisitions: fam.acquisitions.length ? fam.acquisitions : undefined, acquisitionLabels: sourceOptions?.length && fam.sourceLabels.length ? fam.sourceLabels : undefined,
     familyLocation: fam.location, familyAddressNote: fam.addressNote || undefined, taxInfo: fam.wantTax ? fam.tax : undefined,
     familyBusLeg: busOffered && fam.busUse ? fam.busLeg : undefined, referral: fam.referral.trim() || undefined, pdpa: fam.pdpa || undefined,
   })
@@ -336,7 +338,7 @@ export function LiffForm() {
             ))}
 
             <Card>
-              <FamilyFields hideName extras busOffered={busOffered} t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
+              <FamilyFields hideName extras busOffered={busOffered} sourceOptions={sourceOptions} t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
             </Card>
           </section>
         ) : step === "student" ? (
@@ -528,7 +530,7 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
             {addressNote && <Line icon={StickyNoteIcon}>{addressNote}</Line>}
           </div>
         )}
-        {acquisitions.length > 0 && <Line icon={UserRoundIcon}>{acquisitions.map((k) => t.src[k]).join(", ")}</Line>}
+        {(fam.sourceLabels.length > 0 ? fam.sourceLabels : acquisitions.map((k) => t.src[k])).length > 0 && <Line icon={UserRoundIcon}>{(fam.sourceLabels.length > 0 ? fam.sourceLabels : acquisitions.map((k) => t.src[k])).join(", ")}</Line>}
         {fam.referral.trim() && <Line icon={UserRoundIcon}>{t.referral}: {fam.referral.trim()}</Line>}
         {fam.busUse && <Line icon={BusIcon}>{t.busUse} · {t.busLeg[fam.busLeg]}</Line>}
         {fam.pdpa && <Line icon={CameraIcon}>{t.pdpa[fam.pdpa]}</Line>}

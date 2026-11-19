@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { LongLeaveFields } from "@/components/app/leave-dialog"
 import { addDays, endTime, fmtDate, fmtDateTime, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
+import { isDefaultPresent } from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
 import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
 import { LeaveReasonPicker } from "@/components/app/leave-reason"
@@ -87,6 +88,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const allSessions = useStore((st) => st.sessions)
   const staff = useStore((st) => st.staff)
   const attendance = useStore((st) => st.attendance)
+  const leaves = useStore((st) => st.leaves)
+  const markAtt = useStore((st) => st.mark)
   const summaries = useStore((st) => st.summaries)
   const me = useStore((st) => st.me())
   const save = useStore((st) => st.saveSummary)
@@ -123,6 +126,12 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
 
   // summaries: text lives here so several students can be submitted in one go
   const present = s.studentIds.filter((sid) => attendance.find((x) => x.sessionId === s.id && x.studentId === sid)?.status === "present")
+  // owner 2026-11-19: Attendance defaults to มา for everyone not marked yet (never touches a leave / an existing mark)
+  const defaultPresent = s.studentIds.filter((sid) => isDefaultPresent(s, sid, attendance, leaves, now) && !viewOnly && !Sum.sessionLocked(s.id, summaries))
+  const saveDefaults = () => {
+    const fails = defaultPresent.map((sid) => markAtt(s.id, sid, "present")).filter((r) => !r.ok)
+    report(fails.length ? fails[0] : { ok: true, value: undefined }, `บันทึกเช็คชื่อ ${defaultPresent.length - fails.length} คน: มา`)
+  }
   const summaryOf = (sid: ID) => summaries.find((x) => x.sessionId === s.id && x.studentId === sid)
   const textOf = (sid: ID) => drafts[sid] ?? summaryOf(sid)?.text ?? ""
   const submittable = present.filter((sid) => { const st = summaryOf(sid)?.status; return !viewOnly && hasEnded(s, now) && (!st || st === "draft" || st === "changes_requested") && textOf(sid).trim() })
@@ -240,6 +249,13 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                   <Button variant="outline" disabled={toSubmit.length === 0} onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({toSubmit.length})</Button>
                   <Button variant="outline" disabled={toApprove.length === 0} onClick={approveMany}><CheckIcon /> อนุมัติ ({toApprove.length})</Button>
                 </span>
+              </div>
+            )}
+            {/* owner 2026-11-19: everyone not marked yet shows มา (faded = not saved); this bar saves them in one tap. Leave / already marked stay as they are */}
+            {defaultPresent.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 border-b py-3 text-sm">
+                <span className="text-muted-foreground">{`ตั้งเป็น "มา" ไว้ให้ ${defaultPresent.length} คน — ยังไม่ได้บันทึก`}</span>
+                <Button className="ml-auto" size="sm" onClick={saveDefaults}><CheckIcon /> บันทึกเช็คชื่อ</Button>
               </div>
             )}
             {s.studentIds.length === 0 && !s.rescheduledOut?.length && <Empty>ยังไม่มีนักเรียนในคาบนี้</Empty>}
@@ -419,6 +435,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   // owner 2026-11-13: solid colour fill on the picked pill (white text) — the lighter track (bg-muted/60) keeps it from
   // getting lost; ย้ายวัน stays neutral white, it's an action not a state
   const pill = "h-7 min-w-12 flex-1 rounded-full border-0 px-3 text-sm text-muted-foreground transition hover:text-foreground hover:bg-transparent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none data-[on=true]:bg-card data-[on=true]:font-semibold data-[on=true]:shadow-sm"
+  // owner 2026-11-19: not marked yet → มา is already picked (faded) — tapping it saves it
+  const defaultOn = !a && !movedTo && canMarkHere && isDefaultPresent(s, sid, attendance, leaves, now)
   const markAs = (status: "present" | "absent" | "leave") =>
     a?.status === status ? report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`) : report(mark(s.id, sid, status), `${stu?.nickname}: ${status === "present" ? "มา" : status === "absent" ? "ขาด" : "ลา"}`)
 
@@ -463,8 +481,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) ·
             phones: wraps to its own full-width row (order-last) so the buttons never run off the edge */}
         <span className="order-last inline-flex h-9 w-full shrink-0 items-center rounded-full bg-muted/60 p-1 sm:order-none sm:w-auto">
-          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
-            className={pill + " data-[on=true]:bg-success data-[on=true]:text-white"}>มา</Button>
+          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present" || defaultOn} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
+            className={pill + " data-[on=true]:bg-success data-[on=true]:text-white" + (defaultOn ? " data-[on=true]:opacity-50" : "")}>มา</Button>
           {!isTest && <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
             title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-danger data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>}
           <Button variant="ghost" size="inline" type="button" disabled={!!movedTo || !canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}

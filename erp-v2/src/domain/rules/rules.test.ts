@@ -34,6 +34,7 @@ import * as Loss from "./loss"
 import * as Survey from "./survey"
 import { courseSummaryMessage, formLinkMessage, summaryMessage } from "./messages"
 import { awardFor, pointsByTeacher, suggestReferrers } from "./referral"
+import { isDefaultPresent } from "./attendance"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -3554,5 +3555,18 @@ describe("Referral (owner 2026-11-19)", () => {
     expect(a.share).toBeCloseTo(1 / 3)
     expect(awardFor("f2", fams, stus, ks, [a], "ra2", "x")).toBeNull()
     expect(pointsByTeacher([a]).get("t1")).toBeCloseTo(1 / 3)
+  })
+})
+
+describe("Attendance opens on มา (owner 2026-11-19)", () => {
+  const se = { id: "s1", date: "2026-11-10", start: "10:00", minutes: 60, studentIds: ["a", "b", "c"], cancelled: false } as unknown as Session
+  const now = new Date("2026-11-10T12:00:00")
+  it("defaults to มา only for a student nobody has marked, who is not on a long leave", () => {
+    const att = [{ sessionId: "s1", studentId: "b", status: "leave" }] as Attendance[]
+    const leaves = [{ studentId: "c", from: "2026-11-01", to: "2026-11-30", reason: "x" }] as unknown as StudentLeave[]
+    expect(isDefaultPresent(se, "a", att, leaves, now)).toBe(true)
+    expect(isDefaultPresent(se, "b", att, leaves, now)).toBe(false) // already marked leave — untouched
+    expect(isDefaultPresent(se, "c", att, leaves, now)).toBe(false) // long leave
+    expect(isDefaultPresent({ ...se, cancelled: true }, "a", att, leaves, now)).toBe(false)
   })
 })

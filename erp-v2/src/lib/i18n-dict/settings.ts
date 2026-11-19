@@ -2,6 +2,16 @@ import type { Entry } from "./index"
 
 // keys are the Thai text the page shows; {0} {1} … are filled in order
 export const SETTINGS: Record<string, Entry> = {
+  "บันทึกเช็คชื่อ": { en: "Save attendance", ja: "出欠を保存" },
+  "เลือกได้หลายคอร์ส": { en: "You can pick several courses", ja: "複数のコースを選べます" },
+  "ตามคอร์ส": { en: "By course", ja: "コース別" },
+  "เลือกตาม": { en: "Pick by", ja: "選択方法" },
+  "สาขานี้ยังไม่มีคอร์ส — สลับเป็น \"ตามวิชา\"": { en: "This branch has no courses yet — switch to \"By subject\"", ja: "この校舎にはまだコースがありません —「科目別」に切り替えてください" },
+  "ยังไม่มีคลาสของคอร์สนี้": { en: "No classes for this course yet", ja: "このコースのクラスはまだありません" },
+  "ช่องทางที่รู้จักเรา (ในฟอร์มผู้ปกครอง)": { en: "How they heard about us (parent form)", ja: "認知経路（保護者フォーム）" },
+  "เช่น ป้ายหน้าโรงเรียน": { en: "e.g. signboard in front of the school", ja: "例：校舎前の看板" },
+  "เพิ่มช่องทาง": { en: "Add a channel", ja: "経路を追加" },
+  "ยังไม่ตั้ง — ฟอร์มใช้ 7 ช่องทางมาตรฐาน (LINE OA, Facebook, Walk-in …)": { en: "Not set — the form uses the 7 standard channels (LINE OA, Facebook, Walk-in …)", ja: "未設定 — フォームは標準の7経路（LINE OA、Facebook、来校 …）を使用" },
   "จากฟอร์มสมัครเรียน": { en: "From the enrolment form", ja: "入会申込書より" },
   "บันทึกสลิปลงใบแจ้งหนี้แล้ว — ไปยืนยันยอดที่ Billing": { en: "Slip saved on the invoice — confirm it in Billing", ja: "スリップを請求書に保存しました — Billingで入金を確認してください" },
   "ใบแจ้งหนี้ที่แนบไปกับฟอร์ม": { en: "Invoice sent with the form", ja: "フォームに添付した請求書" },

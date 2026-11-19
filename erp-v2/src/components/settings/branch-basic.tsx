@@ -42,7 +42,7 @@ function StringList({ values, onChange, placeholder, addLabel }: { values: strin
 }
 
 function BranchInfoForm({ branch, onDone }: { branch: Branch; onDone: () => void }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "branchNo", "name", "nameEn", "province", "email", "address", "phones", "socials", "rooms", "busEnabled"])
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["brand", "code", "branchNo", "name", "nameEn", "province", "email", "address", "phones", "socials", "rooms", "busEnabled", "sourceOptions"])
   const hasInvoices = useStore((s) => s.invoices.some((i) => i.branchId === branch.id && i.number))
   return (
     <SettingsCard title={tx("ข้อมูลสาขา")} hint={tx("ข้อมูลทั่วไปของสาขา — รหัสสาขาใช้ในเลขใบแจ้งหนี้/ใบเสร็จ")}>
@@ -66,6 +66,11 @@ function BranchInfoForm({ branch, onDone }: { branch: Branch; onDone: () => void
         {/* owner 2026-11-19: the branch decides whether it runs a school bus — off hides every bus field, column, fee and the Bus menu */}
         <Field label={tx("รถรับส่ง (School Bus)")} className="sm:col-span-2">
           <label className="flex items-center gap-2 text-sm"><Switch checked={branchHasBus(b)} onCheckedChange={(v) => setB({ ...b, busEnabled: v })} aria-label={tx("สาขานี้มีรถรับส่ง")} />{branchHasBus(b) ? tx("สาขานี้มีรถรับส่ง") : tx("สาขานี้ไม่มีรถรับส่ง — ซ่อนทุกอย่างที่เกี่ยวกับรถ")}</label>
+        </Field>
+        {/* owner 2026-11-19: each branch keeps its own list for "how did you hear about us?" on the parent forms — empty = the 7 standard channels */}
+        <Field label={tx("ช่องทางที่รู้จักเรา (ในฟอร์มผู้ปกครอง)")} className="sm:col-span-2">
+          <StringList values={b.sourceOptions ?? []} onChange={(sourceOptions) => setB({ ...b, sourceOptions })} placeholder={tx("เช่น ป้ายหน้าโรงเรียน")} addLabel={tx("เพิ่มช่องทาง")} />
+          {!(b.sourceOptions ?? []).length && <p className="text-xs text-muted-foreground">{tx("ยังไม่ตั้ง — ฟอร์มใช้ 7 ช่องทางมาตรฐาน (LINE OA, Facebook, Walk-in …)")}</p>}
         </Field>
         <Field label="Social media"><StringList values={b.socials} onChange={(socials) => setB({ ...b, socials })} placeholder="https://facebook.com/…" addLabel={tx("เพิ่มลิงก์")} /></Field>
         <Field label={tx("ห้องเรียน ({0} ห้อง) — ลบห้องที่ยังมีคาบในอนาคตไม่ได้", [b.rooms.length])} className="sm:col-span-2">

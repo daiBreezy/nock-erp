@@ -207,6 +207,9 @@ export interface Branch {
   blockDays?: Record<DateStr, ClassBlock[]>
   /** owner 2026-11-19: does this branch run a school bus? Unset = Liclass yes, NockAcademy no. Off hides every bus field and column */
   busEnabled?: boolean
+  /** owner 2026-11-19: "how did you hear about us?" — this branch's own list on the parent form (unset / empty = the 7 standard channels).
+   *  A choice that is not a standard channel is counted as "other" in reports; the name the parent ticked is kept on the family */
+  sourceOptions?: string[]
   /** fallback bus price per leg when no bus fee type is set in General Fees */
   busFeePerLeg: number
   /** the branch's own pin — bus distances are measured from here (owner 2026-10-16) */
@@ -666,6 +669,8 @@ export interface Family {
   referralText?: string
   /** the family the admin matched it to — the teachers of that family's courses earn the Ref point (1 point split equally, paid once the new family pays) */
   referredByFamilyId?: ID
+  /** the channel names the parent ticked from the branch's own list (owner 2026-11-19) */
+  sourceLabels?: string[]
   /** owner 2026-11-19 PDPA: may we photograph the children and use the pictures? Unset = never asked */
   pdpa?: PdpaChoice
   /** one LINE link code for the whole family (siblings share it) */
@@ -965,6 +970,7 @@ export interface EnrollToken {
   brand: Brand
   /** the branch runs a bus (Settings) */
   bus?: boolean
+  sources?: string[]
   lang: FormLang
   grades: string[]
   subjects: string[]
@@ -1026,6 +1032,8 @@ export interface EnrollSubmission {
   familyAddressNote?: string
   acquisitions?: LeadSource[]
   /** owner 2026-11-19: "Bus use?" (family-level: every child on this form rides the same legs; unset = no bus) */
+  /** names ticked from the branch's own source list */
+  acquisitionLabels?: string[]
   familyBusLeg?: BusUse
   /** free text: who told them about us */
   referral?: string
@@ -1621,6 +1629,8 @@ export interface FormToken {
   branchName?: string
   /** owner 2026-11-19: the branch runs a bus (Settings) → the form asks "Bus use?" */
   bus?: boolean
+  /** the branch's own "how did you hear about us" list (snapshot) */
+  sources?: string[]
   /** Liclass runs a school bus → its form asks for the address + map pin; NockAcademy doesn't */
   brand?: Brand
   /** default language (Settings) — parent can switch */
@@ -1723,6 +1733,8 @@ export interface FormSubmission {
   familyAddressNote?: string
   acquisitions?: LeadSource[]
   /** owner 2026-11-19: "Bus use?" (family-level: every child on this form rides the same legs; unset = no bus) */
+  /** names ticked from the branch's own source list */
+  acquisitionLabels?: string[]
   familyBusLeg?: BusUse
   /** free text: who told them about us */
   referral?: string

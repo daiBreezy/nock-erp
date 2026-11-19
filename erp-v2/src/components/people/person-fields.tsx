@@ -40,13 +40,21 @@ export interface FamilyDraft {
   wantTax: boolean; tax: { customerName: string; taxId: string; address: string }
   /** owner 2026-11-19 (parent form): "Bus use?" — ticked = the location block shows + one of the legs · referral = free text · pdpa = photo consent */
   busUse: boolean; busLeg: BusUse; referral: string; pdpa: PdpaChoice | ""
+  /** the names ticked from the branch's own source list (owner 2026-11-19) */
+  sourceLabels: string[]
 }
 
 export const emptyParentDraft = (name = ""): ParentDraft => ({ ...splitName(name), nameEn: "", phones: [""], email: "", rel: "", birthDate: "" })
 export const emptyStudentDraft = (grade = ""): StudentDraft => ({ first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", note: "" })
 export { addressPartsOf }
 
-export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", parts: {}, province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" }, busUse: false, busLeg: "both", referral: "", pdpa: "" })
+/** a branch's own channel names → the standard channel they stand for (same name as a standard one), else "other" — so Reports keep counting */
+export function sourceKeysOf(labels: string[], t: FieldsDict): LeadSource[] {
+  const std = Object.entries(t.src).map(([k, v]) => [k as LeadSource, String(v).toLowerCase()] as const)
+  return [...new Set(labels.map((l) => std.find(([, v]) => v === l.trim().toLowerCase())?.[0] ?? ("other" as LeadSource)))]
+}
+
+export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", parts: {}, province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" }, busUse: false, busLeg: "both", referral: "", pdpa: "", sourceLabels: [] })
 
 /** a stored parent (family on file or a form answer) → the fields */
 export function parentDraftOf(p: { name: string; nameEn?: string; phone: string; altPhones?: string[]; email?: string; relationship?: string; birthDate?: string }): ParentDraft {
@@ -117,12 +125,14 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
   )
 }
 
-export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, hideName, busOffered, extras }: {
+export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, hideName, busOffered, extras, sourceOptions }: {
   t: FieldsDict; value: FamilyDraft; onChange: (patch: Partial<FamilyDraft>) => void; parentLast: string; errors?: Errors
   /** owner 2026-11-19: the branch runs a bus → "Bus use?" decides whether the location block shows (no bus = the address block is always there) */
   busOffered?: boolean
   /** the parent's form only: who told you about us (free text) + the PDPA photo question */
   extras?: boolean
+  /** owner 2026-11-19: this branch's own "how did you hear about us" list — unset = the standard channels */
+  sourceOptions?: string[]
   /** the parent's form (owner 2026-11-18): the family is named after the parent's surname, so nobody is asked for it — the admin panels still show it */
   hideName?: boolean
 }) {
@@ -135,7 +145,9 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
       </Group>}
       {/* owner 2026-11-18: a dropdown you can tick several in — saves the space the 7 boxes took */}
       <Group title={t.acquisition} sub={t.acquisitionSub} first={hideName}>
-        <MultiPick value={f.acquisitions} onChange={(acquisitions) => onChange({ acquisitions })} placeholder={t.select} options={SOURCE_KEYS.map((k) => ({ value: k, label: t.src[k] }))} />
+        {sourceOptions?.length
+          ? <MultiPick value={f.sourceLabels} onChange={(sourceLabels) => onChange({ sourceLabels, acquisitions: sourceKeysOf(sourceLabels, t) })} placeholder={t.select} options={sourceOptions.map((x) => ({ value: x, label: x }))} />
+          : <MultiPick value={f.acquisitions} onChange={(acquisitions) => onChange({ acquisitions })} placeholder={t.select} options={SOURCE_KEYS.map((k) => ({ value: k, label: t.src[k] }))} />}
       </Group>
       {extras && (
         <Group title={t.referral}>
