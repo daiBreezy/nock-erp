@@ -1,5 +1,6 @@
 "use client"
 
+import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import { Fragment, useEffect, useState } from "react"
 import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
@@ -15,7 +16,7 @@ import * as Bill from "@/domain/rules/billing"
 import { invoiceMemo } from "@/domain/rules/documents"
 import { packageLabel } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
-import { brandUsesBus } from "@/domain/rules/settings"
+import { branchHasBus } from "@/domain/rules/settings"
 import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { slipDataUrl } from "@/lib/image"
@@ -375,7 +376,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             </tbody></table>
             {totals.advance + totals.book === 0 && <p className="text-xs text-muted-foreground">ไม่มีค่าแรกเข้า / ค่าสอบ / ค่าหนังสือ</p>}
           </Block>
-          {brandUsesBus(branch.brand) && (
+          {branchHasBus(branch) && (
           <Block title="Bus" hint="ไม่บังคับ">
             <table className="w-full text-sm tabular-nums"><tbody className="divide-y">
               {totals.bus > 0 && <tr><td className="py-1">ค่ารถ {branch.fees.find((f) => f.id === inv.busFeeId)?.name ?? ""} ({inv.bus.reduce((a, l) => a + +l.pickup + +l.dropoff, 0)} เที่ยว)</td><td className="py-1 text-right">{fmtMoney(totals.bus)}</td></tr>}
@@ -437,7 +438,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             {inv.payments.length > 0 && <p className="text-xs text-danger">มีการรับเงินแล้ว ยกเลิกไม่ได้</p>}
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setVoiding(false)}>ไม่ยกเลิก</Button>
-              <Button size="sm" variant="destructive" disabled={!reason.trim() || inv.payments.length > 0} onClick={() => report(act.void(inv.id, reason), "ยกเลิกใบแจ้งหนี้แล้ว") && setVoiding(false)}>ยืนยันยกเลิก</Button>
+              <Button size="sm" variant="destructive" disabled={!reason.trim() || inv.payments.length > 0} onClick={() => { if (report(act.void(inv.id, reason), "ยกเลิกใบแจ้งหนี้แล้ว")) { void syncEnrollInvoice(inv.id, "void"); setVoiding(false) } }}>ยืนยันยกเลิก</Button>
             </div>
           </section>
         )}

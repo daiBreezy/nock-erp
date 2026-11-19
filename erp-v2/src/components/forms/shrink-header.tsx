@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react"
 import { NativeSelect } from "@/components/app/native-select"
-import type { FormLang } from "@/domain/types"
+import type { Brand, FormLang } from "@/domain/types"
+import { BrandLogo } from "./brand-theme"
 import { cn } from "@/lib/utils"
 
 /** The header every parent form shares (owner 2026-11-09): the form's name on top, "business · branch" under it, the language dropdown on the right.
  *  It SHRINKS with the scroll instead of vanishing: sticky with a negative `top` = its big block, so the two-line title scrolls away and a slim bar
  *  with the form name stays. --p (0→1) fades that bar in; the bar hangs OUT of flow so the page has no empty gap and nothing jumps. */
-export function ShrinkHeader({ title, subtitle, lang, onLang, className }: { title: string; subtitle: string; lang: FormLang; onLang?: (l: FormLang) => void; className?: string }) {
+export function ShrinkHeader({ title, subtitle, lang, onLang, className, brand }: { title: string; subtitle: string; lang: FormLang; onLang?: (l: FormLang) => void; className?: string; brand?: Brand }) {
   const [hdr, setHdr] = useState<HTMLElement | null>(null)
   const bigRef = useRef<HTMLDivElement>(null)
   const [bigH, setBigH] = useState(60)
@@ -31,6 +32,7 @@ export function ShrinkHeader({ title, subtitle, lang, onLang, className }: { tit
     <header ref={setHdr} style={{ top: -bigH }} className={cn("sticky z-20 bg-background [--p:0]", className)}>
       <div ref={bigRef} className="flex items-center gap-3 px-4 pb-2.5 pt-4">
         <div className="min-w-0 flex-1">
+          {brand && <BrandLogo brand={brand} className="mb-1.5 h-7 w-auto" />}
           <p className="truncate text-lg font-semibold">{title}</p>
           <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
         </div>

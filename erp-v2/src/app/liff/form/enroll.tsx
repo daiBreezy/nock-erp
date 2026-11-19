@@ -4,7 +4,9 @@
 // The parent step is the same as Test/Trial; each child says what to study, which package, when it suits them,
 // when to start, bus, and whether the teacher should check the level in the first class. TH / EN / JP.
 
-import { CheckIcon } from "lucide-react"
+import { CheckIcon, ImageIcon, XIcon } from "lucide-react"
+import { slipDataUrl } from "@/lib/image"
+import type { EnrollInvoiceSnap } from "@/domain/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import type { EnrollClassOffer, EnrollCourseOption, EnrollPackage, EnrollPlan, FormLang } from "@/domain/types"
@@ -13,6 +15,8 @@ import { Button } from "@/components/ui/button"
 
 export const ENROLL_DICT = {
   th: {
+    invoice: "ใบแจ้งหนี้", itemKinds: { bus: "ค่ารถรับส่ง", book: "ค่าหนังสือ", discount: "ส่วนลด", credit: "เครดิตคอร์ส", rounding: "ปัดเศษ", other: "อื่นๆ" } as Record<string, string>, invoiceNo: "เลขที่", invoiceFor: "สำหรับ", invoiceTotal: "ยอดรวม", invoiceOwed: "ยอดที่ต้องชำระ", payTo: "โอนเงินเข้าบัญชี", promptPay: "พร้อมเพย์", attachSlip: "แนบสลิปการโอน", attachSlipSub: "จ่ายแล้วแนบสลิปได้เลย — แอดมินจะตรวจและยืนยันให้", slipPick: "เลือกรูปสลิป", slipChange: "เปลี่ยนรูป", slipRemove: "ลบ", invoicePaid: "ใบแจ้งหนี้นี้ชำระแล้ว",
+    invoiceVoid: "ใบแจ้งหนี้นี้ถูกยกเลิกแล้ว — โปรดใช้ลิงก์ใหม่ที่แอดมินส่งให้",
     title: "ใบสมัครเรียน", sent: "ส่งใบสมัครเรียนแล้ว", sentSub: "ขอบคุณค่ะ แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทาง LINE เร็วๆ นี้",
     studentSub: "ข้อมูลน้อง + คอร์สและเวลาที่สะดวก", subjects: "อยากเรียนวิชา", courses: "คอร์สที่สนใจ", coursesSub: "ไม่แน่ใจ เว้นไว้ได้ — แอดมินช่วยเลือกให้",
     pkg: "รูปแบบแพ็กเกจ", pkgs: { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์ (คอร์สสั้น)", unsure: "ยังไม่แน่ใจ" } as Record<EnrollPackage, string>,
@@ -24,6 +28,8 @@ export const ENROLL_DICT = {
     plan: "คอร์สที่ตกลงกันไว้", periodsUnit: "งวด", busLegs: { both: "ไป-กลับ", pickup: "ขาไป (รับที่บ้าน)", dropoff: "ขากลับ (ส่งที่บ้าน)" },
   },
   en: {
+    invoice: "Invoice", itemKinds: { bus: "School bus", book: "Books", discount: "Discount", credit: "Course credit", rounding: "Rounding", other: "Other" }, invoiceNo: "No.", invoiceFor: "For", invoiceTotal: "Total", invoiceOwed: "Amount due", payTo: "Transfer to", promptPay: "PromptPay", attachSlip: "Attach the transfer slip", attachSlipSub: "Paid already? Attach the slip — our staff will check and confirm", slipPick: "Choose slip image", slipChange: "Change", slipRemove: "Remove", invoicePaid: "This invoice has been paid",
+    invoiceVoid: "This invoice was cancelled — please use the new link our staff sent you.",
     title: "Enrolment form", sent: "Application sent", sentSub: "Thank you! Our staff will arrange the class and send the invoice on LINE shortly.",
     studentSub: "Your child + courses and times", subjects: "Subjects", courses: "Courses", coursesSub: "Not sure? Leave it — our staff will help",
     pkg: "Package", pkgs: { month: "Monthly", hour: "Hour pack", week: "Weekly (short course)", unsure: "Not sure yet" } as Record<EnrollPackage, string>,
@@ -35,6 +41,8 @@ export const ENROLL_DICT = {
     plan: "The course we agreed", periodsUnit: "periods", busLegs: { both: "Both ways", pickup: "To school (pick-up)", dropoff: "Home (drop-off)" },
   },
   ja: {
+    invoice: "請求書", itemKinds: { bus: "送迎バス", book: "教材費", discount: "割引", credit: "コースクレジット", rounding: "端数調整", other: "その他" }, invoiceNo: "番号", invoiceFor: "対象", invoiceTotal: "合計", invoiceOwed: "お支払い額", payTo: "振込先", promptPay: "プロンプトペイ", attachSlip: "振込明細を添付", attachSlipSub: "お支払い済みの場合は明細を添付してください — 担当者が確認します", slipPick: "画像を選択", slipChange: "変更", slipRemove: "削除", invoicePaid: "この請求書は支払い済みです",
+    invoiceVoid: "この請求書は取り消されました — 担当者から届く新しいリンクをご利用ください。",
     title: "入塾申込書", sent: "申込書を送信しました", sentSub: "ありがとうございます。担当者がクラスを手配し、LINEで請求書をお送りします。",
     studentSub: "お子様の情報・コースとご希望の時間", subjects: "希望科目", courses: "希望コース", coursesSub: "未定の場合は空欄で構いません",
     pkg: "プラン", pkgs: { month: "月謝制", hour: "時間パック", week: "短期（週単位）", unsure: "未定" } as Record<EnrollPackage, string>,
@@ -182,5 +190,52 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
       {busOffered && <label className="flex items-start gap-2 text-sm"><Checkbox className="mt-0.5" checked={v.bus} onCheckedChange={(x) => onChange({ bus: !!x })} /><span>{t.bus}<span className="block text-xs text-muted-foreground">{t.busSub}</span></span></label>}
       <label className="flex items-start gap-2 text-sm"><Checkbox className="mt-0.5" checked={v.placement} onCheckedChange={(x) => onChange({ placement: !!x })} /><span>{t.placement}<span className="block text-xs text-muted-foreground">{t.placementSub}</span></span></label>
     </div>
+  )
+}
+
+/** a sample invoice for the preview (/liff/form?preview=enroll) */
+export const PREVIEW_INVOICE: EnrollInvoiceSnap = {
+  invoiceId: "preview", number: "INV-LIS-TL-691119-004", status: "open", studentNickname: "ภูมิ",
+  items: [{ name: "คณิต ป.5 รายเดือน", amount: 4400 }, { name: "ค่าสมัครแรกเข้า", amount: 500 }], total: 4900, owed: 4900,
+  bank: { bank: "KBank", name: "บริษัท น็อค อะคาเดมี่ จำกัด", number: "123-4-56789-0" }, promptPayId: "0812345678",
+}
+
+/** owner 2026-11-19: the invoice that came with the form — what it is, where to transfer, and the slip to attach (nothing else to type) */
+export function InvoicePay({ t, inv, slip, onSlip }: { t: EnrollT; inv: EnrollInvoiceSnap; slip: string; onSlip: (v: string) => void }) {
+  const baht = (n: number) => `${n.toLocaleString()}฿`
+  return (
+    <section className="space-y-2.5">
+      <p className="text-sm font-semibold">{t.invoice}</p>
+      <div className="space-y-2 rounded-2xl bg-card p-3 ring-1 ring-foreground/5">
+        <p className="text-xs text-muted-foreground">{t.invoiceNo} {inv.number}{inv.studentNickname ? ` · ${t.invoiceFor} ${inv.studentNickname}` : ""}</p>
+        <ul className="space-y-1 text-sm">
+          {inv.items.map((x, i) => <li key={i} className="flex gap-2"><span className="min-w-0 flex-1">{(x.kind && t.itemKinds[x.kind]) || x.name}</span><span className="tabular-nums">{baht(x.amount)}</span></li>)}
+        </ul>
+        <div className="flex items-baseline gap-2 border-t pt-2"><span className="flex-1 text-sm font-semibold">{inv.status === "paid" ? t.invoicePaid : t.invoiceOwed}</span><span className="text-lg font-semibold tabular-nums">{baht(inv.owed)}</span></div>
+      </div>
+      {inv.status === "open" && (
+        <>
+          <div className="space-y-0.5 rounded-2xl bg-muted/60 px-3 py-2.5 text-sm">
+            <p className="text-xs text-muted-foreground">{t.payTo}</p>
+            <p className="font-medium">{inv.bank.bank} · {inv.bank.number}</p>
+            <p className="text-xs text-muted-foreground">{inv.bank.name}{inv.promptPayId ? ` · ${t.promptPay} ${inv.promptPayId}` : ""}</p>
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold">{t.attachSlip}</p>
+            <p className="text-xs text-muted-foreground">{t.attachSlipSub}</p>
+            {slip ? (
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={slip} alt="slip" className="h-24 w-auto rounded-xl border" />
+                <Button type="button" size="xs" variant="outline" onClick={() => onSlip("")}><XIcon /> {t.slipRemove}</Button>
+              </div>
+            ) : (
+              <label className="inline-flex"><Input type="file" accept="image/*" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) onSlip(await slipDataUrl(f)); e.target.value = "" }} />
+                <span className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm hover:bg-muted"><ImageIcon className="size-4" />{t.slipPick}</span></label>
+            )}
+          </div>
+        </>
+      )}
+    </section>
   )
 }

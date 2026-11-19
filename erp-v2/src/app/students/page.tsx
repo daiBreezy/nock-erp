@@ -1,7 +1,9 @@
 "use client"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { familyShortName } from "@/domain/rules/people"
+import { busUseOf, familyShortName } from "@/domain/rules/people"
+import { branchHasBus } from "@/domain/rules/settings"
+import { BusUseChip } from "@/components/transport/labels"
 import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { useState } from "react"
@@ -50,6 +52,9 @@ export default function StudentsPage() {
   const invoices = useStore((s) => s.invoices)
   // owner 2026-11-19: the Credit column exists only while the system switch is on (and can be hidden from the columns menu)
   const creditOn = useStore((s) => creditCourseOn(s.system.settings))
+  const allBranches = useStore((s) => s.branches)
+  const branchOf = (id: string) => allBranches.find((b) => b.id === id)
+  const busOn = scope.ids.some((id) => branchHasBus(branchOf(id)))
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const leaves = useStore((s) => s.leaves)
@@ -159,6 +164,8 @@ export default function StudentsPage() {
         </span>
       ) : <span className="text-muted-foreground">—</span>
     ) },
+    // owner 2026-11-19: the Bus column shows the 4 types and exists only when a branch in view runs a bus
+    ...(busOn ? [{ id: "bus", label: "รถรับส่ง", width: "150px", cell: ({ s }: Row) => (branchHasBus(branchOf(s.branchId)) ? <BusUseChip use={busUseOf(s)} /> : <span className="text-muted-foreground">—</span>) }] : []),
     ...(creditOn ? [{ id: "credit", label: "Credit", width: "96px", info: "นักเรียนที่เรียนก่อนจ่าย (Credit Course) — ยอดที่ยังค้างอยู่",
       // owner 2026-11-19: just the tag's icon + the total owed; hover lists each Credit Course with its amount
       cell: ({ credit }: Row) => (credit.length ? (

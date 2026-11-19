@@ -3,7 +3,9 @@
 import { Panel, Empty, InfoTip, fmtNum, fmtPct } from "@/components/reports/charts"
 import { monthShort, yearOf } from "@/domain/dates"
 import type { Staff } from "@/domain/types"
+import { pointsByTeacher } from "@/domain/rules/referral"
 import { tx, nm } from "@/lib/i18n"
+import { useStore } from "@/store/store"
 import { cn } from "@/lib/utils"
 
 /**
@@ -75,7 +77,10 @@ function Frac({ a, b, r }: { a: number; b: number; r: number | null }) {
 const Head = ({ tip, children }: { tip: string; children: React.ReactNode }) => <span className="inline-flex items-center gap-1">{children}<InfoTip text={tip} /></span>
 
 export function TeacherPerformance({ teachers, today }: { teachers: Staff[]; today: string }) {
-  const rows = teachers.map((t) => mockTeacher(t, today)).sort((a, b) => b.tenureDays - a.tenureDays)
+  // owner 2026-11-19: Referral points are real now (1 point per referred family that paid, shared by the referrer's teachers) — added on top of the mock figure
+  const awards = useStore((s) => s.referralAwards)
+  const real = pointsByTeacher(awards)
+  const rows = teachers.map((t) => { const m = mockTeacher(t, today); return { ...m, referrals: m.referrals + (real.get(t.id) ?? 0) } }).sort((a, b) => b.tenureDays - a.tenureDays)
   return (
     <Panel title={tx("Teacher Performance")} hint={tx("เรียงตามอายุงาน (นานสุดอยู่บน) · ข้อมูลจำลอง — ยังไม่ต่อข้อมูลจริง")}>
       {rows.length ? (
@@ -109,7 +114,7 @@ export function TeacherPerformance({ teachers, today }: { teachers: Staff[]; tod
                   <td className="text-right tabular-nums">{fmtNum(r.students)}</td>
                   <td className="text-right tabular-nums">{fmtNum(r.courses)}</td>
                   <td className={cn("text-right tabular-nums", churn !== null && churn > 0.15 && "font-medium text-danger")}><span className="inline-flex items-baseline justify-end gap-2"><span className="w-4 text-right">{r.churned}</span><span className="w-10 text-right text-xs text-muted-foreground">({fmtPct(churn)})</span></span></td>
-                  <td className="text-right tabular-nums">{r.referrals || "—"}</td>
+                  <td className="text-right tabular-nums">{r.referrals ? (Number.isInteger(r.referrals) ? r.referrals : r.referrals.toFixed(2)) : "—"}</td>
                   <td className={cn("text-right tabular-nums", r.aci >= 8.5 ? "text-success" : r.aci < 7 ? "text-danger" : "")}><span className="inline-flex items-baseline justify-end gap-1.5"><span className="font-medium">{r.aci.toFixed(1)}</span><span className="w-8 text-right text-xs text-muted-foreground">({r.aciN})</span></span></td>
                 </tr>
               )

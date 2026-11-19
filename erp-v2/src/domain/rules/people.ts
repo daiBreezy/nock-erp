@@ -156,7 +156,7 @@ export function familyFromLead(
  *  of collapsing to the lead's single name/phone — used once the form actually collected full parent
  *  details (see approveTestTrialSubmission). The first parent listed is the one who logged into LINE to
  *  submit, so only they get `lineLinked`/`primary`; others can be corrected by staff afterwards. */
-export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { name?: string; nameEn?: string; address?: string; addressParts?: import("../types").AddressParts; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"] }, lineUserId: string | undefined, id: ID): Family {
+export function familyFromSubmission(studentName: string, parents: FormParentInput[], family: { name?: string; nameEn?: string; address?: string; addressParts?: import("../types").AddressParts; postcode?: string; province?: string; location?: Family["location"]; addressNote?: string; sources?: Family["sources"]; taxInfo?: Family["taxInfo"]; referralText?: string; pdpa?: Family["pdpa"] }, lineUserId: string | undefined, id: ID): Family {
   // the parent marked "default contact" on the form is primary; none marked → the first one
   const primaryAt = Math.max(0, parents.findIndex((p) => p.primary))
   // owner 2026-10-15: the typed family name, else the main parent's surname, else the child's
@@ -181,6 +181,8 @@ export function familyFromSubmission(studentName: string, parents: FormParentInp
     addressNote: family.addressNote?.trim() || undefined,
     sources: family.sources?.length ? family.sources : undefined,
     taxInfo: family.taxInfo,
+    referralText: family.referralText?.trim() || undefined,
+    pdpa: family.pdpa,
     lineUserId,
   }
 }
@@ -450,3 +452,9 @@ export function matchesQuery(q: string, parts: (string | null | undefined)[]): b
   const hay = parts.filter(Boolean).join(" ").toLowerCase()
   return words.every((w) => hay.includes(w))
 }
+
+/** owner 2026-11-19 PDPA: what the parent allowed about photos of the children — as staff read it */
+export const PDPA_LABEL: Record<import("../types").PdpaChoice, string> = { allow: "ถ่ายภาพ/ใช้งานได้", blur: "ใช้ได้ แต่ต้องเบลอหน้า/ถ่ายด้านหลัง", deny: "ไม่อนุญาตทุกกรณี" }
+/** how a student uses the school bus — "ไม่ใช้" is the 4th type (owner 2026-11-19) */
+export const BUS_USE_LABEL: Record<import("../types").BusUse | "none", string> = { pickup: "เฉพาะไปรับ", dropoff: "เฉพาะไปส่ง", both: "ทั้งไปรับและไปส่ง", none: "ไม่ใช้" }
+export const busUseOf = (s: Pick<import("../types").Student, "usesBus" | "busLeg">): import("../types").BusUse | "none" => (s.usesBus ? s.busLeg ?? "both" : "none")

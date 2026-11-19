@@ -4,6 +4,7 @@
 // stop status (Done / OTW / Next / Cancel), the van badge and the driver — one look everywhere on the page.
 import { cycleChip, tagChip } from "@/components/app/tags"
 import { ArrowLeftRightIcon, BanIcon, BusIcon, CheckCheckIcon, ClockIcon, FlagIcon, MapPinCheckIcon, MapPinIcon, PencilIcon, UserXIcon } from "lucide-react"
+import { BUS_USE_LABEL } from "@/domain/rules/people"
 import type { StopStatus, TripPlan, DriverInfo } from "@/domain/rules/transport"
 import type { BusRound, BusZone } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -15,6 +16,13 @@ export const KIND_LABEL: Record<BusRound["kind"], string> = { pickup: "รอบ
 export function TripTypeChip({ kind, short }: { kind: BusRound["kind"] | "pickup" | "dropoff"; short?: boolean }) {
   const cfg = kind === "pickup" ? { Icon: MapPinIcon, s: "P", l: "รับ", tone: tagChip("busLeg", "pickup") } : kind === "dropoff" ? { Icon: FlagIcon, s: "D", l: "ส่ง", tone: tagChip("busLeg", "dropoff") } : { Icon: ArrowLeftRightIcon, s: "Both", l: "รับ-ส่ง", tone: tagChip("busLeg", "both") }
   return <span title={cfg.l} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", cfg.tone)}><cfg.Icon className="size-3" />{short ? cfg.s : cfg.l}</span>
+}
+
+/** how a student rides the bus — the 4 types (owner 2026-11-19): pickup only · drop-off only · both · not using. The busLeg tag colours; "ไม่ใช้" is a quiet grey. */
+export function BusUseChip({ use }: { use: "pickup" | "dropoff" | "both" | "none" }) {
+  const tone = use === "none" ? "bg-muted text-muted-foreground" : tagChip("busLeg", use)
+  const Icon = use === "pickup" ? MapPinIcon : use === "dropoff" ? FlagIcon : use === "both" ? ArrowLeftRightIcon : BanIcon
+  return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", tone)}><Icon className="size-3" />{BUS_USE_LABEL[use]}</span>
 }
 
 export function TripStatusChip({ t }: { t: TripPlan }) {

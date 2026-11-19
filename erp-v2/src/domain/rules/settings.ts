@@ -42,6 +42,10 @@ export function gradeLabel(grade: string, lang: FormLang): string {
   return lang === "en" ? `G${n + 6}` : n <= 3 ? `中${n}` : `高${n - 3}`
 }
 
+/** owner 2026-11-19: does this branch run a school bus? The Settings switch decides; unset = Liclass yes, NockAcademy no.
+ *  Off = every bus field, column, fee and message for the branch disappears. */
+export const branchHasBus = (b: Pick<Branch, "brand" | "busEnabled"> | undefined | null): boolean => (b ? (b.busEnabled ?? b.brand === "liclass") : false)
+
 /** Subject as a parent reads it — the name set in Settings → System for that language, else the Thai name */
 export function subjectLabel(subject: string, lang: FormLang, names?: SystemConfig["subjectNames"]): string {
   return (lang !== "th" && names?.[subject]?.[lang]?.trim()) || subject

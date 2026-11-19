@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { AddressParts, Brand, FormLang, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, Gender, ID, LeadSource } from "@/domain/types"
+import type { AddressParts, Brand, BusUse, PdpaChoice, FormLang, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, Gender, ID, LeadSource } from "@/domain/types"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { recordInboundMessage } from "./line-store"
@@ -56,14 +56,14 @@ const genId = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.ra
 
 export async function createToken(input: {
   type: FormType; leadId: ID; branchId: ID; conversationId: ID | null; offers: FormSubjectOffer[]; grades: string[]
-  branchName?: string; brand?: Brand; lang?: FormLang; prefill?: FormPrefill; subjectNames?: FormToken["subjectNames"]; visit?: FormToken["visit"]
+  branchName?: string; brand?: Brand; bus?: boolean; lang?: FormLang; prefill?: FormPrefill; subjectNames?: FormToken["subjectNames"]; visit?: FormToken["visit"]
 }): Promise<FormToken> {
   return mutate((store) => {
     const now = new Date()
     const token: FormToken = {
       token: genToken(), type: input.type, leadId: input.leadId, branchId: input.branchId,
       conversationId: input.conversationId, offers: input.offers, grades: input.grades,
-      branchName: input.branchName, brand: input.brand, lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames, visit: input.visit,
+      branchName: input.branchName, brand: input.brand, bus: input.bus, lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames, visit: input.visit,
       createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 7 * 86400000).toISOString(), used: false,
     }
     store.tokens.push(token)
@@ -93,6 +93,7 @@ export async function submitForm(input: {
   familyLocation?: { lat: number; lng: number }
   familyAddressNote?: string
   acquisitions?: LeadSource[]
+  familyBusLeg?: BusUse; referral?: string; pdpa?: PdpaChoice
   taxInfo?: { customerName: string; taxId: string; address: string }
   familyName?: string
   familyNameEn?: string
@@ -127,7 +128,7 @@ export async function submitForm(input: {
       const submission: FormSubmission = {
         id: genId("frm"), token: input.token, type: t.type, groupId, primaryLeadId: t.leadId, leadId: i === 0 ? t.leadId : null, branchId: t.branchId, conversationId: t.conversationId,
         lineUserId: input.lineUserId, parents: input.parents, familyAddress: input.familyAddress, familyAddressParts: input.familyAddressParts, familyPostcode: input.familyPostcode,
-        familyProvince: input.familyProvince, familyLocation: input.familyLocation, familyAddressNote: input.familyAddressNote, acquisitions: input.acquisitions, taxInfo: input.taxInfo,
+        familyProvince: input.familyProvince, familyLocation: input.familyLocation, familyAddressNote: input.familyAddressNote, acquisitions: input.acquisitions, taxInfo: input.taxInfo, familyBusLeg: input.familyBusLeg, referral: input.referral, pdpa: input.pdpa,
         studentName: student.name, studentNickname: student.nickname, studentGrade: student.grade, studentBirthDate: student.birthDate, studentSchool: student.school, studentNote: student.note,
         studentNameEn: student.nameEn, studentNicknameEn: student.nicknameEn, studentGender: student.gender, studentSchoolId: student.schoolId, familyName: input.familyName, familyNameEn: input.familyNameEn,
         picks: student.picks,

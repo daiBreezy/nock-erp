@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import type { AddressParts, FormParentInput, FormStudentExtras, LeadSource } from "@/domain/types"
+import type { AddressParts, BusUse, FormParentInput, FormStudentExtras, LeadSource, PdpaChoice } from "@/domain/types"
 import { submitForm } from "@/server/form-store"
 
 // Called from the LIFF page after a parent fills in the 3-step wizard (Parent info → Student info →
@@ -11,6 +11,7 @@ export async function POST(req: Request) {
     parents?: FormParentInput[]
     familyAddress?: string; familyAddressParts?: AddressParts; familyPostcode?: string; familyProvince?: string; acquisitions?: LeadSource[]
     familyLocation?: { lat: number; lng: number }; familyAddressNote?: string
+    familyBusLeg?: BusUse; referral?: string; pdpa?: PdpaChoice
     taxInfo?: { customerName: string; taxId: string; address: string }
     familyName?: string; familyNameEn?: string
     students?: ({ name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string } & FormStudentExtras & { picks?: { chosenSubject: string; chosenSlotId: string }[] })[]
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 })
   }
-  const { token, lineUserId, parents, familyAddress, familyAddressParts, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote, taxInfo, familyName, familyNameEn, students } = body
+  const { token, lineUserId, parents, familyAddress, familyAddressParts, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote, taxInfo, familyName, familyNameEn, students, familyBusLeg, referral, pdpa } = body
   if (!token || !lineUserId || !parents?.length || !students?.length) {
     return NextResponse.json({ ok: false, error: "กรอกข้อมูลให้ครบทุกช่อง" }, { status: 400 })
   }
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "ใส่ชื่อ ระดับชั้น และเลือกวิชา/เวลาให้นักเรียนทุกคน" }, { status: 400 })
   }
   const result = await submitForm({
-    token, lineUserId, parents, familyAddress, familyAddressParts, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote,
+    token, lineUserId, parents, familyAddress, familyAddressParts, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote, familyBusLeg, referral: referral?.trim() || undefined, pdpa,
     familyName: familyName?.trim() || undefined, familyNameEn: familyNameEn?.trim() || undefined,
     taxInfo: taxInfo?.customerName?.trim() || taxInfo?.taxId?.trim() ? taxInfo : undefined,
     students: students.map((s) => ({ name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note, nameEn: s.nameEn, nicknameEn: s.nicknameEn, gender: s.gender, schoolId: s.schoolId, picks: s.picks! })),

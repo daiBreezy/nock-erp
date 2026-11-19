@@ -5,7 +5,8 @@ import { ClipboardListIcon, ReceiptIcon, UserPlusIcon, XIcon } from "lucide-reac
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { fmtDate, fmtDateTime } from "@/domain/dates"
+import { fmtDate, fmtDateTime, fmtMoney, toDateStr } from "@/domain/dates"
+import * as Bill from "@/domain/rules/billing"
 import { matchExistingFamily } from "@/domain/rules/people"
 import type { EnrollSubmission, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -60,13 +61,19 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
   const [busy, setBusy] = useState(false)
   // owner 2026-10-29: the match is a suggestion — the admin picks รวม / แยก before approving
   const [newFamily, setNewFamily] = useState(false)
+  const inv = sub.invoiceId ? s.invoices.find((x) => x.id === sub.invoiceId) : undefined
+  const invBranch = inv && s.branches.find((b) => b.id === inv.branchId)
+  const owed = inv && invBranch ? Bill.owedOn(inv, Bill.invoiceTotals(inv, { branch: invBranch, courses: s.courses, classes: s.classes, holidays: s.holidays }).total) : 0
+  const invOpen = !!inv && inv.status !== "void" && inv.status !== "paid"
 
   const submit = async () => {
     setBusy(true)
     const r = approve(sub, sub.children.map((_, i) => ({ childIndex: i })), { newFamily })
-    if (report(r, (v) => `สร้างนักเรียน ${v.studentIds.length} คนแล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย`)) {
+    if (report(r, (v) => (inv ? `สร้างนักเรียน ${v.studentIds.length} คนแล้ว` : `สร้างนักเรียน ${v.studentIds.length} คนแล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย`))) {
+      // owner 2026-11-19: the invoice travelled with the form — the slip goes on THAT invoice (to confirm in Billing); no second invoice
+      if (inv && sub.slip && invOpen) report(s.recordPayment(inv.id, { amount: owed, method: "transfer", reference: "จากฟอร์มสมัครเรียน", slip: sub.slip, paidOn: toDateStr(s.now()) }), "บันทึกสลิปลงใบแจ้งหนี้แล้ว — ไปยืนยันยอดที่ Billing")
       await markEnrollReviewed(sub.id, "approved", r.value.studentIds)
-      onDone(r.value.studentIds); onClose()
+      onDone(inv ? undefined : r.value.studentIds); onClose()
     }
     setBusy(false)
   }
@@ -86,6 +93,23 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
           {sub.taxInfo?.taxId && <p className="text-muted-foreground">ใบกำกับภาษี: {sub.taxInfo.customerName} · {sub.taxInfo.taxId}</p>}
           {matched ? <FamilyMatchChoice familyName={matched.name} reason="LINE หรือเบอร์ตรงกัน" newFamily={newFamily} onChange={setNewFamily} /> : <p className="text-xs text-muted-foreground">ครอบครัวใหม่</p>}
         </section>
+        {sub.invoiceId && (
+          <section className="space-y-1.5 rounded-2xl border p-3 text-sm">
+            <p className="font-medium">ใบแจ้งหนี้ที่แนบไปกับฟอร์ม</p>
+            {!inv ? <p className="text-danger">ไม่พบใบแจ้งหนี้นี้แล้ว</p> : inv.status === "void" ? <p className="text-danger">{inv.number} ถูกยกเลิกแล้ว — ผู้ปกครองกรอกมาจากลิงก์เก่า</p> : (
+              <>
+                <p>{inv.number} · ยอดค้าง <b>{fmtMoney(owed)}</b></p>
+                {sub.slip ? (
+                  <div className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={sub.slip} alt="สลิป" className="h-28 w-auto rounded-xl border" />
+                    <p className="text-xs text-muted-foreground">ผู้ปกครองแนบสลิปมา — กดสร้างนักเรียนแล้วระบบบันทึกลงใบนี้ รอยืนยันยอดที่ Billing</p>
+                  </div>
+                ) : <p className="text-xs text-muted-foreground">ยังไม่ได้แนบสลิป</p>}
+              </>
+            )}
+          </section>
+        )}
         {sub.children.map((c, i) => (
           <section key={i} className="space-y-1 rounded-2xl border p-3 text-sm">
             <p className="font-medium">{c.name}{c.nickname ? ` (${c.nickname})` : ""} · {c.grade}{c.school ? ` · ${c.school}` : ""}</p>
@@ -104,7 +128,7 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
           <Button variant="ghost" className="text-muted-foreground" onClick={reject}><XIcon /> ปิดใบสมัคร (ไม่รับ)</Button>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>ไว้ก่อน</Button>
-            <Button disabled={busy} onClick={submit}><ReceiptIcon /> สร้างนักเรียน + ใบแจ้งหนี้</Button>
+            <Button disabled={busy} onClick={submit}><ReceiptIcon /> {inv ? (sub.slip && invOpen ? "สร้างนักเรียน + บันทึกสลิป" : "สร้างนักเรียน") : "สร้างนักเรียน + ใบแจ้งหนี้"}</Button>
           </div>
         </DialogFooter>
       </DialogContent>

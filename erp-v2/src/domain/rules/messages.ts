@@ -15,8 +15,8 @@ import { romanizeName, SUBJECTS } from "./romanize"
 export type MsgLang = "th" | "ja" | "en"
 /** the two languages a brand's parents get, in this order */
 export const messageLangs = (brand: Brand = "nockacademy"): [MsgLang, MsgLang] => (brand === "liclass" ? ["ja", "en"] : ["th", "en"])
-const SEP = "\n\n———\n\n"
-const both = (brand: Brand | undefined, build: (l: MsgLang) => string) => messageLangs(brand).map(build).join(SEP)
+/** owner 2026-11-19: every parent message goes out in ONE language — Liclass = Japanese, NockAcademy = Thai (no more TH/JP + EN pair) */
+const both = (brand: Brand | undefined, build: (l: MsgLang) => string) => build(messageLangs(brand)[0])
 /** owner 2026-11-19: an invoice goes out in ONE language — Liclass = Japanese only, NockAcademy = Thai only */
 const only = (brand: Brand | undefined, build: (l: MsgLang) => string) => build(messageLangs(brand)[0])
 
@@ -220,6 +220,7 @@ const N: Record<MsgLang, Record<string, string>> = {
     formLink: "กรุณากรอกแบบฟอร์ม{0}ที่ลิงก์นี้ค่ะ 🙏 ({1})\n{2}",
     exitForm: "รบกวนผู้ปกครองช่วยตอบแบบฟอร์มสั้นๆ เรื่องการหยุดเรียนของ{0}ค่ะ 🙏 (ประมาณ 2 นาที)\n{1}",
     enrollGeneral: "กรอกใบสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทันที\n{0}",
+    enrollInvoice: "ส่งใบสมัครเรียนพร้อมใบแจ้งหนี้ {1} 🧾 เปิดลิงก์เดียว กรอกข้อมูล ชำระเงิน และแนบสลิปกลับมาได้เลยค่ะ 🙏\n{0}",
     enrollPick: "กรอกใบสมัครเรียน และเลือกคลาสที่สะดวกได้ที่ลิงก์นี้เลยค่ะ 🙏 แอดมินจะส่งใบแจ้งหนี้ให้ทันที\n{0}",
     enrollPlan: "กรอกข้อมูลสมัครเรียนได้ที่ลิงก์นี้เลยค่ะ 🙏 ได้รับแล้วแอดมินจะส่งใบแจ้งหนี้ตามที่คุยกันไว้ให้ค่ะ\n{0}",
     survey: "ขอเวลา 3 นาทีช่วยตอบแบบสอบถามความพึงพอใจประจำปีหน่อยนะคะ 🙏 ทุกความเห็นช่วยให้เราดูแลน้องๆ ได้ดีขึ้น\n{0}",
@@ -248,6 +249,7 @@ const N: Record<MsgLang, Record<string, string>> = {
     formLink: "{0}のフォームを、こちらのリンクからご記入ください 🙏（{1}）\n{2}",
     exitForm: "{0}さんのご退会について、短いアンケートにご協力をお願いします 🙏（約2分）\n{1}",
     enrollGeneral: "こちらのリンクから入会申込書をご記入ください 🙏 クラスを手配し、すぐに請求書をお送りします\n{0}",
+    enrollInvoice: "入会申込書と請求書 {1} をお送りします 🧾 こちらのリンクで、ご入力・お支払い・スリップの添付ができます 🙏\n{0}",
     enrollPick: "入会申込書のご記入と、ご都合のよいクラスのご選択をこちらからお願いします 🙏 すぐに請求書をお送りします\n{0}",
     enrollPlan: "こちらから入会情報をご記入ください 🙏 受け取り次第、ご相談どおりの請求書をお送りします\n{0}",
     survey: "年に一度の満足度アンケートにご協力ください（約3分）🙏 いただいたご意見は、お子さまへのより良いサポートに活かします\n{0}",
@@ -276,6 +278,7 @@ const N: Record<MsgLang, Record<string, string>> = {
     formLink: "Please fill in the {0} form at this link 🙏 ({1})\n{2}",
     exitForm: "Could you please answer a short form about {0} leaving the school 🙏 (about 2 minutes)\n{1}",
     enrollGeneral: "Please fill in the enrolment form at this link 🙏 We will arrange the class and send the invoice right away\n{0}",
+    enrollInvoice: "Enrolment form with invoice {1} 🧾 One link: fill in the details, pay and attach the slip 🙏\n{0}",
     enrollPick: "Please fill in the enrolment form and pick the classes that suit you 🙏 We will send the invoice right away\n{0}",
     enrollPlan: "Please fill in the enrolment details at this link 🙏 Once received, we will send the invoice as we discussed\n{0}",
     survey: "Could you spare 3 minutes for our yearly satisfaction survey? 🙏 Every comment helps us care for the children better\n{0}",

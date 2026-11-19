@@ -8,8 +8,10 @@ import { customFormMessage, formLinkMessage, holidayMessage, notice, surveyMessa
 import * as FB from "@/domain/rules/form-builder"
 import { buildCatalog } from "@/domain/rules/catalog"
 import { addDays } from "@/domain/dates"
+import { branchHasBus } from "@/domain/rules/settings"
+import * as Bill from "@/domain/rules/billing"
 import { notAnswered, surveyRecipients, surveyWindow } from "@/domain/rules/survey"
-import type { CatalogToken, CustomFormToken, FormDef, Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollPlan } from "@/domain/types"
+import type { CatalogToken, CustomFormToken, FormDef, Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollInvoiceSnap, EnrollPlan } from "@/domain/types"
 import { useStore } from "@/store/store"
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -27,7 +29,7 @@ export async function sendTestTrialForm(input: {
   const tokenRes = await postJson<{ ok: boolean; token?: FormToken; error?: string }>("/api/forms/token", {
     type: input.type, leadId: input.leadId, branchId: input.branchId,
     conversationId: input.conversationId, offers: input.offers, grades: input.grades,
-    branchName: input.branchName, brand: input.brand, lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames, visit: input.visit,
+    branchName: input.branchName, brand: input.brand, bus: branchHasBus(useStore.getState().branches.find((b) => b.id === input.branchId)), lang: input.lang, prefill: input.prefill, subjectNames: input.subjectNames, visit: input.visit,
   })
   if (!tokenRes.ok || !tokenRes.token) return { ok: false, error: tokenRes.error ?? "สร้างลิงก์ไม่สำเร็จ" }
 
@@ -52,7 +54,7 @@ export async function sendTestTrialForm(input: {
  *  already merged into one shared 2-hour room block by `submitForm` — no cross-submission grouping is
  *  needed here since each `FormSubmission` row is already one whole child (see `groupId` for how staff
  *  can tell "these children arrived together" without approval being forced to happen together too). */
-export async function approveSubmission(sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean }): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID; createdLead: boolean }>> {
+export async function approveSubmission(sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean; referredByFamilyId?: ID }): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID; createdLead: boolean }>> {
   // a form sent from a chat that has no Lead (owner 2026-11-18): the answers already hold everything — make the Lead, then approve as usual
   const store = useStore.getState()
   const createdLead = !store.leads.some((l) => l.id === sub.primaryLeadId)
@@ -62,6 +64,11 @@ export async function approveSubmission(sub: FormSubmission, opts?: { applyChang
   }
   const r = useStore.getState().approveTestTrialSubmission(sub, opts)
   if (!r.ok) return r
+  // owner 2026-11-19: the admin matched who told them about us — the family remembers it; the teachers' point comes once they pay
+  if (opts?.referredByFamilyId) {
+    const fid = useStore.getState().students.find((x) => x.id === r.value.studentId)?.familyId
+    if (fid) useStore.getState().setFamilyReferrer(fid, opts.referredByFamilyId)
+  }
   await postJson("/api/forms/review", { id: sub.id, status: "approved", sessionId: r.value.sessionId, studentId: r.value.studentId })
   return { ok: true, value: { ...r.value, createdLead } }
 }
@@ -114,7 +121,7 @@ export function enrollSnapshot(branchId: ID) {
   const branch = s.branches.find((b) => b.id === branchId)!
   const courses = s.courses.filter((c) => c.branchId === branchId && c.active && (!c.to || c.to >= new Date().toISOString().slice(0, 10)))
   return {
-    branchId, branchName: branch.name, brand: branch.brand, lang: s.system.preferences.language, grades: branch.grades, subjects: branch.subjects, subjectNames: s.system.subjectNames,
+    branchId, branchName: branch.name, brand: branch.brand, bus: branchHasBus(branch), lang: s.system.preferences.language, grades: branch.grades, subjects: branch.subjects, subjectNames: s.system.subjectNames,
     courses: courses.map((c) => ({ id: c.id, name: c.name, subjects: c.subjects, grades: c.grades, unit: c.unit, duration: c.duration, price: c.price + c.courseFee })),
   }
 }
@@ -231,21 +238,50 @@ export async function postToChat(conversationId: ID, text: string): Promise<Resu
   return useStore.getState().sendChatMessage(conversationId, text)
 }
 
+/** owner 2026-11-19: a copy of the invoice that travels with the enroll form — what the parent sees, pays and attaches the slip to */
+export function enrollInvoiceSnapshot(invoiceId: ID): EnrollInvoiceSnap | null {
+  const s = useStore.getState()
+  const inv = s.invoices.find((x) => x.id === invoiceId)
+  const branch = inv && s.branches.find((b) => b.id === inv.branchId)
+  if (!inv || !branch) return null
+  const t = Bill.invoiceTotals(inv, { branch, courses: s.courses, classes: s.classes, holidays: s.holidays })
+  const items: EnrollInvoiceSnap["items"] = t.lines.map((l) => ({ name: l.course?.name ?? "คอร์ส", amount: l.amount + l.courseFee - l.promotion }))
+  for (const a of inv.advance) items.push({ name: a.name, amount: a.amount })
+  if (t.bus + t.busExtra > 0) items.push({ name: "ค่ารถรับส่ง", amount: t.bus + t.busExtra, kind: "bus" as const })
+  if (t.book > 0) items.push({ name: "ค่าหนังสือ", amount: t.book, kind: "book" as const })
+  if (t.concession) items.push({ name: "ส่วนลด", amount: -Math.abs(t.concession), kind: "discount" as const })
+  if (t.credit) items.push({ name: "เครดิตคอร์ส", amount: -Math.abs(t.credit), kind: "credit" as const })
+  if (t.rounding) items.push({ name: "ปัดเศษ", amount: t.rounding, kind: "rounding" as const })
+  const gap = t.total - items.reduce((a, x) => a + x.amount, 0) // never show a list that doesn't add up to the total
+  if (gap) items.push({ name: "อื่นๆ", amount: gap, kind: "other" as const })
+  const stu = s.students.find((x) => x.id === inv.studentId)
+  return { invoiceId, number: inv.number ?? "", status: inv.status === "paid" ? "paid" : inv.status === "void" ? "void" : "open", studentNickname: stu?.nickname ?? "", items, total: t.total, owed: Bill.owedOn(inv, t.total),
+    bank: { bank: branch.bankAccount.bank, name: branch.bankAccount.name, number: branch.bankAccount.number }, promptPayId: branch.bankAccount.promptPayId }
+}
+
+/** the invoice was voided / paid → the enroll links carrying it say so (the parent can't pay a dead invoice) */
+export async function syncEnrollInvoice(invoiceId: ID, status: "void" | "paid" | "open") {
+  await postJson("/api/parent-forms/enroll-invoice", { invoiceId, status }).catch(() => undefined)
+}
+
 /** Enroll form for any chat — a lead's or an existing family's (a sibling) — prefilled with what we know. */
-export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollClassOffer[], plan?: EnrollPlan): Promise<Result<{ url: string }>> {
+export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollClassOffer[], plan?: EnrollPlan, invoiceId?: ID): Promise<Result<{ url: string }>> {
   const s = useStore.getState()
   const conv = s.conversations.find((c) => c.id === conversationId)
   if (!conv) return { ok: false, error: "ไม่พบบทสนทนานี้" }
   const lead = conv.leadId ? s.leads.find((l) => l.id === conv.leadId) : undefined
   const fam = conv.familyId ? s.families.find((f) => f.id === conv.familyId) : undefined
+  const invoice = invoiceId ? enrollInvoiceSnapshot(invoiceId) ?? undefined : undefined
+  if (invoiceId && !invoice) return { ok: false, error: "ไม่พบใบแจ้งหนี้" }
   const prefill: FormPrefill = lead
     ? { parents: lead.phone ? [{ name: lead.name, phone: lead.phone, primary: true }] : [], students: [{ name: "", grade: lead.childGrade }] }
     : { parents: (fam?.parents ?? []).map((p) => ({ name: p.name, phone: p.phone, primary: !!p.primary })), students: [{ name: "", grade: "" }] }
-  const res = await postJson<{ ok: boolean; token?: EnrollToken; error?: string }>("/api/parent-forms/enroll", { ...enrollSnapshot(conv.branchId), reusable: false, leadId: lead?.id, conversationId: conv.id.startsWith("line_") ? conv.id : null, prefill, classOffers, plan })
+  const res = await postJson<{ ok: boolean; token?: EnrollToken; error?: string }>("/api/parent-forms/enroll", { ...enrollSnapshot(conv.branchId), reusable: false, leadId: lead?.id, conversationId: conv.id.startsWith("line_") ? conv.id : null, prefill, classOffers, plan, invoice })
   if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
   const url = enrollUrl(res.token.token)
   // owner 2026-10-15: with class offers the parent just picks the classes that suit them
-  const sent = await postToChat(conv.id, classOffers?.length
+  const sent = await postToChat(conv.id, invoice ? notice(brandOfBranch(conv.branchId), "enrollInvoice", url, invoice.number)
+    : classOffers?.length
     ? notice(brandOfBranch(conv.branchId), "enrollPick", url)
     : classOffers ? notice(brandOfBranch(conv.branchId), "enrollPlan", url)
     : notice(brandOfBranch(conv.branchId), "enrollGeneral", url))

@@ -4,21 +4,21 @@ import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   CakeIcon, CalendarClockIcon, CheckCircle2Icon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardCheckIcon, HeartIcon, LoaderCircleIcon,
-  MailIcon, MapPinIcon, MessageCircleIcon, PencilIcon, PhoneIcon, PlusIcon, ReceiptIcon, SchoolIcon, SendIcon, StickyNoteIcon, TrashIcon, UserRoundIcon, UsersIcon, XCircleIcon,
-} from "lucide-react"
+  MailIcon, MapPinIcon, MessageCircleIcon, PencilIcon, PhoneIcon, PlusIcon, ReceiptIcon, SchoolIcon, SendIcon, StickyNoteIcon, TrashIcon, UserRoundIcon, UsersIcon, XCircleIcon, BusIcon, CameraIcon } from "lucide-react"
 import { ShrinkHeader } from "@/components/forms/shrink-header"
+import { BrandScope, brandLang } from "@/components/forms/brand-theme"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
 import { commonSlots, picksClash, slotClashes } from "@/domain/rules/forms"
 import { CatalogApp } from "../catalog/catalog-app"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
-import type { Brand, EnrollClassOffer, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
+import type { Brand, EnrollClassOffer, EnrollInvoiceSnap, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { addressPartsOf, emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
 import { joinName } from "@/domain/rules/people"
 import { DICT, fmtBirth, fmtFormDate } from "./i18n"
-import { classTimeLabel, courseLine, ENROLL_DICT, EnrollFields, enrollValid, timeLabel, type EnrollFieldsValue } from "./enroll"
+import { classTimeLabel, courseLine, ENROLL_DICT, EnrollFields, enrollValid, InvoicePay, PREVIEW_INVOICE, timeLabel, type EnrollFieldsValue } from "./enroll"
 import { enrollClassValid } from "@/domain/rules/forms"
 import { Empty } from "@/components/app/empty"
 
@@ -83,6 +83,8 @@ export function LiffForm() {
   const [grades, setGrades] = useState<string[]>([])
   const [branchName, setBranchName] = useState("")
   const [brandId, setBrandId] = useState<Brand>("nockacademy")
+  /** owner 2026-11-19: the branch runs a school bus (Settings) — Liclass by default */
+  const [busOffered, setBusOffered] = useState(false)
   const brandName = brandId === "liclass" ? "Liclass" : "NockAcademy"
   const [lineUserId, setLineUserId] = useState("")
   const [displayName, setDisplayName] = useState("")
@@ -94,6 +96,9 @@ export function LiffForm() {
   const [fam, setFam] = useState<FamilyDraft>(emptyFamilyDraft)
   const [students, setStudents] = useState<StudentBlock[]>([])
   const [enroll, setEnroll] = useState<EnrollInfo | null>(null)
+  /** owner 2026-11-19: the invoice sent with this form + the pay slip the parent attaches */
+  const [invoice, setInvoice] = useState<EnrollInvoiceSnap | null>(null)
+  const [slip, setSlip] = useState("")
   const [terms, setTerms] = useState(false)
   const t = DICT[lang]
   const te = ENROLL_DICT[lang]
@@ -106,6 +111,7 @@ export function LiffForm() {
       setParents(p.parents.map((x) => ({ ...parentDraftOf(x), editing: false })))
       setPrimaryIdx(Math.max(0, p.parents.findIndex((x) => x.primary)))
       setFam({
+        ...emptyFamilyDraft(), referral: p.referral ?? "", pdpa: p.pdpa ?? "",
         name: p.familyName ?? "", nameEn: p.familyNameEn ?? "", acquisitions: p.acquisitions ?? [],
         address: p.address ?? "", parts: addressPartsOf(p.address, p.addressParts), province: p.province ?? "", postcode: p.postcode ?? "", location: p.location, addressNote: p.addressNote ?? "",
         wantTax: !!p.taxInfo, tax: p.taxInfo ?? { customerName: "", taxId: "", address: "" },
@@ -155,9 +161,11 @@ export function LiffForm() {
         }
         if (cancelled) return
         setToken(pf)
-        setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: tk.brand === "liclass", classOffers: tk.classOffers, plan: tk.plan })
+        setBusOffered(tk.bus ?? tk.brand === "liclass")
+        setInvoice(tk.invoice ?? (previewEnroll ? PREVIEW_INVOICE : null))
+        setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: false, classOffers: tk.classOffers, plan: tk.plan })
         setGrades(tk.grades); setBranchName(tk.branchName); setBrandId(tk.brand); setSubjectNames(tk.subjectNames ?? {})
-        if (!params.get("lang") && tk.lang) setLang(tk.lang)
+        if (!params.get("lang")) setLang(brandLang(tk.brand))
         applyPrefill(tk.prefill ?? (previewEnroll ? previewData("trial").prefill : null), tk.grades, [], "")
         if (previewEnroll) setStudents((ss) => ss.map((st) => ({ ...st, enroll: { ...emptyEnroll(), classIds: ["k1", "k3"], startDate: addDays(toDateStr(new Date()), 7) } })))
         setPhase("ready")
@@ -168,7 +176,8 @@ export function LiffForm() {
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview"); setSeparate(preview === "trial")
         setSubjectNames({ "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } })
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
-        setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ"); setBrandId(b)
+        setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ"); setBrandId(b); setBusOffered(b === "liclass")
+        if (!params.get("lang")) setLang(brandLang(b))
         applyPrefill(d.prefill, d.grades, d.offers, "")
         // and a time already picked for each subject they're interested in
         setStudents((ss) => ss.map((st) => ({ ...st, chosen: Object.fromEntries(st.activeSubjects.map((sub) => [sub, d.offers.find((o) => o.subject === sub)!.slots[1]])) })))
@@ -197,8 +206,8 @@ export function LiffForm() {
         if (cancelled) return
         if (!data.ok) { setError(data.error ?? "ลิงก์นี้ใช้ไม่ได้แล้ว"); setPhase("invalid"); return }
         if (!data.offers?.length) { setError("ยังไม่มีช่วงเวลาให้เลือก — ติดต่อสถาบันโดยตรง"); setPhase("invalid"); return }
-        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); if (data.brand) setBrandId(data.brand); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
-        if (!params.get("lang") && data.lang) setLang(data.lang)
+        setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); if (data.brand) setBrandId(data.brand); setBusOffered(data.bus ?? data.brand === "liclass"); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
+        if (!params.get("lang")) setLang(brandLang(data.brand ?? brandId))
         applyPrefill(data.prefill, data.grades ?? [], data.offers, profile.displayName)
         setPhase("ready")
       } catch (e) {
@@ -214,7 +223,7 @@ export function LiffForm() {
   const setParent = (i: number, patch: Partial<ParentBlock>) => setParents((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)))
   const setStudent = (key: string, patch: Partial<StudentBlock>) => setStudents((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s)))
 
-  const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim())
+  const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim()) && !!fam.pdpa
   const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? (enroll.classOffers ? (enroll.classOffers.length ? enrollClassValid(s.enroll) : !!s.enroll.startDate) : enrollValid(s.enroll)) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj]) && !(separate && picksClash(s.chosen))))
 
   /** the child's surname box left empty = the main parent's surname (owner 2026-11-18) */
@@ -226,10 +235,12 @@ export function LiffForm() {
     familyName: fam.name.trim() || undefined, familyNameEn: fam.nameEn.trim() || undefined,
     familyAddress: fam.address || undefined, familyAddressParts: fam.address ? fam.parts : undefined, familyPostcode: fam.postcode || undefined, familyProvince: fam.province || undefined, acquisitions: fam.acquisitions.length ? fam.acquisitions : undefined,
     familyLocation: fam.location, familyAddressNote: fam.addressNote || undefined, taxInfo: fam.wantTax ? fam.tax : undefined,
+    familyBusLeg: busOffered && fam.busUse ? fam.busLeg : undefined, referral: fam.referral.trim() || undefined, pdpa: fam.pdpa || undefined,
   })
   const submit = async () => {
     if (!parentsValid || !studentsValid) return
     if (enroll && !terms) { setError(te.termsNeed); return }
+    if (invoice?.status === "void") { setError(te.invoiceVoid); return }
     setError("")
     setPhase("submitting")
     if (preview || previewEnroll) { setPhase("done"); return }
@@ -239,7 +250,8 @@ export function LiffForm() {
         body: JSON.stringify({
           token, lineUserId: lineUserId || undefined, lineName: displayName || undefined, parents: parentsPayload(), lang, acceptedTerms: true,
           ...familyPayload(),
-          children: students.map((s) => ({ ...studentInputOf(withLast(s)), ...s.enroll, ...(enroll.plan ? { courseIds: [enroll.plan.course.id], periods: enroll.plan.periods } : {}) })),
+          invoiceId: invoice?.invoiceId, slip: slip || undefined,
+          children: students.map((s) => ({ ...studentInputOf(withLast(s)), ...s.enroll, bus: busOffered && fam.busUse, busLeg: busOffered && fam.busUse ? fam.busLeg : undefined, ...(enroll.plan ? { courseIds: [enroll.plan.course.id], periods: enroll.plan.periods } : {}) })),
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false, error: "ส่งไม่สำเร็จ — เครือข่ายมีปัญหา ลองอีกครั้ง" }))
       if (!res.ok) { setError(res.error ?? "ส่งไม่สำเร็จ"); setPhase("ready"); return }
@@ -279,9 +291,10 @@ export function LiffForm() {
   )
 
   return (
-    <div className="min-h-screen bg-background pb-[calc(7rem+env(safe-area-inset-bottom))]">
+    <BrandScope brand={brandId} className="min-h-screen bg-background pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-lg space-y-4 p-4">
-        <ShrinkHeader className="-mx-4 -mt-4" title={enroll ? te.title : t.formTitle(formType)} subtitle={`${brandName}${branchName ? ` · ${branchName}` : ""}`} lang={lang} onLang={preview ? undefined : setLang} />
+        <ShrinkHeader brand={brandId} className="-mx-4 -mt-4" title={enroll ? te.title : t.formTitle(formType)} subtitle={`${brandName}${branchName ? ` · ${branchName}` : ""}`} lang={lang} onLang={preview ? undefined : setLang} />
+        {invoice?.status === "void" && phase !== "done" && <p className="flex items-center gap-2 rounded-2xl bg-danger-soft px-3 py-2.5 text-sm text-danger-ink"><XCircleIcon className="size-4 shrink-0" />{te.invoiceVoid}</p>}
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-success-soft px-3 py-2.5 text-sm text-success-ink"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
 
         {displayName && phase !== "done" && <p className="text-sm text-muted-foreground">{t.hello(displayName)}</p>}
@@ -323,7 +336,7 @@ export function LiffForm() {
             ))}
 
             <Card>
-              <FamilyFields hideName t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
+              <FamilyFields hideName extras busOffered={busOffered} t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
             </Card>
           </section>
         ) : step === "student" ? (
@@ -338,6 +351,7 @@ export function LiffForm() {
           <section className="space-y-3">
             <SectionHead icon={ClipboardCheckIcon} title={t.summaryTitle} sub={t.summarySub} />
             {summary}
+            {enroll && invoice && <InvoicePay t={te} inv={invoice} slip={slip} onSlip={setSlip} />}
             {enroll && <label className={cn("flex items-start gap-2 rounded-2xl bg-card p-3 text-sm ring-1", terms ? "ring-foreground/5" : "ring-warning/40")}><Checkbox className="mt-0.5" checked={terms} onCheckedChange={(v) => setTerms(!!v)} />{te.terms}</label>}
           </section>
         )}
@@ -353,11 +367,11 @@ export function LiffForm() {
             {stepIndex > 0 && <Button variant="secondary" onClick={() => setStep(STEP_KEYS[stepIndex - 1])}><ChevronLeftIcon /> {t.back}</Button>}
             {step === "parent" && <Button disabled={!parentsValid} onClick={() => { setParents((ps) => ps.map((p) => ({ ...p, editing: p.editing && !(p.first.trim() && p.phones[0]?.trim()) }))); setStep("student") }}>{t.next} <ChevronRightIcon /></Button>}
             {step === "student" && <Button disabled={!studentsValid} onClick={() => setStep("summary")}>{t.next} <ChevronRightIcon /></Button>}
-            {step === "summary" && <Button disabled={phase === "submitting"} onClick={submit}>{phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />} {t.submit}</Button>}
+            {step === "summary" && <Button disabled={phase === "submitting" || invoice?.status === "void"} onClick={submit}>{phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />} {t.submit}</Button>}
           </div>
         </footer>
       )}
-    </div>
+    </BrandScope>
   )
 }
 
@@ -421,7 +435,7 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
       )}
 
       {enroll ? (
-        <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} classOffers={enroll.classOffers} plan={enroll.plan} busOffered={enroll.busOffered}
+        <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} classOffers={enroll.classOffers} plan={enroll.plan && { ...enroll.plan, bus: false }} busOffered={false}
           value={s.enroll} onChange={(patch) => onChange({ enroll: { ...s.enroll, ...patch } })} minDate={toDateStr(new Date())} />
       ) : (<>
       {/* owner 2026-11-18: the admin chose the subjects from the chat — the parent sees them (no ticking) and only picks a time */}
@@ -515,6 +529,9 @@ function Summary({ t, lang, names, parents, primaryIdx, fam, linked, students, o
           </div>
         )}
         {acquisitions.length > 0 && <Line icon={UserRoundIcon}>{acquisitions.map((k) => t.src[k]).join(", ")}</Line>}
+        {fam.referral.trim() && <Line icon={UserRoundIcon}>{t.referral}: {fam.referral.trim()}</Line>}
+        {fam.busUse && <Line icon={BusIcon}>{t.busUse} · {t.busLeg[fam.busLeg]}</Line>}
+        {fam.pdpa && <Line icon={CameraIcon}>{t.pdpa[fam.pdpa]}</Line>}
         {tax && (tax.customerName || tax.taxId) && <div className="border-t pt-2"><Line icon={ReceiptIcon}>{tax.customerName} · {tax.taxId}{tax.address && ` · ${tax.address}`}</Line></div>}
       </Card>
 

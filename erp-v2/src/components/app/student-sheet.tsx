@@ -1,5 +1,7 @@
 "use client"
 
+import { BUS_USE_LABEL, busUseOf } from "@/domain/rules/people"
+import { branchHasBus } from "@/domain/rules/settings"
 import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
@@ -381,7 +383,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
           <p className="flex items-center gap-2"><GraduationCapIcon className="size-4 text-muted-foreground" />{stu.school || <span className="text-muted-foreground">ไม่ระบุโรงเรียน</span>}</p>
           <p className="flex items-center gap-2"><StoreIcon className="size-4 text-muted-foreground" />สร้างที่สาขา{created?.name ?? "—"}</p>
           <p className="flex items-center gap-2"><CalendarDaysIcon className="size-4 text-muted-foreground" />สร้างเมื่อ {fmtDate(stu.createdAt.slice(0, 10), { year: true })}</p>
-          {stu.usesBus && <p className="flex items-center gap-2"><BusIcon className="size-4 text-muted-foreground" />ใช้รถรับส่ง</p>}
+          {stu.usesBus && branchHasBus(branches.find((b) => b.id === stu.branchId)) && <p className="flex items-center gap-2"><BusIcon className="size-4 text-muted-foreground" />รถรับส่ง: {BUS_USE_LABEL[busUseOf(stu)]}</p>}
         </div>
         {stu.note && <p className="mt-3 flex items-start gap-2 rounded-lg bg-warning-soft/60 p-2.5 text-sm text-warning-ink"><StickyNoteIcon className="mt-0.5 size-4 shrink-0" />{stu.note}</p>}
 

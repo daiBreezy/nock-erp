@@ -36,9 +36,11 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
   )
   const [primaryIdx, setPrimaryIdx] = useState(() => Math.max(0, family?.parents.findIndex((p) => p.primary) ?? 0))
   const [fam, setFam] = useState<FamilyDraft>(() => family ? {
+    ...emptyFamilyDraft(),
     name: family.name, nameEn: family.nameEn ?? "", acquisitions: family.sources ?? [],
     address: family.address ?? "", parts: addressPartsOf(family.address, family.addressParts), province: family.province ?? "", postcode: family.postcode ?? "", location: family.location, addressNote: family.addressNote ?? "",
     wantTax: !!family.taxInfo, tax: family.taxInfo ?? { customerName: "", taxId: "", address: "" },
+    referral: family.referralText ?? "", pdpa: family.pdpa ?? "",
   } : { ...emptyFamilyDraft(), name: initialName ?? "" })
   const [touched, setTouched] = useState(false)
   const [newId] = useState(() => uid("fa"))

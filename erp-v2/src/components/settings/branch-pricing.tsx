@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, fmtMoney, weekdayShort } from "@/domain/dates"
 import { MapPin } from "@/app/liff/form/map-pin"
-import { brandPriceUnits, durationsOf, FEE_KIND_LABEL, PRICE_UNIT_LABEL, validateFee, validatePromotion } from "@/domain/rules/settings"
+import { brandPriceUnits, branchHasBus, durationsOf, FEE_KIND_LABEL, PRICE_UNIT_LABEL, validateFee, validatePromotion } from "@/domain/rules/settings"
 import type { Branch, BusRound, Fee, FeeKind, PriceUnit, Promotion, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
@@ -74,7 +74,7 @@ export function FeesTab({ branch }: { branch: Branch }) {
           </SettingsCard>
         )
       })}
-      {(b.brand === "liclass" || b.fees.some((f) => f.kind === "bus")) && <BusSetup b={b} setB={setB} />}
+      {(branchHasBus(b) || b.fees.some((f) => f.kind === "bus")) && <BusSetup b={b} setB={setB} />}
       <SaveRow dirty={dirty} onReset={reset} onSave={() => {
         const bad = b.fees.map((f) => validateFee(f)).find(Boolean) ?? (b.busRounds ?? []).map(validateBusRound).find(Boolean)
         return bad ? report({ ok: false, error: bad }, "") : save(tx("บันทึกค่าธรรมเนียมแล้ว"))

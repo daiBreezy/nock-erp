@@ -5,9 +5,11 @@ import Link from "next/link"
 import { CalendarIcon, CheckIcon, ClipboardListIcon, GraduationCapIcon, PencilIcon, XIcon } from "lucide-react"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL, canEditTogether } from "@/domain/rules/forms"
-import { matchExistingFamily, submissionChanges } from "@/domain/rules/people"
+import { BUS_USE_LABEL, matchExistingFamily, PDPA_LABEL, submissionChanges } from "@/domain/rules/people"
+import { suggestReferrers } from "@/domain/rules/referral"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { FormOfferSlot, FormSubmission } from "@/domain/types"
@@ -59,11 +61,17 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const knownFamily = families.find((f) => f.id === knownStudent?.familyId) ?? (newFamily ? undefined : matchedFamily) ?? undefined
   const changes = sub.status === "pending" ? submissionChanges(knownFamily, knownStudent, sub) : []
   const [applyChanges, setApplyChanges] = useState(true)
+  // owner 2026-11-19: "who told you about us" is free text — the system suggests the family, the admin confirms (or searches by hand)
+  const [referrerId, setReferrerId] = useState<string | null>(null)
+  const [refQuery, setRefQuery] = useState("")
+  const refText = (refQuery || sub.referral || "").trim()
+  const suggestions = sub.status === "pending" && refText ? suggestReferrers(refText, families, students, knownFamily?.id) : []
+  const referrer = families.find((f) => f.id === referrerId)
 
   const approve = async () => {
     setBusy(true)
     try {
-      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges, newFamily }), (v) => (v.createdLead ? "อนุมัติแล้ว + สร้าง Lead จากฟอร์ม — สร้างคาบเรียนจริงแล้ว" : changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว"))) onChanged()
+      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges, newFamily, referredByFamilyId: referrerId ?? undefined }), (v) => (v.createdLead ? "อนุมัติแล้ว + สร้าง Lead จากฟอร์ม — สร้างคาบเรียนจริงแล้ว" : changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว"))) onChanged()
     } finally {
       setBusy(false)
     }
@@ -124,7 +132,33 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
           </div>
         ))}
         {(sub.familyAddress || sub.familyPostcode) && <div>ที่อยู่: {[sub.familyAddress, sub.familyPostcode].filter(Boolean).join(" ")}</div>}
+        {sub.familyBusLeg && <div>รถรับส่ง: {BUS_USE_LABEL[sub.familyBusLeg]}</div>}
+        {sub.pdpa && <div>PDPA (ถ่ายภาพ): {PDPA_LABEL[sub.pdpa]}</div>}
       </div>
+
+      {sub.referral && (
+        <div className="mt-1.5 space-y-1.5 rounded-lg border bg-background p-2 text-xs">
+          <p><span className="text-muted-foreground">ใครแนะนำ (ผู้ปกครองพิมพ์):</span> <b>{sub.referral}</b></p>
+          {sub.status === "pending" ? (
+            <>
+              {referrer ? (
+                <p className="flex items-center gap-1.5"><CheckIcon className="size-3 text-success" /> ตรงกับ <b>{referrer.name}</b><Button variant="link" size="inline" type="button" onClick={() => setReferrerId(null)}>เปลี่ยน</Button></p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.map((x) => (
+                      <Button key={x.family.id} variant="chip" size="inline" type="button" className="px-2.5 py-1 text-xs" onClick={() => setReferrerId(x.family.id)}>{x.family.name}<span className="ml-1 text-muted-foreground">· {x.why}</span></Button>
+                    ))}
+                    {!suggestions.length && <span className="text-muted-foreground">ยังเดาไม่ได้ — ค้นหาเอง</span>}
+                  </div>
+                  <Input value={refQuery} onChange={(e) => setRefQuery(e.target.value)} placeholder="ค้นหาชื่อผู้ปกครอง / นักเรียน" className="h-8 text-xs" />
+                </>
+              )}
+              <p className="text-2xs text-muted-foreground">ครูของคอร์สที่ครอบครัวนั้นเรียนได้คะแนนคนละเท่าๆ กัน (รวม 1 คะแนน) เมื่อครอบครัวใหม่ชำระเงินแล้ว</p>
+            </>
+          ) : null}
+        </div>
+      )}
 
       <div className="mt-1.5 space-y-1">
         {sub.picks.map((pick, i) => (

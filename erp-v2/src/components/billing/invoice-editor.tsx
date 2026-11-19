@@ -5,7 +5,7 @@ import { COURSE_FORMAT_LABEL, packageLabel, priceUnitSuffix } from "@/domain/rul
 import { CoursePicker } from "./course-picker"
 import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
-import { brandUsesBus, busRate } from "@/domain/rules/settings"
+import { branchHasBus, busRate } from "@/domain/rules/settings"
 import { useState } from "react"
 import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
@@ -44,7 +44,7 @@ export type LineDraft = { id: string; courseId: string; classIds: string[]; star
 export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
   // NockAcademy has no bus service (owner 2026-11-05): no legs, no extra bus days, no Bus section
-  const busOn = brandUsesBus(branch.brand)
+  const busOn = branchHasBus(branch)
   const now = useNow(60_000)
   const today = toDateStr(now)
   const me = useStore((s) => s.userId)

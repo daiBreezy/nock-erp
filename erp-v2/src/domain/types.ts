@@ -205,6 +205,8 @@ export interface Branch {
   blockPlans?: { from: DateStr; byDay: DayBlocks }[]
   /** "this day only" changes on normal days */
   blockDays?: Record<DateStr, ClassBlock[]>
+  /** owner 2026-11-19: does this branch run a school bus? Unset = Liclass yes, NockAcademy no. Off hides every bus field and column */
+  busEnabled?: boolean
   /** fallback bus price per leg when no bus fee type is set in General Fees */
   busFeePerLeg: number
   /** the branch's own pin — bus distances are measured from here (owner 2026-10-16) */
@@ -660,6 +662,12 @@ export interface Family {
   addressNote?: string
   /** how the family found us (form "Acquisition" — several allowed) */
   sources?: LeadSource[]
+  /** owner 2026-11-19: what the parent typed for "who told you about us" — free text, the admin matches it to a family */
+  referralText?: string
+  /** the family the admin matched it to — the teachers of that family's courses earn the Ref point (1 point split equally, paid once the new family pays) */
+  referredByFamilyId?: ID
+  /** owner 2026-11-19 PDPA: may we photograph the children and use the pictures? Unset = never asked */
+  pdpa?: PdpaChoice
   /** one LINE link code for the whole family (siblings share it) */
   lineCode?: { code: string; expiresAt: string }
   /** real LINE Messaging API user id, once linked via Inbox (see linkConversationToFamily) — enables real delivery, not just the lineLinked simulation flag */
@@ -672,6 +680,11 @@ export interface Family {
 }
 
 export type Gender = "male" | "female"
+
+/** owner 2026-11-19: how a student uses the school bus — "ไม่ใช้" is simply no leg (usesBus = false) */
+export type BusUse = "pickup" | "dropoff" | "both"
+/** owner 2026-11-19 PDPA: may the school photograph the child and post / use the pictures? (asked once per family) */
+export type PdpaChoice = "allow" | "blur" | "deny"
 
 export interface Student {
   id: ID
@@ -692,6 +705,8 @@ export interface Student {
   /** profile photo (owner 2026-10-12) — small JPEG data URL in the prototype; unset = initial on a coloured circle */
   photo?: string
   usesBus: boolean
+  /** owner 2026-11-19: which legs the student rides — set with usesBus (unset on older students = both) */
+  busLeg?: BusUse
   birthDate?: DateStr
   school?: string
   /** the Ministry of Education school code when picked from the national list (owner 2026-10-07) — reports group
@@ -923,6 +938,23 @@ export interface EnrollPlan { course: EnrollCourseOption; periods: number; bus: 
 
 export interface EnrollClassOffer { id: ID; name: string; subjects: string[]; grades: string[]; weekday: Weekday; start: TimeStr; minutes: number; teacher?: string; seatsLeft: number }
 
+/** owner 2026-11-19: the invoice that travels WITH the enroll form — the parent opens one link, sees the invoice, pays and
+ *  attaches the slip. A copy (the parent's page has no ERP data); `status` flips to "void" when the admin voids the invoice
+ *  and issues a new one, so the old link says so instead of taking money for a dead invoice. */
+export interface EnrollInvoiceSnap {
+  invoiceId: ID
+  number: string
+  status: "open" | "void" | "paid"
+  studentNickname: string
+  /** `kind` = a fixed line the parent's page words in its own language (bus, discount …); no kind = the name as written (course, fee) */
+  items: { name: string; amount: number; kind?: "bus" | "book" | "discount" | "credit" | "rounding" | "other" }[]
+  total: number
+  /** what is still to pay */
+  owed: number
+  bank: { bank: string; name: string; number: string }
+  promptPayId?: string
+}
+
 /** The link: a reusable one per branch (LINE Rich Menu) or a one-time one an admin sends to a lead. */
 export interface EnrollToken {
   token: string
@@ -931,6 +963,8 @@ export interface EnrollToken {
   branchId: ID
   branchName: string
   brand: Brand
+  /** the branch runs a bus (Settings) */
+  bus?: boolean
   lang: FormLang
   grades: string[]
   subjects: string[]
@@ -940,6 +974,8 @@ export interface EnrollToken {
    *  subjects / courses / packages */
   classOffers?: EnrollClassOffer[]
   plan?: EnrollPlan
+  /** owner 2026-11-19: the invoice sent together with this form */
+  invoice?: EnrollInvoiceSnap
   /** set when an admin sent it to a lead */
   leadId?: ID
   conversationId: ID | null
@@ -989,6 +1025,14 @@ export interface EnrollSubmission {
   familyLocation?: { lat: number; lng: number }
   familyAddressNote?: string
   acquisitions?: LeadSource[]
+  /** owner 2026-11-19: "Bus use?" (family-level: every child on this form rides the same legs; unset = no bus) */
+  familyBusLeg?: BusUse
+  /** free text: who told them about us */
+  referral?: string
+  pdpa?: PdpaChoice
+  /** owner 2026-11-19: paid through the form — the invoice it was for + the pay slip (downscaled JPEG data URL) */
+  invoiceId?: ID
+  slip?: string
   taxInfo?: { customerName: string; taxId: string; address: string }
   /** the family name the parent typed (optional — empty = "ครอบครัว" + the main parent's surname) */
   familyName?: string
@@ -1575,6 +1619,8 @@ export interface FormToken {
   grades: string[]
   /** shown in the form header */
   branchName?: string
+  /** owner 2026-11-19: the branch runs a bus (Settings) → the form asks "Bus use?" */
+  bus?: boolean
   /** Liclass runs a school bus → its form asks for the address + map pin; NockAcademy doesn't */
   brand?: Brand
   /** default language (Settings) — parent can switch */
@@ -1621,6 +1667,9 @@ export interface FormPrefill {
   location?: { lat: number; lng: number }
   addressNote?: string
   acquisitions?: LeadSource[]
+  /** answers we already have (owner 2026-11-19) — shown, not asked again */
+  referral?: string
+  pdpa?: PdpaChoice
   taxInfo?: { customerName: string; taxId: string; address: string }
   familyName?: string
   familyNameEn?: string
@@ -1673,6 +1722,11 @@ export interface FormSubmission {
   familyLocation?: { lat: number; lng: number }
   familyAddressNote?: string
   acquisitions?: LeadSource[]
+  /** owner 2026-11-19: "Bus use?" (family-level: every child on this form rides the same legs; unset = no bus) */
+  familyBusLeg?: BusUse
+  /** free text: who told them about us */
+  referral?: string
+  pdpa?: PdpaChoice
   taxInfo?: { customerName: string; taxId: string; address: string }
   studentName: string
   studentNickname?: string

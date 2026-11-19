@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { navBadges } from "@/domain/rules/badges"
+import { branchHasBus } from "@/domain/rules/settings"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
 import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
@@ -144,7 +145,7 @@ function Shell({ children }: { children: ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           {NAV.map((g, gi) => {
-            const items = g.items.filter((i) => canAny(me, i.perm)) // G1: hide what the role can't use
+            const items = g.items.filter((i) => canAny(me, i.perm) && (i.href !== "/transport" || branchHasBus(branch))) // G1: hide what the role can't use · no bus at this branch = no Bus menu (owner 2026-11-19)
             if (!items.length) return null
             return (
               <Fragment key={g.group}>

@@ -27,6 +27,7 @@ import { withTransportDemo } from "./transport-demo"
 import { keepLineLinks, restoreLinks, withoutLineLink } from "./keep-line-links"
 import { createIdbStorage } from "./idb-storage"
 import * as Sum from "@/domain/rules/summaries"
+import * as Ref from "@/domain/rules/referral"
 import * as People from "@/domain/rules/people"
 import * as Forms from "@/domain/rules/forms"
 import * as CourseR from "@/domain/rules/course"
@@ -298,6 +299,10 @@ type Store = DB & UIState & {
   recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string; slip?: string; remark?: string }) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
+  /** owner 2026-11-19: Referral points already paid out (1 point per referred family, shared by the referrer's teachers) */
+  referralAwards: Ref.RefAward[]
+  /** the admin's match of what the parent typed in "who told you about us" — null clears it */
+  setFamilyReferrer: (familyId: ID, referrerFamilyId: ID | null) => Result
   /** one slip for several invoices of the same family — confirming any of them confirms the whole slip */
   recordGroupPayment: (invoiceIds: ID[], p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string; receiptMode?: "combined" | "separate" }) => Result
   /** which invoices paid with one slip share one receipt (the rest get their own) */
@@ -625,6 +630,12 @@ export const useStore = create<Store>()(
             set((cur) => ({ leads: cur.leads.map((l) => (l.id === lead.id ? { ...l, stage: "enrolled", convertedStudentId: inv.studentId } : l)) }))
             log("profile", [inv.studentId], "ลงทะเบียนเป็นนักเรียน", `อัตโนมัติจากการยืนยันยอด ${inv.number} · Lead ${lead.name}`, true)
           }
+          // owner 2026-11-19: the family just paid — if a referrer was matched, the referrer's teachers earn the point (once per family)
+          {
+            const st = get(), fid = st.students.find((x) => x.id === inv.studentId)?.familyId
+            const aw = fid ? Ref.awardFor(fid, st.families, st.students, st.classes, st.referralAwards, uid("ra"), st.now().toISOString()) : null
+            if (aw) { set((cur) => ({ referralAwards: [...cur.referralAwards, aw] })); log("billing", [inv.studentId], "คะแนน Referral", `${aw.teacherIds.length} ครู · คนละ ${aw.share.toFixed(2)} คะแนน`) }
+          }
         }
         return { ok: true, value: { paid } }
       }
@@ -648,6 +659,7 @@ export const useStore = create<Store>()(
       userId: "u_nock",
       branchId: "br_thl",
       clockOffset: 0,
+      referralAwards: [],
 
       now: () => new Date(Date.now() + get().clockOffset),
       // roles / subjects of the branch picked in the top bar (owner 2026-10-09) — cached so selectors stay stable
@@ -3025,6 +3037,15 @@ export const useStore = create<Store>()(
         return { ok: true, value: { paid } }
       },
 
+      setFamilyReferrer: (familyId, referrerFamilyId) => {
+        const s = get()
+        if (!s.families.some((f) => f.id === familyId)) return fail("ไม่พบครอบครัว")
+        if (referrerFamilyId === familyId) return fail("ครอบครัวเดียวกันแนะนำตัวเองไม่ได้")
+        if (referrerFamilyId && !s.families.some((f) => f.id === referrerFamilyId)) return fail("ไม่พบครอบครัวที่แนะนำ")
+        set({ families: s.families.map((f) => (f.id === familyId ? { ...f, referredByFamilyId: referrerFamilyId ?? undefined } : f)) })
+        return { ok: true, value: undefined }
+      },
+
       recordGroupPayment: (invoiceIds, p) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
@@ -3393,7 +3414,7 @@ export const useStore = create<Store>()(
         // same family when the LINE account or any parent phone is already on file (siblings, returning families)
         // owner 2026-10-29: the system suggests the match, the admin decides (opts.newFamily = keep them apart)
         const matched = opts?.newFamily ? null : People.matchExistingFamily(s.families, { lineUserId: sub.lineUserId, phones: sub.parents.map((p) => p.phone) })
-        const family = matched ?? People.familyFromSubmission(sub.children[0].name, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, addressParts: sub.familyAddressParts, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, sub.lineUserId, uid("fam"))
+        const family = matched ?? People.familyFromSubmission(sub.children[0].name, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, addressParts: sub.familyAddressParts, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo, referralText: sub.referral, pdpa: sub.pdpa }, sub.lineUserId, uid("fam"))
         const parent = sub.parents.find((p) => p.primary) ?? sub.parents[0]
         const students: Student[] = [], leads: Lead[] = [], invoices: Invoice[] = [], stuIds: ID[] = []
         let leadsNow = s.leads
@@ -3405,7 +3426,7 @@ export const useStore = create<Store>()(
           if (course && !p.classIds?.length) return fail(`เลือกคลาสให้ ${child.nickname || child.name}`)
           const known = s.students.find((x) => x.familyId === family.id && x.name.trim() === child.name.trim())
           const note = [child.note, child.placement ? "ผู้ปกครองขอให้ครูประเมินระดับในคาบแรก (ไม่ได้สอบวัดระดับ)" : ""].filter(Boolean).join(" · ")
-          const stu: Student = known ?? { id: uid("stu"), familyId: family.id, branchId: branch.id, name: child.name, nickname: child.nickname || People.nicknameFrom(child.name), grade: child.grade, usesBus: child.bus,
+          const stu: Student = known ?? { id: uid("stu"), familyId: family.id, branchId: branch.id, name: child.name, nickname: child.nickname || People.nicknameFrom(child.name), grade: child.grade, usesBus: child.bus, busLeg: child.bus ? child.busLeg ?? "both" : undefined,
             nameEn: child.nameEn?.trim() || undefined, nicknameEn: child.nicknameEn?.trim() || undefined, gender: child.gender, schoolId: child.schoolId,
             birthDate: child.birthDate, school: child.school, note: note || undefined, createdAt: now.toISOString(), createdBranchId: branch.id }
           if (!known) {
@@ -3604,7 +3625,7 @@ export const useStore = create<Store>()(
             id: uid("stu"), familyId: null, branchId: lead.branchId,
             name: sub.studentName, nickname: sub.studentNickname?.trim() || People.nicknameFrom(sub.studentName),
             nameEn: sub.studentNameEn?.trim() || undefined, nicknameEn: sub.studentNicknameEn?.trim() || undefined, gender: sub.studentGender, schoolId: sub.studentSchoolId,
-            grade: sub.studentGrade, usesBus: false, birthDate: sub.studentBirthDate, school: sub.studentSchool?.trim() || undefined, note: sub.studentNote,
+            grade: sub.studentGrade, usesBus: !!sub.familyBusLeg, busLeg: sub.familyBusLeg, birthDate: sub.studentBirthDate, school: sub.studentSchool?.trim() || undefined, note: sub.studentNote,
             createdAt: s.now().toISOString(), createdBranchId: lead.branchId,
           }
           const errs = People.validateStudent(student, toDateStr(s.now()))
@@ -3615,7 +3636,7 @@ export const useStore = create<Store>()(
           // overwrites what's on file, staff review any differences before this point (SubmissionReviewCard)
           // owner 2026-10-29: the system suggests the match, the admin decides (opts.newFamily = keep them apart)
           const matched = opts?.newFamily ? null : People.matchExistingFamily(s.families, { lineUserId: lead.lineUserId, phones: sub.parents.map((p) => p.phone) })
-          const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, addressParts: sub.familyAddressParts, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo }, lead.lineUserId, uid("fam"))
+          const family = matched ?? People.familyFromSubmission(sub.studentName, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, addressParts: sub.familyAddressParts, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo, referralText: sub.referral, pdpa: sub.pdpa }, lead.lineUserId, uid("fam"))
           set((cur) => ({
             families: matched ? cur.families : [...cur.families, family],
             conversations: cur.conversations.map((c) => (c.leadId === leadId || (lead!.lineUserId && c.id === `line_${lead!.lineUserId}`) ? { ...c, familyId: family.id } : c)),

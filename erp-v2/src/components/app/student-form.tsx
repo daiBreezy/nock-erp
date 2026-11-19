@@ -2,18 +2,18 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { endTime, fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { sessionState, subjectsOf } from "@/domain/rules/scheduling"
 import { subjectColor } from "./subject-color"
 import { cn } from "@/lib/utils"
-import { findStudentDuplicates, validateStudent, type DuplicateHit } from "@/domain/rules/people"
+import { BUS_USE_LABEL, busUseOf, findStudentDuplicates, validateStudent, type DuplicateHit } from "@/domain/rules/people"
+import { branchHasBus } from "@/domain/rules/settings"
 import { DuplicateDialog } from "./duplicate-dialog"
 import { gradeTone } from "./subject-color"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { NativeSelect } from "./native-select"
-import type { Klass, LeadSource, Student } from "@/domain/types"
+import type { BusUse, Klass, LeadSource, Student } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { useBranch, useNow } from "@/lib/hooks"
@@ -46,7 +46,7 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
   const today = toDateStr(useNow(60_000))
   const [base] = useState<Student>(() => student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false, createdAt: new Date().toISOString(), createdBranchId: branch.id })
   const [d, setD] = useState<StudentDraft>(() => (student ? studentDraftOf(student) : emptyStudentDraft()))
-  const [staffOnly, setStaffOnly] = useState<{ familyId: string | null; usesBus: boolean; source?: LeadSource }>({ familyId: base.familyId, usesBus: base.usesBus, source: base.source })
+  const [staffOnly, setStaffOnly] = useState<{ familyId: string | null; usesBus: boolean; busLeg?: BusUse; source?: LeadSource }>({ familyId: base.familyId, usesBus: base.usesBus, busLeg: base.busLeg, source: base.source })
   const [touched, setTouched] = useState(false)
   const [pickingFamily, setPickingFamily] = useState(false)
   const f: Student = { ...base, ...studentInputOf(d), ...staffOnly }
@@ -133,9 +133,13 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
                 teacherName={(id) => staff.find((t) => t.id === id)?.nickname ?? "ยังไม่มีครู"} hasNext={(id) => !!nextSession(id)} />
             </Field>
           )}
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={staffOnly.usesBus} onCheckedChange={(v) => setStaffOnly((x) => ({ ...x, usesBus: !!v }))} /> ใช้รถรับส่ง (ใบแจ้งหนี้จะติ๊กค่ารถให้อัตโนมัติ)
-          </label>
+          {/* owner 2026-11-19: 4 types, only where the branch runs a bus — the invoice ticks the bus fee from it */}
+          {branchHasBus(branch) && (
+            <Field label="รถรับส่ง">
+              <NativeSelect value={busUseOf(staffOnly)} onChange={(e) => { const v = e.target.value as BusUse | "none"; setStaffOnly((x) => ({ ...x, usesBus: v !== "none", busLeg: v === "none" ? undefined : v })) }}
+                options={(["none", "pickup", "dropoff", "both"] as const).map((k) => ({ value: k, label: BUS_USE_LABEL[k] }))} />
+            </Field>
+          )}
         </div>
       {dupes && (
         <DuplicateDialog title="พบนักเรียนที่อาจซ้ำ" description="ระบบพบนักเรียนที่อาจเป็นคนเดียวกัน — ถ้าใช่ ให้รวมกับรายชื่อเดิม ถ้าไม่ใช่ ให้เพิ่มเป็นนักเรียนใหม่" hits={dupes} mergeLabel="รวม — ใช้รายชื่อนี้" newLabel="ไม่ใช่ — เพิ่มเป็นนักเรียนใหม่"

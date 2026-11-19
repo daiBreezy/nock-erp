@@ -32,7 +32,8 @@ import { courseSeats } from "./course"
 import * as Rep from "./reports"
 import * as Loss from "./loss"
 import * as Survey from "./survey"
-import { courseSummaryMessage, summaryMessage } from "./messages"
+import { courseSummaryMessage, formLinkMessage, summaryMessage } from "./messages"
+import { awardFor, pointsByTeacher, suggestReferrers } from "./referral"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -1533,7 +1534,7 @@ describe("sheet rows 56 + 60 (retroactive invoice, course summary after payment)
   })
 })
 
-describe("parent message language (owner 2026-11-09): Liclass = Japanese + English, NockAcademy = Thai + English", () => {
+describe("parent message language (owner 2026-11-19): Liclass = Japanese, NockAcademy = Thai", () => {
   const k = klass({ id: "k1", weekday: 2 })
   const inv: Invoice = {
     id: "i", branchId: "b1", studentId: "a", number: "INV-1", lines: [{ id: "l", courseId: "c1", classIds: ["k1"], startDate: "2026-10-20", periods: 1 }],
@@ -1561,9 +1562,9 @@ describe("parent message language (owner 2026-11-09): Liclass = Japanese + Engli
       receiptMessage({ ...inv, receiptNumber: "RC-1" }, t.total, { student: { ...stu, name: "Pum", nickname: "Pum" }, totals: t, branch: bank }),
       voidMessage(inv, { student: { ...stu, name: "Pum", nickname: "Pum" }, brand: "liclass" }),
       familyReceiptMessage("RC-1", [{ number: "INV-1", total: 100, student: { nickname: "Pum" } }], "liclass"),
-    ]) { expect(text).not.toMatch(thai); expect(text).toMatch(/[\u3040-\u30FF]/); if (!text.startsWith("📄 ご請求書")) expect(text).toMatch(/Invoice|Receipt|cancelled|received/) } // the invoice is Japanese only
+    ]) { expect(text).not.toMatch(thai); expect(text).toMatch(/[\u3040-\u30FF]/); expect(text).not.toContain("———") } // every parent message is Japanese only now (owner 2026-11-19: LI = JP, NA = TH)
   })
-  it("NockAcademy: Thai + English, no Japanese", () => {
+  it("NockAcademy: Thai only, no Japanese", () => {
     const { b, t } = lang("nockacademy")
     const text = invoiceMessage(inv, t, { student: stu, branch: b })
     expect(text).toMatch(thai); expect(text).not.toMatch(/[\u3040-\u30FF]/) // Thai only now — see the one-language test above
@@ -3521,5 +3522,37 @@ describe("test/trial session panel", () => {
     expect(isAssessmentSession("s1", ["a", "b"], [a("s1", "a")])).toBe(false)
     expect(isAssessmentSession("s1", ["a"], [a("s2", "a")])).toBe(false)
     expect(isAssessmentSession("s1", [], [])).toBe(false)
+  })
+})
+
+describe("every parent notice is ONE language per brand (owner 2026-11-19)", () => {
+  it("Liclass notices are Japanese only, NockAcademy notices Thai only — no second language, no divider", () => {
+    const thai = /[฀-฾เ-๿]/
+    const li = formLinkMessage("liclass", "trial", ["คณิต"], "https://x"), na = formLinkMessage("nockacademy", "trial", ["คณิต"], "https://x")
+    expect(li).toMatch(/[぀-ヿ]/); expect(li).not.toMatch(thai); expect(li).not.toContain("———")
+    expect(na).toMatch(thai); expect(na).not.toMatch(/[぀-ヿ]/); expect(na).not.toContain("———")
+  })
+})
+
+describe("Referral (owner 2026-11-19)", () => {
+  const fam = (id: string, name: string, parent: string): Family => ({ id, name, parents: [{ name: parent, phone: "0811111111", primary: true, lineLinked: false }] } as Family)
+  const stuOf = (id: string, familyId: string, nick: string): Student => ({ id, familyId, branchId: "b1", name: nick, nickname: nick, grade: "ป.5", usesBus: false, createdAt: "", createdBranchId: "b1" } as Student)
+  it("suggests the family from a half-remembered parent or student name, best first", () => {
+    const fams = [fam("f1", "ครอบครัวสุขใจ", "สมชาย สุขใจ"), fam("f2", "ครอบครัวใจดี", "มานี ใจดี")]
+    const stus = [stuOf("s1", "f1", "ภูมิ"), stuOf("s2", "f2", "ใบเตย")]
+    expect(suggestReferrers("ใบเตย", fams, stus).map((x) => x.family.id)).toEqual(["f2"])
+    expect(suggestReferrers("คุณสมชาย", fams, stus)[0].family.id).toBe("f1")
+    expect(suggestReferrers("", fams, stus)).toEqual([])
+    expect(suggestReferrers("ภูมิ", fams, stus, "f1")).toEqual([]) // never the family itself
+  })
+  it("1 point is shared equally by the referrer's teachers, each counted once, and paid only once per family", () => {
+    const fams = [{ ...fam("f1", "A", "a"), }, { ...fam("f2", "B", "b"), referredByFamilyId: "f1" }]
+    const stus = [stuOf("s1", "f1", "x"), stuOf("s3", "f1", "y")]
+    const ks = [{ id: "k1", teacherId: "t1", coTeacherIds: ["t2"], studentIds: ["s1"] }, { id: "k2", teacherId: "t3", coTeacherIds: [], studentIds: ["s3"] }, { id: "k3", teacherId: "t1", coTeacherIds: [], studentIds: ["s3"] }] as unknown as Klass[]
+    const a = awardFor("f2", fams, stus, ks, [], "ra1", "2026-11-19")!
+    expect(a.teacherIds.sort()).toEqual(["t1", "t2", "t3"])
+    expect(a.share).toBeCloseTo(1 / 3)
+    expect(awardFor("f2", fams, stus, ks, [a], "ra2", "x")).toBeNull()
+    expect(pointsByTeacher([a]).get("t1")).toBeCloseTo(1 / 3)
   })
 })

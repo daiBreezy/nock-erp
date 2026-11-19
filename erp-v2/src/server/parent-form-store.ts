@@ -136,6 +136,15 @@ export function submitEnroll(token: string, input: Omit<EnrollSubmission, "id" |
   })
 }
 
+/** the admin voided / the family paid this invoice: every enroll link carrying it follows (the form then says so) */
+export function setEnrollInvoiceStatus(invoiceId: string, status: "void" | "paid" | "open") {
+  return mutateEnroll((s) => {
+    let n = 0
+    for (const t of s.tokens) if (t.invoice?.invoiceId === invoiceId) { t.invoice.status = status; n++ }
+    return n
+  })
+}
+
 export async function listEnrollSubmissions() {
   return (await readEnroll()).submissions
 }

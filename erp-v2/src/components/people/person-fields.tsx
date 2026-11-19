@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { romanizeName } from "@/domain/rules/romanize"
 import { addressPartsOf, composeAddress } from "@/domain/rules/address"
 import { joinName, splitName } from "@/domain/rules/people"
-import type { AddressParts, FormParentInput, Gender, LeadSource } from "@/domain/types"
+import type { AddressParts, BusUse, FormParentInput, Gender, LeadSource, PdpaChoice } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 export type FieldsDict = (typeof DICT)["th"]
@@ -38,13 +38,15 @@ export interface FamilyDraft {
   name: string; nameEn: string; acquisitions: LeadSource[]
   address: string; parts: AddressParts; province: string; postcode: string; location?: { lat: number; lng: number }; addressNote: string
   wantTax: boolean; tax: { customerName: string; taxId: string; address: string }
+  /** owner 2026-11-19 (parent form): "Bus use?" — ticked = the location block shows + one of the legs · referral = free text · pdpa = photo consent */
+  busUse: boolean; busLeg: BusUse; referral: string; pdpa: PdpaChoice | ""
 }
 
 export const emptyParentDraft = (name = ""): ParentDraft => ({ ...splitName(name), nameEn: "", phones: [""], email: "", rel: "", birthDate: "" })
 export const emptyStudentDraft = (grade = ""): StudentDraft => ({ first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", note: "" })
 export { addressPartsOf }
 
-export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", parts: {}, province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" } })
+export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", parts: {}, province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" }, busUse: false, busLeg: "both", referral: "", pdpa: "" })
 
 /** a stored parent (family on file or a form answer) → the fields */
 export function parentDraftOf(p: { name: string; nameEn?: string; phone: string; altPhones?: string[]; email?: string; relationship?: string; birthDate?: string }): ParentDraft {
@@ -115,8 +117,12 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
   )
 }
 
-export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, hideName }: {
+export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, hideName, busOffered, extras }: {
   t: FieldsDict; value: FamilyDraft; onChange: (patch: Partial<FamilyDraft>) => void; parentLast: string; errors?: Errors
+  /** owner 2026-11-19: the branch runs a bus → "Bus use?" decides whether the location block shows (no bus = the address block is always there) */
+  busOffered?: boolean
+  /** the parent's form only: who told you about us (free text) + the PDPA photo question */
+  extras?: boolean
   /** the parent's form (owner 2026-11-18): the family is named after the parent's surname, so nobody is asked for it — the admin panels still show it */
   hideName?: boolean
 }) {
@@ -131,9 +137,41 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
       <Group title={t.acquisition} sub={t.acquisitionSub} first={hideName}>
         <MultiPick value={f.acquisitions} onChange={(acquisitions) => onChange({ acquisitions })} placeholder={t.select} options={SOURCE_KEYS.map((k) => ({ value: k, label: t.src[k] }))} />
       </Group>
-      <Group title={optional(t, t.address)} sub={t.pinSub}>
-        <AddressFields t={t} value={f} onChange={onChange} errors={errors} />
-      </Group>
+      {extras && (
+        <Group title={t.referral}>
+          <Input value={f.referral} placeholder={t.referralPh} onChange={(e) => onChange({ referral: e.target.value })} />
+        </Group>
+      )}
+      {busOffered && (
+        <Group>
+          <label className="flex items-start gap-2 text-sm"><Checkbox checked={f.busUse} onCheckedChange={(v) => onChange({ busUse: !!v })} className="mt-0.5" /><span><span className="font-semibold">{t.busUse}</span><span className="block text-xs text-muted-foreground">{t.busUseSub}</span></span></label>
+          {f.busUse && (
+            <div className="flex flex-wrap gap-1.5 pl-6">
+              {(["pickup", "dropoff", "both"] as const).map((k) => (
+                <Button variant="chip" size="inline" key={k} type="button" aria-pressed={f.busLeg === k} onClick={() => onChange({ busLeg: k })} className="px-3 py-1.5 text-sm">{t.busLeg[k]}</Button>
+              ))}
+            </div>
+          )}
+        </Group>
+      )}
+      {(!busOffered || f.busUse) && (
+        <Group title={optional(t, t.address)} sub={t.pinSub}>
+          <AddressFields t={t} value={f} onChange={onChange} errors={errors} />
+        </Group>
+      )}
+      {extras && (
+        <Group title={t.pdpaTitle} sub={t.pdpaSub}>
+          <div className="space-y-1.5">
+            {(["allow", "blur", "deny"] as const).map((k) => (
+              <Button variant="row" size="inline" key={k} type="button" aria-pressed={f.pdpa === k} onClick={() => onChange({ pdpa: k })}
+                className={cn("flex w-full items-start gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm", f.pdpa === k ? "border-primary bg-primary/10" : "hover:bg-muted")}>
+                <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border", f.pdpa === k && "border-primary bg-primary text-primary-foreground")}>{f.pdpa === k && <CheckIcon className="size-3.5" />}</span>
+                <span className="min-w-0 flex-1">{t.pdpa[k]}</span>
+              </Button>
+            ))}
+          </div>
+        </Group>
+      )}
       {/* the checkbox's own label is this group's heading — no second title above it */}
       <Group>
         <label className="flex items-start gap-2 text-sm"><Checkbox checked={f.wantTax} onCheckedChange={(v) => onChange({ wantTax: !!v })} className="mt-0.5" /><span><span className="font-semibold">{t.tax}</span><span className="block text-xs text-muted-foreground">{t.taxSub}</span></span></label>
