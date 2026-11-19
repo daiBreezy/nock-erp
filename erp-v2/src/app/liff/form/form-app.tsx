@@ -33,10 +33,10 @@ type StudentBlock = StudentDraft & { key: string; activeSubjects: string[]; chos
 interface EnrollInfo { courses: EnrollCourseOption[]; subjects: string[]; busOffered: boolean; classOffers?: EnrollClassOffer[]; plan?: EnrollPlan }
 
 let seq = 0
-const emptyParent = (name = ""): ParentBlock => ({ ...emptyParentDraft(name), editing: true })
+const emptyParent = (name = "", sf = false): ParentBlock => ({ ...emptyParentDraft(name, sf), editing: true })
 const emptyEnroll = (): EnrollFieldsValue => ({ subjects: [], courseIds: [], pkg: "month", times: [], startDate: "", bus: false, placement: true, classIds: [] })
 /** the subjects are the ones the admin offered from the chat (owner 2026-11-18) — every child starts with all of them, the parent only picks a time */
-const emptyStudent = (grade: string, subjects: string[] = []): StudentBlock => ({ ...emptyStudentDraft(grade), key: `st${seq++}`, activeSubjects: subjects, chosen: {}, editing: true, enroll: emptyEnroll() })
+const emptyStudent = (grade: string, subjects: string[] = [], sf = false): StudentBlock => ({ ...emptyStudentDraft(grade, sf), key: `st${seq++}`, activeSubjects: subjects, chosen: {}, editing: true, enroll: emptyEnroll() })
 const fullName = joinName
 /** the one visit a child's picks make up: same date+start for every subject, 2 h when 2+ subjects */
 const visitOf = (s: Pick<StudentBlock, "chosen">) => {
@@ -108,9 +108,9 @@ export function LiffForm() {
   const names: Names = { subject: (x) => subjectLabel(x, lang, subjectNames), grade: (g) => gradeLabel(g, lang) }
 
   /** what we already know → cards the parent only checks (owner 2026-09-29: never type it twice) */
-  const applyPrefill = (p: FormPrefill | null, gradeList: string[], offerList: FormSubjectOffer[], lineName: string) => {
+  const applyPrefill = (p: FormPrefill | null, gradeList: string[], offerList: FormSubjectOffer[], lineName: string, sf = false) => {
     if (p?.parents.length) {
-      setParents(p.parents.map((x) => ({ ...parentDraftOf(x), editing: false })))
+      setParents(p.parents.map((x) => ({ ...parentDraftOf(x, sf), editing: false })))
       setPrimaryIdx(Math.max(0, p.parents.findIndex((x) => x.primary)))
       setFam({
         ...emptyFamilyDraft(), referral: p.referral ?? "", pdpa: p.pdpa ?? "",
@@ -119,11 +119,11 @@ export function LiffForm() {
         wantTax: !!p.taxInfo, tax: p.taxInfo ?? { customerName: "", taxId: "", address: "" },
       })
       setKnown(true)
-    } else setParents([emptyParent(lineName)])
+    } else setParents([emptyParent(lineName, sf)])
     const subjects = offerList.map((o) => o.subject)
     setStudents(p?.students.length
-      ? p.students.map((s) => ({ ...emptyStudent(s.grade, subjects), ...studentDraftOf(s), editing: false }))
-      : [emptyStudent(p?.childGrade ?? "", subjects)])
+      ? p.students.map((s) => ({ ...emptyStudent(s.grade, subjects, sf), ...studentDraftOf(s, sf), editing: false }))
+      : [emptyStudent(p?.childGrade ?? "", subjects, sf)])
   }
 
   useEffect(() => {
@@ -168,7 +168,7 @@ export function LiffForm() {
         setEnroll({ courses: tk.courses, subjects: tk.subjects, busOffered: false, classOffers: tk.classOffers, plan: tk.plan })
         setGrades(tk.grades); setBranchName(tk.branchName); setBrandId(tk.brand); setSubjectNames(tk.subjectNames ?? {})
         if (!params.get("lang")) setLang(brandLang(tk.brand))
-        applyPrefill(tk.prefill ?? (previewEnroll ? previewData("trial").prefill : null), tk.grades, [], "")
+        applyPrefill(tk.prefill ?? (previewEnroll ? previewData("trial").prefill : null), tk.grades, [], "", tk.brand === "liclass")
         if (previewEnroll) setStudents((ss) => ss.map((st) => ({ ...st, enroll: { ...emptyEnroll(), classIds: ["k1", "k3"], startDate: addDays(toDateStr(new Date()), 7) } })))
         setPhase("ready")
         return
@@ -180,7 +180,7 @@ export function LiffForm() {
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
         setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ"); setBrandId(b); setBusOffered(b === "liclass")
         if (!params.get("lang")) setLang(brandLang(b))
-        applyPrefill(d.prefill, d.grades, d.offers, "")
+        applyPrefill(d.prefill, d.grades, d.offers, "", b === "liclass")
         // and a time already picked for each subject they're interested in
         setStudents((ss) => ss.map((st) => ({ ...st, chosen: Object.fromEntries(st.activeSubjects.map((sub) => [sub, d.offers.find((o) => o.subject === sub)!.slots[1]])) })))
         setPhase("ready")
@@ -210,7 +210,7 @@ export function LiffForm() {
         if (!data.offers?.length) { setError("ยังไม่มีช่วงเวลาให้เลือก — ติดต่อสถาบันโดยตรง"); setPhase("invalid"); return }
         setFormType(data.type); setOffers(data.offers); setGrades(data.grades ?? []); setBranchName(data.branchName ?? ""); if (data.brand) setBrandId(data.brand); setBusOffered(data.bus ?? data.brand === "liclass"); setSourceOptions(data.sources); setSubjectNames(data.subjectNames ?? {}); setSeparate(data.visit === "separate")
         if (!params.get("lang")) setLang(brandLang(data.brand ?? brandId))
-        applyPrefill(data.prefill, data.grades ?? [], data.offers, profile.displayName)
+        applyPrefill(data.prefill, data.grades ?? [], data.offers, profile.displayName, data.brand === "liclass")
         setPhase("ready")
       } catch (e) {
         if (cancelled) return
@@ -295,7 +295,7 @@ export function LiffForm() {
   return (
     <BrandScope brand={brandId} className="min-h-screen bg-background pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-lg space-y-4 p-4">
-        <ShrinkHeader brand={brandId} className="-mx-4 -mt-4" title={enroll ? te.title : t.formTitle(formType)} subtitle={`${brandName}${branchName ? ` · ${branchName}` : ""}`} lang={lang} onLang={preview ? undefined : setLang} />
+        <ShrinkHeader className="-mx-4 -mt-4" title={enroll ? te.title : t.formTitle(formType)} subtitle={`${brandName}${branchName ? ` · ${branchName}` : ""}`} lang={lang} onLang={setLang} />
         {invoice?.status === "void" && phase !== "done" && <p className="flex items-center gap-2 rounded-2xl bg-danger-soft px-3 py-2.5 text-sm text-danger-ink"><XCircleIcon className="size-4 shrink-0" />{te.invoiceVoid}</p>}
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-success-soft px-3 py-2.5 text-sm text-success-ink"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
 
@@ -317,7 +317,7 @@ export function LiffForm() {
 
         {phase === "done" ? summary : step === "parent" ? (
           <section className="space-y-3">
-            <SectionHead icon={UsersIcon} title={t.parentTitle} sub={t.parentSub} action={<Button size="sm" variant="secondary" onClick={() => setParents((ps) => [...ps, emptyParent()])}><PlusIcon /> {t.addParent}</Button>} />
+            <SectionHead icon={UsersIcon} title={t.parentTitle} sub={t.parentSub} action={<Button size="sm" variant="secondary" onClick={() => setParents((ps) => [...ps, emptyParent("", brandId === "liclass")])}><PlusIcon /> {t.addParent}</Button>} />
             {known && <p className="text-xs text-muted-foreground">{t.known}</p>}
             {parents.map((p, i) => p.editing ? (
               <Card key={i}>
@@ -343,7 +343,7 @@ export function LiffForm() {
           </section>
         ) : step === "student" ? (
           <section className="space-y-3">
-            <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={enroll ? te.studentSub : t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent("", offers.map((o) => o.subject))])}><PlusIcon /> {t.addStudent}</Button>} />
+            <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={enroll ? te.studentSub : t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent("", offers.map((o) => o.subject), brandId === "liclass")])}><PlusIcon /> {t.addStudent}</Button>} />
             {students.map((s, i) => (
               <StudentCard key={s.key} lastPh={parentLast} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll} separate={separate}
                 onChange={(patch) => setStudent(s.key, patch)} onRemove={students.length > 1 ? () => setStudents((ss) => ss.filter((x) => x.key !== s.key)) : undefined} />

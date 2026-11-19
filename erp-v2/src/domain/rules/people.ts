@@ -115,12 +115,15 @@ function nameParts(full: string) {
 }
 
 /** owner 2026-10-15: names are typed as first name + surname (form and admin alike) — "สุดา ใจดี" → { first: "สุดา", last: "ใจดี" } */
-export function splitName(full = ""): { first: string; last: string } {
+export function splitName(full = "", surnameFirst = false): { first: string; last: string } {
   const t = full.trim().split(/\s+/).filter(Boolean)
+  // owner 2026-11-19: Liclass is a Japanese school — a name is written SURNAME first, then the given name
+  if (surnameFirst) return t.length > 1 ? { last: t[0], first: t.slice(1).join(" ") } : { first: t[0] ?? "", last: "" }
   return t.length > 1 ? { first: t.slice(0, -1).join(" "), last: t[t.length - 1] } : { first: t[0] ?? "", last: "" }
 }
 
-export const joinName = (x: { first: string; last: string }) => `${x.first.trim()} ${x.last.trim()}`.trim()
+/** `sf` = surname first (Liclass): "Sato Taro" — otherwise "Taro Sato" as Thai names go */
+export const joinName = (x: { first: string; last: string; sf?: boolean }) => (x.sf ? `${x.last.trim()} ${x.first.trim()}` : `${x.first.trim()} ${x.last.trim()}`).trim()
 
 /** owner 2026-10-15: the family is named after the main parent's surname ("ใจดี" → "ครอบครัวใจดี") unless someone typed a name */
 export function familyNameFor(typed: string | undefined, parentLastName: string | undefined): string {

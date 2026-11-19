@@ -18,11 +18,9 @@ export function TripTypeChip({ kind, short }: { kind: BusRound["kind"] | "pickup
   return <span title={cfg.l} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", cfg.tone)}><cfg.Icon className="size-3" />{short ? cfg.s : cfg.l}</span>
 }
 
-/** how a student rides the bus — the 4 types (owner 2026-11-19): pickup only · drop-off only · both · not using. The busLeg tag colours; "ไม่ใช้" is a quiet grey. */
+/** how a student rides the bus (owner 2026-11-19) — the SAME tag as the Transport menu (TripTypeChip: P · D · Both); "not using" is just quiet text */
 export function BusUseChip({ use }: { use: "pickup" | "dropoff" | "both" | "none" }) {
-  const tone = use === "none" ? "bg-muted text-muted-foreground" : tagChip("busLeg", use)
-  const Icon = use === "pickup" ? MapPinIcon : use === "dropoff" ? FlagIcon : use === "both" ? ArrowLeftRightIcon : BanIcon
-  return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", tone)}><Icon className="size-3" />{BUS_USE_LABEL[use]}</span>
+  return use === "none" ? <span className="text-xs text-muted-foreground">{BUS_USE_LABEL.none}</span> : <TripTypeChip kind={use} short />
 }
 
 export function TripStatusChip({ t }: { t: TripPlan }) {

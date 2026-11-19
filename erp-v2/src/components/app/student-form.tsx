@@ -45,7 +45,7 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
   const now = useNow(60_000)
   const today = toDateStr(useNow(60_000))
   const [base] = useState<Student>(() => student ?? { id: uid("stu"), familyId: familyId ?? null, branchId: branch.id, name: "", nickname: "", grade: "", usesBus: false, createdAt: new Date().toISOString(), createdBranchId: branch.id })
-  const [d, setD] = useState<StudentDraft>(() => (student ? studentDraftOf(student) : emptyStudentDraft()))
+  const [d, setD] = useState<StudentDraft>(() => (student ? studentDraftOf(student, branch.brand === "liclass") : emptyStudentDraft("", branch.brand === "liclass")))
   const [staffOnly, setStaffOnly] = useState<{ familyId: string | null; usesBus: boolean; busLeg?: BusUse; source?: LeadSource }>({ familyId: base.familyId, usesBus: base.usesBus, busLeg: base.busLeg, source: base.source })
   const [touched, setTouched] = useState(false)
   const [pickingFamily, setPickingFamily] = useState(false)

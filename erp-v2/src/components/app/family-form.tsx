@@ -1,5 +1,6 @@
 "use client"
 
+import { useBranch } from "@/lib/hooks"
 import { useState } from "react"
 import { PlusIcon, TrashIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -26,13 +27,15 @@ type Row = { draft: ParentDraft; stored?: Parent }
  */
 export function FamilyForm({ family, initialName, initialParent, onClose, onSaved }: { family?: Family; initialName?: string; initialParent?: { name: string; phone?: string }; onClose: () => void; onSaved?: (f: Family) => void }) {
   const save = useStore((s) => s.saveFamily)
+  // owner 2026-11-19: a Liclass branch writes names surname-first
+  const branchSf = useBranch().brand === "liclass"
   const families = useStore((s) => s.families)
   const students = useStore((s) => s.students)
   const [dupes, setDupes] = useState<DuplicateHit<Family>[] | null>(null)
   const [rows, setRows] = useState<Row[]>(() =>
     family?.parents.length
-      ? family.parents.map((p) => ({ draft: parentDraftOf(p), stored: p }))
-      : [{ draft: { ...emptyParentDraft(initialParent?.name), phones: [initialParent?.phone ?? ""] } }],
+      ? family.parents.map((p) => ({ draft: parentDraftOf(p, branchSf), stored: p }))
+      : [{ draft: { ...emptyParentDraft(initialParent?.name, branchSf), phones: [initialParent?.phone ?? ""] } }],
   )
   const [primaryIdx, setPrimaryIdx] = useState(() => Math.max(0, family?.parents.findIndex((p) => p.primary) ?? 0))
   const [fam, setFam] = useState<FamilyDraft>(() => family ? {
@@ -97,7 +100,7 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">{t.parentTitle}</p>
-          <Button size="xs" variant="secondary" onClick={() => setRows((rs) => [...rs, { draft: emptyParentDraft() }])}><PlusIcon /> {t.addParent}</Button>
+          <Button size="xs" variant="secondary" onClick={() => setRows((rs) => [...rs, { draft: emptyParentDraft("", branchSf) }])}><PlusIcon /> {t.addParent}</Button>
         </div>
         {rows.map((r, i) => (
           <div key={i} className="space-y-3 rounded-2xl border p-3">

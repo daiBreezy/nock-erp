@@ -3618,3 +3618,13 @@ describe("Yearly grade rollover (owner 2026-11-19)", () => {
     expect(r.moved).toBe(1); expect(r.graduated).toBe(1)
   })
 })
+
+describe("Liclass names: surname first (owner 2026-11-19)", () => {
+  it("a Liclass name is written and read surname-first; others stay given-name-first", () => {
+    expect(splitName("Sato Taro", true)).toEqual({ last: "Sato", first: "Taro" })
+    expect(joinName({ first: "Taro", last: "Sato", sf: true })).toBe("Sato Taro")
+    expect(splitName("สมชาย ใจดี")).toEqual({ first: "สมชาย", last: "ใจดี" })
+    expect(joinName({ first: "สมชาย", last: "ใจดี" })).toBe("สมชาย ใจดี")
+    expect(splitName("Sato", true)).toEqual({ first: "Sato", last: "" })
+  })
+})

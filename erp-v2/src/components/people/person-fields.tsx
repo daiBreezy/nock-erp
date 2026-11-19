@@ -32,8 +32,8 @@ type Errors = Partial<Record<string, string | false | undefined>>
 
 // ---------- drafts: what the fields edit ----------
 
-export interface ParentDraft { first: string; last: string; nameEn: string; phones: string[]; email: string; rel: RelKey | ""; birthDate: string }
-export interface StudentDraft { first: string; last: string; nameEn: string; nickname: string; nicknameEn: string; gender: Gender | ""; grade: string; birthDate: string; school: string; schoolId?: string; note: string }
+export interface ParentDraft { /** surname first (Liclass, owner 2026-11-19) */ sf?: boolean; first: string; last: string; nameEn: string; phones: string[]; email: string; rel: RelKey | ""; birthDate: string }
+export interface StudentDraft { /** surname first + no nickname (Liclass, owner 2026-11-19) */ sf?: boolean; first: string; last: string; nameEn: string; nickname: string; nicknameEn: string; gender: Gender | ""; grade: string; birthDate: string; school: string; schoolId?: string; note: string }
 export interface FamilyDraft {
   name: string; nameEn: string; acquisitions: LeadSource[]
   address: string; parts: AddressParts; province: string; postcode: string; location?: { lat: number; lng: number }; addressNote: string
@@ -44,8 +44,8 @@ export interface FamilyDraft {
   sourceLabels: string[]
 }
 
-export const emptyParentDraft = (name = ""): ParentDraft => ({ ...splitName(name), nameEn: "", phones: [""], email: "", rel: "", birthDate: "" })
-export const emptyStudentDraft = (grade = ""): StudentDraft => ({ first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", note: "" })
+export const emptyParentDraft = (name = "", sf = false): ParentDraft => ({ sf, ...splitName(name, sf), nameEn: "", phones: [""], email: "", rel: "", birthDate: "" })
+export const emptyStudentDraft = (grade = "", sf = false): StudentDraft => ({ sf, first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", note: "" })
 export { addressPartsOf }
 
 /** a branch's own channel names → the standard channel they stand for (same name as a standard one), else "other" — so Reports keep counting */
@@ -57,8 +57,8 @@ export function sourceKeysOf(labels: string[], t: FieldsDict): LeadSource[] {
 export const emptyFamilyDraft = (): FamilyDraft => ({ name: "", nameEn: "", acquisitions: [], address: "", parts: {}, province: "", postcode: "", addressNote: "", wantTax: false, tax: { customerName: "", taxId: "", address: "" }, busUse: false, busLeg: "both", referral: "", pdpa: "", sourceLabels: [] })
 
 /** a stored parent (family on file or a form answer) → the fields */
-export function parentDraftOf(p: { name: string; nameEn?: string; phone: string; altPhones?: string[]; email?: string; relationship?: string; birthDate?: string }): ParentDraft {
-  return { ...splitName(p.name), nameEn: p.nameEn ?? "", phones: [p.phone, ...(p.altPhones ?? [])], email: p.email ?? "", rel: relFromStored(p.relationship), birthDate: p.birthDate ?? "" }
+export function parentDraftOf(p: { name: string; nameEn?: string; phone: string; altPhones?: string[]; email?: string; relationship?: string; birthDate?: string }, sf = false): ParentDraft {
+  return { sf, ...splitName(p.name, sf), nameEn: p.nameEn ?? "", phones: [p.phone, ...(p.altPhones ?? [])], email: p.email ?? "", rel: relFromStored(p.relationship), birthDate: p.birthDate ?? "" }
 }
 /** the fields → what a form sends / what a family stores for this parent */
 export function parentInputOf(d: ParentDraft, primary: boolean): FormParentInput {
@@ -68,8 +68,8 @@ export function parentInputOf(d: ParentDraft, primary: boolean): FormParentInput
     email: d.email.trim() || undefined, relationship: d.rel ? relToStored(d.rel) : undefined, birthDate: d.birthDate || undefined, primary,
   }
 }
-export function studentDraftOf(s: { name: string; nameEn?: string; nickname?: string; nicknameEn?: string; gender?: Gender; grade: string; birthDate?: string; school?: string; schoolId?: string; note?: string }): StudentDraft {
-  return { ...splitName(s.name), nameEn: s.nameEn ?? "", nickname: s.nickname ?? "", nicknameEn: s.nicknameEn ?? "", gender: s.gender ?? "", grade: s.grade, birthDate: s.birthDate ?? "", school: s.school ?? "", schoolId: s.schoolId, note: s.note ?? "" }
+export function studentDraftOf(s: { name: string; nameEn?: string; nickname?: string; nicknameEn?: string; gender?: Gender; grade: string; birthDate?: string; school?: string; schoolId?: string; note?: string }, sf = false): StudentDraft {
+  return { sf, ...splitName(s.name, sf), nameEn: s.nameEn ?? "", nickname: s.nickname ?? "", nicknameEn: s.nicknameEn ?? "", gender: s.gender ?? "", grade: s.grade, birthDate: s.birthDate ?? "", school: s.school ?? "", schoolId: s.schoolId, note: s.note ?? "" }
 }
 /** the fields → a child as a form sends it / a student stores it (nickname empty = the first name) */
 export function studentInputOf(d: StudentDraft) {
@@ -90,9 +90,11 @@ export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t
     // owner 2026-11-09: ONE field per line, each group under a small heading (name · general · contact)
     <div className="space-y-4">
       <Group title={t.grpName} first>
+        {p.sf && <F label={t.lastName}><Input value={p.last} onChange={(e) => onChange({ last: e.target.value })} /></F>}
         <F label={`${t.firstName} *`} error={errors.name}><Input value={p.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
-        <F label={t.lastName}><Input value={p.last} onChange={(e) => onChange({ last: e.target.value })} /></F>
-        <F label={optional(t, t.nameEn)}><Input lang="en" value={p.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
+        {!p.sf && <F label={t.lastName}><Input value={p.last} onChange={(e) => onChange({ last: e.target.value })} /></F>}
+        {/* owner 2026-11-19: Liclass asks the Japanese name only — no other-language name */}
+        {!p.sf && <F label={optional(t, t.nameEn)}><Input lang="en" value={p.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>}
       </Group>
       <Group title={t.grpBasic}>
         <F label={t.relationship}>
@@ -214,11 +216,13 @@ export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) 
     // owner 2026-11-09: ONE field per line, each group under a small heading (name · general · school · note)
     <div className="space-y-4">
       <Group title={t.grpStudentName} first>
+        {s.sf && <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>}
         <F label={`${t.firstName} *`} error={errors.name}><Input value={s.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
-        <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>
-        <F label={t.nickname} error={errors.nickname}><Input value={s.nickname} placeholder={s.first} onChange={(e) => onChange({ nickname: e.target.value })} /></F>
-        <F label={optional(t, t.nameEn)}><Input lang="en" value={s.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
-        <F label={optional(t, t.nicknameEn)}><Input lang="en" value={s.nicknameEn} placeholder={autoNickEn || "English"} onChange={(e) => onChange({ nicknameEn: e.target.value })} /></F>
+        {!s.sf && <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>}
+        {/* owner 2026-11-19: Japanese children have no nickname — Liclass asks for none (the given name stands in) */}
+        {!s.sf && <F label={t.nickname} error={errors.nickname}><Input value={s.nickname} placeholder={s.first} onChange={(e) => onChange({ nickname: e.target.value })} /></F>}
+        {!s.sf && <F label={optional(t, t.nameEn)}><Input lang="en" value={s.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>}
+        {!s.sf && <F label={optional(t, t.nicknameEn)}><Input lang="en" value={s.nicknameEn} placeholder={autoNickEn || "English"} onChange={(e) => onChange({ nicknameEn: e.target.value })} /></F>}
       </Group>
       <Group title={t.grpBasic}>
         <F label={`${t.grade} *`} error={errors.grade}>
