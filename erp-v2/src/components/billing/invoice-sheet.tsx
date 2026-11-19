@@ -269,7 +269,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
 
   // the action box only when it has something to show (sending + recording money now live in the Note section / the payment step)
   const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || inv.status === "void"
-  const canSendNote = (inv.status === "approved" || (inv.status === "sent" && (inv.delivery === "no_line" || inv.delivery === "failed"))) && manage
+  // owner 2026-11-19: the admin can always send again once it has been sent — the parent may not have seen it, for any reason
+  const canSendNote = (inv.status === "approved" || inv.status === "sent") && manage
   const noteEditable = manage && inv.status !== "paid" && inv.status !== "void"
   const noteSaved = (inv.noteToParent || "") === note.trim()
   return (

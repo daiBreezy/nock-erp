@@ -36,8 +36,10 @@ import { InfoTip } from "@/components/app/info-tip"
 import { busZone, checkRide, distanceKm, rideTimes, type RoundCheck } from "@/domain/rules/bus"
 import { BusMap } from "./bus-map"
 import { Section } from "./section"
+import { CreditTag } from "@/components/app/credit-tag"
+import { creditAgeDays, creditsAvailable } from "@/domain/rules/credit"
 
-type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; backdateRemark?: string; leftover?: Leftover; seats?: Record<string, Seat> }
+export type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; backdateRemark?: string; leftover?: Leftover; seats?: Record<string, Seat>; creditId?: string }
 
 export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
@@ -68,7 +70,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const [newId] = useState(() => invoice?.id ?? uid("inv"))
   const [studentId, setStudentId] = useState(invoice?.studentId ?? renewFrom?.studentId ?? defaultStudentId ?? "")
   const [lines, setLines] = useState<LineDraft[]>(() =>
-    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "", backdateRemark: l.backdateRemark, leftover: l.leftover, seats: l.seats }))
+    invoice ? invoice.lines.map((l) => ({ id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periodsText: String(l.periods), overlapRemark: l.overlapRemark ?? "", backdateRemark: l.backdateRemark, leftover: l.leftover, seats: l.seats, creditId: l.creditId }))
       : renewFrom ? [{ id: uid("ln"), courseId: renewFrom.courseId, classIds: renewFrom.classIds, startDate: renewStart(renewFrom), periodsText: "1", overlapRemark: "" }]
         : [])
   const [bus, setBus] = useState<BusLeg[]>(invoice?.bus ?? [])
@@ -104,9 +106,16 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   const startFor = (sid: string, courseId: string) => { const cur = sid ? currentOf(sid, courseId) : undefined; return cur ? addDays(cur.to, 1) : sid ? firstStart(sid) : today }
   const pickStudent = (sid: string) => {
     setStudentId(sid); setBusTouched(false)
-    if (!invoice) setLines((ls) => ls.map((l) => ({ ...l, startDate: startFor(sid, l.courseId), classIds: l.classIds.length ? l.classIds : (currentOf(sid, l.courseId)?.classIds ?? []) })))
+    if (!invoice) setLines((ls) => ls.filter((l) => !l.creditId).map((l) => ({ ...l, startDate: startFor(sid, l.courseId), classIds: l.classIds.length ? l.classIds : (currentOf(sid, l.courseId)?.classIds ?? []) })))
   }
   const family = families.find((f) => f.id === student?.familyId)
+  // Credit Course the student already studies (owner 2026-11-19): shown here so it can be invoiced — each goes on one live invoice
+  const creditsOpen = studentId ? creditsAvailable(studentId, entitlements, invoices, invoice?.id) : []
+  const addCredit = (e: Entitlement) => {
+    const c = e.credit!
+    setLines((ls) => (ls.some((l) => l.creditId === e.id) ? ls : [...ls, { id: uid("ln"), courseId: e.courseId, classIds: e.classIds, startDate: c.startDate, periodsText: String(c.periods), overlapRemark: "", leftover: c.leftover, seats: c.seats, creditId: e.id }]))
+    setBusTouched(false)
+  }
   const patchLine = (id: string, patch: Partial<LineDraft>) => { setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l))); setBusTouched(false) }
   const removeLine = (id: string) => { setLines((ls) => ls.filter((l) => l.id !== id)); setBusTouched(false) }
   // seats only for classes still chosen, and only when they are really part of the class
@@ -124,7 +133,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
   }
   const renewPackage = (e: Entitlement) => {
     const line = { courseId: e.courseId, classIds: e.classIds, startDate: renewStart(e) }
-    const same = lines.find((l) => l.courseId === e.courseId)
+    const same = lines.find((l) => l.courseId === e.courseId && !l.creditId)
     if (same) patchLine(same.id, line)
     else { setLines((ls) => [...ls, { id: uid("ln"), periodsText: "1", overlapRemark: "", ...line }]); setBusTouched(false) }
   }
@@ -144,11 +153,11 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 
   const courseLines: CourseLine[] = lines.map((l) => {
     const periods = Number(l.periodsText)
-    const overlap = studentId && Att.activeEntitlements(studentId, entitlements, l.startDate).some((e) => e.courseId === l.courseId)
+    const overlap = !l.creditId && studentId && Att.activeEntitlements(studentId, entitlements, l.startDate).some((e) => e.courseId === l.courseId)
     // hour packs: minutes this student kept from the previous package of this course come in automatically
     const course = courses.find((c) => c.id === l.courseId)
-    const carryIn = course?.unit === "hour" && studentId ? carriedMinutes(studentId, l.courseId, entitlements, invoices, invoice?.id) : 0
-    return { id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined, backdateRemark: isBackdated(l.startDate, today) ? l.backdateRemark : undefined, carryIn: carryIn || undefined, leftover: l.leftover, seats: pickSeats(l) }
+    const carryIn = !l.creditId && course?.unit === "hour" && studentId ? carriedMinutes(studentId, l.courseId, entitlements, invoices, invoice?.id) : 0
+    return { id: l.id, courseId: l.courseId, classIds: l.classIds, startDate: l.startDate, periods: Number.isInteger(periods) && periods >= 1 ? periods : 0, overlapRemark: overlap ? l.overlapRemark : undefined, backdateRemark: isBackdated(l.startDate, today) ? (l.creditId ? "Credit Course — เรียนก่อนจ่าย" : l.backdateRemark) : undefined, carryIn: carryIn || undefined, leftover: l.leftover, seats: pickSeats(l), creditId: l.creditId }
   })
   const base: Invoice = {
     id: newId,
@@ -370,7 +379,20 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
               ยังไม่มีคอร์ส — กดเพื่อเลือก (เลือกได้หลายคอร์ส) · หรือเว้นไว้ถ้าเก็บเฉพาะค่าอื่นๆ
             </Button>
           )}
-          {lines.map((l, i) => (
+          {creditsOpen.filter((e) => !lines.some((l) => l.creditId === e.id)).length > 0 && (
+            <div className="space-y-1.5 rounded-2xl border border-dashed p-3">
+              <p className="flex flex-wrap items-center gap-2 text-xs font-semibold"><CreditTag /> เรียนไปแล้ว ยังไม่ได้เก็บเงิน — เอามาออกใบนี้ได้</p>
+              {creditsOpen.filter((e) => !lines.some((l) => l.creditId === e.id)).map((e) => (
+                <div key={e.id} className="flex items-center gap-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate">{courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"} <span className="text-xs text-muted-foreground">· {fmtDate(e.from)} – {fmtDate(e.to)} · ค้าง {fmtMoney(e.credit!.amount)} · {creditAgeDays(e, today)} วัน</span></span>
+                  <Button size="xs" variant="outline" onClick={() => addCredit(e)}><PlusIcon /> ใส่ในใบนี้</Button>
+                </div>
+              ))}
+            </div>
+          )}
+          {lines.map((l, i) => l.creditId ? (
+            <CreditLineCard key={l.id} index={i} quote={totals.lines[i]} entitlement={entitlements.find((e) => e.id === l.creditId)} onRemove={() => removeLine(l.id)} />
+          ) : (
             <LineCard key={l.id} index={i} draft={l} quote={totals.lines[i]} studentId={studentId} studentGrade={student?.grade}
               choices={classChoices(totals.lines[i]?.course, classes, branch.id, staff, student?.grade)}
               today={today} closed={holidays.filter((h) => closesBranch(h, branch.id))} overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
@@ -509,7 +531,29 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
 const WEEKDAY_SHORT = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."]
 const LEFTOVER_CHOICES: [Leftover, string][] = [["carry", "เก็บไว้กับนักเรียน (รวมแพ็กถัดไป)"], ["extra", "เพิ่ม +1 คาบ (ไม่เก็บเงินเพิ่ม)"], ["drop", "ตัดเศษทิ้ง"]]
 
-function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, closed, onChange, onRemove }: {
+/** a Credit Course on the invoice: the package already exists — class, dates and periods are fixed (remove it to change them) */
+function CreditLineCard({ index, quote, entitlement, onRemove }: { index: number; quote?: LineQuote; entitlement?: Entitlement; onRemove: () => void }) {
+  const classes = useStore((s) => s.classes)
+  const course = quote?.course
+  if (!course) return null
+  const q = quote?.quote
+  const names = classes.filter((k) => quote!.line.classIds.includes(k.id)).map((k) => k.name).join(" + ")
+  return (
+    <div className="space-y-1 rounded-2xl border p-3">
+      <div className="flex items-start gap-2">
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">{index + 1}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2 font-medium">{course.name} <PackageBadge course={course} /> <CreditTag /></div>
+          <p className="text-xs text-muted-foreground">{names || "—"}{q && ` · ${fmtDate(q.from)} – ${fmtDate(q.to)} · ${q.sessions.length} คาบ`} · {quote!.line.periods} งวด</p>
+          {entitlement?.credit && <p className="text-xs text-muted-foreground">เพิ่มเมื่อ {fmtDate(entitlement.credit.at.slice(0, 10))} · เหตุผล: {entitlement.credit.reason} · เรียนไปแล้ว แก้คลาส/วันที่ไม่ได้ (เอาออกถ้าไม่ใช้)</p>}
+        </div>
+        <Button size="icon-xs" variant="ghost" aria-label="เอา Credit นี้ออกจากใบ" onClick={onRemove}><XIcon /></Button>
+      </div>
+    </div>
+  )
+}
+
+export function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, closed, onChange, onRemove }: {
   index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string; today: string; closed: Holiday[]
   onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
 }) {

@@ -668,6 +668,8 @@ export function buildSeed(now = new Date()): DB {
         renewal: { inApp: true, line: true }, new_lead: on, payslip: on, holiday_conflict: on, summary_deadline: on,
         student_added: on, starting_soon: on, invoice_sent: { inApp: true, line: true }, receipt_sent: { inApp: true, line: true }, summary_sent: { inApp: true, line: true },
       },
+      // owner 2026-11-19: Credit Course is OFF by default — turned on in Settings › System › การเงิน
+      creditCourse: false,
       lowSessionThreshold: 2,
       renewalDaysBefore: 7,
       summaryDeadlineHours: 24,

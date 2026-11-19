@@ -11,6 +11,8 @@ import { SalesTaxDialog } from "@/components/billing/sales-tax-dialog"
 import { PrintDocument } from "@/components/billing/print-document"
 import { FamilyInvoiceDialog } from "@/components/billing/family-invoice-dialog"
 import { RenewalDraftsDialog } from "@/components/billing/renewal-drafts-dialog"
+import { CreditCardIcon } from "lucide-react"
+import { CreditOwedDialog, useCreditOwed } from "@/components/billing/credit-owed"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Loader2Icon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, FileSpreadsheetIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
@@ -64,6 +66,8 @@ function BillingPage() {
   const [q, setQ] = useState("")
   const [renewing, setRenewing] = useState(false)
   const [familyOpen, setFamilyOpen] = useState(false)
+  // Credit Course › "ออกใบ": a new invoice for that student
+  const [creditStudent, setCreditStudent] = useState<string | undefined>()
   // ?new=<studentId> opens the panel on a new invoice pre-filled (from the student panel)
   const [openId, setOpenId] = useState<string | null>(() => params.get("open") ?? (params.get("new") ? "new" : null))
   const presetStudent = params.get("new") ?? undefined
@@ -74,6 +78,8 @@ function BillingPage() {
   const byGrade = gradeCompare(branch.grades)
   // owner 2026-10-09: Director / Area Manager can list several branches at once — totals use each invoice's own branch
   const scope = useBranchScope()
+  const [creditList, setCreditList] = useState(false)
+  const creditOwed = useCreditOwed(scope.ids)
   const allBranches = useStore((s) => s.branches)
   const now = useNow()
   const rows = invoices
@@ -211,6 +217,7 @@ function BillingPage() {
                 {can(me, "billing.manage") && <DropdownMenuItem onClick={() => setOpenId("new")}><PlusIcon /> สร้างใบแจ้งหนี้</DropdownMenuItem>}
                 {can(me, "billing.manage") && <DropdownMenuItem onClick={() => setFamilyOpen(true)}><UsersRoundIcon /> สร้างทั้งครอบครัว</DropdownMenuItem>}
                 {can(me, "billing.manage") && <DropdownMenuItem onClick={() => setRenewing(true)}><CopyPlusIcon /> ต่ออายุหลายคน</DropdownMenuItem>}
+                {creditOwed.length > 0 && <DropdownMenuItem onClick={() => setCreditList(true)}><CreditCardIcon /> Credit Course ที่ค้าง ({new Set(creditOwed.map((x) => x.studentId)).size})</DropdownMenuItem>}
                 {can(me, "billing.view") && <DropdownMenuItem onClick={() => setTaxOpen(true)}><FileSpreadsheetIcon /> รายงานภาษีขาย</DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -246,7 +253,8 @@ function BillingPage() {
       <SalesTaxDialog open={taxOpen} onOpenChange={setTaxOpen} onOpenInvoice={(id) => { setTaxOpen(false); setOpenId(id) }} />
       {familyOpen && <FamilyInvoiceDialog onClose={() => setFamilyOpen(false)} onCreated={(id) => setOpenId(id)} />}
       {renewing && <RenewalDraftsDialog branchIds={scope.ids} onClose={() => setRenewing(false)} />}
-      <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} defaultStudentId={presetStudent} renewEntitlementId={renewFrom} onClose={() => setOpenId(null)} />
+      {creditList && <CreditOwedDialog branchIds={scope.ids} onClose={() => setCreditList(false)} onInvoice={(sid, invId) => { setCreditList(false); if (invId) { setOpenId(invId); return } setCreditStudent(sid); setOpenId("new") }} />}
+      <InvoiceSheet id={openId} slipMediaId={openId === params.get("open") ? slipFromChat : undefined} defaultStudentId={creditStudent ?? presetStudent} renewEntitlementId={renewFrom} onClose={() => { setOpenId(null); setCreditStudent(undefined) }} />
     </PageShell>
   )
 }

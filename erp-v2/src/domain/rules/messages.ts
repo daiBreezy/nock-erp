@@ -17,6 +17,8 @@ export type MsgLang = "th" | "ja" | "en"
 export const messageLangs = (brand: Brand = "nockacademy"): [MsgLang, MsgLang] => (brand === "liclass" ? ["ja", "en"] : ["th", "en"])
 const SEP = "\n\n———\n\n"
 const both = (brand: Brand | undefined, build: (l: MsgLang) => string) => messageLangs(brand).map(build).join(SEP)
+/** owner 2026-11-19: an invoice goes out in ONE language — Liclass = Japanese only, NockAcademy = Thai only */
+const only = (brand: Brand | undefined, build: (l: MsgLang) => string) => build(messageLangs(brand)[0])
 
 const MON_TH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 const MON_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -90,20 +92,17 @@ function invoiceBody(l: MsgLang, inv: Invoice, totals: InvoiceTotals, ctx: { stu
 
 export function invoiceMessage(inv: Invoice, totals: InvoiceTotals, ctx: { student: Student; branch: Branch }): string {
   const note = inv.noteToParent.trim()
-  const [first] = messageLangs(ctx.branch.brand)
-  // the staff note is theirs — once, in the first language block
-  return both(ctx.branch.brand, (l) => [...invoiceBody(l, inv, totals, ctx), bankLine(l, ctx.branch), l === first ? note || null : null, W[l].slip].filter(Boolean).join("\n"))
+  return only(ctx.branch.brand, (l) => [...invoiceBody(l, inv, totals, ctx), bankLine(l, ctx.branch), note || null, W[l].slip].filter(Boolean).join("\n"))
 }
 
 /** Siblings' invoices linked together (owner 2026-11-05): ONE message — each child's invoice, the grand total, the bank
  *  once, and the sender's note. */
 export function invoiceBundleMessage(items: { inv: Invoice; totals: InvoiceTotals; student: Student }[], ctx: { branch: Branch }): string {
   const total = items.reduce((a, x) => a + x.totals.total, 0)
-  const [first] = messageLangs(ctx.branch.brand)
-  return both(ctx.branch.brand, (l) => [
+  return only(ctx.branch.brand, (l) => [
     f(l, "invoiceBundle", items.length),
     // each child's own message sits under that child's invoice (owner 2026-11-05)
-    ...items.flatMap((x) => ["", ...invoiceBody(l, x.inv, x.totals, x), l === first && x.inv.noteToParent.trim() ? `📝 ${x.inv.noteToParent.trim()}` : null]),
+    ...items.flatMap((x) => ["", ...invoiceBody(l, x.inv, x.totals, x), x.inv.noteToParent.trim() ? `📝 ${x.inv.noteToParent.trim()}` : null]),
     "",
     `${W[l].dueAll} ${fmtMoney(total)}`,
     bankLine(l, ctx.branch),

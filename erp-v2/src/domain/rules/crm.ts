@@ -115,7 +115,8 @@ export function validateLead(l: Pick<Lead, "name" | "childGrade" | "subject" | "
   if (opts?.quick) return null
   if (!l.childGrade.trim()) return "ใส่ระดับชั้นของลูก"
   if (!l.subject.trim()) return "เลือกวิชาที่สนใจ"
-  if (!l.phone.trim() && !l.lineId?.trim()) return "ใส่เบอร์โทรหรือ LINE ID ติดต่อ"
+  // a lead that came from a real LINE chat already has a way to reach them (its LINE account) — phone / LINE ID can come later
+  if (!l.phone.trim() && !l.lineId?.trim() && !l.lineUserId) return "ใส่เบอร์โทรหรือ LINE ID ติดต่อ"
   return null
 }
 

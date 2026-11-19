@@ -9,6 +9,7 @@ import { buildSeed, uid, type DB } from "@/data/seed"
 import { addDays, at, fmtDate, TH_DAYS_FULL, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
+import * as Credit from "@/domain/rules/credit"
 import * as Refund from "@/domain/rules/refunds"
 import * as Seats from "@/domain/rules/seats"
 import * as Les from "@/domain/rules/lessons"
@@ -40,7 +41,7 @@ import type { HomePin, CustomFormResponse, FormDef } from "@/domain/types"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
-import type { CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr, BusLegKind } from "@/domain/types"
+import type { ChatMessageMeta, CourseLine, CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr, BusLegKind } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -231,6 +232,8 @@ type Store = DB & UIState & {
   sendCourseSummary: (id: ID) => Result<{ delivered: boolean }>
 
   saveInvoice: (inv: Invoice) => Result<Invoice>
+  /** Credit Course (owner 2026-11-19): add a course straight to a student — they study now, the invoice comes later */
+  addCreditCourse: (input: { studentId: ID; lines: Omit<CourseLine, "id" | "creditId">[]; reason: string }) => Result<{ entitlements: Entitlement[]; invoice: Invoice }>
   generatePdf: (id: ID) => Result<{ number: string }>
   approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
@@ -465,6 +468,31 @@ const ctxOf = (s: DB, branchId: ID) => ({
   courses: s.courses, classes: s.classes, holidays: s.holidays,
 })
 
+type PricedLine = ReturnType<typeof Bill.invoiceTotals>["lines"][number]
+/** the package a priced course line buys — paid invoices and Credit Courses build it the same way */
+const entitlementOf = (studentId: ID, invoiceId: ID | null, l: PricedLine, branch: Branch | undefined): Entitlement | null => {
+  if (!l.course || !l.quote) return null
+  const q = l.quote, co = l.course
+  // hour packs are counted; week and month packs are a window with any number of sessions
+  // hour packs are used up by minutes really attended (owner 2026-09-30)
+  return { id: uid("en"), studentId, courseId: co.id, subjects: co.subjects, classIds: l.line.classIds, invoiceId, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, leaveQuota: branch ? Cfg.leaveQuotaFor(branch, co.unit, co.duration, l.line.periods, q.slots.length) : undefined, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }
+}
+/** the student joins the line's classes (with their part of it when they attend only part) and the paid/credited sessions */
+const joinLine = (studentId: ID, l: PricedLine, classes: Klass[], sessions: Session[]) => {
+  if (!l.quote) return { classes, sessions }
+  const classIds = l.line.classIds
+  const slot = new Set(l.quote.slots.map((x) => `${x.classId}|${x.date}`))
+  return {
+    classes: classes.map((c) => {
+      if (!classIds.includes(c.id)) return c
+      const seat = l.line.seats?.[c.id]
+      const joined = c.studentIds.includes(studentId) ? c : { ...c, studentIds: [...c.studentIds, studentId] }
+      return seat ? { ...joined, seats: { ...joined.seats, [studentId]: seat } } : joined
+    }),
+    sessions: sessions.map((x) => (x.classId && slot.has(`${x.classId}|${x.date}`) && !x.studentIds.includes(studentId) ? { ...x, studentIds: [...x.studentIds, studentId] } : x)),
+  }
+}
+
 /** owner 2026-11-04: a Manager/Admin manages any session; a teacher may manage their OWN session, and when they do,
  *  the branch's office (Admin / Manager) is notified so nothing changes behind their back. */
 const sessionManager = (s: DB & { userId: ID }, se: Session): { ok: true; viaTeacher: boolean } | { ok: false; error: string } => {
@@ -506,10 +534,10 @@ export const useStore = create<Store>()(
         set((st) => ({ logs: [{ id: uid("lg"), at: st.now().toISOString(), by: system ? null : st.userId, category, studentIds, action, detail }, ...st.logs] }))
       /** real LINE push to a family (E2E 2026-09-28). Families from the seed have no LINE user id — their
        *  "LINE แล้ว" is a demo flag, so they stay simulated. Returns immediately; `done` runs when LINE answers. */
-      const pushLine = (familyId: ID | null | undefined, text: string, done: (ok: boolean, error?: string) => void): LineDelivery => {
+      const pushLine = (familyId: ID | null | undefined, text: string, done: (ok: boolean, error?: string) => void, extra?: { meta?: ChatMessageMeta }): LineDelivery => {
         const fam = get().families.find((f) => f.id === familyId)
         if (fam?.lineUserId) {
-          fetch("/api/line/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: `line_${fam.lineUserId}`, text }) })
+          fetch("/api/line/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: `line_${fam.lineUserId}`, text, ...(extra?.meta ? { meta: extra.meta } : {}) }) })
             .then((r) => r.json())
             .then((d: { ok: boolean; error?: string }) => done(d.ok, d.error))
             .catch(() => done(false, "เรียก LINE API ไม่ได้"))
@@ -574,19 +602,12 @@ export const useStore = create<Store>()(
           const invBranch = s.branches.find((b) => b.id === inv.branchId)
           for (const l of totals.lines) {
             if (!l.course || !l.quote) continue
-            const q = l.quote, co = l.course, classIds = l.line.classIds
-            const paidSlot = new Set(q.slots.map((x) => `${x.classId}|${x.date}`))
-            // hour packs are counted; week and month packs are a window with any number of sessions
-            // hour packs are used up by minutes really attended (owner 2026-09-30)
-            entitlements = [...entitlements, { id: uid("en"), studentId: inv.studentId, courseId: co.id, subjects: co.subjects, classIds, invoiceId: inv.id, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, leaveQuota: invBranch ? Cfg.leaveQuotaFor(invBranch, co.unit, co.duration, l.line.periods, q.slots.length) : undefined, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }]
-            // join the class — with their part of it when they attend only part (standing seat)
-            classes = classes.map((c) => {
-              if (!classIds.includes(c.id)) return c
-              const seat = l.line.seats?.[c.id]
-              const joined = c.studentIds.includes(inv.studentId) ? c : { ...c, studentIds: [...c.studentIds, inv.studentId] }
-              return seat ? { ...joined, seats: { ...joined.seats, [inv.studentId]: seat } } : joined
-            })
-            sessions = sessions.map((x) => (x.classId && paidSlot.has(`${x.classId}|${x.date}`) && !x.studentIds.includes(inv.studentId) ? { ...x, studentIds: [...x.studentIds, inv.studentId] } : x))
+            // a Credit Course already has its package and seat — paying just links it to this invoice (owner 2026-11-19)
+            const credited = l.line.creditId ? entitlements.find((e) => e.id === l.line.creditId && !e.invoiceId) : undefined
+            if (credited) { entitlements = entitlements.map((e) => (e.id === credited.id ? { ...e, invoiceId: inv.id } : e)); continue }
+            const en = entitlementOf(inv.studentId, inv.id, l, invBranch)
+            if (en) entitlements = [...entitlements, en]
+            ;({ classes, sessions } = joinLine(inv.studentId, l, classes, sessions))
           }
         }
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
@@ -2368,6 +2389,13 @@ export const useStore = create<Store>()(
         // an extra bus day is charged once: it must still be pending (not on another live invoice)
         const open = new Set(Bill.pendingBusAddOns(inv.studentId, s.busAddOns, s.invoices, inv.id).map((x) => x.id))
         if ((inv.busExtras ?? []).some((x) => !open.has(x.addOnId))) return fail("ค่ารถเพิ่มบางวันถูกเรียกเก็บในใบอื่นแล้ว — เปิดใบใหม่อีกครั้ง")
+        // a Credit Course goes on one live invoice at a time
+        for (const l of inv.lines) {
+          if (!l.creditId) continue
+          const en = s.entitlements.find((e) => e.id === l.creditId)
+          const on = en ? Credit.invoiceOfCredit(en, s.invoices) : undefined
+          if (!en?.credit || en.invoiceId || (on && on.id !== inv.id)) return fail("Credit Course บางรายการถูกใช้ในใบอื่นแล้ว หรือชำระแล้ว — เปิดใบใหม่อีกครั้ง")
+        }
         // credit can't be used twice or on another course
         for (const u of inv.creditsUsed ?? []) {
           const left = Refund.availableCredit(inv.studentId, u.courseId, s.creditNotes, s.invoices, inv.id).find((c) => c.creditNoteId === u.creditNoteId)?.amount ?? 0
@@ -2380,6 +2408,51 @@ export const useStore = create<Store>()(
         set({ invoices: existing ? s.invoices.map((x) => (x.id === inv.id ? next : x)) : [next, ...s.invoices] })
         log("billing", [inv.studentId], existing ? "แก้ใบแจ้งหนี้" : "สร้างใบแจ้งหนี้", `${number} · ${fmtMoney(totals.total)}`)
         return { ok: true, value: next }
+      },
+
+      addCreditCourse: ({ studentId, lines, reason }) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        if (!Credit.creditCourseOn(s.system.settings)) return fail("ระบบยังไม่เปิดใช้ Credit Course — เปิดที่ ตั้งค่า › System › การเงิน")
+        const stu = s.students.find((x) => x.id === studentId)
+        if (!stu) return fail("ไม่พบนักเรียน")
+        if (!lines.length) return fail("เลือกคอร์สอย่างน้อย 1 คอร์ส")
+        const ctx = ctxOf(s, stu.branchId)
+        const today = toDateStr(s.now())
+        const at = s.now().toISOString()
+        let { entitlements, classes, sessions } = s
+        const made: Entitlement[] = []
+        const invLines: CourseLine[] = []
+        let owedTotal = 0
+        for (const line of lines) {
+          const v = Credit.validateCreditCourse({ courseId: line.courseId, classIds: line.classIds, periods: line.periods, reason })
+          if (!v.ok) return v
+          const priced = Bill.quoteLine({ ...line, id: uid("ln") }, ctx)
+          if (!priced.quote || !priced.quote.sessions.length) return fail("ช่วงที่เลือกไม่มีคาบเรียน — เลื่อนวันเริ่มหรือเพิ่มจำนวนงวด")
+          const en = entitlementOf(studentId, null, priced, ctx.branch)
+          if (!en) return fail("สร้างแพ็กเกจไม่ได้")
+          const owed = Math.max(0, priced.amount + priced.courseFee - priced.promotion)
+          owedTotal += owed
+          const credited: Entitlement = { ...en, credit: { amount: owed, reason: reason.trim(), by: s.userId, at, startDate: line.startDate, periods: line.periods, leftover: line.leftover, seats: line.seats } }
+          entitlements = [...entitlements, credited]
+          ;({ classes, sessions } = joinLine(studentId, priced, classes, sessions))
+          made.push(credited)
+          // the draft invoice carries the credit course as it is (class, dates and periods are fixed — they were already studied)
+          invLines.push({ id: uid("ln"), courseId: line.courseId, classIds: line.classIds, startDate: line.startDate, periods: line.periods, leftover: line.leftover, seats: line.seats, creditId: credited.id, backdateRemark: Bill.isBackdated(line.startDate, today) ? "Credit Course — เรียนก่อนจ่าย" : undefined })
+        }
+        set({ entitlements, classes, sessions })
+        // owner 2026-11-19: adding a Credit Course drops a Draft invoice for it right away (one draft for everything added together)
+        const draft: Invoice = {
+          id: uid("inv"), branchId: stu.branchId, studentId, number: null, lines: invLines, bus: [], busFeeId: null, busExtras: [], bookFee: 0, advance: [], concession: null,
+          noteToParent: Bill.lastNoteFor(studentId, s.invoices), status: "draft", pdf: "none", createdBy: s.userId, createdAt: at, payments: [],
+        }
+        const saved = get().saveInvoice(draft)
+        if (!saved.ok) { set({ entitlements: s.entitlements, classes: s.classes, sessions: s.sessions }); return saved }
+        const names = made.map((e) => s.courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส").join(", ")
+        log("billing", [studentId], "เพิ่ม Credit Course", `${names} · ${fmtMoney(owedTotal)} · เรียนก่อนจ่าย · เหตุผล: ${reason.trim()} · สร้างใบร่าง ${saved.value.number}`)
+        set((st) => ({ notifications: [Notif.notify({ id: uid("no"), at: st.now(), kind: "info", title: "เพิ่ม Credit Course", body: `${stu.nickname} · ${names} · ${fmtMoney(owedTotal)} — เรียนก่อนจ่าย · ใบร่าง ${saved.value.number} รอตรวจและส่ง`, fromId: st.userId, audience: { roles: ["admin", "manager"], branchId: stu.branchId } }), ...st.notifications] }))
+        return { ok: true, value: { entitlements: made, invoice: saved.value } }
       },
 
       generatePdf: (id) => {
@@ -2441,7 +2514,7 @@ export const useStore = create<Store>()(
             toast.error(`ส่งใบแจ้งหนี้ ${inv.number} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
             set((st) => ({ notifications: [undeliveredInvoiceNotice(st, inv, stu.nickname, error), ...st.notifications] }))
           }
-        })
+        }, { meta: { formKind: "invoice_doc", invoiceIds: [...sentIds] } })
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...inv, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : sentIds.has(x.id) ? { ...x, status: "sent", sentAt: s.now().toISOString(), delivery, deliveryError: undefined } : x)) })
         if (delivery !== "sending") log("billing", [inv.studentId], "ส่งใบแจ้งหนี้", `${inv.number} · ${delivery === "delivered" ? "ส่งทาง LINE แล้ว" : "ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"}`)
         // owner 2026-11-13: sent to a family with no LINE → it did NOT reach the parent: tell the branch's Admin / Manager.

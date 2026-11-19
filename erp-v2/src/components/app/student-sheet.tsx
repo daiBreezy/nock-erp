@@ -6,7 +6,7 @@ import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, StickyNoteIcon, StoreIcon, UsersIcon, ChevronRightIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
+import { ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, StickyNoteIcon, StoreIcon, UsersIcon, ChevronRightIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EntityTag } from "@/components/app/entity-tag"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -14,6 +14,7 @@ import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { Tabs, SearchBox } from "./page-layout"
 import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, TH_DAYS_FULL, toDateStr, weekdayShort } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
+import * as Bill from "@/domain/rules/billing"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { removedWithClass, sessionState, subjectsOf } from "@/domain/rules/scheduling"
@@ -45,6 +46,9 @@ import { InfoTip } from "./info-tip"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Empty } from "@/components/app/empty"
+import { CreditTag } from "./credit-tag"
+import { CreditCourseDialog } from "@/components/billing/credit-course-dialog"
+import { creditCourseOn, creditAgeDays, creditOwedTotal, creditsOwed, creditState, CREDIT_REMIND_DAYS, invoiceOfCredit } from "@/domain/rules/credit"
 
 export { STATUS_PILL } from "./student-status"
 
@@ -104,7 +108,12 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
   const [archiving, setArchiving] = useState(false)
   const [closingNow, setClosingNow] = useState(false)
   const restore = useStore((s) => s.restoreStudent)
+  const invoices = useStore((s) => s.invoices)
+  const [creditAdd, setCreditAdd] = useState(false)
+  const creditOn = useStore((s) => creditCourseOn(s.system.settings))
   if (!stu) return null
+  // Credit Course (owner 2026-11-19): studying now, the invoice is still to come
+  const owed = creditsOwed(stu.id, ents, invoices)
 
   const state = Att.studentState(stu, ents, leaves, today, renewalDays)
   const primary = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
@@ -120,6 +129,7 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
             <SheetDescription className="flex flex-wrap items-center gap-1.5">
               {stu.grade && <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
               <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
+              {owed.length > 0 && <CreditTag />}
               {/* owner 2026-10-29: helper text on hover only */}
               <InfoTip text={stateDetail(state, today) || "สถานะคำนวณอัตโนมัติจากแพ็กเกจและการลา"} />
             </SheetDescription>
@@ -135,7 +145,8 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {stu.exit && <div className="mb-4"><ExitPanel stu={stu} /></div>}
-        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} onHistory={() => { setClassSub("history"); setSeg("class") }} onEditLeave={(leave) => setLeaveDialog({ leave })} />}
+        {seg === "overview" && owed.length > 0 && <CreditPanel stu={stu} owed={owed} today={today} onInvoice={(id) => setInvoice(id ?? "new")} />}
+        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} onHistory={() => { setClassSub("history"); setSeg("class") }} onEditLeave={(leave) => setLeaveDialog({ leave })} onOpenInvoice={(id) => setInvoice(id)} />}
         {seg === "class" && <ClassSeg stu={stu} ents={ents} sub={classSub} setSub={setClassSub} />}
         {seg === "billing" && <BillingSeg stu={stu} />}
         {seg === "note" && <NoteSeg stu={stu} />}
@@ -156,15 +167,104 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
           ) : (
             <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled aria-label="ยังไม่มีแชท" title="ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"><MessagesSquareIcon /></Button>
           )}
+          {can(me, "billing.manage") && creditOn && <Button variant="outline" onClick={() => setCreditAdd(true)}><CreditCardIcon /> เพิ่มคอร์ส (Credit)</Button>}
           {can(me, "billing.manage") && <Button variant="outline" onClick={() => setInvoice("new")}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
           {can(me, "student.manage") && <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
         </PanelFooter>
       )}
       <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />
+      {creditAdd && <CreditCourseDialog studentId={stu.id} onClose={() => setCreditAdd(false)} />}
       {archiving && <ExitRequestDialog stu={stu} onClose={() => setArchiving(false)} onCloseNow={() => { setArchiving(false); setClosingNow(true) }} />}
       {closingNow && <CloseExitDialog stu={stu} response={null} onClose={() => setClosingNow(false)} />}
       {leaveDialog && <LeaveDialog studentId={stu.id} leave={leaveDialog.leave} onClose={() => setLeaveDialog(null)} />}
     </>
+  )
+}
+
+/** the student's invoices that still have a step to do (owner 2026-11-19) — only for people who may see billing */
+function usePendingInvoices(studentId: ID) {
+  const me = useStore((s) => s.me())
+  const invoices = useStore((s) => s.invoices)
+  if (!can(me, "billing.view")) return []
+  return invoices.filter((i) => i.studentId === studentId).map((inv) => ({ inv, next: Bill.invoiceNextStep(inv) })).filter((x): x is { inv: Invoice; next: NonNullable<ReturnType<typeof Bill.invoiceNextStep>> } => !!x.next)
+    .sort((a, b) => b.inv.createdAt.localeCompare(a.inv.createdAt))
+}
+
+/** Invoices waiting on someone: where each stands and what to do next, with a button into the invoice — so a student who has not
+ *  started yet (no course running) still shows the next step, and the office can carry on the moment the parent pays */
+function PendingInvoices({ stu, onOpen }: { stu: Student; onOpen: (id: ID) => void }) {
+  const list = usePendingInvoices(stu.id)
+  const branches = useStore((s) => s.branches)
+  const courses = useStore((s) => s.courses)
+  const classes = useStore((s) => s.classes)
+  const holidays = useStore((s) => s.holidays)
+  if (!list.length) return null
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">ใบแจ้งหนี้ที่รอดำเนินการ</p>
+      <ul className="space-y-2">
+        {list.map(({ inv, next }) => {
+          const branch = branches.find((b) => b.id === inv.branchId)
+          const total = branch ? Bill.invoiceTotals(inv, { branch, courses, classes, holidays }).total : 0
+          const names = inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ")
+          return (
+            <li key={inv.id} className="flex items-center gap-3 rounded-2xl bg-muted/50 p-3">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium"><span className="font-mono text-xs text-muted-foreground">{inv.number ?? "ร่าง"}</span><Pill tone={next.tone}>{next.stage}</Pill></p>
+                {names && <p className="truncate text-xs text-muted-foreground">{names}</p>}
+                <p className="text-sm">ต้องทำต่อ: <span className="font-medium">{next.todo}</span></p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="font-semibold tabular-nums">{fmtMoney(total)}</p>
+                <Button size="xs" variant="outline" className="mt-1" onClick={() => onOpen(inv.id)}><ReceiptIcon /> เปิดใบ</Button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+/** Credit Course card (owner 2026-11-19): what the student studies on credit — amount, how long, where the invoice is */
+function CreditPanel({ stu, owed, today, onInvoice }: { stu: Student; owed: Entitlement[]; today: string; onInvoice: (invoiceId?: ID) => void }) {
+  const me = useStore((s) => s.me())
+  const courses = useStore((s) => s.courses)
+  const invoices = useStore((s) => s.invoices)
+  const staff = useStore((s) => s.staff)
+  return (
+    <section className="mb-4 space-y-2 rounded-2xl border bg-card p-3 shadow-sm" aria-label="Credit Course">
+      <div className="flex flex-wrap items-center gap-2">
+        <CreditTag />
+        <span className="text-sm font-semibold">{stu.nickname} เรียนก่อนจ่าย · ค้าง {fmtMoney(creditOwedTotal(owed))}</span>
+        <InfoTip text="คอร์สที่เพิ่มให้เรียนไปก่อนโดยยังไม่ออกใบแจ้งหนี้/ยังไม่ชำระ — แท็บนี้หายเองเมื่อใบแจ้งหนี้ของคอร์สนี้ชำระครบ" />
+        {can(me, "billing.manage") && owed.some((e) => creditState(e, invoices) === "open") && <Button size="xs" variant="outline" className="ml-auto" onClick={() => onInvoice()}><ReceiptIcon /> ออกใบแจ้งหนี้จาก Credit</Button>}
+      </div>
+      <ul className="divide-y divide-border">
+        {owed.map((e) => {
+          const on = invoiceOfCredit(e, invoices)
+          const age = creditAgeDays(e, today)
+          const by = staff.find((x) => x.id === e.credit!.by)
+          return (
+            <li key={e.id} className="space-y-0.5 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate font-medium">{courses.find((c) => c.id === e.courseId)?.name ?? "คอร์ส"}</span>
+                <span className="tabular-nums font-semibold">{fmtMoney(e.credit!.amount)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                เรียน {fmtDate(e.from)} – {fmtDate(e.to, { year: true })} · เพิ่มเมื่อ {fmtDate(e.credit!.at.slice(0, 10))}{by ? ` โดย ${by.nickname ?? by.name}` : ""} · ค้างมา {age} วัน
+              </p>
+              <p className="text-xs text-muted-foreground">เหตุผล: {e.credit!.reason}</p>
+              <p className="flex flex-wrap items-center gap-1.5 text-xs">
+                {on ? (on.status === "draft" ? <Pill tone="gray">มีใบร่าง {on.number ?? ""}</Pill> : <Pill tone="amber">อยู่ในใบ {on.number ?? ""} · รอชำระ</Pill>) : <Pill tone="gray">ยังไม่ได้ออกใบแจ้งหนี้</Pill>}
+                {age >= CREDIT_REMIND_DAYS && <Pill tone="red">ค้างเกิน {CREDIT_REMIND_DAYS} วัน</Pill>}
+                {on && can(me, "billing.view") && <Button size="xs" variant="outline" className="ml-auto" onClick={() => onInvoice(on.id)}><ReceiptIcon /> เปิดใบ</Button>}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
@@ -201,7 +301,7 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
       <div className="flex items-center gap-3">
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{c?.name ?? "คอร์ส"}</p>
+          <p className="flex items-center gap-1.5 font-medium"><span className="truncate">{c?.name ?? "คอร์ส"}</span>{e.credit && !e.invoiceId && <CreditTag className="shrink-0" />}</p>
           <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
             <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
             <span className="tabular-nums">· {p.label}</span>
@@ -251,7 +351,7 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
   )
 }
 
-function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLeave }: { stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void; onHistory: () => void; onEditLeave: (l: StudentLeave) => void }) {
+function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLeave, onOpenInvoice }: { onOpenInvoice: (id: ID) => void; stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void; onHistory: () => void; onEditLeave: (l: StudentLeave) => void }) {
   const me = useStore((s) => s.me())
   const leaves = useStore((s) => s.leaves)
   const myAssessments = useStore((s) => s.assessments).filter((a) => a.studentId === stu.id).sort((a, b) => a.date.localeCompare(b.date))
@@ -263,6 +363,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
   const myLeaves = leaves.filter((l) => l.studentId === stu.id).sort((a, b) => b.from.localeCompare(a.from))
   const created = branches.find((b) => b.id === stu.createdBranchId)
   const age = stu.birthDate ? Math.floor(daysBetween(stu.birthDate, today) / 365.25) : null
+  const hasPending = usePendingInvoices(stu.id).length > 0
 
   return (
     <div className="space-y-4">
@@ -287,8 +388,9 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
         <div className="mt-3 border-t pt-1">
           <p className="pt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">คอร์สที่ลงเรียน</p>
           {/* owner 2026-10-12: only packages still running here — finished ones live in คลาส › ประวัติคอร์ส */}
-          {current.length === 0 && <p className="py-3 text-sm text-muted-foreground">ไม่มีคอร์สที่ใช้อยู่</p>}
+          {current.length === 0 && !hasPending && <p className="py-3 text-sm text-muted-foreground">ไม่มีคอร์สที่ใช้อยู่</p>}
           <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
+          <PendingInvoices stu={stu} onOpen={onOpenInvoice} />
           {pastCount > 0 && (
             <Button variant="ghost" size="inline" type="button" onClick={onHistory} className="mt-1 flex w-full items-center gap-1 border-t pt-2.5 text-xs text-muted-foreground hover:text-foreground">
               <HistoryIcon className="size-3.5" />ประวัติคอร์สที่หมดแล้ว {pastCount} รายการ<ChevronRightIcon className="ml-auto size-3.5" />

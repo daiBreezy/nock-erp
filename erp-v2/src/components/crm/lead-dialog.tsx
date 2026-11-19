@@ -58,7 +58,7 @@ export function LeadDialog({ onClose, initialName, initial, onSaved, lead: editi
   return (
     <FormShell className="sm:max-w-md" onClose={onClose} title={editing ? `แก้ไข ${editing.name}` : "เพิ่ม Lead ใหม่"}
       description={editing ? undefined : <>สาขา{branch.name} — เข้าไปป์ไลน์ที่คอลัมน์ &quot;ลูกค้าใหม่&quot;</>}
-      footer={<><Button variant="ghost" onClick={onClose}>ยกเลิก</Button><Button disabled={!name.trim() || (!chat && !phone.trim() && !lineId.trim())} onClick={submit}>{editing ? "บันทึก" : "เพิ่ม Lead"}</Button></>}>
+      footer={<><Button variant="ghost" onClick={onClose}>ยกเลิก</Button><Button disabled={!name.trim() || (!chat && !editing?.lineUserId && !phone.trim() && !lineId.trim())} onClick={submit}>{editing ? "บันทึก" : "เพิ่ม Lead"}</Button></>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="ชื่อผู้ปกครอง/ผู้ติดต่อ *" className="sm:col-span-2">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ปราณี ใจดี (ไม่ต้องใส่ คุณแม่/คุณพ่อ)" />

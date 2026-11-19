@@ -651,6 +651,22 @@ export function canForceConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, 
   return miss ? { ok: false, error: miss } : { ok: true, value: undefined }
 }
 
+/** Where an invoice stands and what the office does next (owner 2026-11-19) — shown on the student's panel so the next step is
+ *  obvious. null = nothing left to do (void, or paid with its receipt issued). */
+export function invoiceNextStep(inv: Pick<Invoice, "status" | "pdf" | "payments" | "delivery" | "receiptNumber">): { stage: string; todo: string; tone: "gray" | "blue" | "amber" | "green" | "red" } | null {
+  switch (inv.status) {
+    case "void": return null
+    case "draft": return inv.pdf === "ready" ? { stage: "ใบร่าง", todo: "ส่งให้อนุมัติ", tone: "gray" } : { stage: "ใบร่าง", todo: "ตรวจใบ แล้วสร้าง PDF", tone: "gray" }
+    case "pending_approval": return { stage: "รออนุมัติ", todo: "ให้คนอื่นอนุมัติ PDF", tone: "amber" }
+    case "approved": return { stage: "อนุมัติแล้ว", todo: "ส่งใบให้ผู้ปกครอง", tone: "amber" }
+    case "sent":
+      if (inv.payments.some((p) => !p.confirmedBy)) return { stage: "มีการรับเงิน", todo: "ยืนยันยอดเงิน (อีกคนที่ไม่ใช่คนบันทึก)", tone: "amber" }
+      if (inv.delivery === "failed" || inv.delivery === "no_line") return { stage: "ยังไม่ถึงผู้ปกครอง", todo: "ส่งใบอีกครั้ง หรือแจ้งทางอื่น", tone: "red" }
+      return { stage: "ส่งแล้ว", todo: "รอผู้ปกครองชำระ — ส่งซ้ำได้ถ้าเขายังไม่เห็น", tone: "blue" }
+    case "paid": return inv.receiptNumber ? null : { stage: "ชำระครบ", todo: "ออกใบเสร็จ", tone: "green" }
+  }
+}
+
 export const INVOICE_STATUS_LABEL: Record<Invoice["status"], string> = {
   draft: "รอสร้าง PDF",
   pending_approval: "รออนุมัติ",

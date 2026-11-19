@@ -41,10 +41,10 @@ function Thumb({ doc, w, className }: { doc: DocItem; w: number; className?: str
  * Documents on a stepper step (owner 2026-11-05): one document = a thumbnail; two or more (pay slips / receipts) = a
  * stack, front card tilted −2°, the one behind +2°. Click → the document open as a PDF/image with Download and Share.
  */
-export function DocThumbs({ docs, onAdd, addLabel }: { docs: DocItem[]; /** not uploaded yet (or one more to add): a "+" tile that opens the upload dialog */ onAdd?: () => void; addLabel?: string }) {
+export function DocThumbs({ docs, onAdd, addLabel, size = 56 }: { docs: DocItem[]; /** thumbnail width in px (default 56) */ size?: number; /** not uploaded yet (or one more to add): a "+" tile that opens the upload dialog */ onAdd?: () => void; addLabel?: string }) {
   const [open, setOpen] = useState<number | null>(null)
   if (!docs.length && !onAdd) return null
-  const W = 56
+  const W = size
   const stacked = docs.length > 1
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">

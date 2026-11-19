@@ -298,6 +298,8 @@ export interface CompanyInfo {
 }
 
 export interface SystemSettings {
+  /** Credit Course on/off, brand-wide (owner 2026-11-19): off = nobody can add a course before invoicing. Unset = off. */
+  creditCourse?: boolean
   notify: Record<NotifyKey, { inApp: boolean; line: boolean }>
   /** session packs: alert when remaining ≤ this */
   lowSessionThreshold: number
@@ -776,6 +778,19 @@ export interface Assessment {
   notedAt?: string
 }
 
+export interface CreditInfo {
+  /** tuition quoted when it was added (what is owed) */
+  amount: number
+  reason: string
+  by: ID
+  at: string
+  /** the purchase as entered (so an invoice can be made from it later and quote the same package) */
+  startDate: DateStr
+  periods: number
+  leftover?: Leftover
+  seats?: Record<ID, Seat>
+}
+
 export type EntitlementKind = "subscription" | "sessions"
 
 export interface Entitlement {
@@ -786,7 +801,11 @@ export interface Entitlement {
   subjects: string[]
   /** the classes this package pays for — one course can run on several classes (อ. + พฤ. = 2 classes, owner 2026-09-30) */
   classIds: ID[]
-  invoiceId: ID
+  /** the invoice that paid for it — null while it is a Credit Course (studying before paying, owner 2026-11-19) */
+  invoiceId: ID | null
+  /** Credit Course: the admin added the course straight to the student; an invoice is made and chased later.
+   *  Stays "credit" until the invoice that picks it up is paid (then invoiceId is set). */
+  credit?: CreditInfo
   kind: EntitlementKind
   from: DateStr
   to: DateStr
@@ -1265,7 +1284,13 @@ export interface CatalogRequestMeta {
   when: string
 }
 
-export type ChatMessageMeta = FormRequestMeta | FormSubmissionMeta | ImageMeta | ExitFormMeta | ParentRequestMeta | CatalogRequestMeta
+/** an invoice sent to the parent: the text plus the invoice document attached (thumbnail → preview) — owner 2026-11-19 */
+export interface InvoiceDocMeta {
+  formKind: "invoice_doc"
+  invoiceIds: ID[]
+}
+
+export type ChatMessageMeta = InvoiceDocMeta | FormRequestMeta | FormSubmissionMeta | ImageMeta | ExitFormMeta | ParentRequestMeta | CatalogRequestMeta
 
 export interface ChatMessage {
   id: ID
@@ -1377,6 +1402,8 @@ export interface CourseLine {
   courseId: ID
   /** one course, several classes (e.g. Tue + Thu) — each is counted as its own class */
   classIds: ID[]
+  /** the Credit Course (an Entitlement id) this line settles — its package already exists, paying only links it (owner 2026-11-19) */
+  creditId?: ID
   startDate: DateStr
   periods: number
   /** required when the student already has an active entitlement for the course */

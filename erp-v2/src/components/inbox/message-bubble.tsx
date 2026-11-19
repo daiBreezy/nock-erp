@@ -1,6 +1,8 @@
 "use client"
 
 import { LockIcon } from "lucide-react"
+import { DocThumbs, type DocItem } from "@/components/billing/doc-thumbs"
+import { useStore } from "@/store/store"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker"
 import { fmtDateTime } from "@/domain/dates"
@@ -52,7 +54,22 @@ export function MessageBubble({ message, conversation, staff, onUseAsSlip, membe
           ) : message.text}
         </div>
       </SentAt>
+      {message.meta?.formKind === "invoice_doc" && <InvoiceDocs ids={message.meta.invoiceIds} />}
       </div>
+    </div>
+  )
+}
+
+/** the invoice(s) sent with this message (owner 2026-11-19): a thumbnail of each document under the text — click always opens the preview (PDF viewer with download / share) */
+function InvoiceDocs({ ids }: { ids: string[] }) {
+  const invoices = useStore((s) => s.invoices)
+  const docs: DocItem[] = ids.map((id) => invoices.find((x) => x.id === id)).filter((x): x is NonNullable<typeof x> => !!x)
+    .map((inv) => ({ key: inv.id, kind: "invoice" as const, label: `ใบแจ้งหนี้ ${inv.number ?? ""}`.trim(), src: `/print/invoice/${inv.id}` }))
+  if (!docs.length) return null
+  return (
+    <div className="mt-1.5 flex items-center justify-end gap-2">
+      <span className="truncate text-xs text-muted-foreground">{docs.length > 1 ? `ใบแจ้งหนี้ ${docs.length} ใบ` : docs[0].label}</span>
+      <DocThumbs docs={docs} size={88} />
     </div>
   )
 }

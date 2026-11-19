@@ -1017,7 +1017,7 @@ export function forecastRevenue(ctx: {
   const paid = new Map(ctx.rows.filter((x) => !x.credit).map((x) => [x.invoiceId, x]))
   for (const e of latest.values()) {
     if (addDays(e.to, LOST_AFTER_DAYS) < ctx.today) continue
-    const line = paid.get(e.invoiceId)?.lines.find((l) => l.courseId === e.courseId)
+    const line = (e.invoiceId ? paid.get(e.invoiceId) : undefined)?.lines.find((l) => l.courseId === e.courseId)
     if (!line || line.amount <= 0) continue
     const len = Math.max(7, daysIn({ from: e.from, to: e.to }))
     // an open invoice already is the next package → the renewals start after it

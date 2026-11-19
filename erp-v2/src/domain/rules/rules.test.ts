@@ -534,6 +534,8 @@ describe("crm", () => {
     // added from the chat: the LINE account is known → the name alone is enough, grade / subject / phone come later
     expect(validateLead({ name: "สมชาย", childGrade: "", subject: "", phone: "", lineUserId: "U1" }, { quick: true })).toBeNull()
     expect(validateLead({ name: " ", childGrade: "", subject: "", phone: "", lineUserId: "U1" }, { quick: true })).toMatch(/ชื่อ/)
+    // editing a lead that came from a LINE chat (no phone / LINE ID typed) still saves — its LINE account is the contact
+    expect(validateLead({ name: "daiBreezy", childGrade: "ป.5", subject: "คณิต", phone: "", lineUserId: "U1" })).toBeNull()
     expect(validateLead({ name: "Mom", childGrade: "P5", subject: "Math", phone: "08x" })).toBeNull()
   })
 
@@ -1544,6 +1546,13 @@ describe("parent message language (owner 2026-11-09): Liclass = Japanese + Engli
     const t = invoiceTotals(inv, { branch: b, courses: [{ ...monthPkg, name: "Mirai" }], classes: [{ ...k, name: "Eng" }], holidays: [] })
     return { b, t }
   }
+  it("an invoice goes out in ONE language: Liclass = Japanese only, NockAcademy = Thai only (owner 2026-11-19)", () => {
+    const li = lang("liclass"), na = lang("nockacademy")
+    const ja = invoiceMessage(inv, li.t, { student: { ...stu, name: "Pum", nickname: "Pum" }, branch: li.b })
+    expect(ja).toMatch(/[\u3040-\u30FF]/); expect(ja).not.toMatch(thai); expect(ja).not.toContain("Amount due"); expect(ja).not.toContain("———")
+    const th = invoiceMessage(inv, na.t, { student: stu, branch: na.b })
+    expect(th).toMatch(thai); expect(th).not.toMatch(/[\u3040-\u30FF]/); expect(th).not.toContain("Amount due"); expect(th).not.toContain("———")
+  })
   it("Liclass: no Thai letter anywhere in the invoice, receipt, void or family receipt", () => {
     const { b, t } = lang("liclass")
     const bank = { ...b, bankAccount: { ...b.bankAccount, bank: "KBank", name: "Liclass Co" } }
@@ -1552,12 +1561,12 @@ describe("parent message language (owner 2026-11-09): Liclass = Japanese + Engli
       receiptMessage({ ...inv, receiptNumber: "RC-1" }, t.total, { student: { ...stu, name: "Pum", nickname: "Pum" }, totals: t, branch: bank }),
       voidMessage(inv, { student: { ...stu, name: "Pum", nickname: "Pum" }, brand: "liclass" }),
       familyReceiptMessage("RC-1", [{ number: "INV-1", total: 100, student: { nickname: "Pum" } }], "liclass"),
-    ]) { expect(text).not.toMatch(thai); expect(text).toMatch(/[\u3040-\u30FF]/); expect(text).toMatch(/Invoice|Receipt|cancelled|received/) }
+    ]) { expect(text).not.toMatch(thai); expect(text).toMatch(/[\u3040-\u30FF]/); if (!text.startsWith("📄 ご請求書")) expect(text).toMatch(/Invoice|Receipt|cancelled|received/) } // the invoice is Japanese only
   })
   it("NockAcademy: Thai + English, no Japanese", () => {
     const { b, t } = lang("nockacademy")
     const text = invoiceMessage(inv, t, { student: stu, branch: b })
-    expect(text).toMatch(thai); expect(text).toContain("Amount due"); expect(text).not.toMatch(/[\u3040-\u30FF]/)
+    expect(text).toMatch(thai); expect(text).not.toMatch(/[\u3040-\u30FF]/) // Thai only now — see the one-language test above
   })
   it("the staff's own note goes out once, as written", () => {
     const { b, t } = lang("nockacademy")

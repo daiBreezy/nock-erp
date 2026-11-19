@@ -106,7 +106,7 @@ const SLIDE = "flex w-0 shrink-0 items-center overflow-hidden opacity-0 transiti
 const justify = (a?: Column<unknown>["align"]) => (a === "right" ? "justify-end" : a === "center" ? "justify-center" : "justify-start")
 const textAlign = (a?: Column<unknown>["align"]) => (a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left")
 
-export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassName, rowProps, sort, onSort, empty, minWidth = 900, expanded, rowActions, maxHeight }: {
+export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassName, rowProps, sort, onSort, empty, minWidth = 900, fit, expanded, rowActions, maxHeight }: {
   /** one id per table — the saved layout is kept under it */
   id: string
   columns: Column<R>[]
@@ -119,6 +119,8 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
   onSort?: (key: never) => void
   empty?: ReactNode
   minWidth?: number
+  /** owner 2026-11-19: the table is only as wide as the columns showing (their `width`s added up) — it fills the card and scrolls sideways only once more columns are turned on. Replaces `minWidth`. */
+  fit?: boolean
   /** owner 2026-10-19 (Bus Route): a row that opens in place — what to show under it (null = closed) */
   expanded?: (row: R) => ReactNode
   /** owner 2026-10-29: row actions are not a column — the ⋯ floats over the end of the row on hover only */
@@ -188,7 +190,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
   return (
     <div className="overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
       <div className={maxHeight ? "overflow-auto" : "overflow-x-auto"} style={maxHeight ? { maxHeight } : undefined}>
-        <table className={cn("text-sm [&_td]:align-middle [&_th]:align-middle", fixed ? "table-fixed" : "w-full")} style={fixed ? { width: totalWidth, minWidth: "100%" } : { minWidth }}>
+        <table className={cn("text-sm [&_td]:align-middle [&_th]:align-middle", fixed ? "table-fixed" : "w-full")} style={fixed ? { width: totalWidth, minWidth: "100%" } : { minWidth: fit ? cols.reduce((a, c) => a + (parseInt(c.width ?? "", 10) || 120), 0) : minWidth }}>
           <colgroup>{cols.map((c) => <col key={c.id} style={fixed ? { width: L.widths![c.id] } : c.width ? { width: c.width } : undefined} />)}</colgroup>
           <thead className={HEAD}>
             <tr>
