@@ -29,4 +29,11 @@ export const TEACHING: Record<string, Entry> = {
   "เก็บสรุปการเรียนเป็น History": { en: "Kept the lesson summary as History", ja: "授業サマリーを履歴として保存" },
   "ไม่ได้ส่งผู้ปกครอง (เก็บไว้ใช้สร้าง Course Summary)": { en: "Not sent to the parent (kept to build the Course Summary)", ja: "保護者には未送信（コースサマリー作成用に保存）" },
   "ทุกแพ็กเกจ": { en: "All packages", ja: "すべてのパッケージ" },
+  "ยกเลิกคาบนี้ (Cancel class)": { en: "Cancel this session", ja: "この授業をキャンセル" },
+  "นักเรียนไม่มา / ติดต่อไม่ได้ — ต้องใส่เหตุผล": { en: "Student no-show / unreachable — a reason is required", ja: "欠席・連絡不能 — 理由の入力が必要" },
+  "Remark · เหตุผล *": { en: "Remark · Reason *", ja: "備考・理由 *" },
+  "เช่น นักเรียนไม่มาเรียน ติดต่อผู้ปกครองไม่ได้": { en: "e.g. Student did not show up, parent unreachable", ja: "例：生徒が来ず、保護者に連絡がつかない" },
+  "ไม่ยกเลิก": { en: "Keep session", ja: "キャンセルしない" },
+  "ยืนยันยกเลิกคาบ": { en: "Confirm cancel", ja: "キャンセルを確定" },
+  "คาบยังอยู่เป็นประวัติ (สถานะยกเลิก) และแจ้งทีมงาน": { en: "The session stays as history (cancelled) and the team is notified", ja: "授業は履歴（キャンセル済み）として残り、チームに通知されます" },
 }

@@ -8,6 +8,7 @@ import Link from "next/link"
 import { useMemo, useState } from "react"
 import { ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, StickyNoteIcon, StoreIcon, UsersIcon, ChevronRightIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { EntityTag } from "@/components/app/entity-tag"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { Tabs, SearchBox } from "./page-layout"
@@ -111,6 +112,7 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
   return (
     <>
       <SheetHeader className="shrink-0 gap-2 border-b pb-0">
+        <EntityTag kind="student" />
         <div className="flex items-center gap-3 pr-8">
           <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}><GraduationCapIcon className="size-5" /></span>
           <div className="min-w-0">

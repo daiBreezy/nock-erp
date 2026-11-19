@@ -10,6 +10,7 @@ import { ReasonDialog } from "@/components/app/reason-dialog"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { gradeTone } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
+import { EntityTag } from "@/components/app/entity-tag"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { can } from "@/domain/rules/permissions"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "./form-shell"
@@ -62,6 +63,7 @@ export function FamilySheet({ id: target, onClose }: { id: ID | "new" | null; on
           ) : f && (
             <>
               <SheetHeader className="shrink-0 border-b pb-3">
+                <EntityTag kind="family" />
                 <div className="flex items-center gap-2">
                   <SheetTitle className="text-lg">{f.name}</SheetTitle>
                   {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}

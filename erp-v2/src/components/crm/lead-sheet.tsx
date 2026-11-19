@@ -5,9 +5,13 @@ import { PanelForm } from "@/components/app/form-shell"
 import { LeadDialog } from "./lead-dialog"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { ArchiveIcon, CalendarIcon, EllipsisIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, PencilIcon, UserPlusIcon } from "lucide-react"
+import { ArchiveIcon, CalendarIcon, GraduationCapIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, PencilIcon, UserPlusIcon } from "lucide-react"
 import { AssessmentNote } from "@/components/app/assessment-note"
 import { Pill } from "@/components/app/badges"
+import { LeadChildDialog } from "@/components/crm/lead-child-dialog"
+import { EntityTag } from "@/components/app/entity-tag"
+import { PanelFooter, PanelMore } from "@/components/app/form-shell"
+import { Tabs } from "@/components/app/page-layout"
 import { NativeSelect } from "@/components/app/native-select"
 import { gradeTone, avatarTone, initial, subjectColor } from "@/components/app/subject-color"
 import { StudentSheet } from "@/components/app/student-sheet"
@@ -18,9 +22,8 @@ import { sendEnrollForm } from "@/lib/forms"
 import { SubmissionReviewCard } from "@/components/inbox/submission-review-card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { CHANNEL_LABEL, followUpState, REACHED, RESULT_LABEL } from "@/domain/rules/loss"
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime } from "@/domain/dates"
 import { BOARD_GROUPS, daysAgoLabel, groupOf, LEAD_SOURCE_LABEL, leadSubjects, scheduleInfo, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
@@ -80,6 +83,9 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const convert = useStore((s) => s.convertLeadToStudent)
   const now = useNow()
   const [note, setNote] = useState("")
+  const [childDialog, setChildDialog] = useState(false)
+  // owner 2026-11-18: one tab per kind of content — progress first (what staff need most), then who, then the log
+  const [tab, setTab] = useState<"progress" | "info" | "log">("progress")
   const [archiving, setArchiving] = useState(false)
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
   const [submissions, setSubmissions] = useState<FormSubmission[]>([])
@@ -126,7 +132,8 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
 
   return (
     <>
-      <SheetHeader className="gap-3 border-b pb-4">
+      <SheetHeader className="gap-3 border-b pb-0">
+        <EntityTag kind="lead" />
         <div className="flex items-center gap-3 pr-8">
           <span className={cn("grid size-12 shrink-0 place-items-center rounded-full text-lg font-semibold", avatarTone(lead.id))}>{initial(lead.name)}</span>
           <div className="min-w-0">
@@ -166,9 +173,15 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
             <Button size="xs" variant="outline" onClick={() => setArchiving(true)}><ArchiveIcon /> ปิด Lead?</Button>
           </div>
         )}
+        <Tabs className="-mx-4 border-b-0 px-3" value={tab} onChange={setTab} options={[
+          { value: "progress", label: "ความคืบหน้า" },
+          { value: "info", label: "ข้อมูล" },
+          { value: "log", label: `ประวัติ (${timeline.length})` },
+        ]} />
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
+        {tab === "info" && <>
         {/* contact always first (owner 2026-10-05) */}
         <Section title="ติดต่อ">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -185,18 +198,23 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
                   <Pill tone={p.lineLinked ? "green" : "amber"}>{p.lineLinked ? "LINE แล้ว" : "ยังไม่ผูก LINE"}</Pill>
                 </div>
               ))}
-              {familyChildren.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                  <span className="text-xs text-muted-foreground">ลูก</span>
-                  {familyChildren.map((c) => (
-                    <Button variant="outline" size="inline" key={c.id} type="button" onClick={() => setOpenStudentId(c.id)} className="rounded-full border bg-background px-2 py-0.5 text-xs hover:bg-muted">{c.nickname} · {c.grade}</Button>
-                  ))}
-                </div>
-              )}
             </div>
           )}
         </Section>
 
+        {familyChildren.length > 0 && (
+          <Section title={`ลูก (${familyChildren.length})`}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {familyChildren.map((c) => (
+                <Button variant="outline" size="inline" key={c.id} type="button" onClick={() => setOpenStudentId(c.id)} className="rounded-full border bg-background px-2 py-0.5 text-xs hover:bg-muted">{c.nickname} · {c.grade}</Button>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        </>}
+
+        {tab === "progress" && <>
         {pending.length > 0 && (
           <Section title={`ฟอร์มรอตรวจ (${pending.length})`}>
             {pending.map((sub) => <SubmissionReviewCard key={sub.id} submission={sub} onChanged={pollSubmissions} />)}
@@ -212,7 +230,9 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
           <Section title="ทำไมถึงปิด Lead"><LostSummary lead={lead} /></Section>
         )}
 
-        <Section title={`ประวัติการติดต่อ (${timeline.length})`}>
+        </>}
+
+        {tab === "log" && <Section title={`ประวัติการติดต่อ (${timeline.length})`}>
           {canManage && (
             <div className="flex gap-2">
               <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="จดโน้ต / ผลคุย" rows={1} className="min-h-9 flex-1" />
@@ -235,9 +255,9 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
               ))}
             </ol>
           ) : <p className="text-muted-foreground">ยังไม่มีประวัติ</p>}
-        </Section>
+        </Section>}
 
-        {history.length > 0 && (
+        {tab === "progress" && history.length > 0 && (
           <details className="rounded-xl border">
             <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">ฟอร์มก่อนหน้า ({history.length})</summary>
             <div className="space-y-2 border-t p-2.5">
@@ -247,55 +267,42 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
         )}
       </div>
 
-      <SheetFooter className="flex-row flex-wrap items-center justify-end gap-2">
-        {/* owner 2026-10-09: CTAs live in the bottom bar — the "more" menu on the left, แก้ไข next to the main action */}
-        <span className="mr-auto flex items-center gap-2">
-            {canManage && (
-              // everything that isn't needed every time lives here (owner 2026-10-05)
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button size="icon-sm" variant="outline" aria-label="เพิ่มเติม" />}><EllipsisIcon /></DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="top" className="w-60">
-                  {isOpen ? (
-                    <>
-                      <DropdownMenuItem onClick={() => setFollowingUp(true)}><PhoneIcon /> บันทึกการติดตาม (โทร / LINE)</DropdownMenuItem>
-                      <DropdownMenuItem disabled={!lead.lineUserId} onClick={() => setSendingFormOpen(true)}>
-                        <SendIcon /><span className="flex flex-col"><span>ส่งฟอร์มสอบ / ทดลองเรียน</span>{!lead.lineUserId && <span className="text-xs text-muted-foreground">ต้องผูก LINE ใน Inbox ก่อน</span>}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setEnrolling(true)}><UserPlusIcon /> ส่งใบสมัครเรียน (สมัครทันที)</DropdownMenuItem>
-                      {/* owner 2026-10-12: the skip-ahead shortcut is not the next step — it lives here, not as the main button */}
-                      {!lead.trialStudentId && <DropdownMenuItem onClick={convertNow}><UserCheckIcon /> สร้างนักเรียนทันที (ข้ามสอบ/ทดลอง)</DropdownMenuItem>}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" onClick={() => setArchiving(true)}><ArchiveIcon /> ปิด Lead</DropdownMenuItem>
-                    </>
-                  ) : lead.stage === "archived" ? (
-                    <DropdownMenuItem onClick={() => report(restore(lead.id), "กู้คืนแล้ว")}><RotateCcwIcon /> กู้คืนจากคลัง</DropdownMenuItem>
-                  ) : <DropdownMenuItem disabled>ลงทะเบียนแล้ว</DropdownMenuItem>}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          {canManage && <Button size="sm" variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
-        </span>
+      {/* owner 2026-11-18: bottom bar = ⋯ on the left, แก้ไข on the right — every other action lives in ⋯ */}
+      <PanelFooter>
         {!canManage ? (
-          <p className="mr-auto text-xs text-muted-foreground">ดูอย่างเดียว — ไม่มีสิทธิ์จัดการ Lead</p>
-        ) : lead.stage === "enrolled" ? (
-          lead.convertedStudentId ? <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.convertedStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
-            : <p className="text-xs text-muted-foreground">ลงทะเบียนแล้ว — ยังไม่พบโปรไฟล์นักเรียนที่ผูกไว้</p>
-        ) : lead.stage === "archived" ? (
-          <Button size="sm" variant="outline" onClick={() => report(restore(lead.id), "กู้คืนแล้ว")}><RotateCcwIcon /> กู้คืนจากคลัง</Button>
-        ) : lead.trialStudentId ? (
+          <p className="text-xs text-muted-foreground">ดูอย่างเดียว — ไม่มีสิทธิ์จัดการ Lead</p>
+        ) : (
           <>
-            <Button size="sm" variant="outline" onClick={() => setOpenStudentId(lead.trialStudentId!)}>เปิดโปรไฟล์นักเรียน</Button>
-            {can(me, "billing.manage") && <Button size="sm" onClick={() => setInvoice("new")}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
-            {invoice && <InvoiceSheet id={invoice} defaultStudentId={lead.trialStudentId ?? undefined} onClose={() => setInvoice(null)} />}
+            <PanelMore items={
+              isOpen ? [
+                { label: "บันทึกการติดตาม (โทร / LINE)", icon: PhoneIcon, onClick: () => setFollowingUp(true) },
+                // owner 2026-11-18: no LINE / form needed — staff fill the child in (and book the test / trial) right here
+                { label: lead.trialStudentId ? "นัดสอบ / ทดลองเรียน (กรอกเอง)" : "เพิ่มลูก / นัดสอบ-ทดลอง (กรอกเอง)", icon: UserPlusIcon, onClick: () => setChildDialog(true) },
+                !!lead.trialStudentId && { label: "เปิดโปรไฟล์นักเรียน", icon: GraduationCapIcon, onClick: () => setOpenStudentId(lead.trialStudentId!) },
+                !!lead.trialStudentId && can(me, "billing.manage") && { label: "ออกใบแจ้งหนี้", icon: ReceiptIcon, onClick: () => setInvoice("new") },
+                { label: !lead.lineUserId ? "ส่งฟอร์มสอบ / ทดลองเรียน (ต้องผูก LINE ใน Inbox ก่อน)" : "ส่งฟอร์มสอบ / ทดลองเรียน", icon: SendIcon, disabled: !lead.lineUserId, onClick: () => setSendingFormOpen(true) },
+                { label: "ส่งใบสมัครเรียน (สมัครทันที)", icon: UserPlusIcon, onClick: () => setEnrolling(true) },
+                // owner 2026-10-12: the skip-ahead shortcut is not the next step
+                // the child's real name is needed first — a child is added before the lead can be enrolled
+                { label: "สร้างนักเรียนทันที (ข้ามสอบ/ทดลอง)", icon: UserCheckIcon, onClick: lead.trialStudentId ? convertNow : () => setChildDialog(true) },
+                { label: "ปิด Lead", icon: ArchiveIcon, destructive: true, onClick: () => setArchiving(true) },
+              ] : lead.stage === "archived" ? [
+                { label: "กู้คืนจากคลัง", icon: RotateCcwIcon, onClick: () => report(restore(lead.id), "กู้คืนแล้ว") },
+              ] : [
+                !!lead.convertedStudentId && { label: "เปิดโปรไฟล์นักเรียน", icon: GraduationCapIcon, onClick: () => setOpenStudentId(lead.convertedStudentId!) },
+              ]
+            } />
+            <span className="ml-auto flex items-center gap-2">
+              {/* owner 2026-10-12: what moves the stage by itself — an ⓘ to hover, not a line of text */}
+              {AUTO_HINT[lead.stage] && <InfoTip text={`อัตโนมัติ: ${AUTO_HINT[lead.stage]}`} />}
+              <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
+            </span>
           </>
-        ) : (lead.stage === "new" || lead.stage === "contacting") ? (
-          // the next step for a fresh lead is reaching the parent — not converting
-          <Button size="sm" onClick={() => setFollowingUp(true)}><PhoneIcon /> บันทึกการติดตาม</Button>
-        ) : null}
-        {/* owner 2026-10-12: what moves the stage by itself — an ⓘ to hover, not a line of text under the buttons */}
-        {canManage && AUTO_HINT[lead.stage] && <InfoTip text={`อัตโนมัติ: ${AUTO_HINT[lead.stage]}`} />}
-      </SheetFooter>
+        )}
+      </PanelFooter>
+      {invoice && <InvoiceSheet id={invoice} defaultStudentId={lead.trialStudentId ?? undefined} onClose={() => setInvoice(null)} />}
 
+      {childDialog && <LeadChildDialog lead={lead} onClose={() => setChildDialog(false)} />}
       {archiving && <LeadLostDialog lead={lead} onClose={() => setArchiving(false)} />}
       {followingUp && (
         <Dialog open onOpenChange={(o) => !o && setFollowingUp(false)}>

@@ -30,7 +30,7 @@ import { shortCourse } from "@/domain/rules/course"
 import * as Les from "@/domain/rules/lessons"
 import type { SummaryLesson } from "@/store/store"
 import { CatalogCombo, CatalogManager } from "./lesson-picker"
-import { assessmentIn, FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import { assessmentIn, FORM_TYPE_LABEL, isAssessmentSession } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
 import { canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, findConflicts, hasEnded, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity, workState, WORK_LABEL } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
@@ -101,6 +101,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const [postponing, setPostponing] = useState(false)
   const [teacherLeave, setTeacherLeave] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const assessments = useStore((st) => st.assessments)
   const [editingClass, setEditingClass] = useState(false)
   const [drafts, setDrafts] = useState<Record<ID, string>>({})
   const [picked, setPicked] = useState<Set<ID>>(new Set())
@@ -127,7 +129,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const approvable = present.filter((sid) => { const x = summaryOf(sid); return x?.status === "submitted" && Sum.canApprove(x, me).ok })
   // owner 2026-11-13: every present student whose summary is not closed yet can be ticked (a dash only for those who can't:
   // absent / on leave / already sent). The two bulk buttons count — and enable on — the ones that can act right now.
-  const selectable = present.filter((sid) => !viewOnly && summaryOf(sid)?.status !== "sent")
+  // Test/Trial session: no lesson summary → no bulk-summary bar
+  const assessmentOnly = isAssessmentSession(s.id, s.studentIds, assessments)
+  const selectable = present.filter((sid) => !viewOnly && !assessmentOnly && summaryOf(sid)?.status !== "sent")
   const sel = [...picked].filter((x) => selectable.includes(x))
   const toggle = (sid: ID) => setPicked((p) => { const n = new Set(p); if (n.has(sid)) n.delete(sid); else n.add(sid); return n })
   // owner 2026-11-13: nothing ticked = the button works on everyone it can (a written summary shouldn't need a tick first);
@@ -310,6 +314,9 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
                 </DropdownMenuItem>
               )}
               {canManage && <><DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" disabled={locked} onClick={() => setCancelling(true)}>
+                  <BanIcon /><span className="flex flex-col"><span>ยกเลิกคาบนี้ (Cancel class)</span><span className="text-xs text-muted-foreground">นักเรียนไม่มา / ติดต่อไม่ได้ — ต้องใส่เหตุผล</span></span>
+                </DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}><Trash2Icon /> ลบ</DropdownMenuItem></>}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -321,6 +328,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
       {teacherLeave && <TeacherLeaveDialog s={s} onClose={() => setTeacherLeave(false)} />}
       {teachersOpen && <TeachersDialog id={s.id} onClose={() => setTeachersOpen(false)} />}
       {adding && <AddStudentDialog id={s.id} onClose={() => setAdding(false)} />}
+      {cancelling && <CancelSessionDialog s={s} onClose={() => setCancelling(false)} onDone={onClose} />}
       {deleting && <DeleteDialog s={s} canCancel={!locked} onClose={() => setDeleting(false)} onDone={onClose} />}
       <ClassSheet key={editingClass ? "edit" : "closed"} startEditing id={editingClass && klass ? klass.id : null} onClose={() => setEditingClass(false)} />
     </>
@@ -373,6 +381,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
   const ent = Att.coveringEntitlement(sid, s, entitlements)
   const asm = assessmentIn(s.id, sid, assessments)
+  // Test/Trial: only มา + ย้ายวัน (no leave), ⋮ = profile + remove only, no lesson summary
+  const isTest = !!asm
   const onLongLeave = Att.activeLeave(sid, s.date, leaves)
   // owner 2026-11-02: the whole session locks once any summary has been sent to parents
   const locked = Sum.sessionLocked(s.id, summaries)
@@ -455,8 +465,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         <span className="order-last inline-flex h-9 w-full shrink-0 items-center rounded-full bg-muted/60 p-1 sm:order-none sm:w-auto">
           <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
             className={pill + " data-[on=true]:bg-success data-[on=true]:text-white"}>มา</Button>
-          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
-            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-danger data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>
+          {!isTest && <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
+            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-danger data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>}
           <Button variant="ghost" size="inline" type="button" disabled={!!movedTo || !canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
             title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</Button>
         </span>
@@ -467,13 +477,13 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" className="size-9 shrink-0 self-start sm:size-8" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuItem onClick={() => setOpen("student")}><UserIcon /> เปิดโปรไฟล์นักเรียน</DropdownMenuItem>
-              {pastSummaries.length > 0 && <DropdownMenuItem onClick={() => setHistoryOpen(true)}><HistoryIcon /> {`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</DropdownMenuItem>}
-              {canMove && (
+              {!isTest && pastSummaries.length > 0 && <DropdownMenuItem onClick={() => setHistoryOpen(true)}><HistoryIcon /> {`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</DropdownMenuItem>}
+              {canMove && !isTest && (
                 <DropdownMenuItem disabled={locked || !!a} onClick={() => setOpen("reschedule")}>
                   <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
                 </DropdownMenuItem>
               )}
-              {canManage && (
+              {canManage && !isTest && (
                 <DropdownMenuItem onClick={() => setOpen("seat")}>
                   <ClockFadingIcon /><span className="flex flex-col"><span>เวลาเรียนของ{stu?.nickname}</span><span className="text-xs text-muted-foreground">เรียนแค่บางชั่วโมง (คาบนี้ / ทุกคาบ)</span></span>
                 </DropdownMenuItem>
@@ -510,7 +520,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </p>
       )}
       {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} /></div>}
-      {a?.status === "present" && (
+      {a?.status === "present" && !isTest && (
         <div className={cn(indent)}>
           {/* owner Row 48: past-summary history lives on the summary's CTA row (icon button) */}
           <SummaryInline key={lessonKey(summaries.find((x) => x.sessionId === s.id && x.studentId === sid))} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} historyCount={pastSummaries.length} onHistory={() => setHistoryOpen(true)} />
@@ -1010,6 +1020,30 @@ function RemoveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; on
               ? report(removeClass(s.classId, studentId), (v) => `เอา ${name} ออกจากคลาสแล้ว · ${v.removedFrom} คาบ`)
               : report(removeOne(s.id, studentId), `เอา ${name} ออกจากคาบนี้แล้ว`)) && onClose()}>
             <UserMinusIcon /> เอาออก
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Cancel just this session with a required remark (owner 2026-11-18: student no-show / unreachable) — soft cancel, kept as history */
+function CancelSessionDialog({ s, onClose, onDone }: { s: Session; onClose: () => void; onDone: () => void }) {
+  const cancel = useStore((st) => st.cancelSession)
+  const [reason, setReason] = useState("")
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="lg:max-w-md">
+        <DialogHeader>
+          <DialogTitle>ยกเลิกคาบนี้ (Cancel class)</DialogTitle>
+          <DialogDescription>{fmtDate(s.date, { weekday: true })} {s.start}<br />คาบยังอยู่เป็นประวัติ (สถานะยกเลิก) และแจ้งทีมงาน</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1"><Label>Remark · เหตุผล *</Label><Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น นักเรียนไม่มาเรียน ติดต่อผู้ปกครองไม่ได้" /></div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>ไม่ยกเลิก</Button>
+          <Button variant="destructive" disabled={!reason.trim()}
+            onClick={() => report(cancel(s.id, reason.trim()), (v) => `ยกเลิกคาบแล้ว · นักเรียน ${v.students} คน`) && (onClose(), onDone())}>
+            <BanIcon /> ยืนยันยกเลิกคาบ
           </Button>
         </DialogFooter>
       </DialogContent>

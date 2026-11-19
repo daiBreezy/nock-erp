@@ -18,7 +18,7 @@ import { keepLineLinks, withoutLineLink } from "../../store/keep-line-links"
 import { findFamilyDuplicates, findStudentDuplicates, familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
 import { advanceStage, canSetStage, daysAgo, groupOf, leadFromSubmission, restoreStage, siblingLead, validateLead } from "./crm"
-import { allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel, slotClashes, picksClash, canEditTogether } from "./forms"
+import { isAssessmentSession, allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel, slotClashes, picksClash, canEditTogether } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage, invoiceBundleMessage, receiptMessage, voidMessage, familyReceiptMessage } from "./messages"
 import * as Refund from "./refunds"
@@ -560,6 +560,13 @@ describe("forms", () => {
     const busy: Session = { id: "s_busy", branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: [], trial: false, customized: true, cancelled: false }
     const busySlots = findOfferSlots({ branch, staff: [teacher], sessions: [busy], classes: [], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
     expect(busySlots.some((s) => s.source === "generic" && s.start === "09:00")).toBe(false)
+  })
+
+  it("owner 2026-11-18: findOfferSlots never offers a time that booking (validateClass) would refuse because every room's worth of sessions overlaps — even sessions with no room set", () => {
+    const mk = (id: string): Session => ({ id, branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: null, coTeacherIds: [], roomId: null, studentIds: [], trial: false, customized: true, cancelled: false })
+    const crowded = branch.rooms.map((_, i) => mk(`s_crowd${i}`)) // as many overlapping sessions as rooms, none holding a room id
+    const slots = findOfferSlots({ branch, staff: [teacher], sessions: crowded, classes: [], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) })
+    expect(slots.some((s) => s.source === "generic" && s.start === "09:00")).toBe(false)
   })
 
   it("findOfferSlots excludes holiday and closed-day dates from generic candidates", () => {
@@ -3495,5 +3502,15 @@ describe("a form comes back for a chat with no Lead (owner 2026-11-18)", () => {
   it("falls back to the first parent, and to LINE as the source", () => {
     const l = leadFromSubmission({ ...sub, parents: [{ name: "คุณแม่", phone: "0811111111" }] as never, acquisitions: undefined }, { nowIso: "x", assigneeId: null })
     expect(l).toMatchObject({ name: "คุณแม่", source: "line", assigneeId: null })
+  })
+})
+
+describe("test/trial session panel", () => {
+  const a = (sessionId: string, studentId: string) => ({ sessionId, studentId }) as never
+  it("is a test/trial session only when every student has an assessment", () => {
+    expect(isAssessmentSession("s1", ["a"], [a("s1", "a")])).toBe(true)
+    expect(isAssessmentSession("s1", ["a", "b"], [a("s1", "a")])).toBe(false)
+    expect(isAssessmentSession("s1", ["a"], [a("s2", "a")])).toBe(false)
+    expect(isAssessmentSession("s1", [], [])).toBe(false)
   })
 })

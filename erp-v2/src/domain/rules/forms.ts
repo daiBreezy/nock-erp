@@ -69,6 +69,12 @@ export function assessmentIn(sessionId: ID, studentId: ID, all: Assessment[]) {
   return all.find((a) => a.sessionId === sessionId && a.studentId === studentId)
 }
 
+/** owner 2026-11-18: a Test/Trial session (everyone in it is on a test/trial form, no package) has no lesson summary
+ *  and no leave — the purple Note holds the result instead. An empty session is not one. */
+export function isAssessmentSession(sessionId: ID, studentIds: ID[], all: Assessment[]) {
+  return studentIds.length > 0 && studentIds.every((sid) => !!assessmentIn(sessionId, sid, all))
+}
+
 /**
  * Flow is Test → Trial → Invoice, and the parent picks the start date only after both (owner 2026-09-28):
  * paid classes must start after the last test/trial, so a trial session is never billed.
@@ -190,6 +196,10 @@ export function findOfferSlots(params: {
       if (!teacherId) continue
       const roomId = freeRoom(branch, sessions, date, start, minutes)
       if (!roomId) continue
+      // booking runs validateClass, which also blocks when every room's worth of sessions overlaps (even ones with no
+      // room set) — offer only what that check will accept, or a staff-picked slot fails at the final step (owner 2026-11-18)
+      const overlapping = sessions.filter((x) => !x.cancelled && x.branchId === branch.id && x.date === date && slotsOverlap(x.start, x.minutes, start, minutes)).length
+      if (overlapping + 1 > branch.rooms.length) continue
       // can this hour grow into a 2-hour visit (several subjects the same day)? same teacher, any room, still open
       const fits2h = !slotProblem(branch, date, start, COMBINED_MINUTES) && teacherFree(sessions, branch.id, teacherId, date, start, COMBINED_MINUTES) && !!freeRoom(branch, sessions, date, start, COMBINED_MINUTES)
       out.push({ id: `off_g${gi++}`, date, start, minutes, source: "generic", teacherId, roomId, classId: null, sessionId: null, fits2h })

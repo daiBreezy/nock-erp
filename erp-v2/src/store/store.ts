@@ -358,6 +358,8 @@ type Store = DB & UIState & {
   /** creates the lead's student + family (if no test/trial did yet) so an invoice can be issued — the lead becomes
    *  "ลงทะเบียนแล้ว" by itself when that invoice's payment is confirmed */
   convertLeadToStudent: (id: ID) => Result<{ studentId: ID }>
+  /** owner 2026-11-18: staff add the lead's child themselves (walk-in / phone — no form to send): student + family, linked as the lead's one child */
+  addLeadChild: (leadId: ID, input: { name: string; nickname?: string; grade: string; birthDate?: string; school?: string; parentName: string; parentPhone: string }) => Result<{ studentId: ID }>
   /** teacher/office note on a test or trial — optional, always available (owner 2026-09-28) */
   saveAssessmentNote: (id: ID, patch: { result: string; note: string }) => Result
   /** books one child's approved Test/Trial submission as a real, conflict-checked Session (or joins an
@@ -3387,6 +3389,37 @@ export const useStore = create<Store>()(
         if (lead.stage !== "archived") return fail("Lead นี้ไม่ได้อยู่ในคลัง")
         set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: CRM.restoreStage(x) } : x)) })
         return OK
+      },
+
+      addLeadChild: (leadId, input) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "lead.manage")
+        if (!perm.ok) return perm
+        const lead = s.leads.find((x) => x.id === leadId)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        if (lead.trialStudentId || lead.convertedStudentId) return fail("Lead นี้มีลูกแล้ว")
+        const student: Student = {
+          id: uid("stu"), familyId: null, branchId: lead.branchId, name: input.name.trim(),
+          nickname: input.nickname?.trim() || People.nicknameFrom(input.name), grade: input.grade, usesBus: false,
+          birthDate: input.birthDate || undefined, school: input.school?.trim() || undefined,
+          createdAt: s.now().toISOString(), createdBranchId: lead.branchId,
+        }
+        const errs = People.validateStudent(student, toDateStr(s.now()))
+        if (errs.length) return fail(errs[0].message)
+        if (!input.parentName.trim()) return fail("ใส่ชื่อผู้ปกครอง")
+        const parents = [{ name: input.parentName, phone: input.parentPhone, lineId: lead.lineId || undefined, primary: true }]
+        // same conflict-safe family match as an approved form: reuse the family on file (LINE identity, then phone)
+        const matched = People.matchExistingFamily(s.families, { lineUserId: lead.lineUserId, phones: input.parentPhone ? [input.parentPhone] : [] })
+        const family = matched ?? People.familyFromSubmission(student.name, parents, {}, lead.lineUserId, uid("fam"))
+        student.familyId = family.id
+        set((cur) => ({
+          families: matched ? cur.families : [...cur.families, family],
+          students: [...cur.students, student],
+          leads: cur.leads.map((x) => (x.id === leadId ? { ...x, trialStudentId: student.id, childGrade: input.grade } : x)),
+          conversations: cur.conversations.map((c) => (c.leadId === leadId || (lead.lineUserId && c.id === `line_${lead.lineUserId}`) ? { ...c, familyId: family.id } : c)),
+        }))
+        log("profile", [student.id], "เพิ่มลูกจาก Lead", `${lead.name} · ${student.name} · ${student.grade}`)
+        return { ok: true, value: { studentId: student.id } }
       },
 
       convertLeadToStudent: (id) => {

@@ -42,6 +42,8 @@ export const TAG_HUE = {
   satisfaction: { l1: "red", l2: "orange", l3: "amber", l4: "lime", l5: "emerald" },
   /** a bus leg (owner 2026-11-11): none of the system colours red / yellow / green — pickup sky · drop-off violet · both slate; a guardian riding along teal */
   busLeg: { pickup: "sky", dropoff: "violet", both: "slate", adult: "teal" },
+  /** what a side panel is about (owner 2026-11-18): Lead · family · student — none of the system colours red / yellow / green */
+  entity: { lead: "indigo", family: "teal", student: "slate" },
   studentFlow: { start: "emerald", new: "sky", returning: "violet", active: "emerald", paused: "gray", grace: "amber", future: "indigo", lost: "red" },
 } as const satisfies Record<string, Record<string, Hue>>
 export type TagFamily = keyof typeof TAG_HUE
