@@ -1335,6 +1335,7 @@ export const COVERAGE: Record<string, Entry> = {
   "ไม่รับ Summary ผ่าน LINE": { en: "no longer receives Summaries on LINE", ja: "LINEでサマリーを受け取らない" },
   "ผูก LINE ก่อนถึงเลือกได้": { en: "Link LINE first to tick this", ja: "先にLINEを連携してください" },
   "สร้างที่สาขา": { en: "Created at branch", ja: "作成した支店" },
+  "เปิดคาบนี้": { en: "Open this session", ja: "この授業を開く" },
   "ไม่มียอดค้าง": { en: "Nothing outstanding", ja: "未払いなし" },
   "ทั้งครอบครัว": { en: "Whole family", ja: "ご家族全員" },
   "คอร์สของลูก": { en: "Children's courses", ja: "お子さまのコース" },

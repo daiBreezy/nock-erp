@@ -1,22 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarIcon, UserRoundPlusIcon, TimerIcon, ChevronRightIcon, ClockIcon, CopyIcon, MapPinIcon, MegaphoneIcon, ReceiptIcon, ShieldCheckIcon, StarIcon, StoreIcon, UsersIcon, WalletIcon } from "lucide-react"
+import { UserRoundPlusIcon, TimerIcon, ChevronRightIcon, CopyIcon, MapPinIcon, MegaphoneIcon, ReceiptIcon, ShieldCheckIcon, StarIcon, StoreIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useInvoicesOf, useOwed } from "@/components/billing/invoice-rows"
 import { StudentFacts } from "@/components/app/student-facts"
-import { StudentBilling, StudentClassTab, StudentNotes } from "@/components/app/student-sheet"
+import { PackageRow, StudentBilling, StudentClassTab, StudentNotes } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { report } from "@/lib/feedback"
-import { daysBetween, endTime, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
-import * as Att from "@/domain/rules/attendance"
-import { sessionState } from "@/domain/rules/scheduling"
-import { PackageBadge } from "@/components/app/package-badge"
-import { subjectColor } from "@/components/app/subject-color"
+import { daysBetween, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { studentState } from "@/domain/rules/attendance"
 import { leadToCustomer, PDPA_LABEL } from "@/domain/rules/people"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
@@ -198,10 +194,6 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
 export function FamilyOverview({ kids, onOpen }: { kids: Student[]; onOpen: (id: ID) => void }) {
   const ents = useEntitlements()
   const leaves = useStore((s) => s.leaves)
-  const sessions = useStore((s) => s.sessions)
-  const attendance = useStore((s) => s.attendance)
-  const classes = useStore((s) => s.classes)
-  const courses = useStore((s) => s.courses)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
   const now = useNow(60_000)
   const today = toDateStr(now)
@@ -224,35 +216,8 @@ export function FamilyOverview({ kids, onOpen }: { kids: Student[]; onOpen: (id:
               <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
             </Button>
             {current.length === 0 ? <p className="mt-1.5 pl-1 text-xs text-muted-foreground">{tx("ไม่มีคอร์สที่ใช้อยู่")}</p> : (
-              <ul className="mt-2 space-y-1.5">
-                {current.map((e) => {
-                  const c = courses.find((x) => x.id === e.courseId)
-                  const upcoming = sessions
-                    .filter((x) => x.studentIds.includes(k.id) && !x.cancelled && Att.packageCovers(e, x) && x.date >= today && sessionState(x, now) === "upcoming")
-                    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
-                  const next = upcoming[0]
-                  const bal = Att.balance(e, sessions, attendance, classes)
-                  const left = Math.min(bal.remaining, upcoming.length || bal.remaining)
-                  const leftMin = bal.remainingMinutes ?? upcoming.slice(0, left).reduce((m, x) => m + x.minutes, 0)
-                  const hours = +(leftMin / 60).toFixed(1)
-                  return (
-                    <li key={e.id} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2 text-xs">
-                      <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg text-xs font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>
-                      <span className="min-w-0 flex-1 space-y-0.5">
-                        <span className="flex items-center gap-1.5 text-sm font-medium"><span className="truncate">{c?.name ?? tx("คอร์ส")}</span>{c && <PackageBadge course={c} size="sm" />}</span>
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <CalendarIcon className="size-3 shrink-0" />
-                          {next ? <span className="truncate text-foreground/80">{tx("คาบถัดไป")} {fmtDate(next.date)} · {next.start}–{endTime(next.start, next.minutes)}</span> : <span>{tx("ยังไม่มีคาบถัดไป")}</span>}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right tabular-nums">
-                        <span className="block text-sm font-semibold">{left} <span className="text-xs font-normal text-muted-foreground">{tx("คาบ")}</span></span>
-                        <span className="flex items-center justify-end gap-1 text-muted-foreground"><ClockIcon className="size-3" />{hours} {tx("ชม.")}</span>
-                      </span>
-                    </li>
-                  )
-                })}
-              </ul>
+              // owner 2026-11-20: the SAME course rows as the student's own Overview (not a second look-alike) — tap a row's actions work here too
+              <ul className="mt-2 divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={k} today={today} />)}</ul>
             )}
           </section>
         )

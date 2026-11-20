@@ -37,7 +37,7 @@ import { Kpi } from "./kpi"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import * as Seats from "@/domain/rules/seats"
-import { RescheduleDialog, StudentSessionMenu } from "./session-sheet"
+import { RescheduleDialog, SessionSheet, StudentSessionMenu } from "./session-sheet"
 import { CalendarClockIcon } from "lucide-react"
 import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
@@ -320,7 +320,8 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
   return { ratio: Math.min(1, (total - left) / total), label: e.to < today ? `หมดแล้ว ${fmtDate(e.to)}` : `เหลือ ${left} วัน · ถึง ${fmtDate(e.to)}`, low: left <= 7 }
 }
 
-function PackageRow({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
+/** one running package of a student — the SAME row in the student's Overview and in the family's Overview (owner 2026-11-20) */
+export function PackageRow({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
   const [renewing, setRenewing] = useState(false)
 const me = useStore((s) => s.me())
 const courses = useStore((s) => s.courses)
@@ -345,10 +346,11 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
           </p>
         </div>
         {/* owner 2026-11-05: no progress bar; slots badge · ต่ออายุ · status — status is always last and hugs its text */}
-        <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="md" />}</span>
+        <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="sm" />}</span>
         <span className="flex w-16 shrink-0 justify-center">{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
         {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
-        <span className="flex shrink-0 justify-end"><Pill tone={expired ? "gray" : renewal ? "amber" : "green"}>{expired ? "หมดแล้ว" : renewal ? "Renewal" : "Enroll"}</Pill></span>
+        {/* owner 2026-11-20: "Enroll" is the normal state and says nothing — only the exceptions get a status (Renewal · หมดแล้ว) */}
+        {(expired || renewal) && <span className="flex shrink-0 justify-end"><Pill tone={expired ? "gray" : "amber"}>{expired ? "หมดแล้ว" : "Renewal"}</Pill></span>}
       </div>
       {/* owner 2026-11-04: list the classes the student attends for this course — each day/time with a ย้ายวัน/คาบ button */}
       {!expired && <ClassTransferList e={e} stu={stu} today={today} />}
@@ -363,6 +365,7 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
   const me = useStore((s) => s.me())
   const now = useNow(60_000)
   const [moveFrom, setMoveFrom] = useState<Session | null>(null)
+  const [openSession, setOpenSession] = useState<ID | null>(null)
   const canMove = can(me, "student.move") && (can(me, "session.manage") || me.roles.includes("teacher"))
   // a class counts if the student has an upcoming session in it under this package (so a finished day drops off)
   const rows = e.classIds.map((cid) => {
@@ -370,19 +373,26 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
     if (!k) return null
     const next = sessions.filter((x) => x.classId === cid && x.studentIds.includes(stu.id) && x.date >= today && !x.cancelled && sessionState(x, now) === "upcoming")
       .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
-    const ahead = sessions.filter((x) => x.classId === cid && x.studentIds.includes(stu.id) && x.date >= today && !x.cancelled && sessionState(x, now) === "upcoming").length
-    return next ? { k, next, ahead } : null
-  }).filter((x): x is { k: NonNullable<ReturnType<typeof classes.find>>; next: Session; ahead: number } => !!x)
+    const left = sessions.filter((x) => x.classId === cid && x.studentIds.includes(stu.id) && x.date >= today && !x.cancelled && sessionState(x, now) === "upcoming")
+    const ahead = left.length
+    const hours = +(left.reduce((m, x) => m + x.minutes, 0) / 60).toFixed(1)
+    return next ? { k, next, ahead, hours } : null
+  }).filter((x): x is { k: NonNullable<ReturnType<typeof classes.find>>; next: Session; ahead: number; hours: number } => !!x)
   if (rows.length === 0) return null
   return (
     <ul className="mt-2 space-y-1 pl-14">
-      {rows.map(({ k, next, ahead }) => (
+      {rows.map(({ k, next, ahead, hours }) => (
         <li key={k.id} className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-1.5 text-xs">
-          <span className="min-w-0 flex-1 truncate"><span className="font-medium">{k.name}</span> <span className="text-muted-foreground">· ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)} · {`เหลือ ${ahead} คาบ`}</span></span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate"><span className="font-medium">{k.name}</span> <span className="text-muted-foreground">· ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)}</span></span>
+            {/* the next session and what is left (sessions · hours) — its own line so it never gets cut off */}
+            <Button variant="ghost" size="inline" type="button" onClick={() => setOpenSession(next.id)} title={tx("เปิดคาบนี้")} className="block h-auto w-full justify-start truncate p-0 text-left text-xs font-normal tabular-nums text-muted-foreground hover:bg-transparent hover:text-primary hover:underline dark:hover:bg-transparent">{tx("คาบถัดไป")} {fmtDate(next.date)} · {`เหลือ ${ahead} คาบ`} · {hours} {tx("ชม.")}</Button>
+          </span>
           {canMove && <Button variant="ghost" size="inline" type="button" onClick={() => setMoveFrom(next)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-primary hover:bg-primary/10"><CalendarClockIcon className="size-3.5" /> ย้ายวัน/คาบ</Button>}
         </li>
       ))}
       {moveFrom && <RescheduleDialog from={moveFrom} studentId={stu.id} initialMode="always" onClose={() => setMoveFrom(null)} />}
+      <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
     </ul>
   )
 }
