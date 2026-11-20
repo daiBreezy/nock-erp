@@ -1348,6 +1348,7 @@ export const COVERAGE: Record<string, Entry> = {
   "ชำระครบแล้ว {0} ใบ": { en: "{0} invoice(s) fully paid", ja: "{0}件完納" },
   "ครอบครัว": { en: "families", ja: "家族" },
   "ยังไม่มีผู้แนะนำ": { en: "No referrer yet", ja: "紹介者なし" },
+  "ขอรถเพิ่ม / จัดการรถของวันนี้": { en: "Request an extra ride / manage today's bus", ja: "追加の送迎を依頼／本日のバスを管理" },
   "ไม่มียอดค้าง": { en: "Nothing outstanding", ja: "未払いなし" },
   "ทั้งครอบครัว": { en: "Whole family", ja: "ご家族全員" },
   "คอร์สของลูก": { en: "Children's courses", ja: "お子さまのコース" },

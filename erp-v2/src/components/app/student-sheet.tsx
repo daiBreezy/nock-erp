@@ -6,8 +6,8 @@ import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { FamilySheet } from "./family-sheet"
 import { StudentFacts } from "./student-facts"
+import { branchHasBus } from "@/domain/rules/settings"
 import { mergeSameCourse } from "@/domain/rules/family-overview"
-import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import { ArchiveRestoreIcon, DoorOpenIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
@@ -572,6 +572,9 @@ function SessionList({ kids, ents }: { kids: Student[]; ents: Entitlement[] }) {
   const active = mine.filter((r) => !r.s.cancelled)
   const done = active.filter((r) => r.s.date < today).length
   const canBus = can(useStore((s) => s.me()), "billing.manage")
+  const allBranches = useStore((s) => s.branches)
+  // owner 2026-11-20: the bus is a plain column of the class table whenever someone in view rides it (no longer hidden until switched on)
+  const busOn = kids.some((k) => k.usesBus && branchHasBus(allBranches.find((b) => b.id === k.branchId)))
   const att = (s: Session, k: Student) => attendance.find((a) => a.sessionId === s.id && a.studentId === k.id)
   // this student's status in the session — one short pill (the class-wide check-in count belongs to the session, not here)
   const studentSessionStatus = (s: Session, k: Student): { label: string; tone: "green" | "red" | "amber" | "blue" | "gray" } => {
@@ -591,8 +594,8 @@ function SessionList({ kids, ents }: { kids: Student[]; ents: Entitlement[] }) {
     { id: "time", label: "เวลา", width: "1%", cell: ({ s, k }) => <span className="flex flex-col leading-tight tabular-nums">{s.start}–{endTime(s.start, s.minutes)}<span className="text-xs text-muted-foreground">{(() => { const seat = Seats.seatOf(s, k.id, classes.find((k) => k.id === s.classId)); return Seats.isPartial(seat, s.minutes) ? `เรียน ${Seats.seatTime(s.start, seat)}` : `${s.minutes} นาที` })()}</span></span> },
     { id: "subject", label: "วิชา", cell: ({ s }) => <span className="flex gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</span> },
     { id: "teacher", label: "ครู", width: "1%", cell: ({ s }) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
-    { id: "bus", label: "รถรับส่ง", width: "1%", align: "center", defaultHidden: true, info: "P = รับ (Pickup) · D = ส่ง (Drop) · B = ทั้งรับและส่ง — กดเพื่อแก้ (คาบที่ยังไม่ถึง)",
-      cell: ({ s, k }) => <BusTag studentId={k.id} date={s.date} legs={legsBy.get(k.id)?.get(s.date)} editable={canBus && s.date >= today && !s.cancelled} /> },
+    ...(busOn ? [{ id: "bus", label: "รถรับส่ง", width: "1%", align: "center", info: "P = รับ (Pickup) · D = ส่ง (Drop) · B = ทั้งรับและส่ง — กดเพื่อแก้ (คาบที่ยังไม่ถึง)",
+      cell: ({ s, k }) => <BusTag studentId={k.id} date={s.date} legs={legsBy.get(k.id)?.get(s.date)} editable={canBus && s.date >= today && !s.cancelled} /> } as Column<Row>] : []),
     // same-width pills so the column lines up whatever the label
     { id: "status", label: "สถานะ", width: "1%", align: "right", cell: ({ s, k }) => { const x = studentSessionStatus(s, k); return <Pill tone={x.tone}>{x.label}</Pill> } },
   ]
@@ -693,7 +696,7 @@ function BillingSeg({ stu }: { stu: Student }) {
 }
 
 /** owner 2026-11-20: the Billing tab for ONE child or for several (the family panel) — with several, the table gains a "student" column and the new-invoice button leaves to the panel's own menu */
-export function StudentBilling({ kids, toolbar }: { kids: Student[]; /** extra controls placed right before the columns icon (the family panel's child dropdown) */ toolbar?: React.ReactNode }) {
+export function StudentBilling({ kids, toolbar, hideNew }: { kids: Student[]; /** the family panel has its own "ออกใบแจ้งหนี้" in the bottom bar — no second button here (owner 2026-11-20) */ hideNew?: boolean; /** extra controls placed right before the columns icon (the family panel's child dropdown) */ toolbar?: React.ReactNode }) {
   const stu = kids[0]
   const many = kids.length > 1
   const [invoice, setInvoice] = useState<ID | "new" | null>(null)
@@ -717,12 +720,11 @@ export function StudentBilling({ kids, toolbar }: { kids: Student[]; /** extra c
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <p className="text-sm text-muted-foreground">กดแถวเพื่อเปิดใบแจ้งหนี้ · จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ</p>
-        {can(me, "billing.manage") && !many && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
+        {can(me, "billing.manage") && !many && !hideNew && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
         <span className="ml-auto flex items-center gap-2">{toolbar}</span>
         <ColumnsMenu id={many ? "family-invoices" : "student-invoices"} columns={invoiceCols} />
       </div>
       <DataTable id={many ? "family-invoices" : "student-invoices"} columns={invoiceCols} rows={invoices} rowKey={(i) => i.id} onRowClick={(i) => setInvoice(i.id)} minWidth={520} empty="ยังไม่มีใบแจ้งหนี้" />
-      {kids.filter((k) => !many || k.usesBus).map((k) => <BusAddOns key={k.id} stu={k} />)}
       <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />
     </div>
   )

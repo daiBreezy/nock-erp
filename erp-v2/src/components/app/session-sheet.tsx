@@ -10,8 +10,7 @@ import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockFadingIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
-  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon,
-} from "lucide-react"
+  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon, BusIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,6 +21,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { LongLeaveFields } from "@/components/app/leave-dialog"
+import { BusAddOns } from "@/components/billing/bus-addons"
+import { branchHasBus } from "@/domain/rules/settings"
 import { addDays, endTime, fmtDate, fmtDateTime, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { isDefaultPresent } from "@/domain/rules/attendance"
@@ -599,12 +600,32 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
  * The student's own actions on one session, from anywhere (owner 2026-10-29 — e.g. the student panel's session list):
  * ย้ายคาบ (Re-schedule, once or permanently) · ลา · เวลาเรียน · เปิดคาบ · เอาออกจากคลาส. Same rules as the session sheet.
  */
+/** the bus of one student on one day — ask for an extra ride, change or stop it; the same form the Billing tab used to carry */
+function BusDialog({ studentId, date, onClose }: { studentId: ID; date: string; onClose: () => void }) {
+  const stu = useStore((st) => st.students.find((x) => x.id === studentId))
+  if (!stu) return null
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="lg:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><BusIcon className="size-5" /> รถรับส่ง · {stu.nickname}</DialogTitle>
+          <DialogDescription>{fmtDate(date, { weekday: true, year: true })}</DialogDescription>
+        </DialogHeader>
+        <BusAddOns stu={stu} initialDate={date} autoStart />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID }) {
   const me = useStore((st) => st.me())
   const attendance = useStore((st) => st.attendance)
   const summaries = useStore((st) => st.summaries)
   const now = useNow(30_000)
-  const [open, setOpen] = useState<"reschedule" | "remove" | "seat" | "leave" | "session" | null>(null)
+  const [open, setOpen] = useState<"reschedule" | "remove" | "seat" | "leave" | "session" | "bus" | null>(null)
+  const branches = useStore((st) => st.branches)
+  const stuBranch = useStore((st) => st.students.find((x) => x.id === studentId)?.branchId)
+  const hasBus = branchHasBus(branches.find((b) => b.id === stuBranch))
   const canManage = can(me, "session.manage")
   const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
   const canMove = can(me, "student.move") && (canManage || mine)
@@ -621,6 +642,8 @@ export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID
           </DropdownMenuItem>
           <DropdownMenuItem disabled={!canLeave || s.cancelled} onClick={() => setOpen("leave")}><LogOutIcon /> ลา</DropdownMenuItem>
           {canManage && <DropdownMenuItem disabled={locked || s.cancelled} onClick={() => setOpen("seat")}><ClockFadingIcon /> เวลาเรียน (บางชั่วโมง)</DropdownMenuItem>}
+          {/* owner 2026-11-20: the bus lives here — ask for an extra ride or change this day's, in a popup (it left the Billing tab) */}
+          {hasBus && can(me, "billing.manage") && <DropdownMenuItem disabled={s.cancelled} onClick={() => setOpen("bus")}><BusIcon /><span className="flex flex-col"><span>รถรับส่ง</span><span className="text-xs text-muted-foreground">ขอรถเพิ่ม / จัดการรถของวันนี้</span></span></DropdownMenuItem>}
           <DropdownMenuItem onClick={() => setOpen("session")}><CalendarDaysIcon /> เปิดคาบนี้</DropdownMenuItem>
           {canManage && !locked && !s.cancelled && (
             <>
@@ -634,6 +657,7 @@ export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID
       {open === "remove" && <RemoveDialog s={s} studentId={studentId} onClose={() => setOpen(null)} />}
       {open === "seat" && <SeatDialog s={s} studentId={studentId} onClose={() => setOpen(null)} />}
       {open === "leave" && <LeaveDialog s={s} studentId={studentId} onClose={() => setOpen(null)} />}
+      {open === "bus" && <BusDialog studentId={studentId} date={s.date} onClose={() => setOpen(null)} />}
       <SessionSheet sessionId={open === "session" ? s.id : null} onClose={() => setOpen(null)} />
     </>
   )

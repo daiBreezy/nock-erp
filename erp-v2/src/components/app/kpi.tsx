@@ -1,6 +1,7 @@
 "use client"
 
 import { Children, createContext, isValidElement, useContext } from "react"
+import { ChevronRightIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { InfoTip } from "@/components/app/info-tip"
 
@@ -70,7 +71,7 @@ export const kpiMoney = (n: number) => <KpiNumber n={n} prefix="฿" />
  * No className / valueClassName / compact — those were what made pages differ.
  */
 export function Kpi({
-  icon: Icon, label, value, sub, tone = "primary", emphasis, onClick, active, info, children, variant = "card", size = "md",
+  icon: Icon, label, value, sub, tone = "primary", emphasis, onClick, active, info, children, variant = "card", size = "md", go,
 }: {
   /** the small icon before the label — optional on a `tonal` card, which sits inside a section that already has a title */
   icon?: React.ComponentType<{ className?: string }>
@@ -89,6 +90,8 @@ export function Kpi({
   /** a KPI that filters the list below (owner 2026-10-09) — click again to clear */
   onClick?: () => void
   active?: boolean
+  /** the card OPENS something (a panel, another tab) rather than filtering the list — a small chevron at its right edge says so (owner 2026-11-20) */
+  go?: boolean
   /** a note that used to be a bar above the list — an ⓘ at the card's right edge, read on hover */
   info?: React.ReactNode
   /** optional body text / content under the numbers */
@@ -98,7 +101,7 @@ export function Kpi({
   const reserveSub = useContext(KpiLinesContext)
   return (
     <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-      className={cn("flex h-full w-full min-w-0 flex-col gap-1 rounded-xl px-3.5 text-left", size === "sm" ? "py-2" : "py-3",
+      className={cn("relative flex h-full w-full min-w-0 flex-col gap-1 rounded-xl px-3.5 text-left", size === "sm" ? "py-2" : "py-3", go && onClick && "pr-8",
         variant === "tonal" ? "justify-start bg-muted/50" : "justify-start bg-card shadow-sm ring-1 ring-foreground/5 sm:min-w-40",
         onClick && (variant === "tonal" ? "transition hover:bg-muted" : "transition hover:ring-foreground/20"), active && "ring-2 ring-primary hover:ring-primary")}>
       <p title={typeof label === "string" ? label : undefined} className={cn("flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground", emphasis && KPI_INK[tone])}>
@@ -109,6 +112,8 @@ export function Kpi({
       {/* the sub line: one fixed line (16px), there when this card OR any card of its group has a sub (see KpiGroup) */}
       {(sub !== undefined || reserveSub) && <p className="h-4 min-w-0 truncate text-xs leading-4 text-muted-foreground">{sub}</p>}
       {children && <div className="w-full text-sm">{children}</div>}
+      {/* the card OPENS something: a small chevron, centred between the top and the bottom of the card */}
+      {go && onClick && <ChevronRightIcon className="absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />}
     </Tag>
   )
 }

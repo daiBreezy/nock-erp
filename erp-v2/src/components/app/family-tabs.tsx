@@ -37,7 +37,7 @@ export function FamilyBillingTab({ kids }: { kids: Student[] }) {
   const owed = useOwed(useInvoicesOf(new Set(kids.map((k) => k.id))))
   const shown = kid === "all" ? kids : kids.filter((k) => k.id === kid)
   return shown.length > 0 ? (
-    <StudentBilling key={kid} kids={shown}
+    <StudentBilling key={kid} kids={shown} hideNew
       toolbar={<><Pill tone={owed > 0 ? "amber" : "gray"}>{owed > 0 ? `${tx("ค้างชำระ")} ${fmtMoney(owed)}` : tx("ไม่มียอดค้าง")}</Pill><KidFilter kids={kids} value={kid} onChange={setKid} /></>} />
   ) : null
 }
@@ -221,7 +221,7 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
     <div className="space-y-4">
       {/* the money, first: everything received — and, if something is still owed, right in the same card · next to it the referrals (owner 2026-11-20) */}
       <KpiGroup className="grid grid-cols-2 gap-2">
-        <Kpi variant="tonal" label={tx("ยอดรวมทั้งหมด")} value={kpiMoney(received)} onClick={owed > 0 ? onGoBilling : undefined}
+        <Kpi variant="tonal" label={tx("ยอดรวมทั้งหมด")} value={kpiMoney(received)} onClick={owed > 0 ? onGoBilling : undefined} go
           sub={owed > 0 ? <span className="text-warning-ink">{tx("ค้างชำระ")} {fmtMoney(owed)}{creditCount > 0 && ` · ${tx("Credit ค้าง {0} รายการ", [creditCount])}`}</span> : creditCount > 0 ? tx("Credit ค้าง {0} รายการ", [creditCount]) : tx("ชำระครบแล้ว {0} ใบ", [paidCount])} />
         <Kpi variant="tonal" label="Referral" value={referred.length > 0 ? `${referred.length} ${tx("ครอบครัว")}` : "-"}
           sub={referrer ? `${tx("แนะนำโดย")} ${referrer.name}` : referred.length > 0 ? referred.slice(0, 2).map((f) => f.name).join(", ") : tx("ยังไม่มีผู้แนะนำ")} />
@@ -249,7 +249,7 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
               <div className="mt-2 space-y-1">
                 <KpiGroup className="grid grid-cols-3 gap-2">
                   <Kpi variant="tonal" size="sm" label={tx("คาบถัดไป")} value={snap.next ? `${fmtDate(snap.next.session.date)} · ${snap.next.session.start}` : "-"}
-                    onClick={snap.next ? () => setOpenSession(snap.next!.session.id) : undefined} />
+                    onClick={snap.next ? () => setOpenSession(snap.next!.session.id) : undefined} go />
                   <Kpi variant="tonal" size="sm" label={tx("คาบที่เหลือ")} value={`${snap.sessionsLeft} ${tx("คาบ")} · ${hours} ${tx("ชม.")}`} />
                   <Kpi variant="tonal" size="sm" label={tx("เข้าเรียน")} value={snap.attendance.rate === null ? "-" : `${Math.round(snap.attendance.rate * 100)}% · ${snap.attendance.present}/${snap.attendance.present + snap.attendance.leave}`} />
                 </KpiGroup>

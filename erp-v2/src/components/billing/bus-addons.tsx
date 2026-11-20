@@ -24,7 +24,7 @@ type Day = { date: string; pickup: boolean; dropoff: boolean }
  * Extra bus days after paying (Liclass, owner 2026-09-30): the admin adds them here, the bus runs right away and the
  * charge waits for the student's next invoice (or an invoice for the bus only). Fewer bus days are never refunded.
  */
-export function BusAddOns({ stu }: { stu: Student }) {
+export function BusAddOns({ stu, initialDate, autoStart }: { stu: Student; /** opened from a session's ⋮ menu (owner 2026-11-20): start the form on that day */ initialDate?: string; autoStart?: boolean }) {
   const me = useStore((s) => s.me())
   const branch = useStore((s) => s.branches.find((b) => b.id === stu.branchId)!)
   const addOns = useStore((s) => s.busAddOns).filter((a) => a.studentId === stu.id).sort((a, b) => b.date.localeCompare(a.date))
@@ -35,12 +35,12 @@ export function BusAddOns({ stu }: { stu: Student }) {
   const busFees = branch.fees.filter((f) => f.kind === "bus")
   const manage = can(me, "billing.manage")
 
-  const [open, setOpen] = useState(false)
-  const [days, setDays] = useState<Day[]>([])
+  const [open, setOpen] = useState(!!autoStart)
+  const [days, setDays] = useState<Day[]>(autoStart ? [{ date: initialDate ?? addDays(toDateStr(new Date()), 1), pickup: true, dropoff: true }] : [])
   const [feeId, setFeeId] = useState(busFees[0]?.id ?? "")
   const [note, setNote] = useState("")
   const rate = busRate(branch, feeId)
-  const start = () => { setDays([{ date: addDays(today, 1), pickup: true, dropoff: true }]); setNote(""); setOpen(true) }
+  const start = () => { setDays([{ date: initialDate ?? addDays(today, 1), pickup: true, dropoff: true }]); setNote(""); setOpen(true) }
   const patch = (i: number, p: Partial<Day>) => setDays((ds) => ds.map((d, j) => (j === i ? { ...d, ...p } : d)))
   const pending = addOns.filter((a) => !a.cancel && !a.companion && !billedOn(a.id, invoices))
   const total = days.reduce((a, d) => a + busAddOnAmount(d, rate), 0)
