@@ -23,6 +23,7 @@ import { branchHasBus } from "@/domain/rules/settings"
 import { report } from "@/lib/feedback"
 import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
+import { tagChip } from "@/components/app/tags"
 import { useStore } from "@/store/store"
 
 type FamSort = "name" | "parent" | "kids" | "line" | "address"
@@ -107,7 +108,7 @@ export default function FamiliesPage() {
           {!lineDone(f) && <UnlinkIcon role="img" aria-label={linkedCount(f) === 0 ? "ไม่มี LINE" : "ผูก LINE ไม่ครบ"} className="size-3.5 text-warning"><title>{linkedCount(f) === 0 ? "ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้" : `ผูก LINE แล้ว ${linkedCount(f)}/${f.parents.length} คน`}</title></UnlinkIcon>}
         </span>
         {/* owner 2026-11-20: a small cake while anyone in the family has a birthday today */}
-        {birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${birthdaysToday(f, kidsOf.get(f.id) ?? [], today).join(", ")}`} className="inline-flex shrink-0 text-pink-300"><CakeIcon className="size-3.5" aria-label={tx("วันเกิดวันนี้")} /></span>}
+        {birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${birthdaysToday(f, kidsOf.get(f.id) ?? [], today).join(", ")}`} className={cn("inline-grid size-5 shrink-0 place-items-center rounded-full", tagChip("birthday", "today"))}><CakeIcon className="size-3" aria-label={tx("วันเกิดวันนี้")} /></span>}
         {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
       </div>
     ) },
@@ -155,7 +156,7 @@ export default function FamiliesPage() {
         <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={bdayPeople > 0 ? <span className="inline-flex items-center gap-2">{kpi.all}
           <span role="button" tabIndex={0} aria-pressed={bdayFirst} title={tx("วันเกิดวันนี้ {0} คน — กดเพื่อเอาขึ้นก่อน", [bdayPeople])}
             onClick={(e) => { e.stopPropagation(); setBdayFirst(!bdayFirst) }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setBdayFirst(!bdayFirst) } }}
-            className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 text-xs leading-5 font-medium transition", bdayFirst ? "bg-pink-100 text-pink-700 ring-1 ring-pink-300" : "bg-pink-50 text-pink-500 hover:bg-pink-100")}><CakeIcon className="size-3" />{bdayPeople}</span></span> : kpi.all} info={orphans > 0 ? tx("นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)", [orphans]) : undefined} onClick={() => { setLineF(""); setFollow(false); setBusF(false); setMulti(false); setBdayFirst(false) }} />
+            className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 text-xs leading-5 font-medium transition", tagChip("birthday", "today"), bdayFirst && "ring-2 ring-primary")}><CakeIcon className="size-3" />{bdayPeople}</span></span> : kpi.all} info={orphans > 0 ? tx("นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)", [orphans]) : undefined} onClick={() => { setLineF(""); setFollow(false); setBusF(false); setMulti(false); setBdayFirst(false) }} />
         <Kpi icon={UsersRoundIcon} label="มีลูกหลายคน" value={kpi.multi} tone="special" onClick={() => setMulti(!multi)} active={multi} />
         {busOn && <Kpi icon={BusIcon} label="ใช้รถรับส่ง" value={kpi.bus} tone="sky" onClick={() => setBusF(!busF)} active={busF} />}
         <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.follow} tone="amber" emphasis={kpi.follow > 0}

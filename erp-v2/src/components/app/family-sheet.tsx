@@ -6,10 +6,11 @@ import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MailIcon, M
 import { ParentPreview } from "@/components/parent/parent-preview"
 import { tx } from "@/lib/i18n"
 import { Pill } from "@/components/app/badges"
+import { tagChip } from "@/components/app/tags"
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { MathGate } from "@/components/app/math-gate"
 import { ReasonDialog } from "@/components/app/reason-dialog"
-import { StudentSheet } from "@/components/app/student-sheet"
+import { StudentPanelContent } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -84,8 +85,11 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   return (
     <>
       {parentApp && f && <ParentPreview family={f} onClose={() => setParentApp(false)} />}
-      <EntityPanel open={target !== null} onClose={onClose}>
-          {editing ? (
+      <EntityPanel open={target !== null} onClose={onClose} wide={!!studentOpen}>
+          {studentOpen ? (
+            // owner 2026-11-20: a child opens IN PLACE — this same panel swaps to the student (Back returns here), no second sheet on top
+            <StudentPanelContent studentId={studentOpen} familyId={f?.id} onClose={() => setStudentOpen(null)} back={f ? { label: f.name, onBack: () => setStudentOpen(null) } : undefined} />
+          ) : editing ? (
             <PanelForm>
               <FamilyForm key={f?.id ?? "new"} family={f} onClose={() => (f ? setEditing(false) : onClose())}
                 onSaved={(saved) => { if (target === "new") setCreatedId(saved.id); setEditing(false) }} />
@@ -101,12 +105,12 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                     <div className="flex items-center gap-2">
                       <SheetTitle className="truncate text-lg">{f.name}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>
                       {f.archived ? <Pill tone="gray">เก็บเข้าคลัง</Pill> : anyActive && <Pill tone={STATUS_PILL.active.tone}>{STATUS_PILL.active.label}</Pill>}
-                      {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className="inline-flex shrink-0 text-pink-300"><CakeIcon className="size-4" aria-label={tx("วันเกิดวันนี้")} /></span>}
+                      {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className={cn("inline-grid size-6 shrink-0 place-items-center rounded-full", tagChip("birthday", "today"))}><CakeIcon className="size-3.5" aria-label={tx("วันเกิดวันนี้")} /></span>}
                     </div>
                     <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs">
                       <span className="inline-flex items-center gap-1"><UsersIcon className="size-3" /> Family</span>
                       <span aria-hidden>·</span>
-                      <span>{f.archived ? `เก็บเข้าคลัง · ${f.archived.reason}` : tx("ลูก {0} คน", [kids.length])}{!f.archived && (f.parents.find((p) => p.primary) ?? f.parents[0]) ? ` · ${(f.parents.find((p) => p.primary) ?? f.parents[0]).name}` : ""}</span>
+                      <span>{f.archived ? `เก็บเข้าคลัง · ${f.archived.reason}` : tx("ลูก {0} คน", [kids.length])}</span>
                     </SheetDescription>
                   </div>
                 </div>
@@ -201,7 +205,6 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
             </>
           )}
       </EntityPanel>
-      <StudentSheet studentId={studentOpen} familyId={f?.id} onClose={() => setStudentOpen(null)} back={f ? { label: f.name, onBack: () => setStudentOpen(null) } : undefined} />
       {invoice && <InvoiceSheet id={invoice} defaultStudentId={invoiceFor} onClose={() => { setInvoice(null); setInvoiceFor(undefined) }} />}
     </>
   )

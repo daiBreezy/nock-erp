@@ -50,6 +50,8 @@ export const TAG_HUE = {
   interest: { catalog: "indigo" },
   /** a chat flagged "Follow-up" (owner 2026-11-20) — orange, none of the system colours; drawn SOLID (FOLLOW_UP_SOLID) so it stands out in the list */
   chatFlag: { followUp: "orange" },
+  /** someone in the family has a birthday today (owner 2026-11-20) — pink, none of the system colours */
+  birthday: { today: "pink" },
   studentFlow: { start: "emerald", new: "sky", returning: "violet", active: "emerald", paused: "gray", grace: "amber", future: "indigo", lost: "red" },
 } as const satisfies Record<string, Record<string, Hue>>
 export type TagFamily = keyof typeof TAG_HUE

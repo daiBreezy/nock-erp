@@ -1,17 +1,15 @@
 "use client"
 
-import { BUS_USE_LABEL, busUseOf } from "@/domain/rules/people"
 import * as People from "@/domain/rules/people"
-import { branchHasBus } from "@/domain/rules/settings"
 import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { FamilySheet } from "./family-sheet"
-import { InfoGrid, NotSet } from "./family-tabs"
+import { StudentFacts } from "./student-facts"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, StickyNoteIcon, ClipboardListIcon, StoreIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
+import { ArchiveRestoreIcon, DoorOpenIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { startFamilySet } from "@/lib/family-set"
@@ -74,14 +72,21 @@ const SEGS: { id: Seg; label: string }[] = [
  * information view once saved. Active/Inactive is automatic (packages + long leave); only Archive is manual.
  */
 export function StudentSheet({ studentId, familyId, onClose, back }: { studentId: ID | "new" | null; familyId?: ID; onClose: () => void; /** owner 2026-11-20: opened from another panel (e.g. the family) → a Back button that returns there */ back?: { label: string; onBack: () => void } }) {
-  // owner 2026-11-20: a brother / sister chip switches this same panel to them — the jump forgets itself when the panel is opened for someone else
-  const [jump, setJump] = useState<{ from: ID | "new" | null; to: ID } | null>(null)
-  const shown = jump && jump.from === studentId ? jump.to : studentId
   return (
     <EntityPanel open={!!studentId} onClose={onClose} wide>
-      {shown && <Panel key={shown} studentId={shown} familyId={familyId} onClose={onClose} back={back} onOpenStudent={(id) => setJump({ from: studentId, to: id })} />}
+      <StudentPanelContent studentId={studentId} familyId={familyId} onClose={onClose} back={back} />
     </EntityPanel>
   )
+}
+
+/**
+ * The student's panel CONTENT without its own sheet — so another panel (the family) can swap to it IN PLACE instead of stacking a second sheet on top
+ * (owner 2026-11-20). A brother / sister chip switches this same panel to them — the jump forgets itself when the panel is opened for someone else.
+ */
+export function StudentPanelContent({ studentId, familyId, onClose, back }: { studentId: ID | "new" | null; familyId?: ID; onClose: () => void; back?: { label: string; onBack: () => void } }) {
+  const [jump, setJump] = useState<{ from: ID | "new" | null; to: ID } | null>(null)
+  const shown = jump && jump.from === studentId ? jump.to : studentId
+  return shown ? <Panel key={shown} studentId={shown} familyId={familyId} onClose={onClose} back={back} onOpenStudent={(id) => setJump({ from: studentId, to: id })} /> : null
 }
 
 function Panel({ studentId, familyId, onClose, back, onOpenStudent }: { studentId: ID | "new"; familyId?: ID; onClose: () => void; back?: { label: string; onBack: () => void }; onOpenStudent: (id: ID) => void }) {
@@ -386,14 +391,11 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
   const me = useStore((s) => s.me())
   const leaves = useStore((s) => s.leaves)
   const myAssessments = useStore((s) => s.assessments).filter((a) => a.studentId === stu.id).sort((a, b) => a.date.localeCompare(b.date))
-  const branches = useStore((s) => s.branches)
   const fam = useStore((s) => s.families.find((f) => f.id === stu.familyId))
   const mine = ents.filter((e) => e.studentId === stu.id).sort((a, b) => b.to.localeCompare(a.to))
   const current = mine.filter((e) => e.to >= today)
   const pastCount = mine.length - current.length
   const myLeaves = leaves.filter((l) => l.studentId === stu.id).sort((a, b) => b.from.localeCompare(a.from))
-  const created = branches.find((b) => b.id === stu.createdBranchId)
-  const age = stu.birthDate ? Math.floor(daysBetween(stu.birthDate, today) / 365.25) : null
   const hasPending = usePendingInvoices(stu.id).length > 0
   const siblings = useStore((st) => st.students).filter((x) => stu.familyId && x.familyId === stu.familyId && x.id !== stu.id).sort((a, b) => a.nickname.localeCompare(b.nickname, "th"))
 
@@ -413,14 +415,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
             ))}
           </>}
         </div>
-        <InfoGrid rows={[
-          { icon: CakeIcon, label: "วันเกิด", value: stu.birthDate ? <>{fmtDate(stu.birthDate, { year: true })} <span className="text-muted-foreground">· อายุ {age} ปี</span></> : <NotSet what="วันเกิด" /> },
-          { icon: GraduationCapIcon, label: "โรงเรียน", value: stu.school || <NotSet what="โรงเรียน" /> },
-          { icon: StoreIcon, label: "สาขาที่สร้าง", value: tx("สร้างที่สาขา{0}", [created?.name ?? "—"]) },
-          { icon: CalendarDaysIcon, label: "วันที่สร้าง", value: tx("สร้างเมื่อ {0}", [fmtDate(stu.createdAt.slice(0, 10), { year: true })]) },
-          ...(stu.usesBus && branchHasBus(branches.find((b) => b.id === stu.branchId)) ? [{ icon: BusIcon, label: "รถรับส่ง", value: `รถรับส่ง: ${BUS_USE_LABEL[busUseOf(stu)]}` }] : []),
-        ]} />
-        {stu.note && <p className="flex items-start gap-2 rounded-lg bg-warning-soft/60 p-2.5 text-sm text-warning-ink"><StickyNoteIcon className="mt-0.5 size-4 shrink-0" />{stu.note}</p>}
+        <StudentFacts student={stu} />
       </section>
 
       <section className="border-t pt-1">

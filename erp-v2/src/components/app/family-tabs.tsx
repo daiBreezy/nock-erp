@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { BusIcon, CakeIcon, CalendarCheckIcon, CalendarIcon, CalendarXIcon, UserRoundPlusIcon, TimerIcon, ChevronRightIcon, ClockIcon, CopyIcon, MailIcon, MapPinIcon, MegaphoneIcon, PhoneIcon, ReceiptIcon, SchoolIcon, ShieldCheckIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
+import { CalendarIcon, UserRoundPlusIcon, TimerIcon, ChevronRightIcon, ClockIcon, CopyIcon, MapPinIcon, MegaphoneIcon, ReceiptIcon, ShieldCheckIcon, StarIcon, StoreIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useInvoicesOf, useOwed } from "@/components/billing/invoice-rows"
+import { StudentFacts } from "@/components/app/student-facts"
 import { StudentBilling, StudentClassTab, StudentNotes } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
@@ -17,9 +18,8 @@ import { sessionState } from "@/domain/rules/scheduling"
 import { PackageBadge } from "@/components/app/package-badge"
 import { subjectColor } from "@/components/app/subject-color"
 import { studentState } from "@/domain/rules/attendance"
-import { BUS_USE_LABEL, busUseOf, leadToCustomer, PDPA_LABEL } from "@/domain/rules/people"
+import { leadToCustomer, PDPA_LABEL } from "@/domain/rules/people"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
-import { branchHasBus } from "@/domain/rules/settings"
 import type { Family, ID, Student } from "@/domain/types"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
@@ -129,7 +129,6 @@ export function AddressValue({ note, address, location }: { note?: string; addre
 export function FamilyKidsList({ kids, onOpen, plain }: { kids: Student[]; onOpen: (id: ID) => void; /** no lines between the children (the family panel's info tab divides by heading instead) */ plain?: boolean }) {
   const ents = useEntitlements()
   const leaves = useStore((s) => s.leaves)
-  const branches = useStore((s) => s.branches)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
   const today = toDateStr(useNow())
   if (!kids.length) return <p className="py-4 text-center text-xs text-muted-foreground">{tx("ยังไม่มีลูกในครอบครัวนี้")}</p>
@@ -137,20 +136,6 @@ export function FamilyKidsList({ kids, onOpen, plain }: { kids: Student[]; onOpe
     <div className={plain ? "space-y-1" : "divide-y"}>
       {kids.map((k) => {
         const state = studentState(k, ents.filter((e) => e.studentId === k.id), leaves.filter((l) => l.studentId === k.id), today, renewalDays)
-        const bus = branchHasBus(branches.find((b) => b.id === k.branchId))
-        const age = k.birthDate ? Math.floor(daysBetween(k.birthDate, today) / 365.25) : null
-        const mine = ents.filter((e) => e.studentId === k.id)
-        const enrolled = mine.map((e) => e.from).sort()[0]
-        const ends = mine.map((e) => e.to).sort().slice(-1)[0]
-        const left = ends ? daysBetween(today, ends) : null
-        const rows: InfoRow[] = [
-          { icon: CalendarCheckIcon, label: tx("วัน Enroll"), value: enrolled ? fmtDate(enrolled, { year: true }) : <NotSet what="วัน Enroll" /> },
-          // owner 2026-11-20: just the date + (days left) — grey · yellow under 7 days · red under 3
-          { icon: CalendarXIcon, label: tx("วันสิ้นสุด"), value: ends ? <>{fmtDate(ends, { year: true })} <span className={cn(left === null ? "" : left < 3 ? "text-destructive" : left <= 7 ? "text-warning-ink" : "text-muted-foreground")}>{left !== null && left >= 0 ? `(${left}d)` : `(${tx("หมดแล้ว")})`}</span></> : <NotSet what="วันสิ้นสุด" /> },
-          { icon: CakeIcon, label: tx("วันเกิด"), value: k.birthDate ? <>{fmtDate(k.birthDate, { year: true })}<span className="text-muted-foreground"> · {tx("อายุ {0} ปี", [age ?? 0])}</span></> : <NotSet what="วันเกิด" /> },
-          { icon: SchoolIcon, label: tx("โรงเรียน"), value: k.school || <NotSet what="โรงเรียน" /> },
-          ...(bus ? [{ icon: BusIcon, label: tx("รถรับส่ง"), value: k.usesBus ? `${tx("รถรับส่ง")}: ${BUS_USE_LABEL[busUseOf(k)]}` : <span className="text-muted-foreground">{tx("ไม่ใช้รถรับส่ง")}</span> }] : []),
-        ]
         return (
           <section key={k.id} className="py-3">
             <Button variant="row" size="inline" type="button" onClick={() => onOpen(k.id)} className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left text-sm hover:bg-muted/50">
@@ -162,7 +147,7 @@ export function FamilyKidsList({ kids, onOpen, plain }: { kids: Student[]; onOpe
               <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
               <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
             </Button>
-            <InfoGrid rows={rows} className="mt-2 pl-1" />
+            <StudentFacts student={k} className="mt-2 pl-1" />
           </section>
         )
       })}
@@ -180,6 +165,10 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
   const invoices = useStore((s) => s.invoices)
   const ents = useEntitlements()
   const lc = leadToCustomer(family, kids, leads, invoices, ents)
+  // owner 2026-11-20: where / when the family first joined us — the family has no field of its own, so it is its earliest child's record
+  const branches = useStore((s) => s.branches)
+  const first = [...kids].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
+  const firstBranch = first ? branches.find((b) => b.id === first.createdBranchId)?.name : undefined
   const today = toDateStr(useNow())
   const owed = useOwed(useInvoicesOf(new Set(kids.map((k) => k.id))))
   const addr = [family.address, family.province, family.postcode].filter(Boolean).join(" ")
@@ -187,6 +176,7 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
   const sources = [...(family.sources ?? []).map((x) => LEAD_SOURCE_LABEL[x] ?? x), ...(family.sourceLabels ?? [])]
   const rows: InfoRow[] = [
     { icon: MapPinIcon, label: tx("ที่อยู่"), value: <AddressValue note={family.addressNote} address={addr} location={family.location} /> },
+    { icon: StoreIcon, label: tx("สร้างที่สาขา"), value: first ? <>{tx("สร้างที่สาขา{0}", [firstBranch ?? "—"])}<span className="text-muted-foreground"> · {fmtDate(first.createdAt.slice(0, 10), { year: true })}</span></> : <NotSet what="สร้างที่สาขา" /> },
     { icon: UserRoundPlusIcon, label: tx("เป็น Lead วันแรก"), value: lc.leadSince ? <>{tx("เป็น Lead")} {fmtDate(lc.leadSince, { year: true })}</> : <NotSet what="เป็น Lead วันแรก" /> },
     { icon: TimerIcon, label: tx("จาก Lead เป็นลูกค้า"), value: lc.days !== null && lc.customerSince ? <>{tx("เป็นลูกค้า")} {fmtDate(lc.customerSince, { year: true })}<span className="text-muted-foreground"> · {tx("ใช้เวลา {0} วัน", [lc.days])}</span></> : lc.leadSince ? <span className="text-muted-foreground">{tx("ยังไม่เป็นลูกค้า · เป็น Lead มา {0} วัน", [Math.max(0, daysBetween(lc.leadSince, today))])}</span> : <NotSet what="จาก Lead เป็นลูกค้า" /> },
     { icon: MegaphoneIcon, label: tx("รู้จักเราจาก"), value: sources.length ? sources.join(", ") : <NotSet what="รู้จักเราจาก" /> },
