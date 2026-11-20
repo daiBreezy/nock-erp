@@ -40,6 +40,7 @@ import { isDefaultPresent } from "./attendance"
 import { ROLE_PERMISSIONS } from "./permissions"
 import { applyRollover, nextGrade, rolloverDate, rolloverState } from "./rollover"
 import { transferConflicts } from "./people"
+import * as People from "./people"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -3787,5 +3788,19 @@ describe("course summary before the PDF", () => {
     const a = { ...base, lines: [{ ...base.lines[0], classIds: ["k1", "k2"] }] }
     const b = { ...base, lines: [{ ...base.lines[0], classIds: ["k2", "k1"] }] }
     expect(Pay.agreementHash(a, totals)).toBe(Pay.agreementHash(b, totals))
+  })
+})
+
+describe("leadToCustomer (owner 2026-11-20)", () => {
+  const fam = { lineUserId: "U1", parents: [{ name: "แม่", phone: "080-555-0100", lineLinked: false, primary: true }] }
+  const lead = (createdAt: string, extra: Partial<Lead> = {}) => ({ createdAt, lineUserId: undefined, phone: "", convertedStudentId: null, trialStudentId: null, ...extra })
+  it("counts days from the earliest matching lead to the first paid money", () => {
+    const r = People.leadToCustomer(fam, [{ id: "s1" }], [lead("2026-10-01T09:00:00Z", { phone: "0805550100" }), lead("2026-10-10T09:00:00Z", { lineUserId: "U1" })],
+      [{ studentId: "s1", status: "paid", payments: [{ paidOn: "2026-10-15", recordedAt: "2026-10-16T00:00:00Z" }] }], [{ studentId: "s1", from: "2026-10-20" }])
+    expect(r).toEqual({ leadSince: "2026-10-01", customerSince: "2026-10-15", days: 14 })
+  })
+  it("no matching lead or no money yet = no day count", () => {
+    expect(People.leadToCustomer(fam, [{ id: "s1" }], [], [], []).days).toBeNull()
+    expect(People.leadToCustomer(fam, [{ id: "s1" }], [lead("2026-10-01T00:00:00Z", { lineUserId: "U1" })], [], []).customerSince).toBeNull()
   })
 })

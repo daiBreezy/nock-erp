@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, CopyIcon, MailIcon, MessageCircleIcon, PencilIcon, PhoneIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UserPlusIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import Link from "next/link"
+import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MailIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UserPlusIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import { ParentPreview } from "@/components/parent/parent-preview"
-import { toast } from "@/lib/toast"
 import { tx } from "@/lib/i18n"
 import { Pill } from "@/components/app/badges"
 import { avatarTone, initial } from "@/components/app/subject-color"
@@ -15,57 +15,47 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { startFamilySet } from "@/lib/family-set"
 import { Tabs } from "@/components/app/page-layout"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
-import { FamilyBillingTab, FamilyClassTab, FamilyKidsList, FamilyProfile, InfoGrid, NotSet, PhoneValue, FamilyNotesTab } from "@/components/app/family-tabs"
+import { FamilyBillingTab, FamilyClassTab, FamilyKidsList, FamilyOverview, FamilyProfile, InfoGrid, NotSet, PhoneValue, FamilyNotesTab } from "@/components/app/family-tabs"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { can } from "@/domain/rules/permissions"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { FamilyForm } from "./family-form"
 import { FamilyForms } from "@/components/forms/family-forms"
-import { fmtDate, fmtDateTime } from "@/domain/dates"
-import { lineCodeValid } from "@/domain/rules/people"
+import { fmtDate } from "@/domain/dates"
 import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
-import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-export type FamilyTab = "overview" | "billing" | "courses" | "notes" | "forms"
+export type FamilyTab = "overview" | "info" | "billing" | "courses" | "notes" | "forms"
 
 /**
- * Family detail panel: parents + LINE linking (Flow E: one code per family, 7-day expiry) + children.
+ * Family detail panel: overview snapshot · family info (family / guardians / students) · billing · class · notes · forms.
+ * LINE: no link code any more (owner 2026-11-20) — a LINE account the admin pulls into this family from the Inbox is linked at once.
  * Shared by /families and the Inbox side-panel button so a family's contact info lives in exactly one
  * place, never a second hand-rolled summary that can drift out of sync with it.
  */
-export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new" | null; onClose: () => void; /** which tab opens first — unset: ใบแจ้งหนี้ when the family has an unpaid invoice (you were probably working on it), else สมาชิก */ initialTab?: FamilyTab }) {
+export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new" | null; onClose: () => void; /** which tab opens first — unset: ภาพรวม */ initialTab?: FamilyTab }) {
   // owner 2026-10-09: View → แก้ไข → back in the same panel; "new" opens the empty form and becomes the view once saved
   const [createdId, setCreatedId] = useState<ID | "new" | null>(null)
   const [editing, setEditing] = useState(target === "new")
   const id = target === "new" ? createdId : target
-  const branch = useBranch()
   const f = useStore((s) => s.families.find((x) => x.id === id))
   const kids = useStore((s) => s.students).filter((s) => s.familyId === id)
-  const genCode = useStore((s) => s.generateLineCode)
-  const simulate = useStore((s) => s.simulateLineLink)
+  const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === id))
   const me = useStore((s) => s.me())
   const archive = useStore((s) => s.archiveFamily)
   const restore = useStore((s) => s.restoreFamily)
   const del = useStore((s) => s.deleteFamily)
-  const now = useNow()
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
   // owner 2026-11-20: the family panel is a workplace, not a card — สมาชิก · ใบแจ้งหนี้ · คอร์ส · ฟอร์ม (it used to show only people, so the work on invoices disappeared)
-  const [tab, setTab] = useState<FamilyTab>(() => {
-    if (initialTab) return initialTab
-    const st = useStore.getState()
-    const mine = new Set(st.students.filter((x) => x.familyId === id).map((x) => x.id))
-    return st.invoices.some((i) => mine.has(i.studentId) && i.status !== "paid" && i.status !== "void") ? "billing" : "overview"
-  })
+  const [tab, setTab] = useState<FamilyTab>(initialTab ?? "overview")
   const [invoice, setInvoice] = useState<ID | "new" | null>(null)
   const [invoiceFor, setInvoiceFor] = useState<ID | undefined>()
   const [parentApp, setParentApp] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const manage = can(me, "family.manage")
-  const code = f?.lineCode && lineCodeValid(f, now).ok ? f.lineCode : null
 
   return (
     <>
@@ -94,10 +84,10 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                       <span>{f.archived ? `เก็บเข้าคลัง · ${f.archived.reason}` : tx("ลูก {0} คน", [kids.length])}{!f.archived && (f.parents.find((p) => p.primary) ?? f.parents[0]) ? ` · ${(f.parents.find((p) => p.primary) ?? f.parents[0]).name}` : ""}</span>
                     </SheetDescription>
                   </div>
-                  {manage && <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" aria-label="แก้ไขข้อมูลครอบครัว" title="แก้ไขข้อมูลครอบครัว" onClick={() => setEditing(true)}><PencilIcon /></Button>}
                 </div>
                 <Tabs className="-mx-4 border-b-0 px-3" value={tab} onChange={setTab} options={[
                   { value: "overview", label: tx("ภาพรวม") },
+                  { value: "info", label: tx("ข้อมูลครอบครัว") },
                   { value: "billing", label: tx("การเงิน") },
                   { value: "courses", label: tx("คลาส") },
                   { value: "notes", label: tx("โน้ต") },
@@ -105,8 +95,11 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                 ]} />
               </SheetHeader>
               <PanelBody>
-                {tab === "overview" && <>
+                {tab === "overview" && <FamilyOverview kids={kids} onOpen={setStudentOpen} />}
+                {tab === "info" && <>
+                <section className="space-y-2"><h3 className="text-sm font-semibold">ครอบครัว</h3>
                 <FamilyProfile family={f} kids={kids} onGoBilling={() => setTab("billing")} />
+                </section>
                 <section className="space-y-2">
                   <h3 className="text-sm font-semibold">ผู้ปกครอง</h3>
                   <div className="divide-y">
@@ -115,7 +108,6 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <span className="font-medium">{p.name}{p.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({p.nameEn})</span>}</span>{p.primary && <span className="text-xs text-muted-foreground">(หลัก)</span>}
                           <Pill tone={p.lineLinked ? "green" : "amber"} className="ml-auto">{p.lineLinked ? "LINE แล้ว" : "ยังไม่ผูก LINE"}</Pill>
-                        {code && !p.lineLinked && <Button size="xs" variant="ghost" title="จำลอง: ผู้ปกครองส่งโค้ดเข้า LINE OA" onClick={() => report(simulate(f.id, i), `${p.name} ผูก LINE แล้ว`)}>จำลองส่งโค้ด</Button>}
                         </div>
                         <InfoGrid rows={[
                           { icon: UsersIcon, label: tx("ความสัมพันธ์"), value: p.relationship || <NotSet what="ความสัมพันธ์" /> },
@@ -126,23 +118,10 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                       </div>
                     ))}
                   </div>
-                  {!branch.lineOaConnected ? (
-                    <p className="text-xs text-muted-foreground">สาขานี้ยังไม่เชื่อม LINE OA — ตั้งค่าที่ Settings → LINE Integration</p>
-                  ) : !f.parents.every((p) => p.lineLinked) && (
-                    code ? (
-                      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/60 p-2 text-sm">
-                        <MessageCircleIcon className="size-4 text-success" />
-                        โค้ดผูก LINE: <b className="font-mono tracking-widest">{code.code}</b>
-                        <span className="text-xs text-muted-foreground">หมดอายุ {fmtDateTime(code.expiresAt)}</span>
-                        <Button size="icon-xs" variant="ghost" aria-label="คัดลอก" onClick={() => { navigator.clipboard?.writeText(`แอด LINE ${branch.lineOa.botBasicId || "@nockacademy"} แล้วพิมพ์โค้ด ${code.code}`); toast.success("คัดลอกข้อความสำหรับส่งผู้ปกครองแล้ว") }}><CopyIcon /></Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => report(genCode(f.id), (v) => `สร้างโค้ด ${v.code} แล้ว (ใช้ได้ 7 วัน)`)}><MessageCircleIcon /> สร้างโค้ดผูก LINE</Button>
-                    )
-                  )}
+                  {!f.parents.some((p) => p.lineLinked) && <p className="text-xs text-muted-foreground">{tx("ยังไม่ผูก LINE — ให้ผู้ปกครองแอด LINE OA แล้วดึงแชทเข้าครอบครัวนี้จาก Inbox ระบบจะเชื่อมให้ทันที")}</p>}
                 </section>
                 <section className="space-y-2">
-                  <div className="flex items-center"><h3 className="text-sm font-semibold">ลูก ({kids.length})</h3><Button size="xs" variant="ghost" className="ml-auto" onClick={() => setStudentOpen("new")}><UserPlusIcon /> เพิ่มลูก</Button></div>
+                  <div className="flex items-center"><h3 className="text-sm font-semibold">{tx("นักเรียน")} ({kids.length})</h3><Button size="xs" variant="ghost" className="ml-auto" onClick={() => setStudentOpen("new")}><UserPlusIcon /> {tx("เพิ่มลูก")}</Button></div>
                   <FamilyKidsList kids={kids} onOpen={setStudentOpen} />
                 </section>
                 </>}
@@ -165,10 +144,11 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   manage && !f.archived && { label: "เก็บเข้าคลัง", icon: ArchiveIcon, destructive: true, onClick: () => setArchiving(true) },
                       manage && !f.archived && { label: "ลบถาวร", icon: Trash2Icon, destructive: true, disabled: kids.length > 0, title: kids.length > 0 ? "ครอบครัวนี้มีนักเรียนผูกอยู่ — เก็บเข้าคลังแทน" : undefined, onClick: () => setDeleting(true) },
                 ]} />
-                {manage && f.archived && <Button variant="outline" className="ml-auto" onClick={() => report(restore(f.id), "เอาครอบครัวกลับจากคลังแล้ว")}><ArchiveRestoreIcon /> เอากลับจากคลัง</Button>}
+                <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled={!conv} aria-label={tx("แชท LINE กับผู้ปกครอง")} title={conv ? tx("เปิดแชท LINE กับผู้ปกครองใน Inbox") : tx("ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox")} nativeButton={!conv} render={conv ? <Link href={`/inbox?conversation=${conv.id}`} /> : undefined}><MessagesSquareIcon /></Button>
+                {manage && f.archived && <Button variant="outline" onClick={() => report(restore(f.id), "เอาครอบครัวกลับจากคลังแล้ว")}><ArchiveRestoreIcon /> เอากลับจากคลัง</Button>}
                 {!f.archived && can(me, "billing.manage") && kids.length > 0 && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger render={<Button variant="outline" className="ml-auto" />}><ReceiptIcon /> {tx("ออกใบแจ้งหนี้")} <ChevronDownIcon /></DropdownMenuTrigger>
+                    <DropdownMenuTrigger render={<Button variant="outline" />}><ReceiptIcon /> {tx("ออกใบแจ้งหนี้")} <ChevronDownIcon /></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top">
                       {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => { setInvoiceFor(k.id); setInvoice("new") }}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
                       {kids.length > 1 && <>

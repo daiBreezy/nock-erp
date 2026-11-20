@@ -1,7 +1,7 @@
 // Families, students, staff and LINE linking (S4, S5, S6, F2, Flow E).
 
 import { GLOBAL_ROLES } from "./permissions"
-import { addDays, toMinutes } from "../dates"
+import { addDays, daysBetween, toMinutes } from "../dates"
 import type { DateStr, Family, FormParentInput, FormSubmission, Gender, ID, Lead, Parent, Result, Session, Staff, Student } from "../types"
 import { teachersOf } from "./scheduling"
 
@@ -485,3 +485,35 @@ export const PDPA_LABEL: Record<import("../types").PdpaChoice, string> = { allow
 /** how a student uses the school bus — "ไม่ใช้" is the 4th type (owner 2026-11-19) */
 export const BUS_USE_LABEL: Record<import("../types").BusUse | "none", string> = { pickup: "เฉพาะไปรับ", dropoff: "เฉพาะไปส่ง", both: "ทั้งไปรับและไปส่ง", none: "ไม่ใช้" }
 export const busUseOf = (s: Pick<import("../types").Student, "usesBus" | "busLeg">): import("../types").BusUse | "none" => (s.usesBus ? s.busLeg ?? "both" : "none")
+
+/** the first day a family was a Lead, and how long until it became a Customer (owner 2026-11-20) */
+export interface LeadToCustomer {
+  /** the earliest matching lead's created day — null when no lead matches (walk-in / imported family) */
+  leadSince: DateStr | null
+  /** the first money in (a paid invoice's earliest payment), else the first course start — null = not a customer yet */
+  customerSince: DateStr | null
+  /** whole days from lead to customer; null when either side is missing */
+  days: number | null
+}
+/** a lead belongs to the family when it became one of its children, shares its LINE account, or shares a guardian's phone */
+export function leadOfFamily(family: Pick<Family, "lineUserId" | "parents">, kids: Pick<Student, "id">[], leads: Pick<Lead, "createdAt" | "lineUserId" | "phone" | "convertedStudentId" | "trialStudentId">[]) {
+  const ids = new Set(kids.map((k) => k.id))
+  const phones = new Set(family.parents.flatMap((p) => [p.phone, ...(p.altPhones ?? [])]).map((p) => digits(p ?? "")).filter(Boolean))
+  return leads
+    .filter((l) => (l.convertedStudentId && ids.has(l.convertedStudentId)) || (l.trialStudentId && ids.has(l.trialStudentId)) || (!!l.lineUserId && l.lineUserId === family.lineUserId) || (!!digits(l.phone) && phones.has(digits(l.phone))))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
+}
+export function leadToCustomer(
+  family: Pick<Family, "lineUserId" | "parents">, kids: Pick<Student, "id">[],
+  leads: Parameters<typeof leadOfFamily>[2],
+  invoices: { studentId: ID; status: string; payments: { paidOn?: DateStr; recordedAt: string }[] }[],
+  ents: { studentId: ID; from: DateStr }[],
+): LeadToCustomer {
+  const ids = new Set(kids.map((k) => k.id))
+  const lead = leadOfFamily(family, kids, leads)
+  const paid = invoices.filter((i) => ids.has(i.studentId) && i.status === "paid").flatMap((i) => i.payments.map((p) => p.paidOn ?? p.recordedAt.slice(0, 10))).sort()[0]
+  const started = ents.filter((e) => ids.has(e.studentId)).map((e) => e.from).sort()[0]
+  const leadSince = lead ? lead.createdAt.slice(0, 10) : null
+  const customerSince = paid ?? started ?? null
+  return { leadSince, customerSince, days: leadSince && customerSince ? Math.max(0, daysBetween(leadSince, customerSince)) : null }
+}
