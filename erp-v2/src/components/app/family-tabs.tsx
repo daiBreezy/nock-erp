@@ -8,6 +8,9 @@ import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useInvoicesOf, useOwed } from "@/components/billing/invoice-rows"
 import { StudentFacts } from "@/components/app/student-facts"
+import { Kpi, KpiGroup, kpiMoney } from "@/components/app/kpi"
+import { SessionSheet } from "@/components/app/session-sheet"
+import { familySnapshot, mergeSameCourse } from "@/domain/rules/family-overview"
 import { PackageRow, StudentBilling, StudentClassTab, StudentNotes } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
@@ -188,40 +191,77 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
 }
 
 /**
- * Overview = a SNAPSHOT of the family (owner 2026-11-20): for every child, each course they hold, when the next session is, and what is left (sessions · hours).
- * Tap a child → that child's panel. Profile facts live in the "ข้อมูลครอบครัว" tab.
+ * Overview = the family at a glance (owner 2026-11-20). Two levels, each with its own numbers:
+ *  · the FAMILY on top: owed · all the money received
+ *  · each CHILD under their own name: next session · what is left, then their courses as plain text
+ * Tap a child → that child's panel.
  */
-export function FamilyOverview({ kids, onOpen }: { kids: Student[]; onOpen: (id: ID) => void }) {
+export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: Family; kids: Student[]; onOpen: (id: ID) => void; onGoBilling?: () => void }) {
+  const families = useStore((s) => s.families)
   const ents = useEntitlements()
   const leaves = useStore((s) => s.leaves)
+  const sessions = useStore((s) => s.sessions)
+  const attendance = useStore((s) => s.attendance)
+  const classes = useStore((s) => s.classes)
+  const allInvoices = useStore((s) => s.invoices)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
   const now = useNow(60_000)
   const today = toDateStr(now)
+  const invs = useInvoicesOf(new Set(kids.map((k) => k.id)))
+  const owed = useOwed(invs)
+  const received = invs.reduce((a, i) => a + i.payments.filter((p) => p.confirmedBy).reduce((m, p) => m + p.amount, 0), 0)
+  const paidCount = invs.filter((i) => i.status === "paid").length
+  const referrer = family.referredByFamilyId ? families.find((f) => f.id === family.referredByFamilyId) : undefined
+  const referred = families.filter((f) => f.referredByFamilyId === family.id && !f.archived)
+  const [openSession, setOpenSession] = useState<ID | null>(null)
+  const snapOf = (k: Student) => familySnapshot({ kids: [k], ents, invoices: allInvoices, leaves, sessions, attendance, classes, today, now, renewalDays })
+  const creditCount = familySnapshot({ kids, ents, invoices: allInvoices, leaves, sessions, attendance, classes, today, now, renewalDays }).creditCount
   if (!kids.length) return <p className="py-4 text-center text-xs text-muted-foreground">{tx("ยังไม่มีลูกในครอบครัวนี้")}</p>
   return (
-    <div className="divide-y">
-      {kids.map((k) => {
-        const mine = ents.filter((e) => e.studentId === k.id)
-        const state = studentState(k, mine, leaves.filter((l) => l.studentId === k.id), today, renewalDays)
-        const current = mine.filter((e) => e.to >= today).sort((a, b) => a.to.localeCompare(b.to))
-        return (
-          <section key={k.id} className="py-3 first:pt-0">
-            <Button variant="row" size="inline" type="button" onClick={() => onOpen(k.id)} className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left text-sm hover:bg-muted/50">
-              <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(k.id))}>{initial(k.nickname)}</span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5"><span className="font-medium">{k.nickname}</span><span className={cn("rounded px-1 text-2xs", gradeTone(k.grade))}>{k.grade}</span></span>
-                <span className="block truncate text-xs text-muted-foreground">{k.name}</span>
-              </span>
-              <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
-              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-            </Button>
-            {current.length === 0 ? <p className="mt-1.5 pl-1 text-xs text-muted-foreground">{tx("ไม่มีคอร์สที่ใช้อยู่")}</p> : (
-              // owner 2026-11-20: the SAME course rows as the student's own Overview (not a second look-alike) — tap a row's actions work here too
-              <ul className="mt-2 divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={k} today={today} />)}</ul>
-            )}
-          </section>
-        )
-      })}
+    <div className="space-y-4">
+      {/* the money, first: everything received — and, if something is still owed, right in the same card · next to it the referrals (owner 2026-11-20) */}
+      <KpiGroup className="grid grid-cols-2 gap-2">
+        <Kpi variant="tonal" label={tx("ยอดรวมทั้งหมด")} value={kpiMoney(received)} onClick={owed > 0 ? onGoBilling : undefined}
+          sub={owed > 0 ? <span className="text-warning-ink">{tx("ค้างชำระ")} {fmtMoney(owed)}{creditCount > 0 && ` · ${tx("Credit ค้าง {0} รายการ", [creditCount])}`}</span> : creditCount > 0 ? tx("Credit ค้าง {0} รายการ", [creditCount]) : tx("ชำระครบแล้ว {0} ใบ", [paidCount])} />
+        <Kpi variant="tonal" label="Referral" value={referred.length > 0 ? `${referred.length} ${tx("ครอบครัว")}` : "-"}
+          sub={referrer ? `${tx("แนะนำโดย")} ${referrer.name}` : referred.length > 0 ? referred.slice(0, 2).map((f) => f.name).join(", ") : tx("ยังไม่มีผู้แนะนำ")} />
+      </KpiGroup>
+      <div className="divide-y">
+        {kids.map((k) => {
+          const mine = ents.filter((e) => e.studentId === k.id)
+          const state = studentState(k, mine, leaves.filter((l) => l.studentId === k.id), today, renewalDays)
+          const current = mergeSameCourse(mine.filter((e) => e.to >= today).sort((a, b) => a.to.localeCompare(b.to)))
+          const snap = snapOf(k)
+          const hours = +(snap.minutesLeft / 60).toFixed(1)
+          return (
+            <section key={k.id} className="py-4 first:pt-0">
+              <Button variant="row" size="inline" type="button" onClick={() => onOpen(k.id)} className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left text-sm hover:bg-muted/50">
+                <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(k.id))}>{initial(k.nickname)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5"><span className="font-medium">{k.nickname}</span><span className={cn("rounded px-1 text-2xs", gradeTone(k.grade))}>{k.grade}</span></span>
+                  <span className="block truncate text-xs text-muted-foreground">{k.name}</span>
+                </span>
+                {snap.exiting.length > 0 && <Pill tone="amber">{tx("แจ้งออก")}</Pill>}
+                <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
+                <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+              </Button>
+              {/* the child's own numbers sit right under the name, full width (owner 2026-11-20) */}
+              <div className="mt-2 space-y-1">
+                <KpiGroup className="grid grid-cols-3 gap-2">
+                  <Kpi variant="tonal" size="sm" label={tx("คาบถัดไป")} value={snap.next ? `${fmtDate(snap.next.session.date)} · ${snap.next.session.start}` : "-"}
+                    onClick={snap.next ? () => setOpenSession(snap.next!.session.id) : undefined} />
+                  <Kpi variant="tonal" size="sm" label={tx("คาบที่เหลือ")} value={`${snap.sessionsLeft} ${tx("คาบ")} · ${hours} ${tx("ชม.")}`} />
+                  <Kpi variant="tonal" size="sm" label={tx("เข้าเรียน")} value={snap.attendance.rate === null ? "-" : `${Math.round(snap.attendance.rate * 100)}% · ${snap.attendance.present}/${snap.attendance.present + snap.attendance.leave}`} />
+                </KpiGroup>
+                {current.length === 0
+                  ? <p className="pt-1 text-xs text-muted-foreground">{tx("ไม่มีคอร์สที่ใช้อยู่")}</p>
+                  : <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={k} today={today} compact />)}</ul>}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+      <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
     </div>
   )
 }

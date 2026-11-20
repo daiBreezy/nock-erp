@@ -41,6 +41,7 @@ import { ROLE_PERMISSIONS } from "./permissions"
 import { applyRollover, nextGrade, rolloverDate, rolloverState } from "./rollover"
 import { transferConflicts } from "./people"
 import * as People from "./people"
+import * as FamilyOv from "./family-overview"
 
 const hours = { open: "09:00", close: "20:00" }
 const branch: Branch = {
@@ -3844,3 +3845,36 @@ describe("Summary recipients (owner 2026-11-20)", () => {
     expect(People.parentHasLine(fam, 1)).toBe(true)
   })
 })
+
+describe("familySnapshot (owner 2026-11-20)", () => {
+  const today = "2026-11-20"
+  const now = new Date("2026-11-20T08:00:00Z")
+  const ent = (studentId: string, to: string): Entitlement => ({ id: `e_${studentId}`, studentId, courseId: "c", subjects: ["คณิต"], classIds: ["k1"], invoiceId: "inv", kind: "weeks", from: "2026-11-01", to, sessionsTotal: 8 }) as unknown as Entitlement
+  const ses = (id: string, date: string, start: string, studentIds: string[]): Session => ({ id, classId: "k1", subject: "คณิต", subjects: ["คณิต"], date, start, minutes: 60, studentIds, cancelled: false, teacherIds: [] } as unknown as Session)
+  const kids = [{ id: "a" }, { id: "b", exit: { status: "sent", lastDate: "2026-11-10", sentAt: "", sentBy: "" } }] as never
+  it("finds the family's next session across the children, and flags renewal / exit", () => {
+    const r = FamilyOv.familySnapshot({ kids, ents: [ent("a", "2026-12-30"), ent("b", "2026-11-26")], invoices: [], leaves: [],
+      sessions: [ses("s2", "2026-11-27", "17:00", ["a"]), ses("s1", "2026-11-24", "16:00", ["b"])], attendance: [], classes: [{ id: "k1", minutes: 60, seats: [] }] as never, today, now, renewalDays: 7 })
+    expect(r.next?.session.id).toBe("s1")
+    expect(r.next?.studentId).toBe("b")
+    expect(r.renewal).toEqual(["b"])
+    expect(r.exiting).toEqual([{ studentId: "b", overdue: true }])
+  })
+  it("a family with nothing running has no next session and nothing left", () => {
+    const r = FamilyOv.familySnapshot({ kids: [{ id: "a" }] as never, ents: [], invoices: [], leaves: [], sessions: [], attendance: [], classes: [], today, now, renewalDays: 7 })
+    expect(r).toMatchObject({ next: null, sessionsLeft: 0, minutesLeft: 0, renewal: [], exiting: [], onLeave: [], creditCount: 0 })
+  })
+})
+
+describe("mergeSameCourse (owner 2026-11-20)", () => {
+  const e = (id: string, classId: string, extra: object = {}) => ({ id, studentId: "a", courseId: "co1", subjects: ["คณิต"], classIds: [classId], invoiceId: "i", kind: "subscription", from: "2026-11-02", to: "2026-12-07", sessionsTotal: 4, ...extra }) as unknown as Entitlement
+  it("one course taken on two days is ONE package with both classes", () => {
+    const r = FamilyOv.mergeSameCourse([e("e1", "cl_tue"), e("e2", "cl_fri")])
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ id: "e1", classIds: ["cl_tue", "cl_fri"], sessionsTotal: 8 })
+  })
+  it("a different course or different dates stays separate", () => {
+    expect(FamilyOv.mergeSameCourse([e("e1", "k1"), e("e2", "k2", { courseId: "co2" }), e("e3", "k3", { to: "2026-12-31" })])).toHaveLength(3)
+  })
+})
+

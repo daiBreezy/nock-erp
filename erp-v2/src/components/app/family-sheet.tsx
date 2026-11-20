@@ -124,7 +124,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                 ]} />
               </SheetHeader>
               <PanelBody>
-                {tab === "overview" && <FamilyOverview kids={kids} onOpen={setStudentOpen} />}
+                {tab === "overview" && <FamilyOverview family={f} kids={kids} onOpen={setStudentOpen} onGoBilling={() => setTab("billing")} />}
                 {tab === "info" && <>
                 <section className="space-y-2"><h3 className="text-sm font-semibold">ครอบครัว</h3>
                 <FamilyProfile family={f} kids={kids} onGoBilling={() => setTab("billing")} />

@@ -70,12 +70,14 @@ export const kpiMoney = (n: number) => <KpiNumber n={n} prefix="฿" />
  * No className / valueClassName / compact — those were what made pages differ.
  */
 export function Kpi({
-  icon: Icon, label, value, sub, tone = "primary", emphasis, onClick, active, info, children, variant = "card",
+  icon: Icon, label, value, sub, tone = "primary", emphasis, onClick, active, info, children, variant = "card", size = "md",
 }: {
   /** the small icon before the label — optional on a `tonal` card, which sits inside a section that already has a title */
   icon?: React.ComponentType<{ className?: string }>
   /** `card` = white + shadow (headline) · `tonal` = grey tint, flat (secondary) */
   variant?: "card" | "tonal"
+  /** `sm` = a quiet number (text-sm, regular weight) for a small card that sits UNDER something else (a child inside the family panel, owner 2026-11-20) — same structure, one step down the type scale */
+  size?: "md" | "sm"
   label: React.ReactNode
   /** a number (abbreviated on phones), `kpiMoney(n)`, or any short node such as "38 / 41" */
   value: React.ReactNode
@@ -96,14 +98,14 @@ export function Kpi({
   const reserveSub = useContext(KpiLinesContext)
   return (
     <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
-      className={cn("flex h-full w-full min-w-0 flex-col gap-1 rounded-xl px-3.5 py-3 text-left",
+      className={cn("flex h-full w-full min-w-0 flex-col gap-1 rounded-xl px-3.5 text-left", size === "sm" ? "py-2" : "py-3",
         variant === "tonal" ? "justify-start bg-muted/50" : "justify-start bg-card shadow-sm ring-1 ring-foreground/5 sm:min-w-40",
         onClick && (variant === "tonal" ? "transition hover:bg-muted" : "transition hover:ring-foreground/20"), active && "ring-2 ring-primary hover:ring-primary")}>
       <p title={typeof label === "string" ? label : undefined} className={cn("flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground", emphasis && KPI_INK[tone])}>
         {Icon && <Icon className="size-3.5 shrink-0" />}<span className="truncate text-muted-foreground">{label}</span>
         {info && <InfoTip text={info} className="ml-auto -my-0.5" />}
       </p>
-      <span className={cn("text-2xl leading-tight font-semibold tracking-tight tabular-nums", emphasis && KPI_INK[tone])}>{typeof value === "number" ? <KpiNumber n={value} /> : value}</span>
+      <span className={cn("tabular-nums", size === "sm" ? "text-sm leading-5" : "text-2xl leading-tight font-semibold tracking-tight", emphasis && KPI_INK[tone])}>{typeof value === "number" ? <KpiNumber n={value} /> : value}</span>
       {/* the sub line: one fixed line (16px), there when this card OR any card of its group has a sub (see KpiGroup) */}
       {(sub !== undefined || reserveSub) && <p className="h-4 min-w-0 truncate text-xs leading-4 text-muted-foreground">{sub}</p>}
       {children && <div className="w-full text-sm">{children}</div>}

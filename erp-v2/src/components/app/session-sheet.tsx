@@ -410,7 +410,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
   const ent = Att.coveringEntitlement(sid, s, entitlements)
   const asm = assessmentIn(s.id, sid, assessments)
-  // Test/Trial: only มา + ย้ายวัน (no leave), ⋮ = profile + remove only, no lesson summary
+  // Test/Trial: only มา (no leave), ⋮ = profile + re-schedule + remove, no lesson summary
   const isTest = !!asm
   const onLongLeave = Att.activeLeave(sid, s.date, leaves)
   // owner 2026-11-02: the whole session locks once any summary has been sent to parents
@@ -491,15 +491,13 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
               })()}
           </p>
         </div>
-        {/* มา · ลา (หักโควตา / ไม่หักโควตา) · ย้ายวัน — no "ขาด" (owner 2026-09-30) ·
+        {/* มา · ลา (หักโควตา / ไม่หักโควตา) — no "ขาด" (owner 2026-09-30) ·
             phones: wraps to its own full-width row (order-last) so the buttons never run off the edge */}
         <span className="order-last inline-flex h-9 w-full shrink-0 items-center rounded-full bg-muted/60 p-1 sm:order-none sm:w-auto">
           <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present" || defaultOn} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
             className={pill + " data-[on=true]:bg-success data-[on=true]:text-white" + (defaultOn ? " data-[on=true]:opacity-50" : "")}>มา</Button>
           {!isTest && <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
             title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-danger data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>}
-          <Button variant="ghost" size="inline" type="button" disabled={!!movedTo || !canMove || locked || !!a || s.cancelled} onClick={() => setOpen("reschedule")}
-            title="ย้ายวัน — ครั้งนี้ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือย้ายคลาสถาวร" className={pill}>ย้ายวัน</Button>
         </span>
         {/* per-student ⋮ — teachers get it too (profile / re-schedule); managers also get seat + remove.
             44px trigger on phones so it's easy to tap (owner 2026-11-02) */}
@@ -509,7 +507,8 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuItem onClick={() => setOpen("student")}><UserIcon /> เปิดโปรไฟล์นักเรียน</DropdownMenuItem>
               {!isTest && pastSummaries.length > 0 && <DropdownMenuItem onClick={() => setHistoryOpen(true)}><HistoryIcon /> {`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</DropdownMenuItem>}
-              {canMove && !isTest && (
+              {/* owner 2026-11-20: ย้ายวัน and ย้ายคาบ were the same action — it lives only here, in ⋮ (also for a Test / Trial) */}
+              {canMove && (
                 <DropdownMenuItem disabled={locked || !!a} onClick={() => setOpen("reschedule")}>
                   <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
                 </DropdownMenuItem>

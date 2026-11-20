@@ -6,6 +6,7 @@ import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { FamilySheet } from "./family-sheet"
 import { StudentFacts } from "./student-facts"
+import { mergeSameCourse } from "@/domain/rules/family-overview"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useMemo, useState } from "react"
@@ -321,7 +322,7 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
 }
 
 /** one running package of a student — the SAME row in the student's Overview and in the family's Overview (owner 2026-11-20) */
-export function PackageRow({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
+export function PackageRow({ e, stu, today, compact }: { e: Entitlement; stu: Student; today: string; /** the family's overview (owner 2026-11-20): plain text — no subject chip, no package badge, no boxes — the child's own cards say the rest */ compact?: boolean }) {
   const [renewing, setRenewing] = useState(false)
 const me = useStore((s) => s.me())
 const courses = useStore((s) => s.courses)
@@ -334,9 +335,9 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
   const renewal = !expired && p.low
   const extended = rawTo !== undefined && rawTo !== e.to
   return (
-    <li className={cn("py-2.5", expired && "opacity-50")}>
+    <li className={cn(compact ? "py-2" : "py-2.5", expired && "opacity-50")}>
       <div className="flex items-center gap-3">
-        <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>
+        {!compact && <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 font-medium"><span className="truncate">{c?.name ?? "คอร์ส"}</span>{e.credit && !e.invoiceId && <CreditTag className="shrink-0" />}</p>
           <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
@@ -346,20 +347,20 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
           </p>
         </div>
         {/* owner 2026-11-05: no progress bar; slots badge · ต่ออายุ · status — status is always last and hugs its text */}
-        <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="sm" />}</span>
-        <span className="flex w-16 shrink-0 justify-center">{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
+        {!compact && <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="sm" />}</span>}
+        <span className={cn("flex shrink-0 justify-center", !compact && "w-16")}>{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
         {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
         {/* owner 2026-11-20: "Enroll" is the normal state and says nothing — only the exceptions get a status (Renewal · หมดแล้ว) */}
         {(expired || renewal) && <span className="flex shrink-0 justify-end"><Pill tone={expired ? "gray" : "amber"}>{expired ? "หมดแล้ว" : "Renewal"}</Pill></span>}
       </div>
       {/* owner 2026-11-04: list the classes the student attends for this course — each day/time with a ย้ายวัน/คาบ button */}
-      {!expired && <ClassTransferList e={e} stu={stu} today={today} />}
+      {!expired && <ClassTransferList e={e} stu={stu} today={today} compact={compact} />}
     </li>
   )
 }
 
 /** The classes a student attends under one course, with a per-class "move day / sessions" action (owner 2026-11-04). */
-function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
+function ClassTransferList({ e, stu, today, compact }: { e: Entitlement; stu: Student; today: string; compact?: boolean }) {
   const classes = useStore((s) => s.classes)
   const sessions = useStore((s) => s.sessions)
   const me = useStore((s) => s.me())
@@ -380,13 +381,13 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
   }).filter((x): x is { k: NonNullable<ReturnType<typeof classes.find>>; next: Session; ahead: number; hours: number } => !!x)
   if (rows.length === 0) return null
   return (
-    <ul className="mt-2 space-y-1 pl-14">
+    <ul className={cn("mt-1.5 space-y-1", !compact && "mt-2 pl-14")}>
       {rows.map(({ k, next, ahead, hours }) => (
-        <li key={k.id} className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-1.5 text-xs">
+        <li key={k.id} className={cn("flex items-center gap-2 text-xs", !compact && "rounded-xl bg-muted/40 px-3 py-1.5")}>
           <span className="min-w-0 flex-1">
             <span className="block truncate"><span className="font-medium">{k.name}</span> <span className="text-muted-foreground">· ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)}</span></span>
             {/* the next session and what is left (sessions · hours) — its own line so it never gets cut off */}
-            <Button variant="ghost" size="inline" type="button" onClick={() => setOpenSession(next.id)} title={tx("เปิดคาบนี้")} className="block h-auto w-full justify-start truncate p-0 text-left text-xs font-normal tabular-nums text-muted-foreground hover:bg-transparent hover:text-primary hover:underline dark:hover:bg-transparent">{tx("คาบถัดไป")} {fmtDate(next.date)} · {`เหลือ ${ahead} คาบ`} · {hours} {tx("ชม.")}</Button>
+            {!compact && <Button variant="ghost" size="inline" type="button" onClick={() => setOpenSession(next.id)} title={tx("เปิดคาบนี้")} className="block h-auto w-full justify-start truncate p-0 text-left text-xs font-normal tabular-nums text-muted-foreground hover:bg-transparent hover:text-primary hover:underline dark:hover:bg-transparent">{tx("คาบถัดไป")} {fmtDate(next.date)} · {`เหลือ ${ahead} คาบ`} · {hours} {tx("ชม.")}</Button>}
           </span>
           {canMove && <Button variant="ghost" size="inline" type="button" onClick={() => setMoveFrom(next)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-primary hover:bg-primary/10"><CalendarClockIcon className="size-3.5" /> ย้ายวัน/คาบ</Button>}
         </li>
@@ -403,7 +404,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
   const myAssessments = useStore((s) => s.assessments).filter((a) => a.studentId === stu.id).sort((a, b) => a.date.localeCompare(b.date))
   const fam = useStore((s) => s.families.find((f) => f.id === stu.familyId))
   const mine = ents.filter((e) => e.studentId === stu.id).sort((a, b) => b.to.localeCompare(a.to))
-  const current = mine.filter((e) => e.to >= today)
+  const current = mergeSameCourse(mine.filter((e) => e.to >= today))
   const pastCount = mine.length - current.length
   const myLeaves = leaves.filter((l) => l.studentId === stu.id).sort((a, b) => b.from.localeCompare(a.from))
   const hasPending = usePendingInvoices(stu.id).length > 0
@@ -597,7 +598,8 @@ function SessionList({ kids, ents }: { kids: Student[]; ents: Entitlement[] }) {
   ]
 
   // per course: held so far = มา + ขาด + ลา + ยังไม่เช็ค
-  const packages = ents.filter((e) => kids.some((k) => k.id === e.studentId) && (!subject || e.subjects.includes(subject))).sort((a, b) => b.to.localeCompare(a.to))
+  // owner 2026-11-20: one course taken on two days = ONE card, not one per class
+  const packages = mergeSameCourse(ents.filter((e) => kids.some((k) => k.id === e.studentId) && (!subject || e.subjects.includes(subject)))).sort((a, b) => b.to.localeCompare(a.to))
   const heldOf = (e: Entitlement) => sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(e.studentId) && !s.cancelled && s.date <= today)
   const attOf = (e: Entitlement, held: Session[]) => attendance.filter((a) => a.studentId === e.studentId && held.some((s) => s.id === a.sessionId))
 
