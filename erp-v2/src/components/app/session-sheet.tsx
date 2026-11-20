@@ -10,7 +10,7 @@ import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockFadingIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
-  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon, BusIcon } from "lucide-react"
+  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon, BusIcon, ChevronDownIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -1170,7 +1170,7 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   const approve = useStore((s) => s.approveSummary)
   const requestChanges = useStore((s) => s.requestSummaryChanges)
   const send = useStore((s) => s.sendSummary)
-  const [withText, setWithText] = useState(false)
+  const [confirmApply, setConfirmApply] = useState<null | { withText: boolean; overwrites: number }>(null)
   const [note, setNote] = useState("")
   const [asking, setAsking] = useState(false)
   // Book / Topic / Lesson Detail (owner 2026-09-30) — a new summary starts where this student left off
@@ -1186,7 +1186,17 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
     : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "", level: summary?.level, subjectLevels: summary?.subjectLevels })
   const [managing, setManaging] = useState<"book" | "topic" | null>(null)
   const attendance = useStore((s) => s.attendance)
-  const others = attendance.filter((a) => a.sessionId === sessionId && a.status === "present" && a.studentId !== studentId).length
+  const presentIds = new Set(attendance.filter((a) => a.sessionId === sessionId && a.status === "present").map((a) => a.studentId))
+  const summaryOf = (sid: ID) => allSummaries.find((x) => x.sessionId === sessionId && x.studentId === sid)
+  const editableOf = (sid: ID) => { const x = summaryOf(sid); return !x || x.status === "draft" || x.status === "changes_requested" }
+  // owner 2026-11-20: "use for everyone" is a button of the SESSION, shown once — on the first present student whose summary is still open (not on all five rows)
+  const targets = [...presentIds].filter(editableOf)
+  const firstOpenSid = session.studentIds.find((sid) => presentIds.has(sid) && editableOf(sid))
+  const showApplyAll = targets.length > 1 && studentId === firstOpenSid
+  const hasLesson = !!(lesson.bookId || lesson.topicId || lesson.detail?.trim())
+  const overwrites = targets.filter((sid) => { if (sid === studentId) return false; const x = summaryOf(sid); return !!x && !!(x.text.trim() || x.bookId || x.topicId || x.detail?.trim()) }).length
+  const applyAll = (withText: boolean) => report(applyLesson(sessionId, lesson, withText ? text : undefined), (v) => (withText ? `ใช้สรุปนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้` : `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`))
+  const askApplyAll = (withText: boolean) => (overwrites > 0 ? setConfirmApply({ withText, overwrites }) : applyAll(withText))
   const branchBooks = Les.booksOf(session.branchId, books)
   const bookTopics = lesson.bookId ? Les.topicsOf(lesson.bookId, topics) : []
   const status = summary?.status
@@ -1232,20 +1242,31 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
               onCreate={(name) => addTopic(lesson.bookId!, name)} onManage={() => setManaging("topic")} />
           </div>
           <Input style={{ fontSize: "0.875rem" }} className="h-9 rounded-3xl border-transparent bg-input/50" value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="Lesson Detail · เช่น หน้า 12–15 แบบฝึกหัด 2.1" aria-label="Lesson Detail" />
-          {/* same lesson for the whole class in one tap — anyone different is edited on their own row (owner 2026-09-30) */}
-          {others > 0 && (lesson.bookId || lesson.topicId || lesson.detail?.trim() || text.trim()) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <Button variant="link" size="inline" type="button" className="text-xs text-primary underline"
-                onClick={() => report(applyLesson(sessionId, lesson, withText ? text : undefined), (v) => (withText ? `ใช้สรุปนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้` : `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`))}>
-                ใช้หนังสือ / บทเรียน / รายละเอียดนี้กับทุกคนที่มาเรียน ({others + 1} คน)
-              </Button>
-              {/* owner 2026-11-13: the same Feedback Summary for the whole class, when everyone did the same thing */}
-              {text.trim() && (
-                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                  <Checkbox checked={withText} onCheckedChange={(v) => setWithText(!!v)} /> รวมข้อความสรุปด้วย
-                </label>
-              )}
-            </div>
+          {/* same lesson for the whole class in one tap — anyone different is edited on their own row (owner 2026-09-30). One menu button, once per session (owner 2026-11-20) */}
+          {showApplyAll && (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button size="xs" variant="outline" type="button" disabled={!hasLesson && !text.trim()} title={hasLesson || text.trim() ? undefined : "กรอกหนังสือ / บทเรียน / รายละเอียดก่อน จึงใช้กับทุกคนได้"} />}>
+                <UsersRoundIcon /> {tx("ใช้กับทุกคน ({0})", [targets.length])} <ChevronDownIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuItem disabled={!hasLesson} onClick={() => askApplyAll(false)}><span className="flex flex-col"><span>หนังสือ / บทเรียน / รายละเอียด</span><span className="text-xs text-muted-foreground">ไม่แตะข้อความสรุปของแต่ละคน</span></span></DropdownMenuItem>
+                <DropdownMenuItem disabled={!text.trim()} onClick={() => askApplyAll(true)}><span className="flex flex-col"><span>รวมข้อความสรุปด้วย</span><span className="text-xs text-muted-foreground">เมื่อทุกคนเรียนเหมือนกัน</span></span></DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {confirmApply && (
+            <Dialog open onOpenChange={(o) => !o && setConfirmApply(null)}>
+              <DialogContent className="lg:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>ใช้กับทุกคน — เขียนทับสรุปที่ร่างไว้?</DialogTitle>
+                  <DialogDescription>{tx("{0} คนมีสรุปที่ร่างไว้แล้ว จะถูกแทนที่ด้วยของคนนี้ (ที่ส่งอนุมัติไปแล้วไม่ถูกแตะ)", [confirmApply.overwrites])}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setConfirmApply(null)}>ยกเลิก</Button>
+                  <Button onClick={() => { applyAll(confirmApply.withText); setConfirmApply(null) }}>เขียนทับ</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
           <Textarea style={{ fontSize: "0.875rem" }} className="rounded-2xl border-transparent bg-input/50" value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
           {/* owner 2026-11-02: the 1–5 "understanding" picker removed from the quick inline summary */}
