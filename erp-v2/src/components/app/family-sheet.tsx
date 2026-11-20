@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MailIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UserPlusIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MailIcon, MessageCircleIcon, MessagesSquareIcon, PencilIcon, StarIcon, PhoneIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UserPlusIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import { ParentPreview } from "@/components/parent/parent-preview"
 import { tx } from "@/lib/i18n"
 import { Pill } from "@/components/app/badges"
@@ -100,18 +100,19 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                 <section className="space-y-2"><h3 className="text-sm font-semibold">ครอบครัว</h3>
                 <FamilyProfile family={f} kids={kids} onGoBilling={() => setTab("billing")} />
                 </section>
-                <section className="space-y-2">
+                {/* owner 2026-11-20: the divider separates the HEADINGS (ครอบครัว | ผู้ปกครอง | นักเรียน), not the people inside one */}
+                <section className="space-y-2 border-t pt-4">
                   <h3 className="text-sm font-semibold">ผู้ปกครอง</h3>
-                  <div className="divide-y">
+                  <div className="space-y-3">
                     {f.parents.map((p, i) => (
-                      <div key={i} className="space-y-2 py-3 first:pt-0">
+                      <div key={i} className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2 text-sm">
-                          <span className="font-medium">{p.name}{p.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({p.nameEn})</span>}</span>{p.primary && <span className="text-xs text-muted-foreground">(หลัก)</span>}
-                          <Pill tone={p.lineLinked ? "green" : "amber"} className="ml-auto">{p.lineLinked ? "LINE แล้ว" : "ยังไม่ผูก LINE"}</Pill>
+                          <span className="font-medium">{p.name}{p.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({p.nameEn})</span>}</span>{p.primary && <StarIcon className="size-3.5 fill-muted-foreground/40 text-muted-foreground/60" aria-label={tx("ผู้ปกครองหลัก")}><title>{tx("ผู้ปกครองหลัก")}</title></StarIcon>}
                         </div>
                         <InfoGrid rows={[
                           { icon: UsersIcon, label: tx("ความสัมพันธ์"), value: p.relationship || <NotSet what="ความสัมพันธ์" /> },
                           { icon: PhoneIcon, label: tx("โทร"), value: <PhoneValue numbers={[p.phone, ...(p.altPhones ?? [])]} /> },
+                          { icon: MessageCircleIcon, label: "LINE ID", value: p.lineId || <NotSet what="LINE ID" /> },
                           { icon: MailIcon, label: tx("อีเมล"), value: p.email || <NotSet what="อีเมล" /> },
                           { icon: CakeIcon, label: tx("วันเกิด"), value: p.birthDate ? fmtDate(p.birthDate, { year: true }) : <NotSet what="วันเกิด" /> },
                         ]} />
@@ -120,9 +121,9 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   </div>
                   {!f.parents.some((p) => p.lineLinked) && <p className="text-xs text-muted-foreground">{tx("ยังไม่ผูก LINE — ให้ผู้ปกครองแอด LINE OA แล้วดึงแชทเข้าครอบครัวนี้จาก Inbox ระบบจะเชื่อมให้ทันที")}</p>}
                 </section>
-                <section className="space-y-2">
+                <section className="space-y-2 border-t pt-4">
                   <div className="flex items-center"><h3 className="text-sm font-semibold">{tx("นักเรียน")} ({kids.length})</h3><Button size="xs" variant="ghost" className="ml-auto" onClick={() => setStudentOpen("new")}><UserPlusIcon /> {tx("เพิ่มลูก")}</Button></div>
-                  <FamilyKidsList kids={kids} onOpen={setStudentOpen} />
+                  <FamilyKidsList kids={kids} onOpen={setStudentOpen} plain />
                 </section>
                 </>}
                 {tab === "billing" && <FamilyBillingTab kids={kids} />}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { BusIcon, CakeIcon, CalendarCheckIcon, CalendarIcon, CalendarXIcon, UserRoundPlusIcon, TimerIcon, ChevronRightIcon, ClockIcon, CopyIcon, MailIcon, MapPinIcon, MegaphoneIcon, PhoneIcon, ReceiptIcon, SchoolIcon, ShieldCheckIcon, UsersIcon, WalletIcon } from "lucide-react"
+import { BusIcon, CakeIcon, CalendarCheckIcon, CalendarIcon, CalendarXIcon, UserRoundPlusIcon, TimerIcon, ChevronRightIcon, ClockIcon, CopyIcon, MailIcon, MapPinIcon, MegaphoneIcon, PhoneIcon, ReceiptIcon, SchoolIcon, ShieldCheckIcon, StarIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
@@ -87,8 +87,11 @@ export function PhoneValue({ numbers }: { numbers: (string | undefined)[] }) {
     <HoverCard>
       <HoverCardTrigger render={<span className="cursor-default tabular-nums" />}>{list[0]}{list.length > 1 && <span className="ml-1 text-muted-foreground">+{list.length - 1}</span>}</HoverCardTrigger>
       <HoverCardContent align="start" className="space-y-1">
-        {list.map((n) => (
-          <div key={n} className="flex items-center gap-3"><span className="tabular-nums">{n}</span>
+        {list.map((n, i) => (
+          <div key={n} className="flex items-center gap-3">
+            {/* owner 2026-11-20: the first number is the main one — a star marks it, the others keep an empty slot so the numbers line up */}
+            <span className="grid size-3.5 shrink-0 place-items-center" title={i === 0 ? tx("เบอร์หลัก") : undefined}>{i === 0 && <StarIcon className="size-3.5 fill-muted-foreground/40 text-muted-foreground/60" aria-label={tx("เบอร์หลัก")} />}</span>
+            <span className="tabular-nums">{n}</span>
             <Button size="icon-xs" variant="ghost" aria-label={`${tx("คัดลอก")} ${n}`} title={tx("คัดลอก")} onClick={() => copyText(n, "คัดลอกเบอร์แล้ว")}><CopyIcon /></Button>
           </div>
         ))}
@@ -123,7 +126,7 @@ export function AddressValue({ note, address, location }: { note?: string; addre
 }
 
 /** Overview › each child as a small profile (owner 2026-11-20): name · grade · status on top (tap = that child's panel), then birthday · school · bus as facts */
-export function FamilyKidsList({ kids, onOpen }: { kids: Student[]; onOpen: (id: ID) => void }) {
+export function FamilyKidsList({ kids, onOpen, plain }: { kids: Student[]; onOpen: (id: ID) => void; /** no lines between the children (the family panel's info tab divides by heading instead) */ plain?: boolean }) {
   const ents = useEntitlements()
   const leaves = useStore((s) => s.leaves)
   const branches = useStore((s) => s.branches)
@@ -131,7 +134,7 @@ export function FamilyKidsList({ kids, onOpen }: { kids: Student[]; onOpen: (id:
   const today = toDateStr(useNow())
   if (!kids.length) return <p className="py-4 text-center text-xs text-muted-foreground">{tx("ยังไม่มีลูกในครอบครัวนี้")}</p>
   return (
-    <div className="divide-y">
+    <div className={plain ? "space-y-1" : "divide-y"}>
       {kids.map((k) => {
         const state = studentState(k, ents.filter((e) => e.studentId === k.id), leaves.filter((l) => l.studentId === k.id), today, renewalDays)
         const bus = branchHasBus(branches.find((b) => b.id === k.branchId))
@@ -194,10 +197,8 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
     { icon: WalletIcon, label: tx("ค้างชำระ"), value: owed > 0 ? <Button variant="link" size="inline" type="button" className="h-auto p-0 text-sm" onClick={onGoBilling}>{tx("ค้างชำระ")} {fmtMoney(owed)} · {tx("ดูใบแจ้งหนี้")}</Button> : <span className="text-muted-foreground">{tx("ไม่มียอดค้าง")}</span> },
   ]
   return (
-    // owner 2026-11-20: plain information, no card around it — a line under it is all that separates it from the lists
-    <section className="border-b pb-4">
-      <InfoGrid rows={rows} />
-    </section>
+    // owner 2026-11-20: plain information, no card and no line of its own — the panel divides by heading
+    <InfoGrid rows={rows} />
   )
 }
 
