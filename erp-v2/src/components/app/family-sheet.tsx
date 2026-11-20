@@ -6,7 +6,7 @@ import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MailIcon, M
 import { ParentPreview } from "@/components/parent/parent-preview"
 import { tx } from "@/lib/i18n"
 import { Pill } from "@/components/app/badges"
-import { tagChip } from "@/components/app/tags"
+import { tagInk } from "@/components/app/tags"
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { MathGate } from "@/components/app/math-gate"
 import { ReasonDialog } from "@/components/app/reason-dialog"
@@ -105,9 +105,10 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                     <div className="flex items-center gap-2">
                       <SheetTitle className="truncate text-lg">{f.name}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>
                       {f.archived ? <Pill tone="gray">เก็บเข้าคลัง</Pill> : anyActive && <Pill tone={STATUS_PILL.active.tone}>{STATUS_PILL.active.label}</Pill>}
-                      {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className={cn("inline-grid size-6 shrink-0 place-items-center rounded-full", tagChip("birthday", "today"))}><CakeIcon className="size-3.5" aria-label={tx("วันเกิดวันนี้")} /></span>}
+                      {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className={cn("inline-grid size-5 shrink-0 place-items-center opacity-70", tagInk("birthday", "today"))}><CakeIcon className="size-4" aria-label={tx("วันเกิดวันนี้")} /></span>}
                     </div>
-                    <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs">
+                    {/* h-5 = the same line height as the student's (its status pills / ⓘ are 20px) — the two panel headers are the same height (owner 2026-11-20) */}
+                    <SheetDescription className="mt-0.5 flex h-5 flex-wrap items-center gap-x-1.5 overflow-hidden text-xs">
                       <span className="inline-flex items-center gap-1"><UsersIcon className="size-3" /> Family</span>
                       <span aria-hidden>·</span>
                       <span>{f.archived ? `เก็บเข้าคลัง · ${f.archived.reason}` : tx("ลูก {0} คน", [kids.length])}</span>

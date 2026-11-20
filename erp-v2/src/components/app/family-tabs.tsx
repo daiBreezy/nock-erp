@@ -8,6 +8,7 @@ import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useInvoicesOf, useOwed } from "@/components/billing/invoice-rows"
 import { StudentFacts } from "@/components/app/student-facts"
+import { StudentKpis } from "@/components/app/student-kpis"
 import { Kpi, KpiGroup, kpiMoney } from "@/components/app/kpi"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { familySnapshot, mergeSameCourse } from "@/domain/rules/family-overview"
@@ -37,7 +38,7 @@ export function FamilyBillingTab({ kids }: { kids: Student[] }) {
   const owed = useOwed(useInvoicesOf(new Set(kids.map((k) => k.id))))
   const shown = kid === "all" ? kids : kids.filter((k) => k.id === kid)
   return shown.length > 0 ? (
-    <StudentBilling key={kid} kids={shown} hideNew
+    <StudentBilling key={kid} kids={shown}
       toolbar={<><Pill tone={owed > 0 ? "amber" : "gray"}>{owed > 0 ? `${tx("ค้างชำระ")} ${fmtMoney(owed)}` : tx("ไม่มียอดค้าง")}</Pill><KidFilter kids={kids} value={kid} onChange={setKid} /></>} />
   ) : null
 }
@@ -232,7 +233,6 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
           const state = studentState(k, mine, leaves.filter((l) => l.studentId === k.id), today, renewalDays)
           const current = mergeSameCourse(mine.filter((e) => e.to >= today).sort((a, b) => a.to.localeCompare(b.to)))
           const snap = snapOf(k)
-          const hours = +(snap.minutesLeft / 60).toFixed(1)
           return (
             <section key={k.id} className="py-4 first:pt-0">
               <Button variant="row" size="inline" type="button" onClick={() => onOpen(k.id)} className="flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left text-sm hover:bg-muted/50">
@@ -247,15 +247,10 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
               </Button>
               {/* the child's own numbers sit right under the name, full width (owner 2026-11-20) */}
               <div className="mt-2 space-y-1">
-                <KpiGroup className="grid grid-cols-3 gap-2">
-                  <Kpi variant="tonal" size="sm" label={tx("คาบถัดไป")} value={snap.next ? `${fmtDate(snap.next.session.date)} · ${snap.next.session.start}` : "-"}
-                    onClick={snap.next ? () => setOpenSession(snap.next!.session.id) : undefined} go />
-                  <Kpi variant="tonal" size="sm" label={tx("คาบที่เหลือ")} value={`${snap.sessionsLeft} ${tx("คาบ")} · ${hours} ${tx("ชม.")}`} />
-                  <Kpi variant="tonal" size="sm" label={tx("เข้าเรียน")} value={snap.attendance.rate === null ? "-" : `${Math.round(snap.attendance.rate * 100)}% · ${snap.attendance.present}/${snap.attendance.present + snap.attendance.leave}`} />
-                </KpiGroup>
+                <StudentKpis student={k} />
                 {current.length === 0
                   ? <p className="pt-1 text-xs text-muted-foreground">{tx("ไม่มีคอร์สที่ใช้อยู่")}</p>
-                  : <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={k} today={today} compact />)}</ul>}
+                  : <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={k} today={today} />)}</ul>}
               </div>
             </section>
           )

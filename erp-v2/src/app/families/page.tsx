@@ -5,7 +5,7 @@ import { birthdaysToday, familyShortName, PARENT_RELATIONS } from "@/domain/rule
 import { toDateStr } from "@/domain/dates"
 import { useNow } from "@/lib/hooks"
 import { useMemo, useState } from "react"
-import { BusIcon, CakeIcon, PlusIcon, TriangleAlertIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { BusIcon, CakeIcon, PlusIcon, TriangleAlertIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import { ListPage, ShowChip, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
@@ -23,7 +23,7 @@ import { branchHasBus } from "@/domain/rules/settings"
 import { report } from "@/lib/feedback"
 import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
-import { tagChip } from "@/components/app/tags"
+import { tagChip, tagInk } from "@/components/app/tags"
 import { useStore } from "@/store/store"
 
 type FamSort = "name" | "parent" | "kids" | "line" | "address"
@@ -103,8 +103,15 @@ export default function FamiliesPage() {
     { id: "name", label: "ครอบครัว", width: "150px", sort: "name", required: true, className: "font-medium", cell: (f) => (
       <div className="flex min-w-0 items-center gap-1">
         <EditCell value={f.name} display={familyShortName(f.name)} disabled={!manage || !!f.archived} className="min-w-0 flex-1" onSave={(v) => edit(f, { name: v })} />
+        {/* the status icons sit a little apart from the name (owner 2026-11-20) */}
+        <span className="ml-2 flex shrink-0 items-center gap-1.5">
+        {/* owner 2026-11-20: back after the LINE column went hidden (default) — the "not on LINE" icon sits beside the name again, in a fixed slot so names line up */}
+        <span className="inline-grid size-4 shrink-0 place-items-center">
+          {!lineDone(f) && <UnlinkIcon role="img" aria-label={linkedCount(f) === 0 ? "ไม่มี LINE" : "ผูก LINE ไม่ครบ"} className="size-3.5 text-warning"><title>{linkedCount(f) === 0 ? "ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้" : `ผูก LINE แล้ว ${linkedCount(f)}/${f.parents.length} คน`}</title></UnlinkIcon>}
+        </span>
         {/* owner 2026-11-20: a small cake while anyone in the family has a birthday today */}
-        {birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${birthdaysToday(f, kidsOf.get(f.id) ?? [], today).join(", ")}`} className={cn("inline-grid size-5 shrink-0 place-items-center rounded-full", tagChip("birthday", "today"))}><CakeIcon className="size-3" aria-label={tx("วันเกิดวันนี้")} /></span>}
+        {birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${birthdaysToday(f, kidsOf.get(f.id) ?? [], today).join(", ")}`} className={cn("inline-grid size-4 shrink-0 place-items-center opacity-70", tagInk("birthday", "today"))}><CakeIcon className="size-3.5" aria-label={tx("วันเกิดวันนี้")} /></span>}
+        </span>
         {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
       </div>
     ) },
@@ -130,7 +137,7 @@ export default function FamiliesPage() {
       const primary = primaryOf(f)
       return <EditCell kind="tel" value={primary?.phone ?? ""} disabled={!manage || !primary} placeholder="ใส่เบอร์" onSave={(v) => editPrimary(f, { phone: v })} />
     } },
-    { id: "line", label: "LINE", width: "110px", sort: "line", cell: (f) => { const lc = linkedCount(f); return <Pill tone={lc === f.parents.length ? "green" : lc > 0 ? "amber" : "red"}>{lc}/{f.parents.length} ผูกแล้ว</Pill> } },
+    { id: "line", label: "LINE", width: "110px", sort: "line", defaultHidden: true, cell: (f) => { const lc = linkedCount(f); return <Pill tone={lc === f.parents.length ? "green" : lc > 0 ? "amber" : "red"}>{lc}/{f.parents.length} ผูกแล้ว</Pill> } },
     // owner 2026-10-12: every child is listed — never hidden, on one line
     { id: "kids", label: "ลูก", width: "180px", sort: "kids", cell: (f) => {
       const kids = kidsOf.get(f.id) ?? []

@@ -61,6 +61,8 @@ const hueOf = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & 
 export const FOLLOW_UP_SOLID = "bg-orange-500 text-white aria-pressed:bg-orange-500 dark:bg-orange-600 dark:aria-pressed:bg-orange-600"
 /** a tag's chip classes */
 export const tagChip = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string) => HUE[hueOf(family, key)].chip
+/** a tag's TEXT colour only (no background) — for an icon that stands for the tag */
+export const tagInk = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string) => HUE[hueOf(family, key)].chip.split(" ").filter((c) => c.startsWith("text-") || c.startsWith("dark:text-")).join(" ")
 /** a tag's solid colour — for chart marks that stand for that tag */
 export const tagHex = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string) => HUE[hueOf(family, key)].hex
 

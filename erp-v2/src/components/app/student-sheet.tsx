@@ -5,12 +5,13 @@ import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
 import { FamilySheet } from "./family-sheet"
-import { StudentFacts } from "./student-facts"
+import { StudentFacts, daysLeftTone } from "./student-facts"
+import { StudentKpis } from "./student-kpis"
 import { branchHasBus } from "@/domain/rules/settings"
 import { mergeSameCourse } from "@/domain/rules/family-overview"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { ArchiveRestoreIcon, DoorOpenIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
+import { ArchiveRestoreIcon, DoorOpenIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { startFamilySet } from "@/lib/family-set"
@@ -38,11 +39,10 @@ import { Kpi } from "./kpi"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import * as Seats from "@/domain/rules/seats"
-import { RescheduleDialog, SessionSheet, StudentSessionMenu } from "./session-sheet"
+import { RescheduleDialog, StudentSessionMenu } from "./session-sheet"
 import { CalendarClockIcon } from "lucide-react"
 import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
-import { PackageBadge } from "./package-badge"
 import { RenewalFollowUpSection } from "./renewal-followup"
 import { StudentForm } from "./student-form"
 import { AddToClassDialog } from "./add-to-class-dialog"
@@ -107,7 +107,6 @@ function Panel({ studentId, familyId, onClose, back, onOpenStudent }: { studentI
 
 function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEdit: () => void; invoiceOnOpen?: boolean; back?: { label: string; onBack: () => void }; onOpenStudent: (id: ID) => void }) {
   const stu = useStore((s) => s.students.find((x) => x.id === id))
-  const fam = useStore((s) => s.families.find((f) => f.id === stu?.familyId))
   const convs = useStore((s) => s.conversations)
   const stuFamily = useStore((s) => s.families.find((f) => f.id === stu?.familyId))
   // owner 2026-11-20: Inbox talks to ONE person — the chat button opens the main contact's chat (else any chat of the family)
@@ -138,12 +137,11 @@ function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEd
   const owed = creditsOwed(stu.id, ents, invoices)
 
   const state = Att.studentState(stu, ents, leaves, today, renewalDays)
-  const primary = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
 
   return (
     <>
       <SheetHeader className="shrink-0 gap-3 border-b pb-0">
-        <div className="flex items-center gap-3 pr-8">
+        <div className="flex items-center gap-3 pr-10">
           {/* owner 2026-11-20: Back sits in front of the thumb — no extra row of its own; the name of where it goes is its tooltip */}
           {back && <Button variant="ghost" size="icon" className="-ml-2 shrink-0 text-muted-foreground" aria-label={`ย้อนกลับ · ${back.label}`} title={`ย้อนกลับ · ${back.label}`} onClick={back.onBack}><ChevronLeftIcon /></Button>}
           <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
@@ -160,11 +158,6 @@ function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEd
               <InfoTip text={stateDetail(state, today) || "สถานะคำนวณอัตโนมัติจากแพ็กเกจและการลา"} />
             </SheetDescription>
           </div>
-          {/* owner 2026-10-29: just the call button */}
-          {primary && (
-            <a href={`tel:${primary.phone.replace(/\D/g, "")}`} title={`โทร ${primary.name} ${primary.phone}`} aria-label={`โทร ${primary.name}`}
-              className="ml-auto grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"><PhoneIcon className="size-4" /></a>
-          )}
         </div>
         <Tabs className="-mx-4 border-b-0 px-3" value={seg} onChange={setSeg} options={SEGS.filter((x) => x.id !== "billing" || can(me, "billing.view")).map((x) => ({ value: x.id, label: x.label }))} />
       </SheetHeader>
@@ -322,7 +315,7 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
 }
 
 /** one running package of a student — the SAME row in the student's Overview and in the family's Overview (owner 2026-11-20) */
-export function PackageRow({ e, stu, today, compact }: { e: Entitlement; stu: Student; today: string; /** the family's overview (owner 2026-11-20): plain text — no subject chip, no package badge, no boxes — the child's own cards say the rest */ compact?: boolean }) {
+export function PackageRow({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
   const [renewing, setRenewing] = useState(false)
 const me = useStore((s) => s.me())
 const courses = useStore((s) => s.courses)
@@ -331,42 +324,52 @@ const attendance = useStore((s) => s.attendance)
 const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
   const c = courses.find((x) => x.id === e.courseId)
   const p = packageProgress(e, sessions, attendance, today)
+  const allClasses = useStore((s) => s.classes)
+  const nowT = useNow(60_000)
+  const ahead = sessions.filter((x) => x.studentIds.includes(stu.id) && !x.cancelled && Att.packageCovers(e, x) && x.date >= today && sessionState(x, nowT) === "upcoming").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+  const bal = Att.balance(e, sessions, attendance, allClasses)
+  const left = Math.min(bal.remaining, ahead.length || bal.remaining)
+  const leftHours = +((bal.remainingMinutes ?? ahead.slice(0, left).reduce((m, x) => m + x.minutes, 0)) / 60).toFixed(1)
+  const daysLeft = Math.max(0, daysBetween(today, e.to))
   const expired = e.to < today
   const renewal = !expired && p.low
   const extended = rawTo !== undefined && rawTo !== e.to
   return (
-    <li className={cn(compact ? "py-2" : "py-2.5", expired && "opacity-50")}>
+    <li className={cn("py-2", expired && "opacity-50")}>
       <div className="flex items-center gap-3">
-        {!compact && <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-semibold", subjectColor(c?.subjects[0] ?? "").chip)}>{(c?.subjects[0] ?? "?").slice(0, 2)}</span>}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 font-medium"><span className="truncate">{c?.name ?? "คอร์ส"}</span>{e.credit && !e.invoiceId && <CreditTag className="shrink-0" />}</p>
-          <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-            <CalendarIcon className="size-3" /> {fmtDate(e.from)} → {fmtDate(e.to, { year: true })}
-            <span className="tabular-nums">· {p.label}</span>
+          {/* owner 2026-11-20: three facts, clearly — what is left (sessions · hours) · the end date · how many days that is */}
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm">
+            {expired ? <span className="text-muted-foreground">{tx("หมดแล้ว")} {fmtDate(e.to, { year: true })}</span> : (
+              <>
+                <span><span className="text-muted-foreground">{tx("เหลือ")} </span><span className="font-medium tabular-nums">{left} {tx("คาบ")}</span><span className="text-muted-foreground tabular-nums"> · {leftHours} {tx("ชม.")}</span></span>
+                <span><span className="text-muted-foreground">{tx("จบ")} </span><span className="font-medium">{fmtDate(e.to, { year: true })}</span></span>
+                <span className={cn("tabular-nums", daysLeftTone(daysLeft))}>{tx("อีก {0} วัน", [daysLeft])}</span>
+              </>
+            )}
             {extended && <Pill tone="special" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}
           </p>
         </div>
-        {/* owner 2026-11-05: no progress bar; slots badge · ต่ออายุ · status — status is always last and hugs its text */}
-        {!compact && <span className="flex w-12 shrink-0 justify-end">{c && <PackageBadge course={c} size="sm" />}</span>}
-        <span className={cn("flex shrink-0 justify-center", !compact && "w-16")}>{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
+        {/* owner 2026-11-20: plain text — no subject chip, no package badge (the course name says it); the child's own cards above carry the numbers */}
+        <span className="flex shrink-0 justify-center">{(renewal || expired) && can(me, "billing.manage") && <Button size="xs" variant="outline" onClick={() => setRenewing(true)}>ต่ออายุ</Button>}</span>
         {renewing && <InvoiceSheet id="new" defaultStudentId={stu.id} renewEntitlementId={e.id} onClose={() => setRenewing(false)} />}
         {/* owner 2026-11-20: "Enroll" is the normal state and says nothing — only the exceptions get a status (Renewal · หมดแล้ว) */}
         {(expired || renewal) && <span className="flex shrink-0 justify-end"><Pill tone={expired ? "gray" : "amber"}>{expired ? "หมดแล้ว" : "Renewal"}</Pill></span>}
       </div>
       {/* owner 2026-11-04: list the classes the student attends for this course — each day/time with a ย้ายวัน/คาบ button */}
-      {!expired && <ClassTransferList e={e} stu={stu} today={today} compact={compact} />}
+      {!expired && <ClassTransferList e={e} stu={stu} today={today} />}
     </li>
   )
 }
 
 /** The classes a student attends under one course, with a per-class "move day / sessions" action (owner 2026-11-04). */
-function ClassTransferList({ e, stu, today, compact }: { e: Entitlement; stu: Student; today: string; compact?: boolean }) {
+function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; today: string }) {
   const classes = useStore((s) => s.classes)
   const sessions = useStore((s) => s.sessions)
   const me = useStore((s) => s.me())
   const now = useNow(60_000)
   const [moveFrom, setMoveFrom] = useState<Session | null>(null)
-  const [openSession, setOpenSession] = useState<ID | null>(null)
   const canMove = can(me, "student.move") && (can(me, "session.manage") || me.roles.includes("teacher"))
   // a class counts if the student has an upcoming session in it under this package (so a finished day drops off)
   const rows = e.classIds.map((cid) => {
@@ -374,26 +377,20 @@ function ClassTransferList({ e, stu, today, compact }: { e: Entitlement; stu: St
     if (!k) return null
     const next = sessions.filter((x) => x.classId === cid && x.studentIds.includes(stu.id) && x.date >= today && !x.cancelled && sessionState(x, now) === "upcoming")
       .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
-    const left = sessions.filter((x) => x.classId === cid && x.studentIds.includes(stu.id) && x.date >= today && !x.cancelled && sessionState(x, now) === "upcoming")
-    const ahead = left.length
-    const hours = +(left.reduce((m, x) => m + x.minutes, 0) / 60).toFixed(1)
-    return next ? { k, next, ahead, hours } : null
-  }).filter((x): x is { k: NonNullable<ReturnType<typeof classes.find>>; next: Session; ahead: number; hours: number } => !!x)
+    return next ? { k, next } : null
+  }).filter((x): x is { k: NonNullable<ReturnType<typeof classes.find>>; next: Session } => !!x)
   if (rows.length === 0) return null
   return (
-    <ul className={cn("mt-1.5 space-y-1", !compact && "mt-2 pl-14")}>
-      {rows.map(({ k, next, ahead, hours }) => (
-        <li key={k.id} className={cn("flex items-center gap-2 text-xs", !compact && "rounded-xl bg-muted/40 px-3 py-1.5")}>
+    <ul className="mt-1.5 space-y-1">
+      {rows.map(({ k, next }) => (
+        <li key={k.id} className="flex items-center gap-2 text-xs">
           <span className="min-w-0 flex-1">
             <span className="block truncate"><span className="font-medium">{k.name}</span> <span className="text-muted-foreground">· ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)}</span></span>
-            {/* the next session and what is left (sessions · hours) — its own line so it never gets cut off */}
-            {!compact && <Button variant="ghost" size="inline" type="button" onClick={() => setOpenSession(next.id)} title={tx("เปิดคาบนี้")} className="block h-auto w-full justify-start truncate p-0 text-left text-xs font-normal tabular-nums text-muted-foreground hover:bg-transparent hover:text-primary hover:underline dark:hover:bg-transparent">{tx("คาบถัดไป")} {fmtDate(next.date)} · {`เหลือ ${ahead} คาบ`} · {hours} {tx("ชม.")}</Button>}
           </span>
           {canMove && <Button variant="ghost" size="inline" type="button" onClick={() => setMoveFrom(next)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-primary hover:bg-primary/10"><CalendarClockIcon className="size-3.5" /> ย้ายวัน/คาบ</Button>}
         </li>
       ))}
       {moveFrom && <RescheduleDialog from={moveFrom} studentId={stu.id} initialMode="always" onClose={() => setMoveFrom(null)} />}
-      <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
     </ul>
   )
 }
@@ -412,6 +409,8 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
 
   return (
     <div className="space-y-4">
+      {/* owner 2026-11-20: the same three numbers the family panel shows under each child */}
+      <StudentKpis student={stu} />
       {/* owner 2026-11-20: plain information like the family's — the thumb and the name live in the Header; here: family · brothers & sisters, then the facts, then the courses */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground">
@@ -696,11 +695,10 @@ function BillingSeg({ stu }: { stu: Student }) {
 }
 
 /** owner 2026-11-20: the Billing tab for ONE child or for several (the family panel) — with several, the table gains a "student" column and the new-invoice button leaves to the panel's own menu */
-export function StudentBilling({ kids, toolbar, hideNew }: { kids: Student[]; /** the family panel has its own "ออกใบแจ้งหนี้" in the bottom bar — no second button here (owner 2026-11-20) */ hideNew?: boolean; /** extra controls placed right before the columns icon (the family panel's child dropdown) */ toolbar?: React.ReactNode }) {
+export function StudentBilling({ kids, toolbar }: { kids: Student[]; /** extra controls placed right before the columns icon (the family panel's child dropdown) */ toolbar?: React.ReactNode }) {
   const stu = kids[0]
   const many = kids.length > 1
   const [invoice, setInvoice] = useState<ID | "new" | null>(null)
-  const me = useStore((s) => s.me())
   const ids = new Set(kids.map((k) => k.id))
   const invoices = useStore((s) => s.invoices).filter((i) => ids.has(i.studentId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const branches = useStore((s) => s.branches)
@@ -711,7 +709,7 @@ export function StudentBilling({ kids, toolbar, hideNew }: { kids: Student[]; /*
   const invoiceCols: Column<Invoice>[] = [
     ...(many ? [{ id: "student", label: "นักเรียน", cell: (i: Invoice) => kids.find((k) => k.id === i.studentId)?.nickname ?? "—" } as Column<Invoice>] : []),
     { id: "number", label: "เลขที่", required: true, className: "tabular-nums", cell: (i) => i.number ?? "—" },
-    { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-2xs text-success">✓ เข้าคลาสแล้ว</span>}</span> } },
+    { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}</span> } },
     { id: "date", label: "วันที่", cell: (i) => fmtDate(i.createdAt.slice(0, 10), { year: true }) },
     { id: "total", label: "ยอด", align: "right", className: "tabular-nums", cell: (i) => fmtMoney(invoiceTotals(i, { branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays }).total) },
     { id: "status", label: "สถานะ", align: "right", cell: (i) => <Pill tone={i.status === "paid" ? "green" : i.status === "void" ? "gray" : i.status === "draft" ? "gray" : "amber"}>{INVOICE_STATUS_LABEL[i.status]}</Pill> },
@@ -720,7 +718,7 @@ export function StudentBilling({ kids, toolbar, hideNew }: { kids: Student[]; /*
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <p className="text-sm text-muted-foreground">กดแถวเพื่อเปิดใบแจ้งหนี้ · จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ</p>
-        {can(me, "billing.manage") && !many && !hideNew && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
+        
         <span className="ml-auto flex items-center gap-2">{toolbar}</span>
         <ColumnsMenu id={many ? "family-invoices" : "student-invoices"} columns={invoiceCols} />
       </div>
