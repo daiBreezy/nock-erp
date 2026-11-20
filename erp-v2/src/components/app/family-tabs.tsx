@@ -142,9 +142,11 @@ export function FamilyKidsList({ kids, onOpen, plain }: { kids: Student[]; onOpe
         const mine = ents.filter((e) => e.studentId === k.id)
         const enrolled = mine.map((e) => e.from).sort()[0]
         const ends = mine.map((e) => e.to).sort().slice(-1)[0]
+        const left = ends ? daysBetween(today, ends) : null
         const rows: InfoRow[] = [
-          { icon: CalendarCheckIcon, label: tx("วัน Enroll"), value: enrolled ? <>{tx("Enroll")} {fmtDate(enrolled, { year: true })}</> : <NotSet what="วัน Enroll" /> },
-          { icon: CalendarXIcon, label: tx("วันสิ้นสุด"), value: ends ? <>{tx("สิ้นสุด")} {fmtDate(ends, { year: true })}{ends < today && <span className="text-muted-foreground"> · {tx("หมดแล้ว")}</span>}</> : <NotSet what="วันสิ้นสุด" /> },
+          { icon: CalendarCheckIcon, label: tx("วัน Enroll"), value: enrolled ? fmtDate(enrolled, { year: true }) : <NotSet what="วัน Enroll" /> },
+          // owner 2026-11-20: just the date + (days left) — grey · yellow under 7 days · red under 3
+          { icon: CalendarXIcon, label: tx("วันสิ้นสุด"), value: ends ? <>{fmtDate(ends, { year: true })} <span className={cn(left === null ? "" : left < 3 ? "text-destructive" : left <= 7 ? "text-warning-ink" : "text-muted-foreground")}>{left !== null && left >= 0 ? `(${left}d)` : `(${tx("หมดแล้ว")})`}</span></> : <NotSet what="วันสิ้นสุด" /> },
           { icon: CakeIcon, label: tx("วันเกิด"), value: k.birthDate ? <>{fmtDate(k.birthDate, { year: true })}<span className="text-muted-foreground"> · {tx("อายุ {0} ปี", [age ?? 0])}</span></> : <NotSet what="วันเกิด" /> },
           { icon: SchoolIcon, label: tx("โรงเรียน"), value: k.school || <NotSet what="โรงเรียน" /> },
           ...(bus ? [{ icon: BusIcon, label: tx("รถรับส่ง"), value: k.usesBus ? `${tx("รถรับส่ง")}: ${BUS_USE_LABEL[busUseOf(k)]}` : <span className="text-muted-foreground">{tx("ไม่ใช้รถรับส่ง")}</span> }] : []),

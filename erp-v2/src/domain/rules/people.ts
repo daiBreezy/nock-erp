@@ -517,3 +517,9 @@ export function leadToCustomer(
   const customerSince = paid ?? started ?? null
   return { leadSince, customerSince, days: leadSince && customerSince ? Math.max(0, daysBetween(leadSince, customerSince)) : null }
 }
+
+/** who in the family has a birthday on `today` (a guardian or a child; day + month only) — the cake beside the family's name */
+export function birthdaysToday(family: Pick<Family, "parents">, kids: Pick<Student, "nickname" | "birthDate">[], today: DateStr): string[] {
+  const md = today.slice(5)
+  return [...family.parents.map((p) => ({ n: p.name, d: p.birthDate })), ...kids.map((k) => ({ n: k.nickname, d: k.birthDate }))].filter((x) => x.d && x.d.slice(5) === md).map((x) => x.n)
+}

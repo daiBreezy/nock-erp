@@ -1323,6 +1323,7 @@ export const COVERAGE: Record<string, Entry> = {
   "ผู้ปกครองหลัก": { en: "Main guardian", ja: "主たる保護者" },
   "เชื่อมแล้ว": { en: "linked", ja: "連携済み" },
   "เชื่อม LINE แล้ว": { en: "LINE linked", ja: "LINE連携済み" },
+  "วันเกิดวันนี้": { en: "Birthday today", ja: "今日が誕生日" },
   "ไม่มียอดค้าง": { en: "Nothing outstanding", ja: "未払いなし" },
   "ทั้งครอบครัว": { en: "Whole family", ja: "ご家族全員" },
   "คอร์สของลูก": { en: "Children's courses", ja: "お子さまのコース" },

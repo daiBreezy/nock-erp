@@ -1,9 +1,11 @@
 "use client"
 
 import { tx } from "@/lib/i18n"
-import { familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
+import { birthdaysToday, familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
+import { toDateStr } from "@/domain/dates"
+import { useNow } from "@/lib/hooks"
 import { useMemo, useState } from "react"
-import { BusIcon, PlusIcon, TriangleAlertIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { BusIcon, CakeIcon, PlusIcon, TriangleAlertIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import { ListPage, ShowChip, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
@@ -50,6 +52,7 @@ export default function FamiliesPage() {
 
   const linkedCount = (f: Family) => f.parents.filter((p) => p.lineLinked).length
   const primaryOf = (f: Family) => f.parents.find((p) => p.primary) ?? f.parents[0]
+  const today = toDateStr(useNow())
   const me = useStore((s) => s.me())
   const saveFamily = useStore((s) => s.saveFamily)
   const manage = can(me, "family.manage")
@@ -99,6 +102,8 @@ export default function FamiliesPage() {
         <span className="inline-grid size-4 shrink-0 place-items-center">
           {!lineDone(f) && <UnlinkIcon role="img" aria-label={linkedCount(f) === 0 ? "ไม่มี LINE" : "ผูก LINE ไม่ครบ"} className="size-3.5 text-warning"><title>{linkedCount(f) === 0 ? "ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้" : `ผูก LINE แล้ว ${linkedCount(f)}/${f.parents.length} คน`}</title></UnlinkIcon>}
         </span>
+        {/* owner 2026-11-20: a small cake while anyone in the family has a birthday today */}
+        {birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${birthdaysToday(f, kidsOf.get(f.id) ?? [], today).join(", ")}`} className="inline-flex shrink-0 text-pink-500"><CakeIcon className="size-3.5" aria-label={tx("วันเกิดวันนี้")} /></span>}
         {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
       </div>
     ) },

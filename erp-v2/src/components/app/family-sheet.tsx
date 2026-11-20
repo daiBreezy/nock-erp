@@ -21,7 +21,11 @@ import { can } from "@/domain/rules/permissions"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "./form-shell"
 import { FamilyForm } from "./family-form"
 import { FamilyForms } from "@/components/forms/family-forms"
-import { fmtDate } from "@/domain/dates"
+import { fmtDate, toDateStr } from "@/domain/dates"
+import { studentState } from "@/domain/rules/attendance"
+import { birthdaysToday } from "@/domain/rules/people"
+import { STATUS_PILL } from "@/components/app/student-status"
+import { useEntitlements, useNow } from "@/lib/hooks"
 import type { Family, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
@@ -57,6 +61,13 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const [archiving, setArchiving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const manage = can(me, "family.manage")
+  // owner 2026-11-20: next to the name — "Active" while ANY child is still Active · a small cake on anyone's birthday (a guardian or a child)
+  const ents = useEntitlements()
+  const leaves = useStore((s) => s.leaves)
+  const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
+  const today = toDateStr(useNow())
+  const anyActive = kids.some((k) => studentState(k, ents.filter((e) => e.studentId === k.id), leaves.filter((l) => l.studentId === k.id), today, renewalDays).status === "active")
+  const bdayNames = f ? birthdaysToday(f, kids, today) : []
   // owner 2026-11-20: LINE shows by itself — the ID the guardian typed, else the name they show in LINE (the API never gives the @ID); linked with neither = "linked"
   const lineConv = f?.lineUserId ? lineConvs.find((c) => c.id === `line_${f.lineUserId}`) : undefined
   const lineOf = (p: Family["parents"][number], i: number): React.ReactNode => {
@@ -86,7 +97,8 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <SheetTitle className="truncate text-lg">{f.name}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>
-                      {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
+                      {f.archived ? <Pill tone="gray">เก็บเข้าคลัง</Pill> : anyActive && <Pill tone={STATUS_PILL.active.tone}>{STATUS_PILL.active.label}</Pill>}
+                      {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className="inline-flex shrink-0 text-pink-500"><CakeIcon className="size-4" aria-label={tx("วันเกิดวันนี้")} /></span>}
                     </div>
                     <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs">
                       <span className="inline-flex items-center gap-1"><UsersIcon className="size-3" /> Family</span>
