@@ -1316,6 +1316,8 @@ export interface Conversation {
   members?: Record<string, GroupMemberRole>
   /** owner 2026-11-20: a staff member flagged this chat "Follow-up" — the list shows a loud tag so everyone knows to come look (cleared by hand) */
   followUp?: { at: string; by: ID }
+  /** owner 2026-11-20: the name the person shows in LINE (profile name) — `name` is overwritten by the family's name once linked, so the LINE name is kept here and shown as the guardian's LINE */
+  lineName?: string
 }
 
 /** a LINE group member's place: a guardian (identified by `Parent.lineUserId`) · a student of the linked family · a follower outside the ERP */

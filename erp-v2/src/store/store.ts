@@ -3981,14 +3981,15 @@ export const useStore = create<Store>()(
           if (local) {
             // the server only knows raw LINE state (unread/lastMessageAt) — familyId/leadId/assigneeId/name
             // are business data linked locally (see linkConversationToFamily) and must survive every poll
-            if (local.unread !== server.unread || local.lastMessageAt !== server.lastMessageAt) {
-              convMap.set(server.id, { ...local, unread: server.unread, lastMessageAt: server.lastMessageAt })
+            const lineName = server.id.startsWith("line_") && !server.group ? server.name : local.lineName
+            if (local.unread !== server.unread || local.lastMessageAt !== server.lastMessageAt || local.lineName !== lineName) {
+              convMap.set(server.id, { ...local, unread: server.unread, lastMessageAt: server.lastMessageAt, lineName })
               changed = true
             }
           } else {
             // owner 2026-10-20: a chat from a LINE account a family already has (linked earlier) joins that family
             const fam = server.id.startsWith("line_") ? s.families.find((f) => f.lineUserId === server.id.slice(5)) : undefined
-            convMap.set(server.id, fam ? { ...server, branchId: s.branchId, familyId: fam.id, leadId: null, name: fam.name } : { ...server, branchId: s.branchId })
+            convMap.set(server.id, fam ? { ...server, branchId: s.branchId, familyId: fam.id, leadId: null, name: fam.name, lineName: server.name } : { ...server, branchId: s.branchId, lineName: server.id.startsWith("line_") && !server.group ? server.name : undefined })
             changed = true
           }
         })
@@ -4019,7 +4020,7 @@ export const useStore = create<Store>()(
         if (!family) return fail("ไม่พบครอบครัวนี้")
         const lineUserId = conversationId.startsWith("line_") ? conversationId.slice(5) : undefined
         set({
-          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, familyId, leadId: null, name: family.name } : c)),
+          conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, familyId, leadId: null, name: family.name, lineName: c.lineName ?? (lineUserId ? c.name : undefined) } : c)),
           families: lineUserId
             ? s.families.map((f) => (f.id === familyId ? { ...f, lineUserId, parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f))
             : s.families,

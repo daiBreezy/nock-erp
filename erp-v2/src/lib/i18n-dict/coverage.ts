@@ -1321,6 +1321,8 @@ export const COVERAGE: Record<string, Entry> = {
   "ยังไม่เป็นลูกค้า · เป็น Lead มา {0} วัน": { en: "Not a customer yet · Lead for {0} days", ja: "未顧客 · リード{0}日目" },
   "เบอร์หลัก": { en: "Main number", ja: "メイン番号" },
   "ผู้ปกครองหลัก": { en: "Main guardian", ja: "主たる保護者" },
+  "เชื่อมแล้ว": { en: "linked", ja: "連携済み" },
+  "เชื่อม LINE แล้ว": { en: "LINE linked", ja: "LINE連携済み" },
   "ไม่มียอดค้าง": { en: "Nothing outstanding", ja: "未払いなし" },
   "ทั้งครอบครัว": { en: "Whole family", ja: "ご家族全員" },
   "คอร์สของลูก": { en: "Children's courses", ja: "お子さまのコース" },

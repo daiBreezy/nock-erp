@@ -22,7 +22,7 @@ import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "./for
 import { FamilyForm } from "./family-form"
 import { FamilyForms } from "@/components/forms/family-forms"
 import { fmtDate } from "@/domain/dates"
-import type { ID } from "@/domain/types"
+import type { Family, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -42,7 +42,8 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const id = target === "new" ? createdId : target
   const f = useStore((s) => s.families.find((x) => x.id === id))
   const kids = useStore((s) => s.students).filter((s) => s.familyId === id)
-  const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === id))
+  const lineConvs = useStore((s) => s.conversations)
+  const conv = lineConvs.find((c) => c.familyId && c.familyId === id)
   const me = useStore((s) => s.me())
   const archive = useStore((s) => s.archiveFamily)
   const restore = useStore((s) => s.restoreFamily)
@@ -56,6 +57,15 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const [archiving, setArchiving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const manage = can(me, "family.manage")
+  // owner 2026-11-20: LINE shows by itself — the ID the guardian typed, else the name they show in LINE (the API never gives the @ID); linked with neither = "linked"
+  const lineConv = f?.lineUserId ? lineConvs.find((c) => c.id === `line_${f.lineUserId}`) : undefined
+  const lineOf = (p: Family["parents"][number], i: number): React.ReactNode => {
+    const mine = p.lineUserId ? p.lineUserId === f?.lineUserId : p.primary || i === 0
+    const name = mine && p.lineLinked ? lineConv?.lineName : undefined
+    if (p.lineId) return <>{p.lineId}{name && <span className="text-muted-foreground"> · {name}</span>}</>
+    if (name) return name
+    return p.lineLinked ? <span className="text-success-ink">{tx("เชื่อม LINE แล้ว")}</span> : <NotSet what="LINE" />
+  }
 
   return (
     <>
@@ -112,7 +122,8 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                         <InfoGrid rows={[
                           { icon: UsersIcon, label: tx("ความสัมพันธ์"), value: p.relationship || <NotSet what="ความสัมพันธ์" /> },
                           { icon: PhoneIcon, label: tx("โทร"), value: <PhoneValue numbers={[p.phone, ...(p.altPhones ?? [])]} /> },
-                          { icon: MessageCircleIcon, label: "LINE ID", value: p.lineId || <NotSet what="LINE ID" /> },
+                          { icon: MessageCircleIcon, label: "LINE", value: lineOf(p, i) },
+
                           { icon: MailIcon, label: tx("อีเมล"), value: p.email || <NotSet what="อีเมล" /> },
                           { icon: CakeIcon, label: tx("วันเกิด"), value: p.birthDate ? fmtDate(p.birthDate, { year: true }) : <NotSet what="วันเกิด" /> },
                         ]} />
