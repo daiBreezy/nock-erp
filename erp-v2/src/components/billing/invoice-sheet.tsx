@@ -1,5 +1,6 @@
 "use client"
 
+import { Tabs } from "@/components/app/page-layout"
 import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import { Fragment, useEffect, useState } from "react"
@@ -87,13 +88,10 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, defaultC
         onSaved={(v) => { if (isNew) setCreatedId(v.id); setEditing(false); if (isBundle) setTab("all") }} />
     </PanelForm>
   )
+  // owner 2026-11-20: the family set's tabs are the SAME Tabs as every other panel (a plain underline tab) — they were ghost Buttons, which carry a border on all four sides
   const tabs = isBundle && (
-    <div role="tablist" className="flex shrink-0 gap-1 overflow-x-auto border-b px-4 pt-2">
-      {([["all", `รวม (${members.length})`], ...members.map((m) => [m.id, students.find((x) => x.id === m.studentId)?.nickname ?? "—"] as const)] as const).map(([k, label]) => (
-        <Button variant="ghost" size="inline" key={k} role="tab" type="button" aria-selected={tab === k} onClick={() => setTab(k as "all" | ID)}
-          className={cn("-mb-px shrink-0 rounded-t-lg border-b-2 px-3 py-1.5 text-sm", tab === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</Button>
-      ))}
-    </div>
+    <Tabs className="shrink-0 px-3" value={tab} onChange={(v) => setTab(v as "all" | ID)}
+      options={[{ value: "all", label: `รวม (${members.length})` }, ...members.map((m) => ({ value: m.id as string, label: students.find((x) => x.id === m.studentId)?.nickname ?? "—" }))]} />
   )
   if (isBundle && tab === "all") return <BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} tabs={tabs} />
   return shownId ? <Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} tabs={tabs} /> : null
@@ -416,7 +414,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             {steps.map((s, i) => (
               <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
                 {/* the line joining this status icon to the next one — it is a stepper */}
-                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-2.375 top-6 -bottom-0.5 w-px", s.state === "done" ? "bg-success" : "bg-border")} />}
+                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-2.5 top-6 -bottom-0.5 w-px -translate-x-1/2", s.state === "done" ? "bg-success" : "bg-border")} />}
                 <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-success text-white" : s.state === "current" ? "bg-info text-white" : s.state === "warn" ? "bg-warning text-white" : "border text-muted-foreground")}>
                   {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
                 </span>

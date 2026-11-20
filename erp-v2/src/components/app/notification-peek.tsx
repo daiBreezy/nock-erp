@@ -19,7 +19,7 @@ const SHOWN = 12
 
 /**
  * Hover the แจ้งเตือน menu (owner 2026-11-16, desktop only) → the SAME Noti column at the right edge of the screen — same cards,
- * same scrim — lists the latest team notifications (unread coloured, read plain), scrolling when there are many.
+ * same scrim — lists the latest team notifications (unread: the full coloured card · read: a plain card that keeps its kind's colour on the left edge and in a faded icon), scrolling when there are many.
  */
 export function NotificationPeek() {
   const open = usePeekOpen()
@@ -38,8 +38,8 @@ export function NotificationPeek() {
           const k = NOTI_KIND[KIND_OF[n.kind]]
           const isNew = isUnread(n, me)
           return (
-            <Link key={n.id} href="/notifications" onClick={peekClose} className={cn("flex shrink-0 items-start gap-3 rounded-2xl border p-4 text-popover-foreground shadow-lg outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50", isNew ? k.card : "border-border bg-popover")}>
-              <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", isNew ? k.tone : "bg-muted text-muted-foreground")}><k.icon className="size-4" /></span>
+            <Link key={n.id} href="/notifications" onClick={peekClose} className={cn("flex shrink-0 items-start gap-3 rounded-2xl border p-4 text-popover-foreground shadow-lg outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50", isNew ? k.card : cn("border-border bg-popover", k.card.split(" ").filter((c) => c.startsWith("border-l-") || c.startsWith("dark:border-l-")).join(" ")))}>
+              <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", k.tone, !isNew && "opacity-50")}><k.icon className="size-4" /></span>
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="flex items-start gap-2">
                   <span className={cn("line-clamp-2 min-w-0 flex-1 text-sm", isNew ? "font-semibold" : "font-medium")}>{n.title}</span>

@@ -39,7 +39,7 @@ import { Kpi } from "./kpi"
 import { busDaysOf } from "@/domain/rules/parent-view"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import * as Seats from "@/domain/rules/seats"
-import { RescheduleDialog, StudentSessionMenu } from "./session-sheet"
+import { RescheduleDialog, SessionSheet, StudentSessionMenu } from "./session-sheet"
 import { CalendarClockIcon } from "lucide-react"
 import { AssessmentNote } from "./assessment-note"
 import { LeaveDialog } from "./leave-dialog"
@@ -722,7 +722,8 @@ export function StudentBilling({ kids, toolbar }: { kids: Student[]; /** extra c
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <p className="text-sm text-muted-foreground">กดแถวเพื่อเปิดใบแจ้งหนี้ · จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ</p>
+        {/* owner 2026-11-20: the sentence under the tab became one ⓘ — "tap a row" is obvious, the auto-enroll rule is worth one hover */}
+        <InfoTip text="จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ · กดแถวเพื่อเปิดใบแจ้งหนี้" />
         
         <span className="ml-auto flex items-center gap-2">{toolbar}</span>
         <ColumnsMenu id={many ? "family-invoices" : "student-invoices"} columns={invoiceCols} />
@@ -788,9 +789,11 @@ export function StudentNotes({ kids, filter }: { kids: Student[]; /** the family
     for (const classId of new Set(mineSessions.map((x) => x.classId).filter((x): x is ID => !!x))) { const se = nextOf(classId); if (se && sessionState(se, now) === "upcoming") noteSessionIds.add(se.id) }
     return [...noteSessionIds].map((id) => ({ se: sessions.find((x) => x.id === id)!, k }))
   }).sort((a, b) => (a.se.date + a.se.start).localeCompare(b.se.date + b.se.start))
+  const [openSession, setOpenSession] = useState<ID | null>(null)
   const canNote = (se: Session) => can(me, "session.manage") || se.teacherId === me.id || se.coTeacherIds.includes(me.id)
   return (
     <div className="flex h-full flex-col">
+      <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
       {filter && <div className="mb-3 flex justify-end">{filter}</div>}
       {rows.length > 0 && (
         <section className="mb-4 space-y-2">
@@ -798,7 +801,8 @@ export function StudentNotes({ kids, filter }: { kids: Student[]; /** the family
           <ul className="divide-y rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
             {rows.map(({ se, k }) => (
               <li key={`${se.id}:${k.id}`} className="flex gap-3 px-4 py-2.5">
-                <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{many && <b className="block font-medium text-foreground">{k.nickname}</b>}{fmtDate(se.date, { weekday: true })} {se.start}<br />{subjectsOf(se).join(" + ")}</span>
+                {/* owner 2026-11-20: the date · subject at the left opens THAT session */}
+                <Button variant="ghost" size="inline" type="button" title="เปิดคาบนี้" onClick={() => setOpenSession(se.id)} className="block h-auto w-28 shrink-0 justify-start p-0 text-left text-xs font-normal tabular-nums whitespace-normal text-muted-foreground hover:bg-transparent hover:text-primary hover:underline dark:hover:bg-transparent">{many && <b className="block font-medium text-foreground">{k.nickname}</b>}{fmtDate(se.date, { weekday: true })} {se.start}<br />{subjectsOf(se).join(" + ")}</Button>
                 <div className="min-w-0 flex-1"><CalendarNotes s={se} studentId={k.id} canEdit={canNote(se)} /></div>
               </li>
             ))}

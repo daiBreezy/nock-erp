@@ -1352,6 +1352,7 @@ export const COVERAGE: Record<string, Entry> = {
   "เหลือ": { en: "Left", ja: "残り" },
   "จบ": { en: "Ends", ja: "終了" },
   "อีก {0} วัน": { en: "{0} days to go", ja: "あと{0}日" },
+  "จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ · กดแถวเพื่อเปิดใบแจ้งหนี้": { en: "Once fully paid, the system adds the student to the class automatically · click a row to open the invoice", ja: "全額お支払い後、自動的にクラスへ追加されます · 行をクリックで請求書を開く" },
   "ไม่มียอดค้าง": { en: "Nothing outstanding", ja: "未払いなし" },
   "ทั้งครอบครัว": { en: "Whole family", ja: "ご家族全員" },
   "คอร์สของลูก": { en: "Children's courses", ja: "お子さまのコース" },

@@ -48,7 +48,7 @@ export const TAG_HUE = {
   studentCredit: { credit: "rose" },
   /** the course a parent tapped "interested" on in the catalog (owner 2026-11-20) — indigo, the Lead's colour */
   interest: { catalog: "indigo" },
-  /** a chat flagged "Follow-up" (owner 2026-11-20) — orange, none of the system colours; drawn SOLID (FOLLOW_UP_SOLID) so it stands out in the list */
+  /** a chat flagged "Follow-up" (owner 2026-11-20) — orange, none of the system colours; drawn as the soft chip (FOLLOW_UP_SOFT) with a filled flag */
   chatFlag: { followUp: "orange" },
   /** someone in the family has a birthday today (owner 2026-11-20) — pink, none of the system colours */
   birthday: { today: "pink" },
@@ -57,8 +57,8 @@ export const TAG_HUE = {
 export type TagFamily = keyof typeof TAG_HUE
 
 const hueOf = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string): Hue => (TAG_HUE[family] as Record<string, Hue>)[key] ?? "gray"
-/** the loud, filled form of the Follow-up tag (white on solid orange) — the hue is still chatFlag.followUp */
-export const FOLLOW_UP_SOLID = "bg-orange-500 text-white aria-pressed:bg-orange-500 dark:bg-orange-600 dark:aria-pressed:bg-orange-600"
+/** the Follow-up flag (owner 2026-11-20): the SOFT orange chip — a pale orange fill with a filled flag in the deeper orange; it keeps its colour on hover (the plain button would turn its text dark) */
+export const FOLLOW_UP_SOFT = `${HUE.orange.chip} hover:bg-orange-100 hover:text-orange-800 dark:hover:bg-orange-950 dark:hover:text-orange-200 aria-pressed:bg-orange-100 dark:aria-pressed:bg-orange-950`
 /** a tag's chip classes */
 export const tagChip = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string) => HUE[hueOf(family, key)].chip
 /** a tag's TEXT colour only (no background) — for an icon that stands for the tag */

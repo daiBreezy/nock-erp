@@ -54,7 +54,7 @@ import { ClassSheet } from "./class-sheet"
 import { NativeSelect } from "./native-select"
 import { StudentSearch } from "./student-search"
 import { ConflictResolver } from "./conflict-resolver"
-import { StudentSheet } from "./student-sheet"
+import { StudentPanelContent } from "./student-sheet"
 import { avatarTone, gradeTone, initial } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
 import { type MoveScope } from "@/domain/rules/scheduling"
@@ -70,18 +70,29 @@ export function SessionSheet({ sessionId, onClose }: { sessionId: ID | null; onC
   // phones: slide up from the bottom, near full-height — thumb-reachable, keeps the list behind (owner 2026-11-02).
   // desktop: the usual right-hand panel.
   const sidePanel = useSidePanel()
+  // owner 2026-11-20: a student opens IN this same panel (Back returns to the session) — no second sheet on top. The session's own body stays mounted
+  // (just hidden) while the student shows, so a half-written summary is never lost.
+  // (remembered WITH its session, so closing the session forgets it — no effect needed)
+  const [view, setView] = useState<{ sessionId: ID | null; studentId: ID } | null>(null)
+  const studentView = view && view.sessionId === sessionId ? view.studentId : null
+  const setStudentView = (studentId: ID | null) => setView(studentId ? { sessionId, studentId } : null)
   return (
     <Sheet open={!!sessionId} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side={sidePanel ? "right" : "bottom"}
         style={sidePanel ? undefined : { height: "92dvh" }}
         className={cn("flex w-full flex-col gap-0 p-0", sidePanel ? "data-[side=right]:sm:max-w-2xl" : "rounded-t-2xl")}>
-        {sessionId && <Body id={sessionId} onClose={onClose} />}
+        {sessionId && (
+          <>
+            <div className={studentView ? "hidden" : "contents"}><Body id={sessionId} onClose={onClose} onOpenStudent={setStudentView} /></div>
+            {studentView && <StudentPanelContent studentId={studentView} onClose={() => setStudentView(null)} back={{ label: "คาบเรียน", onBack: () => setStudentView(null) }} />}
+          </>
+        )}
       </SheetContent>
     </Sheet>
   )
 }
 
-function Body({ id, onClose }: { id: ID; onClose: () => void }) {
+function Body({ id, onClose, onOpenStudent }: { id: ID; onClose: () => void; onOpenStudent: (id: ID) => void }) {
   // opening (then closing) the session clears this person's red dot on the teacher board
   const markSeen = useStore((st) => st.markSessionSeen)
   useEffect(() => () => markSeen(id), [id, markSeen])
@@ -275,12 +286,12 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
             {s.studentIds.length === 0 && !s.rescheduledOut?.length && <Empty>ยังไม่มีนักเรียนในคาบนี้</Empty>}
             <ul className="divide-y *:py-4">
               {s.studentIds.map((sid) => (
-                <StudentRow key={sid} s={s} sid={sid} viewOnly={viewOnly} canManage={canManage} mine={mine}
+                <StudentRow key={sid} s={s} sid={sid} viewOnly={viewOnly} canManage={canManage} mine={mine} onOpenStudent={onOpenStudent}
                   text={textOf(sid)} setText={(t) => setDrafts((d) => ({ ...d, [sid]: t }))}
                   selectable={selectable.includes(sid)} showCheck={selectable.length > 0} picked={picked.has(sid)} onPick={() => toggle(sid)} />
               ))}
               {s.rescheduledOut?.map((m) => (
-                <StudentRow key={m.studentId} s={s} sid={m.studentId} viewOnly={viewOnly} canManage={canManage} mine={mine} movedTo={m.toSessionId}
+                <StudentRow key={m.studentId} s={s} sid={m.studentId} viewOnly={viewOnly} canManage={canManage} mine={mine} onOpenStudent={onOpenStudent} movedTo={m.toSessionId}
                   text="" setText={() => {}} selectable={false} showCheck={selectable.length > 0} picked={false} onPick={() => {}} />
               ))}
             </ul>
@@ -366,8 +377,8 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
 }
 
 /** One student: avatar · name/family · New · grade · package progress · ✓ ✗ · ⋮ — and the summary right under when "มา" */
-function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectable, showCheck, picked, onPick, movedTo }: {
-  s: Session; sid: ID; viewOnly: boolean; canManage: boolean; mine: boolean
+function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, setText, selectable, showCheck, picked, onPick, movedTo }: {
+  s: Session; sid: ID; viewOnly: boolean; canManage: boolean; mine: boolean; onOpenStudent: (id: ID) => void
   text: string; setText: (t: string) => void; selectable: boolean
   /** the list has a bulk bar: rows that can't be picked (on leave, nothing to submit) still show a disabled box, so the columns line up */
   showCheck: boolean; picked: boolean; onPick: () => void
@@ -395,7 +406,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
   const entitlements = useEntitlements()
   const now = useNow(10_000)
   const L = useLookup()
-  const [open, setOpen] = useState<"student" | "reschedule" | "remove" | "seat" | "leave" | null>(null)
+  const [open, setOpen] = useState<"reschedule" | "remove" | "seat" | "leave" | null>(null)
   const [otherSession, setOtherSession] = useState<ID | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const sidePanel = useSidePanel()
@@ -465,7 +476,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </span>
         <div className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
-            <Button variant="link" size="inline" type="button" onClick={() => setOpen("student")} className="truncate text-left text-base font-semibold text-foreground hover:text-foreground hover:underline">{stu?.nickname}</Button>
+            <Button variant="link" size="inline" type="button" onClick={() => onOpenStudent(sid)} className="truncate text-left text-base font-semibold text-foreground hover:text-foreground hover:underline">{stu?.nickname}</Button>
             {/* grade sits next to the name so the right side carries only the ⋮ (owner 2026-11-02) */}
             {stu?.grade && <span className={cn("shrink-0 rounded-full bg-muted px-1.5 py-px text-2xs font-semibold text-muted-foreground")}>{stu.grade}</span>}
             {isNew && <Pill className="shrink-0" title="เด็กใหม่ — คาบนี้เป็นคาบแรกที่มาเรียนกับเรา (ยังไม่เคยมีการเช็คชื่อมาก่อน) · ครูควรทำความรู้จัก/ประเมินระดับ"><FlameIcon className="size-3" /> ใหม่</Pill>}
@@ -506,7 +517,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" className="size-9 shrink-0 self-start sm:size-8" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuItem onClick={() => setOpen("student")}><UserIcon /> เปิดโปรไฟล์นักเรียน</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onOpenStudent(sid)}><UserIcon /> เปิดโปรไฟล์นักเรียน</DropdownMenuItem>
               {!isTest && pastSummaries.length > 0 && <DropdownMenuItem onClick={() => setHistoryOpen(true)}><HistoryIcon /> {`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</DropdownMenuItem>}
               {/* owner 2026-11-20: ย้ายวัน and ย้ายคาบ were the same action — it lives only here, in ⋮ (also for a Test / Trial) */}
               {canMove && (
@@ -561,7 +572,6 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, text, setText, selectab
         </>
       )}
 
-      <StudentSheet studentId={open === "student" ? sid : null} onClose={() => setOpen(null)} />
       {open === "reschedule" && <RescheduleDialog from={s} studentId={sid} onClose={() => setOpen(null)} />}
       {open === "remove" && <RemoveDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}
       {open === "seat" && <SeatDialog s={s} studentId={sid} onClose={() => setOpen(null)} />}

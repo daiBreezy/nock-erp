@@ -2,7 +2,7 @@
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { ListFilterIcon, FlagIcon, BookOpenIcon, CalendarSearchIcon, InfoIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon, UsersIcon, BadgeCheckIcon, TargetIcon, UserRoundIcon, UsersRoundIcon, UserXIcon } from "lucide-react"
+import { ListFilterIcon, FlagIcon, BookOpenIcon, CalendarSearchIcon, ContactRoundIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon, UsersIcon, BadgeCheckIcon, TargetIcon, UserRoundIcon, UsersRoundIcon, UserXIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -19,7 +19,7 @@ import { FamilySheet } from "@/components/app/family-sheet"
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { avatarTone, initial } from "@/components/app/subject-color"
-import { FOLLOW_UP_SOLID } from "@/components/app/tags"
+import { FOLLOW_UP_SOFT } from "@/components/app/tags"
 import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { FormSubmissionBubble } from "@/components/inbox/form-submission-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
@@ -339,7 +339,7 @@ export default function InboxPage() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>{c.name}</span>
-                      {c.followUp && <span role="img" aria-label="Follow-up" title="Follow-up" className={cn("inline-grid size-4.5 shrink-0 place-items-center rounded-full", FOLLOW_UP_SOLID)}><FlagIcon className="size-2.5" /></span>}
+                      {c.followUp && <span role="img" aria-label="Follow-up" title="Follow-up" className={cn("inline-grid size-4.5 shrink-0 place-items-center rounded-full", FOLLOW_UP_SOFT)}><FlagIcon className="size-2.5 fill-current" /></span>}
                     </span>
                     <span className="shrink-0 text-2xs text-muted-foreground">{lm ? chatListTime(lm.at, now) : ""}</span>
                   </div>
@@ -397,10 +397,10 @@ export default function InboxPage() {
                 <Button size="sm" onClick={() => setCreatingLead(true)}><UserPlusIcon /> Add Lead</Button>
               )}
               {/* owner 2026-11-20: flag the chat "Follow-up" — a loud tag in the list tells the others to come look; press again to clear */}
-              <Button size="sm" variant="outline" aria-pressed={!!selected.followUp} title={selected.followUp ? "เอา Follow-up ออก" : "ติดธง Follow-up ให้คนอื่นแวะมาดู"}
-                className={cn(selected.followUp && cn("border-transparent hover:opacity-90", FOLLOW_UP_SOLID))}
+              <Button size="icon-sm" variant="outline" aria-pressed={!!selected.followUp} aria-label="Follow-up" title={selected.followUp ? "เอา Follow-up ออก" : "ติดธง Follow-up ให้คนอื่นแวะมาดู"}
+                className={selected.followUp ? cn("border-transparent hover:opacity-90", FOLLOW_UP_SOFT) : "text-muted-foreground hover:text-foreground"}
                 onClick={() => report(toggleFollowUp(selected.id), (v) => (v.on ? "ติด Follow-up แล้ว" : "เอา Follow-up ออกแล้ว"))}>
-                <FlagIcon /> Follow-up
+                <FlagIcon className={selected.followUp ? "fill-current" : undefined} />
               </Button>
               {/* owner 2026-10-05: assignee is an action next to the side-panel button, same size as the others */}
               <DropdownMenu>
@@ -417,10 +417,11 @@ export default function InboxPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
               <Button
-                size="icon-sm" variant="outline" aria-label="ข้อมูลติดต่อ"
+                size="icon-sm" variant="outline" className="text-muted-foreground hover:text-foreground" aria-label="ข้อมูลติดต่อ"
                 onClick={() => { if (selected.group) setGroupInfo(true); else if (lead && conversationType(selected, leads) === "lead") setOpenLeadId(lead.id); else if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
               >
-                <InfoIcon />
+                {/* owner 2026-11-20: an "ⓘ" already means "a hint" all over the app — this opens the person's contact card, so it is a contact icon */}
+                <ContactRoundIcon />
               </Button>
             </div>
 
