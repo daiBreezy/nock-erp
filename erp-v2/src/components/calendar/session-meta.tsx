@@ -39,6 +39,12 @@ export function kindOf(s: Session, klass?: Klass): keyof typeof KIND_ICON | null
   return null
 }
 
+/** the class type for filtering: learning / test / interview / other — a trial (or a plain session) counts as learning */
+export function classTypeOf(s: Session, klass?: Klass): "learning" | "test" | "interview" | "other" {
+  const k = kindOf(s, klass)
+  return k === null || k === "trial" ? "learning" : k
+}
+
 /** the session's type as a chip — the same colour + icon everywhere (calendar card, list, panel, dashboard) */
 export function KindChip({ s, klass, className }: { s: Session; klass?: Klass; className?: string }) {
   const k = kindOf(s, klass)

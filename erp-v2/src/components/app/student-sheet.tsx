@@ -5,23 +5,27 @@ import { branchHasBus } from "@/domain/rules/settings"
 import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
+import { FamilySheet } from "./family-sheet"
+import { InfoGrid, NotSet } from "./family-tabs"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, StickyNoteIcon, StoreIcon, UsersIcon, ChevronRightIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
+import { ArchiveRestoreIcon, DoorOpenIcon, BusIcon, CakeIcon, CalendarDaysIcon, CalendarIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PhoneIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, StickyNoteIcon, ClipboardListIcon, StoreIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { EntityTag } from "@/components/app/entity-tag"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { startFamilySet } from "@/lib/family-set"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelFooter, PanelForm, PanelMore } from "./form-shell"
-import { Tabs, SearchBox } from "./page-layout"
-import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, TH_DAYS_FULL, toDateStr, weekdayShort } from "@/domain/dates"
+import { Segmented, Tabs, SearchBox } from "./page-layout"
+import { daysBetween, endTime, fmtDate, fmtDateTime, fmtMoney, fmtMonth, TH_DAYS_FULL, toDateStr, weekdayShort } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import * as Bill from "@/domain/rules/billing"
 import { INVOICE_STATUS_LABEL, invoiceTotals } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { removedWithClass, sessionState, subjectsOf } from "@/domain/rules/scheduling"
-import type { ActivityLog, Entitlement, ID, Invoice, LogCategory, Session, Student, StudentLeave } from "@/domain/types"
+import type { ActivityLog, Entitlement, ID, Invoice, LogCategory, Session, Student, StudentLeave, Assessment } from "@/domain/types"
 import { report } from "@/lib/feedback"
+import { tx } from "@/lib/i18n"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -68,15 +72,18 @@ const SEGS: { id: Seg; label: string }[] = [
  * Billing · Note · Timeline; แก้ไข switches the panel to the form; "new" opens the empty form and becomes the
  * information view once saved. Active/Inactive is automatic (packages + long leave); only Archive is manual.
  */
-export function StudentSheet({ studentId, familyId, onClose }: { studentId: ID | "new" | null; familyId?: ID; onClose: () => void }) {
+export function StudentSheet({ studentId, familyId, onClose, back }: { studentId: ID | "new" | null; familyId?: ID; onClose: () => void; /** owner 2026-11-20: opened from another panel (e.g. the family) → a Back button that returns there */ back?: { label: string; onBack: () => void } }) {
+  // owner 2026-11-20: a brother / sister chip switches this same panel to them — the jump forgets itself when the panel is opened for someone else
+  const [jump, setJump] = useState<{ from: ID | "new" | null; to: ID } | null>(null)
+  const shown = jump && jump.from === studentId ? jump.to : studentId
   return (
     <EntityPanel open={!!studentId} onClose={onClose} wide>
-      {studentId && <Panel key={studentId} studentId={studentId} familyId={familyId} onClose={onClose} />}
+      {shown && <Panel key={shown} studentId={shown} familyId={familyId} onClose={onClose} back={back} onOpenStudent={(id) => setJump({ from: studentId, to: id })} />}
     </EntityPanel>
   )
 }
 
-function Panel({ studentId, familyId, onClose }: { studentId: ID | "new"; familyId?: ID; onClose: () => void }) {
+function Panel({ studentId, familyId, onClose, back, onOpenStudent }: { studentId: ID | "new"; familyId?: ID; onClose: () => void; back?: { label: string; onBack: () => void }; onOpenStudent: (id: ID) => void }) {
   const [createdId, setCreatedId] = useState<ID | null>(null)
   const isNew = studentId === "new"
   const [editing, setEditing] = useState(isNew)
@@ -88,10 +95,10 @@ function Panel({ studentId, familyId, onClose }: { studentId: ID | "new"; family
             onClose={() => (stu ? setEditing(false) : onClose())}
             onSaved={(x) => { if (isNew) setCreatedId(x.id); setEditing(false) }} />
         </PanelForm>
-      ) : id ? <Body id={id} onEdit={() => setEditing(true)} invoiceOnOpen={isNew && !!createdId} /> : null
+      ) : id ? <Body id={id} onEdit={() => setEditing(true)} invoiceOnOpen={isNew && !!createdId} back={back} onOpenStudent={onOpenStudent} /> : null
 }
 
-function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoiceOnOpen?: boolean }) {
+function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEdit: () => void; invoiceOnOpen?: boolean; back?: { label: string; onBack: () => void }; onOpenStudent: (id: ID) => void }) {
   const stu = useStore((s) => s.students.find((x) => x.id === id))
   const fam = useStore((s) => s.families.find((f) => f.id === stu?.familyId))
   const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === stu?.familyId))
@@ -112,6 +119,8 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
   const restore = useStore((s) => s.restoreStudent)
   const invoices = useStore((s) => s.invoices)
   const [creditAdd, setCreditAdd] = useState(false)
+  const [familyOpen, setFamilyOpen] = useState(false)
+  const siblings = useStore((st) => st.students).filter((x) => stu?.familyId && x.familyId === stu.familyId && x.id !== stu.id && x.branchId === stu.branchId && !x.archived && x.exit?.status !== "closed")
   const creditOn = useStore((s) => creditCourseOn(s.system.settings))
   if (!stu) return null
   // Credit Course (owner 2026-11-19): studying now, the invoice is still to come
@@ -122,13 +131,17 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
 
   return (
     <>
-      <SheetHeader className="shrink-0 gap-2 border-b pb-0">
-        <EntityTag kind="student" />
+      <SheetHeader className="shrink-0 gap-3 border-b pb-0">
         <div className="flex items-center gap-3 pr-8">
-          <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}><GraduationCapIcon className="size-5" /></span>
+          {/* owner 2026-11-20: Back sits in front of the thumb — no extra row of its own; the name of where it goes is its tooltip */}
+          {back && <Button variant="ghost" size="icon" className="-ml-2 shrink-0 text-muted-foreground" aria-label={`ย้อนกลับ · ${back.label}`} title={`ย้อนกลับ · ${back.label}`} onClick={back.onBack}><ChevronLeftIcon /></Button>}
+          <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
           <div className="min-w-0">
             <SheetTitle className="truncate text-lg">{stu.nickname} <span className="font-normal text-muted-foreground">{stu.name}</span></SheetTitle>
-            <SheetDescription className="flex flex-wrap items-center gap-1.5">
+            <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+              {/* owner 2026-11-20: like the Inbox chat header — the type is a quiet grey word in the line under the name, not a pill */}
+              <span className="inline-flex items-center gap-1"><GraduationCapIcon className="size-3" /> Student</span>
+              <span aria-hidden>·</span>
               {stu.grade && <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
               <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
               {owed.length > 0 && <CreditTag />}
@@ -148,8 +161,8 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {stu.exit && <div className="mb-4"><ExitPanel stu={stu} /></div>}
         {seg === "overview" && owed.length > 0 && <CreditPanel stu={stu} owed={owed} today={today} onInvoice={(id) => setInvoice(id ?? "new")} />}
-        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} onHistory={() => { setClassSub("history"); setSeg("class") }} onEditLeave={(leave) => setLeaveDialog({ leave })} onOpenInvoice={(id) => setInvoice(id)} />}
-        {seg === "class" && <ClassSeg stu={stu} ents={ents} sub={classSub} setSub={setClassSub} />}
+        {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} onHistory={() => { setClassSub("history"); setSeg("class") }} onEditLeave={(leave) => setLeaveDialog({ leave })} onOpenInvoice={(id) => setInvoice(id)} onFamily={() => (back ? back.onBack() : setFamilyOpen(true))} onOpenStudent={onOpenStudent} />}
+        {seg === "class" && <ClassSeg kids={[stu]} ents={ents} sub={classSub} setSub={setClassSub} />}
         {seg === "billing" && <BillingSeg stu={stu} />}
         {seg === "note" && <NoteSeg stu={stu} />}
         {seg === "timeline" && <TimelineSeg stu={stu} />}
@@ -160,6 +173,7 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
         <PanelFooter>
           {/* owner 2026-10-12: the less-used actions sit behind ⋯ — แจ้งออก · ลาพักยาว */}
           <PanelMore items={[
+            can(me, "student.manage") && { label: "แก้ไข", icon: PencilIcon, onClick: onEdit },
             can(me, "student.manage") && stu.archived && { label: "กลับมาเรียน", icon: ArchiveRestoreIcon, onClick: () => report(restore(stu.id), "กลับมาเรียนแล้ว") },
             canLeave && { label: "ลาพักยาว", icon: PlaneIcon, onClick: () => setLeaveDialog({}) },
             can(me, "student.manage") && !stu.archived && !stu.exit && { label: "แจ้งออก", icon: DoorOpenIcon, destructive: true, onClick: () => setArchiving(true) },
@@ -170,11 +184,21 @@ function Body({ id, onEdit, invoiceOnOpen }: { id: ID; onEdit: () => void; invoi
             <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled aria-label="ยังไม่มีแชท" title="ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"><MessagesSquareIcon /></Button>
           )}
           {can(me, "billing.manage") && creditOn && <Button variant="outline" onClick={() => setCreditAdd(true)}><CreditCardIcon /> เพิ่มคอร์ส (Credit)</Button>}
-          {can(me, "billing.manage") && <Button variant="outline" onClick={() => setInvoice("new")}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
-          {can(me, "student.manage") && <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>}
+          {/* owner 2026-11-20: same as the Family panel — outline, and with brothers / sisters a menu: this child or the whole family */}
+          {can(me, "billing.manage") && (siblings.length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" />}><ReceiptIcon /> ออกใบแจ้งหนี้ <ChevronDownIcon /></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top">
+                <DropdownMenuItem onClick={() => setInvoice("new")}>{stu.nickname} · {stu.grade}</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => { const r = startFamilySet({ familyId: stu.familyId! }); if (report(r, "สร้างชุดครอบครัวแล้ว — เติมคอร์สให้ลูกแต่ละคน")) setInvoice(r.value.firstId) }}><UsersRoundIcon /> ทั้งครอบครัว ({siblings.length + 1} คน)</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : <Button variant="outline" onClick={() => setInvoice("new")}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>)}
         </PanelFooter>
       )}
       <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />
+      {familyOpen && stu.familyId && <FamilySheet id={stu.familyId} onClose={() => setFamilyOpen(false)} initialTab="overview" />}
       {creditAdd && <CreditCourseDialog studentId={stu.id} onClose={() => setCreditAdd(false)} />}
       {archiving && <ExitRequestDialog stu={stu} onClose={() => setArchiving(false)} onCloseNow={() => { setArchiving(false); setClosingNow(true) }} />}
       {closingNow && <CloseExitDialog stu={stu} response={null} onClose={() => setClosingNow(false)} />}
@@ -353,7 +377,7 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
   )
 }
 
-function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLeave, onOpenInvoice }: { onOpenInvoice: (id: ID) => void; stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void; onHistory: () => void; onEditLeave: (l: StudentLeave) => void }) {
+function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLeave, onOpenInvoice, onFamily, onOpenStudent }: { onOpenInvoice: (id: ID) => void; onFamily: () => void; onOpenStudent: (id: ID) => void; stu: Student; ents: Entitlement[]; today: string; status: Att.StudentStatus; onNotRenewing: () => void; onHistory: () => void; onEditLeave: (l: StudentLeave) => void }) {
   const me = useStore((s) => s.me())
   const leaves = useStore((s) => s.leaves)
   const myAssessments = useStore((s) => s.assessments).filter((a) => a.studentId === stu.id).sort((a, b) => a.date.localeCompare(b.date))
@@ -366,50 +390,50 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
   const created = branches.find((b) => b.id === stu.createdBranchId)
   const age = stu.birthDate ? Math.floor(daysBetween(stu.birthDate, today) / 365.25) : null
   const hasPending = usePendingInvoices(stu.id).length > 0
+  const siblings = useStore((st) => st.students).filter((x) => stu.familyId && x.familyId === stu.familyId && x.id !== stu.id).sort((a, b) => a.nickname.localeCompare(b.nickname, "th"))
 
   return (
     <div className="space-y-4">
-      <section className="rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-        <div className="flex items-start gap-3">
-          <span className={cn("grid size-14 shrink-0 place-items-center rounded-full text-xl font-semibold", avatarTone(stu.id))}>{initial(stu.nickname)}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold">{stu.name} <span className="font-normal text-muted-foreground">({stu.nickname})</span></p>
-            {fam ? <Link href="/families" className="inline-flex items-center gap-1 text-sm text-primary underline"><UsersIcon className="size-3.5" />{fam.name}</Link> : <p className="text-sm text-warning">ยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</p>}
-          </div>
-          <span className={cn("rounded-full px-2.5 py-0.5 text-sm font-medium", gradeTone(stu.grade))}>{stu.grade}</span>
+      {/* owner 2026-11-20: plain information like the family's — the thumb and the name live in the Header; here: family · brothers & sisters, then the facts, then the courses */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground">
+          <UsersIcon className="size-3.5 text-muted-foreground/60" />
+          {fam ? <Button variant="link" size="inline" type="button" onClick={onFamily} className="h-auto p-0 text-xs">{fam.name}</Button> : <span className="text-warning">ยังไม่ผูกครอบครัว</span>}
+          {siblings.length > 0 && <>
+            <span aria-hidden>·</span>พี่น้อง
+            {siblings.map((x) => (
+              <Button key={x.id} variant="ghost" size="inline" type="button" onClick={() => onOpenStudent(x.id)} className={cn("gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground hover:bg-muted/70", x.archived && "opacity-60")}>
+                {x.nickname}<span className={cn("rounded px-1 text-2xs", gradeTone(x.grade))}>{x.grade}</span>
+              </Button>
+            ))}
+          </>}
         </div>
-        <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-          <p className="flex items-center gap-2"><CakeIcon className="size-4 text-muted-foreground" />{stu.birthDate ? <>{fmtDate(stu.birthDate, { year: true })} <span className="text-muted-foreground">· อายุ {age} ปี</span></> : <span className="text-muted-foreground">ไม่ระบุวันเกิด</span>}</p>
-          <p className="flex items-center gap-2"><GraduationCapIcon className="size-4 text-muted-foreground" />{stu.school || <span className="text-muted-foreground">ไม่ระบุโรงเรียน</span>}</p>
-          <p className="flex items-center gap-2"><StoreIcon className="size-4 text-muted-foreground" />สร้างที่สาขา{created?.name ?? "—"}</p>
-          <p className="flex items-center gap-2"><CalendarDaysIcon className="size-4 text-muted-foreground" />สร้างเมื่อ {fmtDate(stu.createdAt.slice(0, 10), { year: true })}</p>
-          {stu.usesBus && branchHasBus(branches.find((b) => b.id === stu.branchId)) && <p className="flex items-center gap-2"><BusIcon className="size-4 text-muted-foreground" />รถรับส่ง: {BUS_USE_LABEL[busUseOf(stu)]}</p>}
-        </div>
-        {stu.note && <p className="mt-3 flex items-start gap-2 rounded-lg bg-warning-soft/60 p-2.5 text-sm text-warning-ink"><StickyNoteIcon className="mt-0.5 size-4 shrink-0" />{stu.note}</p>}
+        <InfoGrid rows={[
+          { icon: CakeIcon, label: "วันเกิด", value: stu.birthDate ? <>{fmtDate(stu.birthDate, { year: true })} <span className="text-muted-foreground">· อายุ {age} ปี</span></> : <NotSet what="วันเกิด" /> },
+          { icon: GraduationCapIcon, label: "โรงเรียน", value: stu.school || <NotSet what="โรงเรียน" /> },
+          { icon: StoreIcon, label: "สาขาที่สร้าง", value: tx("สร้างที่สาขา{0}", [created?.name ?? "—"]) },
+          { icon: CalendarDaysIcon, label: "วันที่สร้าง", value: tx("สร้างเมื่อ {0}", [fmtDate(stu.createdAt.slice(0, 10), { year: true })]) },
+          ...(stu.usesBus && branchHasBus(branches.find((b) => b.id === stu.branchId)) ? [{ icon: BusIcon, label: "รถรับส่ง", value: `รถรับส่ง: ${BUS_USE_LABEL[busUseOf(stu)]}` }] : []),
+        ]} />
+        {stu.note && <p className="flex items-start gap-2 rounded-lg bg-warning-soft/60 p-2.5 text-sm text-warning-ink"><StickyNoteIcon className="mt-0.5 size-4 shrink-0" />{stu.note}</p>}
+      </section>
 
-        <div className="mt-3 border-t pt-1">
-          <p className="pt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">คอร์สที่ลงเรียน</p>
-          {/* owner 2026-10-12: only packages still running here — finished ones live in คลาส › ประวัติคอร์ส */}
-          {current.length === 0 && !hasPending && <p className="py-3 text-sm text-muted-foreground">ไม่มีคอร์สที่ใช้อยู่</p>}
-          <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
-          <PendingInvoices stu={stu} onOpen={onOpenInvoice} />
-          {pastCount > 0 && (
-            <Button variant="ghost" size="inline" type="button" onClick={onHistory} className="mt-1 flex w-full items-center gap-1 border-t pt-2.5 text-xs text-muted-foreground hover:text-foreground">
-              <HistoryIcon className="size-3.5" />ประวัติคอร์สที่หมดแล้ว {pastCount} รายการ<ChevronRightIcon className="ml-auto size-3.5" />
-            </Button>
-          )}
-        </div>
-
+      <section className="border-t pt-1">
+        <p className="pt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">คอร์สที่ลงเรียน</p>
+        {/* owner 2026-10-12: only packages still running here — finished ones live in คลาส › ประวัติคอร์ส */}
+        {current.length === 0 && !hasPending && <p className="py-3 text-sm text-muted-foreground">ไม่มีคอร์สที่ใช้อยู่</p>}
+        <ul className="divide-y">{current.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
+        <PendingInvoices stu={stu} onOpen={onOpenInvoice} />
+        {pastCount > 0 && (
+          <Button variant="ghost" size="inline" type="button" onClick={onHistory} className="mt-1 flex w-full items-center gap-1 border-t pt-2.5 text-xs text-muted-foreground hover:text-foreground">
+            <HistoryIcon className="size-3.5" />ประวัติคอร์สที่หมดแล้ว {pastCount} รายการ<ChevronRightIcon className="ml-auto size-3.5" />
+          </Button>
+        )}
       </section>
 
       {status === "renewal" && <RenewalFollowUpSection stu={stu} canManage={can(me, "student.manage")} onNotRenewing={onNotRenewing} />}
 
-      {myAssessments.length > 0 && (
-        <section className="space-y-2 rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-          <p className="font-semibold">ผลสอบ / ทดลองเรียน</p>
-          {myAssessments.map((a) => <AssessmentNote key={a.id} a={a} editable={can(me, "session.manage")} showWhen />)}
-        </section>
-      )}
+      {myAssessments.length > 0 && <PastAssessments items={myAssessments} editable={can(me, "session.manage")} />}
       {/* owner 2026-10-12: only once a long leave exists — new ones are added from ⋯ › ลาพักยาว in the bottom bar */}
       {myLeaves.length > 0 && (
       <section className="rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
@@ -432,28 +456,71 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
   )
 }
 
+/** owner 2026-11-20: the test / trial from before they enrolled is history, not news — one quiet line, folded until opened */
+function PastAssessments({ items, editable }: { items: Assessment[]; editable: boolean }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="px-1">
+      <Button variant="ghost" size="inline" type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-1.5 py-1 text-left text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground dark:hover:bg-transparent">
+        <ClipboardListIcon className="size-3.5" />{tx("ประวัติก่อนสมัคร · สอบ / ทดลองเรียน {0} ครั้ง", [items.length])}
+        <ChevronDownIcon className={cn("ml-auto size-3.5 transition-transform", open && "rotate-180")} />
+      </Button>
+      {open && <div className="mt-1.5 space-y-1.5">{items.map((a) => <AssessmentNote key={a.id} a={a} editable={editable} compact showWhen />)}</div>}
+    </section>
+  )
+}
+
 // ---------------------------------------------------------------- Class (Session | Attendance)
 
 type ClassSub = "session" | "history"
-function ClassSeg({ stu, ents, sub, setSub }: { stu: Student; ents: Entitlement[]; sub: ClassSub; setSub: (s: ClassSub) => void }) {
+/** owner 2026-11-20: the Class tab for ONE child or SEVERAL (the family panel): one table with a student column, own sub-tab state */
+export function StudentClassTab({ kids, filter }: { kids: Student[]; /** the family panel's child dropdown — placed after the sub-tabs */ filter?: React.ReactNode }) {
+  const ents = useEntitlements()
+  const [sub, setSub] = useState<ClassSub>("session")
+  return <ClassSeg kids={kids} ents={ents} sub={sub} setSub={setSub} filter={filter} />
+}
+
+function ClassSeg({ kids, ents, sub, setSub, filter }: { kids: Student[]; ents: Entitlement[]; sub: ClassSub; setSub: (s: ClassSub) => void; filter?: React.ReactNode }) {
   return (
     <div className="space-y-3">
-      <div className="flex gap-4 border-b text-sm">
-        {([["session", "คาบเรียน"], ["history", "ประวัติคอร์ส"]] as const).map(([k, l]) => (
-          <Button variant="ghost" size="inline" key={k} onClick={() => setSub(k)} className={cn("-mb-px border-b-2 pb-2", sub === k ? "border-primary font-medium text-primary" : "border-transparent text-muted-foreground")}>{l}</Button>
-        ))}
+      {/* owner 2026-11-20: the panel's own tabs are the underline Tabs, so the view switch inside is a Segmented control (grey box) — and the family's child dropdown follows it */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented value={sub} onChange={setSub} options={[{ value: "session", label: "คาบเรียน" }, { value: "history", label: "ประวัติคอร์ส" }]} />
+        {filter}
       </div>
-      {sub === "session" ? <SessionList stu={stu} ents={ents} /> : <CourseHistory stu={stu} ents={ents} />}
+      {sub === "session" ? <SessionList kids={kids} ents={ents} /> : <CourseHistory kids={kids} ents={ents} />}
     </div>
   )
 }
 
 /** owner 2026-10-12: packages that have ended — kept as history here, not on the overview */
-function CourseHistory({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
+function CourseHistory({ kids, ents }: { kids: Student[]; ents: Entitlement[] }) {
   const today = toDateStr(useNow())
-  const past = ents.filter((e) => e.studentId === stu.id && e.to < today).sort((a, b) => b.to.localeCompare(a.to))
+  const past = ents.filter((e) => kids.some((k) => k.id === e.studentId) && e.to < today).sort((a, b) => b.to.localeCompare(a.to))
   if (!past.length) return <p className="py-6 text-center text-sm text-muted-foreground">ยังไม่มีคอร์สที่หมดแล้ว</p>
-  return <ul className="divide-y">{past.map((e) => <PackageRow key={e.id} e={e} stu={stu} today={today} />)}</ul>
+  if (kids.length === 1) return <ul className="divide-y">{past.map((e) => <PackageRow key={e.id} e={e} stu={kids[0]} today={today} />)}</ul>
+  // several children: one block per child, and inside it a small month heading between the packages (by the month each ended)
+  return (
+    <div className="space-y-5">
+      {kids.map((k) => {
+        const mine = past.filter((e) => e.studentId === k.id)
+        if (!mine.length) return null
+        const months = new Map<string, Entitlement[]>()
+        for (const e of mine) months.set(e.to.slice(0, 7), [...(months.get(e.to.slice(0, 7)) ?? []), e])
+        return (
+          <section key={k.id} className="space-y-2">
+            <h3 className="text-sm font-semibold">{k.nickname} <span className="font-normal text-muted-foreground">· {k.grade}</span></h3>
+            {[...months.entries()].map(([m, list]) => (
+              <div key={m}>
+                <p className="px-1 text-xs font-semibold text-muted-foreground">{fmtMonth(`${m}-01`)}</p>
+                <ul className="divide-y">{list.map((e) => <PackageRow key={e.id} e={e} stu={k} today={today} />)}</ul>
+              </div>
+            ))}
+          </section>
+        )
+      })}
+    </div>
+  )
 }
 
 const ATT_LABEL = { present: "มา", absent: "ขาด", leave: "ลา" } as const
@@ -463,7 +530,9 @@ const ATT_TONE = { present: "green", absent: "red", leave: "amber" } as const
  * คาบเรียน + การเข้าเรียน in one list (owner 2026-10-29): every session past and upcoming with its check-in, filter by
  * subject, and ⋯ on each row to re-schedule / leave / open it right here. Pickup / drop-off only for bus students.
  */
-function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
+function SessionList({ kids, ents }: { kids: Student[]; ents: Entitlement[] }) {
+  const many = kids.length > 1
+  const stu = kids[0]
   const sessions = useStore((s) => s.sessions)
   const classes = useStore((s) => s.classes)
   const attendance = useStore((s) => s.attendance)
@@ -478,21 +547,24 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   const [adding, setAdding] = useState(false)
   const busAddOns = useStore((s) => s.busAddOns)
   // paid legs + extra rides − rides the parent cancelled (same as the bus plan)
-  const legs = useMemo(() => busDaysOf(stu.id, invoices, busAddOns), [invoices, busAddOns, stu.id])
+  const legsBy = useMemo(() => new Map(kids.map((k) => [k.id, busDaysOf(k.id, invoices, busAddOns)])), [invoices, busAddOns, kids])
   // owner Row 44/49 (2026-10-28): EVERY session — past and upcoming — so parents can be told the full schedule
   const all = sessions
-    .filter((s) => s.studentIds.includes(stu.id) || attendance.some((a) => a.sessionId === s.id && a.studentId === stu.id))
+    .filter((s) => kids.some((k) => s.studentIds.includes(k.id) || attendance.some((a) => a.sessionId === s.id && a.studentId === k.id)))
     .filter((s) => !removedWithClass(s, classes))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   const subjects = [...new Set(all.flatMap(subjectsOf))]
-  const mine = subject ? all.filter((s) => subjectsOf(s).includes(subject)) : all
-  const active = mine.filter((s) => !s.cancelled)
-  const done = active.filter((s) => s.date < today).length
+  const mineSessions = subject ? all.filter((s) => subjectsOf(s).includes(subject)) : all
+  // one row per (session, child) — a session two brothers share shows twice, once each, so each row has its own check-in and ⋯
+  type Row = { s: Session; k: Student }
+  const mine: Row[] = mineSessions.flatMap((s) => kids.filter((k) => s.studentIds.includes(k.id) || attendance.some((a) => a.sessionId === s.id && a.studentId === k.id)).map((k) => ({ s, k })))
+  const active = mine.filter((r) => !r.s.cancelled)
+  const done = active.filter((r) => r.s.date < today).length
   const canBus = can(useStore((s) => s.me()), "billing.manage")
-  const att = (s: Session) => attendance.find((a) => a.sessionId === s.id && a.studentId === stu.id)
+  const att = (s: Session, k: Student) => attendance.find((a) => a.sessionId === s.id && a.studentId === k.id)
   // this student's status in the session — one short pill (the class-wide check-in count belongs to the session, not here)
-  const studentSessionStatus = (s: Session): { label: string; tone: "green" | "red" | "amber" | "blue" | "gray" } => {
-    const a = att(s)
+  const studentSessionStatus = (s: Session, k: Student): { label: string; tone: "green" | "red" | "amber" | "blue" | "gray" } => {
+    const a = att(s, k)
     if (a) return { label: ATT_LABEL[a.status], tone: ATT_TONE[a.status] }
     const st = sessionState(s, now)
     return st === "cancelled" ? { label: "ยกเลิก", tone: "gray" } : st === "upcoming" ? { label: "รอเริ่ม", tone: "gray" } : st === "live" ? { label: "กำลังเรียน", tone: "blue" } : { label: "ยังไม่เช็คชื่อ", tone: "amber" }
@@ -501,22 +573,23 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
   // owner 2026-10-29: day and date in their own columns · time on top, minutes below · bus = one P / D / B tag,
   // hidden until the admin turns it on (and editable here) · status on the right · ⋯ only on row hover.
   // "1%" = shrink to content, so the spare width goes to the subject column instead of spreading everywhere.
-  const columns: Column<Session>[] = [
-    { id: "day", label: "วัน", width: "1%", cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{weekdayShort(new Date(`${s.date}T00:00:00`).getDay())}</span> },
-    { id: "date", label: "วันที่", required: true, width: "1%", cell: (s) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { year: true })}</span> },
-    { id: "time", label: "เวลา", width: "1%", cell: (s) => <span className="flex flex-col leading-tight tabular-nums">{s.start}–{endTime(s.start, s.minutes)}<span className="text-xs text-muted-foreground">{(() => { const seat = Seats.seatOf(s, stu.id, classes.find((k) => k.id === s.classId)); return Seats.isPartial(seat, s.minutes) ? `เรียน ${Seats.seatTime(s.start, seat)}` : `${s.minutes} นาที` })()}</span></span> },
-    { id: "subject", label: "วิชา", cell: (s) => <span className="flex gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</span> },
-    { id: "teacher", label: "ครู", width: "1%", cell: (s) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
+  const columns: Column<Row>[] = [
+    ...(many ? [{ id: "student", label: "นักเรียน", width: "1%", cell: (r: Row) => <span className="font-medium">{r.k.nickname}</span> } as Column<Row>] : []),
+    { id: "day", label: "วัน", width: "1%", cell: ({ s }) => <span className={cn(s.date === today && "font-medium text-primary")}>{weekdayShort(new Date(`${s.date}T00:00:00`).getDay())}</span> },
+    { id: "date", label: "วันที่", required: true, width: "1%", cell: ({ s }) => <span className={cn(s.date === today && "font-medium text-primary")}>{fmtDate(s.date, { year: true })}</span> },
+    { id: "time", label: "เวลา", width: "1%", cell: ({ s, k }) => <span className="flex flex-col leading-tight tabular-nums">{s.start}–{endTime(s.start, s.minutes)}<span className="text-xs text-muted-foreground">{(() => { const seat = Seats.seatOf(s, k.id, classes.find((k) => k.id === s.classId)); return Seats.isPartial(seat, s.minutes) ? `เรียน ${Seats.seatTime(s.start, seat)}` : `${s.minutes} นาที` })()}</span></span> },
+    { id: "subject", label: "วิชา", cell: ({ s }) => <span className="flex gap-1">{subjectsOf(s).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>)}</span> },
+    { id: "teacher", label: "ครู", width: "1%", cell: ({ s }) => staff.find((x) => x.id === s.teacherId)?.nickname ?? <span className="text-muted-foreground">ยังไม่มีครู</span> },
     { id: "bus", label: "รถรับส่ง", width: "1%", align: "center", defaultHidden: true, info: "P = รับ (Pickup) · D = ส่ง (Drop) · B = ทั้งรับและส่ง — กดเพื่อแก้ (คาบที่ยังไม่ถึง)",
-      cell: (s) => <BusTag studentId={stu.id} date={s.date} legs={legs.get(s.date)} editable={canBus && s.date >= today && !s.cancelled} /> },
+      cell: ({ s, k }) => <BusTag studentId={k.id} date={s.date} legs={legsBy.get(k.id)?.get(s.date)} editable={canBus && s.date >= today && !s.cancelled} /> },
     // same-width pills so the column lines up whatever the label
-    { id: "status", label: "สถานะ", width: "1%", align: "right", cell: (s) => { const x = studentSessionStatus(s); return <Pill tone={x.tone}>{x.label}</Pill> } },
+    { id: "status", label: "สถานะ", width: "1%", align: "right", cell: ({ s, k }) => { const x = studentSessionStatus(s, k); return <Pill tone={x.tone}>{x.label}</Pill> } },
   ]
 
   // per course: held so far = มา + ขาด + ลา + ยังไม่เช็ค
-  const packages = ents.filter((e) => e.studentId === stu.id && (!subject || e.subjects.includes(subject))).sort((a, b) => b.to.localeCompare(a.to))
-  const heldOf = (e: Entitlement) => sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(stu.id) && !s.cancelled && s.date <= today)
-  const attOf = (held: Session[]) => attendance.filter((a) => a.studentId === stu.id && held.some((s) => s.id === a.sessionId))
+  const packages = ents.filter((e) => kids.some((k) => k.id === e.studentId) && (!subject || e.subjects.includes(subject))).sort((a, b) => b.to.localeCompare(a.to))
+  const heldOf = (e: Entitlement) => sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(e.studentId) && !s.cancelled && s.date <= today)
+  const attOf = (e: Entitlement, held: Session[]) => attendance.filter((a) => a.studentId === e.studentId && held.some((s) => s.id === a.sessionId))
 
   return (
     <div className="space-y-3">
@@ -528,15 +601,15 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
           <div className="grid gap-3 sm:grid-cols-2">
             {packages.filter((e) => e.to >= today).map((e) => {
               const held = heldOf(e)
-              const marks = attOf(held)
+              const marks = attOf(e, held)
               const n = (st: string) => marks.filter((a) => a.status === st).length
               const unmarked = held.length - marks.length
               const course = courses.find((x) => x.id === e.courseId)
               // owner 2026-11-04: the big number = คาบที่เช็คแล้ว / คาบทั้งหมดของคอร์ส (Done / Total), not Present/held.
               // "ขาด" (absent) dropped — the check-in only offers มา / ลา, so an Absent count is always 0 and just confuses.
-              const total = sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(stu.id) && !s.cancelled).length
+              const total = sessions.filter((s) => Att.packageCovers(e, s) && s.studentIds.includes(e.studentId) && !s.cancelled).length
               return (
-                <Kpi key={e.id} icon={GraduationCapIcon} tone={e.to < today ? "special" : "sky"} label={course?.name ?? "—"} value={`${marks.length}/${total}`}
+                <Kpi key={e.id} icon={GraduationCapIcon} tone={e.to < today ? "special" : "sky"} label={`${many ? `${kids.find((k) => k.id === e.studentId)?.nickname} · ` : ""}${course?.name ?? "—"}`} value={`${marks.length}/${total}`}
                   sub={`${fmtDate(e.from)} → ${fmtDate(e.to, { year: true })}`}>
                   <div className="flex flex-wrap gap-1.5 text-xs">
                     <Pill tone="green">{`มา ${n("present")}`}</Pill>
@@ -554,12 +627,12 @@ function SessionList({ stu, ents }: { stu: Student; ents: Entitlement[] }) {
           options={[{ value: "", label: `ทุกวิชา (${all.length})` }, ...subjects.map((x) => ({ value: x, label: `${x} (${all.filter((s) => subjectsOf(s).includes(x)).length})` }))]} />
         {active.length > 0 && <p className="text-sm text-muted-foreground tabular-nums">{`ทั้งหมด ${active.length} คาบ · เรียนไปแล้ว ${done} · เหลือ ${active.length - done}`}</p>}
         {/* owner Row 25 (2026-11-02): add this student into a class straight from the panel — no new-student form needed */}
-        {can(me, "session.manage") && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setAdding(true)}><PlusIcon /> เพิ่มเข้าคลาส</Button>}
-        <span className={cn(can(me, "session.manage") || "ml-auto")}><ColumnsMenu id="student-sessions" columns={columns} /></span>
+        {can(me, "session.manage") && !many && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setAdding(true)}><PlusIcon /> เพิ่มเข้าคลาส</Button>}
+        <span className={cn((can(me, "session.manage") && !many) || "ml-auto")}><ColumnsMenu id={many ? "family-sessions" : "student-sessions"} columns={columns} /></span>
       </div>
-      <DataTable id="student-sessions" columns={columns} rows={mine} rowKey={(s) => s.id} minWidth={520} maxHeight="calc(100dvh - 16rem)"
-        rowActions={(s) => <StudentSessionMenu s={s} studentId={stu.id} />}
-        rowClassName={(s) => cn(s.cancelled && "opacity-45", s.date === today && "bg-primary/5")} empty="ไม่มีคาบ" />
+      <DataTable id={many ? "family-sessions" : "student-sessions"} columns={columns} rows={mine} rowKey={(r) => `${r.s.id}:${r.k.id}`} minWidth={520} maxHeight="calc(100dvh - 16rem)"
+        rowActions={({ s, k }) => <StudentSessionMenu s={s} studentId={k.id} />}
+        rowClassName={({ s }) => cn(s.cancelled && "opacity-45", s.date === today && "bg-primary/5")} empty="ไม่มีคาบ" />
       {adding && <AddToClassDialog stu={stu} onClose={() => setAdding(false)} />}
     </div>
   )
@@ -604,15 +677,24 @@ function BusTag({ studentId, date, legs, editable }: { studentId: ID; date: stri
 // ---------------------------------------------------------------- Billing
 
 function BillingSeg({ stu }: { stu: Student }) {
+  return <StudentBilling kids={[stu]} />
+}
+
+/** owner 2026-11-20: the Billing tab for ONE child or for several (the family panel) — with several, the table gains a "student" column and the new-invoice button leaves to the panel's own menu */
+export function StudentBilling({ kids, toolbar }: { kids: Student[]; /** extra controls placed right before the columns icon (the family panel's child dropdown) */ toolbar?: React.ReactNode }) {
+  const stu = kids[0]
+  const many = kids.length > 1
   const [invoice, setInvoice] = useState<ID | "new" | null>(null)
   const me = useStore((s) => s.me())
-  const invoices = useStore((s) => s.invoices).filter((i) => i.studentId === stu.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const ids = new Set(kids.map((k) => k.id))
+  const invoices = useStore((s) => s.invoices).filter((i) => ids.has(i.studentId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const branches = useStore((s) => s.branches)
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const subjectsOfInv = (i: Invoice) => [...new Set(i.lines.flatMap((l) => courses.find((x) => x.id === l.courseId)?.subjects ?? []))]
   const invoiceCols: Column<Invoice>[] = [
+    ...(many ? [{ id: "student", label: "นักเรียน", cell: (i: Invoice) => kids.find((k) => k.id === i.studentId)?.nickname ?? "—" } as Column<Invoice>] : []),
     { id: "number", label: "เลขที่", required: true, className: "tabular-nums", cell: (i) => i.number ?? "—" },
     { id: "items", label: "รายการ", cell: (i) => { const subjects = subjectsOfInv(i); return <span className="flex items-center gap-1">{subjects.length ? subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs", subjectColor(x).chip)}>{x}</span>) : <span className="text-xs text-muted-foreground">{i.busExtras?.length ? "ค่ารถเพิ่ม" : "ค่าอื่นๆ"}</span>}{i.status === "paid" && subjects.length > 0 && <span className="text-2xs text-success">✓ เข้าคลาสแล้ว</span>}</span> } },
     { id: "date", label: "วันที่", cell: (i) => fmtDate(i.createdAt.slice(0, 10), { year: true }) },
@@ -623,11 +705,12 @@ function BillingSeg({ stu }: { stu: Student }) {
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <p className="text-sm text-muted-foreground">กดแถวเพื่อเปิดใบแจ้งหนี้ · จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ</p>
-        {can(me, "billing.manage") && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
-        <ColumnsMenu id="student-invoices" columns={invoiceCols} />
+        {can(me, "billing.manage") && !many && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setInvoice("new")}><PlusIcon /> ใบแจ้งหนี้ใหม่</Button>}
+        <span className="ml-auto flex items-center gap-2">{toolbar}</span>
+        <ColumnsMenu id={many ? "family-invoices" : "student-invoices"} columns={invoiceCols} />
       </div>
-      <DataTable id="student-invoices" columns={invoiceCols} rows={invoices} rowKey={(i) => i.id} onRowClick={(i) => setInvoice(i.id)} minWidth={520} empty="ยังไม่มีใบแจ้งหนี้" />
-      <BusAddOns stu={stu} />
+      <DataTable id={many ? "family-invoices" : "student-invoices"} columns={invoiceCols} rows={invoices} rowKey={(i) => i.id} onRowClick={(i) => setInvoice(i.id)} minWidth={520} empty="ยังไม่มีใบแจ้งหนี้" />
+      {kids.filter((k) => !many || k.usesBus).map((k) => <BusAddOns key={k.id} stu={k} />)}
       <InvoiceSheet id={invoice} defaultStudentId={stu.id} onClose={() => setInvoice(null)} />
     </div>
   )
@@ -636,7 +719,15 @@ function BillingSeg({ stu }: { stu: Student }) {
 // ---------------------------------------------------------------- Note
 
 function NoteSeg({ stu }: { stu: Student }) {
-  const notes = useStore((s) => s.notes).filter((n) => n.studentId === stu.id).sort((a, b) => a.at.localeCompare(b.at))
+  return <StudentNotes kids={[stu]} />
+}
+
+/** owner 2026-11-20: the Note tab for ONE child or SEVERAL (the family panel — same look, a child tag on each note and a "write for" picker) */
+export function StudentNotes({ kids, filter }: { kids: Student[]; /** the family panel's child dropdown */ filter?: React.ReactNode }) {
+  const many = kids.length > 1
+  const ids = new Set(kids.map((k) => k.id))
+  const nameOf = (id: ID) => kids.find((k) => k.id === id)?.nickname ?? ""
+  const notes = useStore((s) => s.notes).filter((n) => ids.has(n.studentId)).sort((a, b) => a.at.localeCompare(b.at))
   const staff = useStore((s) => s.staff)
   const userId = useStore((s) => s.userId)
   const add = useStore((s) => s.addStudentNote)
@@ -645,38 +736,60 @@ function NoteSeg({ stu }: { stu: Student }) {
   const me = useStore((s) => s.me())
   const now = useNow()
   const [text, setText] = useState("")
-  const send = () => { if (report(add(stu.id, text), "บันทึกโน้ตแล้ว")) setText("") }
+  // owner 2026-11-20: with several children the note says WHO it is for by an @mention — typing "@" opens a list of the family's children
+  const [caret, setCaret] = useState(0)
+  const [pick, setPick] = useState(0)
+  const mention = many ? /(^|\s)@([^\s@]*)$/.exec(text.slice(0, caret)) : null
+  const choices = mention ? kids.filter((k) => k.nickname.toLowerCase().startsWith(mention[2].toLowerCase())) : []
+  const choose = (k: Student) => {
+    if (!mention) return
+    const at = mention.index + mention[1].length
+    const next = `${text.slice(0, at)}@${k.nickname} ${text.slice(caret)}`
+    setText(next); setCaret(at + k.nickname.length + 2); setPick(0)
+  }
+  const send = () => {
+    const targets = many ? kids.filter((k) => text.includes(`@${k.nickname}`)) : kids
+    if (!targets.length) { report({ ok: false, error: "พิมพ์ @ แล้วเลือกลูกที่โน้ตนี้เกี่ยวกับ" }, ""); return }
+    // the mention only says who it is for — the note itself is saved without it (each note already shows "→ child")
+    const body = many ? targets.reduce((t, k) => t.split(`@${k.nickname}`).join(""), text).replace(/\s+/g, " ").trim() : text
+    let ok = true
+    for (const k of targets) ok = report(add(k.id, body), "บันทึกโน้ตแล้ว") && ok
+    if (ok) setText("")
+  }
   // owner 2026-10-29: the Note Calendar of this student too — managed the same way as on the calendar.
   // One group per session: a session's own notes, a class's pinned notes on its next session, and the next session of
   // each class the student is in (so a note can be added for the coming class).
-  const mineSessions = sessions.filter((x) => x.studentIds.includes(stu.id) && !x.cancelled)
-  const nextOf = (classId: ID) => mineSessions.filter((x) => x.classId === classId && sessionState(x, now) === "upcoming").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
-    ?? mineSessions.filter((x) => x.classId === classId).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))[0]
-  const noteSessionIds = new Set<ID>()
-  for (const n of calendarNotes.filter((x) => x.studentId === stu.id)) {
-    const se = n.sessionId ? sessions.find((x) => x.id === n.sessionId) : n.classId ? nextOf(n.classId) : undefined
-    if (se) noteSessionIds.add(se.id)
-  }
-  for (const classId of new Set(mineSessions.map((x) => x.classId).filter((x): x is ID => !!x))) { const se = nextOf(classId); if (se && sessionState(se, now) === "upcoming") noteSessionIds.add(se.id) }
-  const noteSessions = [...noteSessionIds].map((id) => sessions.find((x) => x.id === id)!).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+  const rows = kids.flatMap((k) => {
+    const mineSessions = sessions.filter((x) => x.studentIds.includes(k.id) && !x.cancelled)
+    const nextOf = (classId: ID) => mineSessions.filter((x) => x.classId === classId && sessionState(x, now) === "upcoming").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))[0]
+      ?? mineSessions.filter((x) => x.classId === classId).sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start))[0]
+    const noteSessionIds = new Set<ID>()
+    for (const n of calendarNotes.filter((x) => x.studentId === k.id)) {
+      const se = n.sessionId ? sessions.find((x) => x.id === n.sessionId) : n.classId ? nextOf(n.classId) : undefined
+      if (se) noteSessionIds.add(se.id)
+    }
+    for (const classId of new Set(mineSessions.map((x) => x.classId).filter((x): x is ID => !!x))) { const se = nextOf(classId); if (se && sessionState(se, now) === "upcoming") noteSessionIds.add(se.id) }
+    return [...noteSessionIds].map((id) => ({ se: sessions.find((x) => x.id === id)!, k }))
+  }).sort((a, b) => (a.se.date + a.se.start).localeCompare(b.se.date + b.se.start))
   const canNote = (se: Session) => can(me, "session.manage") || se.teacherId === me.id || se.coTeacherIds.includes(me.id)
   return (
     <div className="flex h-full flex-col">
-      {noteSessions.length > 0 && (
+      {filter && <div className="mb-3 flex justify-end">{filter}</div>}
+      {rows.length > 0 && (
         <section className="mb-4 space-y-2">
           <h3 className="flex items-center gap-1 text-sm font-semibold">Note ในปฏิทิน <InfoTip text="Note ที่แสดงบนการ์ดคาบในปฏิทิน — 📌 = ถาวร (ทุกคาบของคลาส) · เพิ่ม / แก้ / ลบ ได้ที่นี่เหมือนในปฏิทิน" /></h3>
           <ul className="divide-y rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5">
-            {noteSessions.map((se) => (
-              <li key={se.id} className="flex gap-3 px-4 py-2.5">
-                <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{fmtDate(se.date, { weekday: true })} {se.start}<br />{subjectsOf(se).join(" + ")}</span>
-                <div className="min-w-0 flex-1"><CalendarNotes s={se} studentId={stu.id} canEdit={canNote(se)} /></div>
+            {rows.map(({ se, k }) => (
+              <li key={`${se.id}:${k.id}`} className="flex gap-3 px-4 py-2.5">
+                <span className="w-28 shrink-0 text-xs text-muted-foreground tabular-nums">{many && <b className="block font-medium text-foreground">{k.nickname}</b>}{fmtDate(se.date, { weekday: true })} {se.start}<br />{subjectsOf(se).join(" + ")}</span>
+                <div className="min-w-0 flex-1"><CalendarNotes s={se} studentId={k.id} canEdit={canNote(se)} /></div>
               </li>
             ))}
           </ul>
         </section>
       )}
       <div className="flex-1 space-y-3">
-        {notes.length === 0 && <Empty>ยังไม่มีโน้ต — ใช้จดเรื่องที่ทีมควรรู้เกี่ยวกับนักเรียนคนนี้</Empty>}
+        {notes.length === 0 && <Empty>{many ? "ยังไม่มีโน้ต — ใช้จดเรื่องที่ทีมควรรู้เกี่ยวกับลูกๆ" : "ยังไม่มีโน้ต — ใช้จดเรื่องที่ทีมควรรู้เกี่ยวกับนักเรียนคนนี้"}</Empty>}
         {notes.map((n) => {
           const by = staff.find((x) => x.id === n.by)
           const mineN = n.by === userId
@@ -684,7 +797,7 @@ function NoteSeg({ stu }: { stu: Student }) {
             <div key={n.id} className={cn("flex items-end gap-2", mineN && "flex-row-reverse")}>
               <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(n.by))}>{initial(by?.nickname ?? "?")}</span>
               <div className={cn("max-w-[80%] rounded-2xl p-3 text-sm", mineN ? "bg-primary/10" : "bg-muted")}>
-                <p className="mb-1 flex gap-3 text-2xs text-muted-foreground"><span>{by?.nickname ?? "?"}</span><span className="ml-auto">{fmtDateTime(n.at)}</span></p>
+                <p className="mb-1 flex gap-3 text-2xs text-muted-foreground"><span>{by?.nickname ?? "?"}{many && <b className="ml-1.5 font-medium text-foreground">→ {nameOf(n.studentId)}</b>}</span><span className="ml-auto">{fmtDateTime(n.at)}</span></p>
                 <p className="whitespace-pre-wrap">{n.text}</p>
                 {/* written on a class in the calendar board (owner 2026-10-12) */}
                 {n.sessionId && (() => { const se = sessions.find((x) => x.id === n.sessionId); return se ? <p className="mt-1 text-2xs text-muted-foreground">จากคาบ {se.subject} · {fmtDate(se.date)} {se.start}</p> : null })()}
@@ -695,11 +808,35 @@ function NoteSeg({ stu }: { stu: Student }) {
       </div>
       <p className="my-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"><MessageSquareIcon className="size-3.5" /> ข้อมูลภายในเท่านั้น — ผู้ปกครองไม่เห็น</p>
       {/* owner 2026-10-29: the same type bar as the Inbox */}
-      <div className="flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-colors focus-within:border-ring/60">
-        <Textarea rows={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์โน้ต…"
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() } }}
-          className={cn("max-h-40 min-h-9 flex-1", text ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground")} />
-        <Button size="icon" className="rounded-full" disabled={!text.trim()} aria-label="บันทึกโน้ต" onClick={send}><ArrowUpIcon /></Button>
+      <div className="relative">
+        {choices.length > 0 && (
+          <ul role="listbox" aria-label="เลือกลูก" className="absolute bottom-full left-2 z-10 mb-1 w-56 space-y-0.5 rounded-2xl border bg-popover p-1 shadow-lg">
+            {choices.map((k, i) => (
+              <li key={k.id} role="option" aria-selected={i === pick % choices.length}>
+                <Button variant="row" size="inline" type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choose(k)}
+                  className={cn("flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm", i === pick % choices.length && "bg-accent")}>
+                  <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(k.id))}>{initial(k.nickname)}</span>
+                  <span className="font-medium">{k.nickname}</span><span className="text-xs text-muted-foreground">{k.grade}</span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex items-center gap-1.5 rounded-3xl border bg-background p-1.5 shadow-sm transition-[color,box-shadow] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
+          <Textarea rows={1} value={text} onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart ?? e.target.value.length); setPick(0) }}
+            onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)} placeholder={many ? "พิมพ์โน้ต… (พิมพ์ @ เพื่อเลือกลูก)" : "พิมพ์โน้ต…"}
+            onKeyDown={(e) => {
+              if (choices.length > 0) {
+                if (e.key === "ArrowDown") { e.preventDefault(); setPick((i) => i + 1); return }
+                if (e.key === "ArrowUp") { e.preventDefault(); setPick((i) => i - 1 + choices.length); return }
+                if ((e.key === "Enter" || e.key === "Tab") && !e.nativeEvent.isComposing) { e.preventDefault(); choose(choices[((pick % choices.length) + choices.length) % choices.length]); return }
+                if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setCaret(0); return }
+              }
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() }
+            }}
+            className={cn("max-h-40 min-h-9 flex-1", text ? "field-sizing-content" : "h-9 overflow-hidden whitespace-nowrap", "resize-none border-0 bg-transparent px-3 py-2 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0")} />
+          <Button size="icon" className="rounded-full" disabled={!text.trim()} aria-label="บันทึกโน้ต" onClick={send}><ArrowUpIcon /></Button>
+        </div>
       </div>
     </div>
   )

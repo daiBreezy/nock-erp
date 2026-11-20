@@ -805,6 +805,8 @@ export interface Assessment {
   note?: string
   notedBy?: ID
   notedAt?: string
+  /** owner 2026-11-20: the Lead already tried this subject — the admin approved ANOTHER Trial and had to say why */
+  retrialReason?: string
 }
 
 export interface CreditInfo {
@@ -1234,11 +1236,31 @@ export interface LeadLost {
   by: ID
 }
 
+/** one child on a Lead (owner 2026-11-20) */
+export interface LeadKid {
+  id: string
+  name: string
+  grade: string
+  subjects: string[]
+  courseIds: ID[]
+  note: string
+  /** owner 2026-11-20: the Student made / matched for this child — so an invoice made for them starts with their interested courses */
+  studentId?: ID
+}
+
 export interface Lead {
   id: ID
   branchId: ID
   name: string
   childGrade: string
+  /** owner 2026-11-20: the courses the family is interested in (picked by staff in the Lead summary) — the catalog taps are shown beside them */
+  interestCourseIds?: ID[]
+  /** owner 2026-11-20: how many children they will bring — unset = the children already on file (at least 1). Kept = `childGrades.length` once grades are set */
+  childCount?: number
+  /** owner 2026-11-20: each child of the family with their own name · grade · subjects / courses of interest · note (the first child also fills the flat fields above) */
+  kids?: LeadKid[]
+  /** owner 2026-11-20: ONE grade per child (1 child = 1 grade) — the first one is `childGrade`; "" = grade not known yet */
+  childGrades?: string[]
   /** the first subject of interest — colour, filters, reports */
   subject: string
   /** owner 2026-10-29: every subject the family is interested in (first = `subject`); unset = just `subject` */
@@ -1292,6 +1314,8 @@ export interface Conversation {
   group?: boolean
   /** group only: who each LINE member is — kept on the conversation (not on the family) because a group also holds people who are NOT in the ERP (an uncle or aunt who just wants the news) */
   members?: Record<string, GroupMemberRole>
+  /** owner 2026-11-20: a staff member flagged this chat "Follow-up" — the list shows a loud tag so everyone knows to come look (cleared by hand) */
+  followUp?: { at: string; by: ID }
 }
 
 /** a LINE group member's place: a guardian (identified by `Parent.lineUserId`) · a student of the linked family · a follower outside the ERP */
@@ -1342,6 +1366,8 @@ export interface CatalogRequestMeta {
   /** what the parent saw, so the card reads well even if the class changes later */
   className: string
   subjects: string[]
+  /** the grades of that class / course (owner 2026-11-19) — so the Lead panel can say Grade · Subject · Course; older messages look it up */
+  grades?: string[]
   when: string
 }
 
@@ -1513,6 +1539,10 @@ export interface Invoice {
    *  both = stack them · family = Family only. Unset = best. */
   familyMode?: "best" | "both" | "family"
   noteToParent: string
+  /** owner 2026-11-20: the course summary sent to the parent BEFORE the PDF ("here is what we agreed — start date, classes, price").
+   *  `hash` = what the summary said; if the draft changes afterwards the hash no longer matches and the summary must be sent again.
+   *  A family set shares one summary (every member carries the same values). */
+  agreement?: { sentAt: string; sentBy: ID; hash: string; confirmedAt?: string; confirmedBy?: ID }
   status: InvoiceStatus
   pdf: "none" | "generating" | "ready" | "failed"
   createdBy: ID

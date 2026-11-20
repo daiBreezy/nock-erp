@@ -7,6 +7,7 @@ import { PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtMoney } from "@/domain/dates"
@@ -36,7 +37,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment })))
+  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const manage = can(me, "billing.manage")
   const first = members[0]
   const stu = (id: ID) => students.find((x) => x.id === id)
@@ -54,6 +55,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [voiding, setVoiding] = useState(false)
   const [reason, setReason] = useState("")
+  const [gate, setGate] = useState(false)
 
   // what is next for the set: the earliest stage some member has not passed
   const drafts = members.filter((x) => x.status === "draft")
@@ -85,10 +87,27 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
     ...members.filter((x) => x.pdf === "ready").map((x) => ({ key: x.id, kind: "invoice" as const, label: `ใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} ${x.number ?? ""}`.trim(), src: `/print/invoice/${x.id}` })),
   ]
   const generating = members.some((x) => x.pdf === "generating")
+  // owner 2026-11-20: ONE course summary for the whole set — sent and confirmed for every child together; the PDF asks first when it is not confirmed
+  const agStates = members.map((m) => Bill.agreementState(m, Bill.invoiceTotals(m, ctxOf(m))))
+  const agState: Bill.AgreementState = agStates.includes("stale") ? "stale" : agStates.includes("none") ? "none" : agStates.every((x) => x === "confirmed") ? "confirmed" : "sent"
+  const memberIds = members.map((m) => m.id)
+  const runGen = () => each(drafts, (i) => act.gen(i.id)) && report({ ok: true, value: undefined }, `กำลังสร้าง PDF ${drafts.length} ใบ`)
+  const generateAll = () => (agState === "confirmed" ? runGen() : setGate(true))
+  const blank = members.filter((m) => !m.lines.length && !m.advance.length && !m.bookFee)
   const steps: { label: string; done: number; detail?: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
+    ...(drafts.length > 0 || members.some((m) => m.agreement) ? [{ label: "สรุปคอร์สให้ผู้ปกครองยืนยัน", done: agStates.filter((x) => x === "confirmed").length, detail: Bill.AGREEMENT_LABEL[agState],
+      extra: allDraft && manage ? (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <Button size="xs" variant="outline" disabled={blank.length > 0} onClick={() => report(act.sendAgreement(first.id), agState === "none" ? "ส่งสรุปคอร์สให้ผู้ปกครองแล้ว" : "ส่งสรุปคอร์สอีกครั้งแล้ว")}><SendIcon /> {agState === "none" ? "ส่งสรุปคอร์ส" : "ส่งสรุปอีกครั้ง"}</Button>
+          {agState === "sent" && <Button size="xs" onClick={() => report(act.confirmAgreement(memberIds), "บันทึกแล้ว — ผู้ปกครองยืนยันสรุปคอร์ส")}><CheckIcon /> ผู้ปกครองยืนยันแล้ว</Button>}
+          {blank.length > 0 && <span className="text-xs text-muted-foreground">เติมคอร์สให้ {blank.map((m) => stu(m.studentId)?.nickname).join(", ")} ก่อน (เปิดแท็บของแต่ละคน → แก้ไข)</span>}
+        </div>
+      ) : undefined }] : []),
     { label: "สร้าง PDF", done: members.filter((x) => x.pdf === "ready").length, docs: pdfDocs, addLabel: "สร้าง PDF ทั้งชุด",
-      onAdd: manage && drafts.length > 0 && !generating ? () => each(drafts, (i) => act.gen(i.id)) && report({ ok: true, value: undefined }, `กำลังสร้าง PDF ${drafts.length} ใบ`) : undefined },
-    { label: "อนุมัติ", done: members.filter((x) => ["approved", "sent", "paid"].includes(x.status)).length },
+      onAdd: manage && drafts.length > 0 && !generating ? generateAll : undefined },
+    // Force Approve sits right under its own step (owner 2026-11-05)
+    { label: "อนุมัติ", done: members.filter((x) => ["approved", "sent", "paid"].includes(x.status)).length,
+      extra: pending.length > 0 && drafts.length === 0 && !canApproveAll && canForceAll ? <div className="mt-1.5"><ForceApprove label="Force Approve ทั้งชุด" onForce={(remark) => { for (const i of pending) { const r = act.approve(i.id, remark); if (!r.ok) return r } return { ok: true, value: undefined } }} success="Force Approve ทั้งชุดแล้ว — แจ้งทั้งสาขา + Director" /></div> : undefined },
     { label: "ส่งถึงผู้ปกครอง", done: members.filter((x) => x.delivery === "delivered" || x.status === "paid").length, detail: "ข้อความเดียว รวมใบของทุกคน" },
     { label: "รับเงิน (สลิปเดียวทั้งชุด)", done: members.filter((x) => x.status === "paid").length, docs: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
       addLabel: "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)", onAdd: manage && payable.length > 0 ? () => setPay(true) : undefined,
@@ -155,6 +174,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
               <Button variant="row" size="inline" type="button" onClick={() => onOpen(inv.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left hover:underline">
                 <span className="font-medium">{stu(inv.studentId)?.nickname}</span>
                 <span className="truncate font-mono text-xs text-muted-foreground">{inv.number ?? "ร่าง"}</span>
+                {!inv.lines.length && !inv.advance.length && !inv.bookFee && inv.status === "draft" && <span className="shrink-0 text-xs text-muted-foreground">· ยังไม่มีคอร์ส — กดเพื่อเติม</span>}
               </Button>
               <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
               <span className="w-24 text-right tabular-nums">{fmtMoney(total)}</span>
@@ -193,9 +213,6 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
           </ol>
         </section>
 
-        {pending.length > 0 && drafts.length === 0 && !canApproveAll && canForceAll && (
-          <ForceApprove label="Force Approve ทั้งชุด" onForce={(remark) => { for (const i of pending) { const r = act.approve(i.id, remark); if (!r.ok) return r } return { ok: true, value: undefined } }} success="Force Approve ทั้งชุดแล้ว — แจ้งทั้งสาขา + Director" />
-        )}
 
         {allPaid && group.length > 1 && receipts.length > 0 && (
           <section className="space-y-1.5 rounded-lg border p-2.5">
@@ -226,7 +243,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
         <PanelFooter>
           <PanelMore items={[!voiding && members.every((x) => x.payments.length === 0) && { label: "ยกเลิกทั้งชุด", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) }]} />
           {drafts.length > 0 && (
-            <Button className="ml-auto" onClick={() => each(drafts, (i) => act.gen(i.id)) && report({ ok: true, value: undefined }, `กำลังสร้าง PDF ${drafts.length} ใบ`)}><FileTextIcon /> สร้าง PDF ทั้งชุด</Button>
+            <Button className="ml-auto" onClick={generateAll}><FileTextIcon /> สร้าง PDF ทั้งชุด</Button>
           )}
           {drafts.length === 0 && pending.length > 0 && canApproveAll && (
             <Button className="ml-auto" onClick={() => each(pending, (i) => act.approve(i.id)) && report({ ok: true, value: undefined }, "อนุมัติทั้งชุดแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติทั้งชุด</Button>
@@ -244,9 +261,23 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
       )}
       {receiptOpen && <IssueReceiptDialog invoices={needReceipt} onClose={() => setReceiptOpen(false)} />}
       {pay && payable.length > 0 && (
-        <PaySlipDialog inv={payable[0].inv} owed={payable[0].owed} onClose={() => setPay(false)}
+        <PaySlipDialog inv={payable[0].inv} owed={payable[0].owed} allTicked onClose={() => setPay(false)}
           siblings={payable.slice(1).map((r) => ({ id: r.inv.id, number: r.inv.number ?? "", nickname: stu(r.inv.studentId)?.nickname ?? "", owed: r.owed }))} />
       )}
+      <Dialog open={gate} onOpenChange={setGate}>
+        <DialogContent className="lg:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ผู้ปกครองยังไม่ได้ยืนยันสรุปคอร์ส</DialogTitle>
+            <DialogDescription>
+              {agState === "none" ? "ยังไม่ได้ส่งสรุปคอร์สให้ผู้ปกครองดู" : agState === "stale" ? "แก้ใบหลังส่งสรุปไปแล้ว — สรุปที่ผู้ปกครองเห็นไม่ตรงกับใบนี้" : "ส่งสรุปแล้ว แต่ผู้ปกครองยังไม่ได้ยืนยัน"} · สร้าง PDF ต่อเลย หรือกลับไปส่ง/รอยืนยันก่อน
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setGate(false)}>กลับไปส่งสรุป</Button>
+            <Button onClick={() => { setGate(false); runGen() }}>ข้ามและสร้าง PDF</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangleIcon, CheckIcon, LayersIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, BookOpenIcon, CheckIcon, LayersIcon, PlusIcon } from "lucide-react"
+import { tagChip } from "@/components/app/tags"
 import { GradeChips } from "@/components/app/grade-chips"
 import { NativeSelect } from "@/components/app/native-select"
 import { PackageBadge } from "@/components/app/package-badge"
@@ -26,7 +27,7 @@ const PAGE = 24
  * "Create new Course". Only the invoice's own branch — Directors see every branch elsewhere, but an invoice sells
  * its own branch's courses (owner 2026-09-30).
  */
-export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice, onClose, onConfirm }: {
+export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice, onClose, onConfirm, forForm, interestedIds }: {
   branch: Branch
   today: string
   studentGrade?: string
@@ -36,6 +37,10 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
   onInvoice: ID[]
   onClose: () => void
   onConfirm: (courses: Course[]) => void
+  /** owner 2026-11-19: opened from the Test / Trial form dialog, not an invoice — only the wording changes */
+  forForm?: boolean
+  /** owner 2026-11-20: courses the parent tapped "interested" on in the catalog — marked in the list and shown first, so the admin sees what they asked about */
+  interestedIds?: ID[]
 }) {
   const allCourses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
@@ -49,7 +54,9 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
   const [creating, setCreating] = useState<Course | null>(null)
 
   const branchCourses = filterCourses(allCourses, branch.id, { q: "", subject: "", format: "", pack: "" }, today)
+  const asked = new Set(interestedIds ?? [])
   const list = filterCourses(allCourses, branch.id, f, today).filter((c) => !grade || !c.grades.length || c.grades.includes(grade)).filter((c) => brandPriceUnits(branch.brand).includes(c.unit))
+    .map((c, i) => ({ c, i })).sort((a, b) => Number(asked.has(b.c.id)) - Number(asked.has(a.c.id)) || a.i - b.i).map((x) => x.c)
   const packs = [...new Map(branchCourses.map((c) => [packKey(c), packageLabel(c)])).entries()].map(([value, label]) => ({ value, label }))
   const toggle = (id: ID) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
 
@@ -59,7 +66,7 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
         <DialogContent className="flex max-h-[92vh] flex-col gap-3 lg:max-w-5xl">
           <DialogHeader>
             <DialogTitle>เลือกคอร์ส {picked.length > 0 && <span className="text-primary">({picked.length})</span>}</DialogTitle>
-            <DialogDescription>เลือกได้หลายคอร์สในใบเดียว · เฉพาะคอร์สของสาขา{branchLabel(branch)}</DialogDescription>
+            <DialogDescription>{forForm ? "เลือกได้หลายคอร์ส · เฉพาะคอร์สของสาขา" : "เลือกได้หลายคอร์สในใบเดียว · เฉพาะคอร์สของสาขา"}{branchLabel(branch)}</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_1.4fr]">
@@ -104,8 +111,10 @@ export function CoursePicker({ branch, today, studentGrade, studentId, onInvoice
                         <span className="flex items-center gap-2">
                           <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold", subjectColor(c.subjects[0]).chip)}>{c.kind === "bundle" ? <LayersIcon className="size-3.5" /> : initial(c.subjects[0])}</span>
                           <span className="min-w-0">
-                            <span className="block truncate font-medium">{c.name}</span>
-                            {already ? <span className="block text-xs text-muted-foreground">อยู่ในใบแล้ว</span>
+                            <span className="flex items-center gap-1.5"><span className="truncate font-medium">{c.name}</span>
+                              {asked.has(c.id) && <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-px text-2xs font-medium", tagChip("interest", "catalog"))}><BookOpenIcon className="size-2.5" /> ผู้ปกครองสนใจ</span>}
+                            </span>
+                            {already ? <span className="block text-xs text-muted-foreground">{forForm ? "เลือกไว้แล้ว" : "อยู่ในใบแล้ว"}</span>
                               : gradeOff ? <span className="flex items-center gap-1 text-xs text-warning"><AlertTriangleIcon className="size-3" /> อาจไม่ตรงชั้น {studentGrade}</span> : null}
                           </span>
                         </span>

@@ -9,11 +9,14 @@ export const LANGS: { key: FormLang; label: string }[] = [{ key: "th", label: "T
 const th = {
   formTitle: (t: FormType): string => (t === "test" ? "แบบฟอร์มสอบวัดระดับ" : "แบบฟอร์มทดลองเรียน"),
   hello: (name: string) => `สวัสดีค่ะ คุณ${name}`,
+  errRequired: "จำเป็นต้องกรอก", errPhoneChars: "ใส่ได้เฉพาะตัวเลข (ใช้ - หรือเว้นวรรคได้)", errPhoneLong: "ตัวเลขเกิน — เบอร์โทรมี 9–10 หลัก", errPhoneShort: "ตัวเลขไม่ครบ — ต้องมี 9–10 หลัก", errPhoneZero: "เบอร์โทรต้องขึ้นต้นด้วย 0", errEmail: "อีเมลไม่ถูกต้อง เช่น name@example.com", errPdpa: "จำเป็นต้องเลือก 1 ข้อ", errGrade: "จำเป็นต้องเลือกระดับชั้น", errTime: "จำเป็นต้องเลือกวัน-เวลาให้ครบทุกวิชา",
+  missing: "ยังขาด:", secN: (n: number, total: number) => `ส่วนที่ ${n}/${total}`, req: "ต้องกรอก",
+  secParent: "ข้อมูลผู้ปกครอง", secSource: "รู้จักเราจากไหน", secBus: "รถรับส่งและที่อยู่", secAddress: "ที่อยู่", secPdpa: "การถ่ายภาพนักเรียน (PDPA)", secTax: "ใบกำกับภาษี", secStudent: "ข้อมูลนักเรียน", secTime: "วิชาและวัน-เวลา",
   steps: ["ผู้ปกครอง", "นักเรียน", "ตรวจสอบ"],
   parentTitle: "ผู้ปกครอง", parentSub: "ข้อมูลสำหรับติดต่อ", addParent: "เพิ่มผู้ปกครอง",
   parentN: (n: number) => `ผู้ปกครองคนที่ ${n}`,
   grpName: "ชื่อ", grpBasic: "ข้อมูลทั่วไป", grpContact: "ติดต่อ", grpFamily: "ครอบครัว", grpStudentName: "ชื่อนักเรียน",
-  firstName: "ชื่อ", lastName: "นามสกุล", nickname: "ชื่อเล่น", email: "อีเมล",
+  firstName: "ชื่อจริง", lastName: "นามสกุล", nickname: "ชื่อเล่น", email: "อีเมล",
   relationship: "ความสัมพันธ์", birthDate: "วันเกิด", phone: "เบอร์โทร", addPhone: "เพิ่มเบอร์โทร", makeDefault: "ตั้งเป็นเบอร์หลัก", defaultTag: "เบอร์หลัก",
   primaryParent: "ผู้ติดต่อหลัก", acquisition: "รู้จักเราจากช่องทางไหน", select: "เลือก",
   // owner 2026-11-19: Bus use? (Liclass) · who told you about us (free text) · PDPA photo consent
@@ -39,9 +42,9 @@ const th = {
   required: "ช่องที่มี * ต้องกรอก",
   // owner 2026-10-15: same fields as the admin panel — the extras are optional
   familyName: "ชื่อครอบครัว", familyNamePh: (last: string) => (last ? `ครอบครัว${last}` : "ครอบครัวใจดี"), familyNameSub: "ไม่ใส่ = ใช้นามสกุลผู้ปกครองหลัก",
-  nameEn: "ชื่อ-นามสกุล (อังกฤษ)", nicknameEn: "ชื่อเล่น (อังกฤษ)", familyNameEn: "ชื่อครอบครัว (อังกฤษ)", optional: "ไม่บังคับ",
-  gender: "เพศ", genders: { male: "ชาย", female: "หญิง" },
-  rel: { guardian: "ผู้ปกครอง", dad: "พ่อ", mom: "แม่", relative: "ญาติ" },
+  nameEn: "ชื่อจริง-นามสกุล (อังกฤษ)", nicknameEn: "ชื่อเล่น (อังกฤษ)", familyNameEn: "ชื่อครอบครัว (อังกฤษ)", optional: "ไม่บังคับ",
+  gender: "เพศ", genders: { male: "ชาย", female: "หญิง" }, genderNone: "ไม่ระบุ",
+  rel: { guardian: "อื่นๆ", dad: "พ่อ", mom: "แม่", relative: "ญาติ" },
   src: { line: "LINE OA", facebook: "Facebook", walkin: "Walk-in", phone: "โทรศัพท์", website: "เว็บไซต์", referral: "คนแนะนำ", other: "อื่นๆ" } as Record<LeadSource, string>,
 }
 
@@ -50,6 +53,9 @@ type Dict = typeof th
 const en: Dict = {
   formTitle: (t) => (t === "test" ? "Placement test form" : "Trial class form"),
   hello: (name) => `Hello ${name}`,
+  errRequired: "This is required", errPhoneChars: "Digits only (you may use - or spaces)", errPhoneLong: "Too many digits — a phone number has 9–10", errPhoneShort: "Too few digits — it needs 9–10", errPhoneZero: "The number must start with 0", errEmail: "Not a valid email, e.g. name@example.com", errPdpa: "Please choose one", errGrade: "Please choose a grade", errTime: "Please choose a time for every subject",
+  missing: "Still needed:", secN: (n, total) => `Section ${n}/${total}`, req: "Required",
+  secParent: "Parent details", secSource: "How you found us", secBus: "School bus and address", secAddress: "Address", secPdpa: "Photo consent (PDPA)", secTax: "Tax invoice", secStudent: "Student details", secTime: "Subjects and time",
   steps: ["Parent", "Student", "Review"],
   parentTitle: "Parent / Guardian", parentSub: "Contact details", addParent: "Add another parent",
   parentN: (n) => `Parent ${n}`,
@@ -78,14 +84,17 @@ const en: Dict = {
   required: "Fields marked * are required",
   familyName: "Family name", familyNamePh: (last) => (last ? `${last} family` : "Jaidee family"), familyNameSub: "Empty = the main parent's surname",
   nameEn: "Name in English", nicknameEn: "Nickname in English", familyNameEn: "Family name in English", optional: "optional",
-  gender: "Gender", genders: { male: "Boy", female: "Girl" },
-  rel: { guardian: "Guardian", dad: "Father", mom: "Mother", relative: "Relative" },
+  gender: "Gender", genders: { male: "Boy", female: "Girl" }, genderNone: "Prefer not to say",
+  rel: { guardian: "Others", dad: "Father", mom: "Mother", relative: "Relative" },
   src: { line: "LINE OA", facebook: "Facebook", walkin: "Walk-in", phone: "Phone", website: "Website", referral: "Referral", other: "Other" },
 }
 
 const ja: Dict = {
   formTitle: (t) => (t === "test" ? "レベルチェック申込フォーム" : "体験レッスン申込フォーム"),
   hello: (name) => `${name}様`,
+  errRequired: "必須項目です", errPhoneChars: "数字のみ入力できます（- や空白は可）", errPhoneLong: "桁数が多すぎます — 電話番号は9〜10桁です", errPhoneShort: "桁数が足りません — 9〜10桁が必要です", errPhoneZero: "電話番号は0から始まります", errEmail: "メールアドレスの形式が正しくありません（例：name@example.com）", errPdpa: "1つお選びください", errGrade: "学年を選んでください", errTime: "すべての科目で日時を選んでください",
+  missing: "未入力：", secN: (n, total) => `セクション ${n}/${total}`, req: "必須",
+  secParent: "保護者情報", secSource: "当校を知ったきっかけ", secBus: "送迎バスとご住所", secAddress: "ご住所", secPdpa: "写真撮影について（PDPA）", secTax: "領収書（タックスインボイス）", secStudent: "生徒情報", secTime: "科目と日時",
   steps: ["保護者", "生徒", "確認"],
   parentTitle: "保護者", parentSub: "ご連絡先", addParent: "保護者を追加",
   parentN: (n) => `保護者 ${n}`,
@@ -114,21 +123,23 @@ const ja: Dict = {
   required: "* は必須項目です",
   familyName: "家族名", familyNamePh: (last) => (last ? `${last}家` : "山田家"), familyNameSub: "空欄 = 主な保護者の姓",
   nameEn: "英語表記の氏名", nicknameEn: "ニックネーム（英語）", familyNameEn: "家族名（英語）", optional: "任意",
-  gender: "性別", genders: { male: "男", female: "女" },
-  rel: { guardian: "保護者", dad: "父", mom: "母", relative: "親族" },
+  gender: "性別", genders: { male: "男", female: "女" }, genderNone: "回答しない",
+  rel: { guardian: "その他", dad: "父", mom: "母", relative: "親族" },
   src: { line: "LINE OA", facebook: "Facebook", walkin: "来校", phone: "電話", website: "ウェブサイト", referral: "ご紹介", other: "その他" },
 }
 
 export const DICT: Record<FormLang, Dict> = { th, en, ja }
 export type RelKey = keyof Dict["rel"]
 /** owner 2026-10-12: the same four as staff see (ผู้ปกครอง · พ่อ · แม่ · ญาติ) */
-export const REL_KEYS: RelKey[] = ["guardian", "dad", "mom", "relative"]
+export const REL_KEYS: RelKey[] = ["dad", "mom", "relative", "guardian"]
+/** what is stored never changes with the label shown (owner 2026-11-20: the menu reads Father · Mother · Relative · Others) */
+const REL_STORED: Record<RelKey, string> = { guardian: "ผู้ปกครอง", dad: "พ่อ", mom: "แม่", relative: "ญาติ" }
 export const SOURCE_KEYS: LeadSource[] = ["line", "facebook", "walkin", "referral", "website", "phone", "other"]
 
 /** staff read relationships in Thai — store the Thai word whatever language the parent used */
-export const relToStored = (k: RelKey) => th.rel[k]
+export const relToStored = (k: RelKey) => REL_STORED[k]
 /** stored (Thai or free text) → key, so a pre-filled "คุณแม่" shows as "Mother" on an English form */
-export const relFromStored = (v?: string): RelKey | "" => { const n = normalizeRelation(v); return n ? REL_KEYS.find((k) => th.rel[k] === n) ?? "" : "" }
+export const relFromStored = (v?: string): RelKey | "" => { const n = normalizeRelation(v); return n ? REL_KEYS.find((k) => REL_STORED[k] === n) ?? "" : "" }
 
 const LOCALE: Record<FormLang, string> = { th: "th-TH", en: "en-GB", ja: "ja-JP" }
 /** "อ. 30 ก.ย." / "Tue 30 Sep" / "9月30日(火)" */

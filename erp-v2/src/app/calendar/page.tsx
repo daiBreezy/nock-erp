@@ -17,7 +17,7 @@ import { FilterMenu } from "@/components/app/filter-menu"
 import { SessionSheet } from "@/components/app/session-sheet"
 import { subjectColor } from "@/components/app/subject-color"
 import { WORK_ORDER, WorkIcon } from "@/components/app/work-state"
-import { KIND_ICON, kindOf, RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
+import { KIND_ICON, kindOf, classTypeOf, RoomMeta, StudentsMeta } from "@/components/calendar/session-meta"
 import { DataTable, type Column } from "@/components/app/data-grid"
 import { useSort } from "@/components/app/data-table"
 import { MoveDialog } from "@/components/calendar/move-dialog"
@@ -97,6 +97,8 @@ function CalendarView() {
   // everyone sees every session by default; teachers get a one-tap "only mine" filter
   const [teacher, setTeacher] = useQueryState<string>("teacher", "all")
   const [subject, setSubject] = useQueryState<string>("subject", "all")
+  // owner 2026-11-20: filter by class type (Learning / Test / Interview / Others) — a trial is a learning session
+  const [kindFilter, setKindFilter] = useQueryState<string>("kind", "all")
   // owner 2026-11-13: EVERY time the week table is (re)opened — first visit, coming back from another view or page — it
   // jumps to today's section, wherever it was scrolled before. Today's week is restored first.
   useEffect(() => {
@@ -160,9 +162,10 @@ function CalendarView() {
         (s) =>
           s.date >= range.from && s.date <= range.to &&
           (teacher === "all" || (teacher === "none" ? !staff.some((t) => t.id === s.teacherId) : s.teacherId === teacher || s.coTeacherIds.includes(teacher))) &&
-          (subject === "all" || s.subject === subject),
+          (subject === "all" || s.subject === subject) &&
+          (kindFilter === "all" || classTypeOf(s, classes.find((k) => k.id === s.classId)) === kindFilter),
       ),
-    [branchSessions, range, teacher, subject, staff],
+    [branchSessions, range, teacher, subject, kindFilter, staff, classes],
   )
   // conflicts are computed on ALL branch sessions, not only the filtered ones
   // only clashes still ahead are worth a warning — past ones can't be fixed (owner 2026-10-01)
@@ -277,6 +280,7 @@ function CalendarView() {
               fields={[
               { id: "teacher", label: "ครู", value: teacher === "all" ? "" : teacher, onChange: (v) => setTeacher(v || "all"), placeholder: "ครูทุกคน", options: teacherOptions.filter((o) => o.value !== "all") },
               { id: "subject", label: "วิชา", value: subject === "all" ? "" : subject, onChange: (v) => setSubject(v || "all"), placeholder: "ทุกวิชา", options: branch.subjects.map((x) => ({ value: x, label: x })) },
+              { id: "kind", label: "ประเภทคาบ", value: kindFilter === "all" ? "" : kindFilter, onChange: (v) => setKindFilter(v || "all"), placeholder: "ทุกประเภท", options: [{ value: "learning", label: "เรียน (Learning)" }, { value: "test", label: "สอบ (Test)" }, { value: "interview", label: "คุยผู้ปกครอง (Interview)" }, { value: "other", label: "อื่นๆ (Others)" }] },
               { id: "work", label: "สถานะ", value: workFilter ?? "", onChange: (v) => setWorkFilter((v || null) as WorkState | null), placeholder: `ทุกสถานะ (${visible.filter((x) => !x.cancelled).length})`,
                 options: WORK_ORDER.map((w) => ({ value: w, label: `${WORK_LABEL[w]} (${workCounts[w] ?? 0})` })) },
             ]} />

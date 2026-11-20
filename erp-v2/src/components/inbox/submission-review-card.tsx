@@ -2,21 +2,25 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { CalendarIcon, CheckIcon, ClipboardListIcon, GraduationCapIcon, PencilIcon, XIcon } from "lucide-react"
+import { CalendarIcon, CheckIcon, EyeIcon, ClipboardListIcon, GraduationCapIcon, PencilIcon, XIcon } from "lucide-react"
 import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader, ConfirmationResult } from "@/components/ai-elements/confirmation"
 import { Button } from "@/components/ui/button"
 import { fmtDate } from "@/domain/dates"
-import { FORM_TYPE_LABEL, canEditTogether } from "@/domain/rules/forms"
+import { FORM_TYPE_LABEL, canEditTogether, repeatTrials } from "@/domain/rules/forms"
 import { BUS_USE_LABEL, matchExistingFamily, PDPA_LABEL, submissionChanges } from "@/domain/rules/people"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
+import { TriangleAlertIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { FormOfferSlot, FormSubmission } from "@/domain/types"
 import { approveSubmission, editSubmissionSlot, rejectSubmission } from "@/lib/forms"
 import { report } from "@/lib/feedback"
 import { tx } from "@/lib/i18n"
 import { useBranch, useNow } from "@/lib/hooks"
+import { can } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
 import { SlotPicker, VisitPicker } from "./slot-picker"
+import { SubmissionPreviewDialog } from "./submission-preview"
 import { ReferrerPicker } from "./referrer-picker"
 import { FamilyMatchChoice } from "@/components/app/family-match-choice"
 
@@ -27,7 +31,7 @@ import { FamilyMatchChoice } from "@/components/app/family-match-choice"
  * Approve/Edit/Reject while pending. Shared by the Inbox chat bubble and the Lead sheet so review logic
  * and markup live in exactly one place.
  */
-export function SubmissionReviewCard({ submission: sub, onChanged }: { submission: FormSubmission; onChanged: () => void }) {
+export function SubmissionReviewCard({ submission: sub, onChanged, groupMates }: { submission: FormSubmission; onChanged: () => void; groupMates?: FormSubmission[] }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
   const sessions = useStore((s) => s.sessions)
@@ -37,6 +41,15 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   const leads = useStore((s) => s.leads)
   const students = useStore((s) => s.students)
   const now = useNow()
+  const me = useStore((s) => s.me())
+  const assessments = useStore((s) => s.assessments)
+  // owner 2026-11-20: one Trial per SUBJECT — a repeat needs the admin's reason (warned here before approving)
+  const repeats = sub.status === "pending" && sub.type === "trial"
+    ? repeatTrials(assessments, sessions, { leadId: sub.leadId, studentId: leads.find((l) => l.id === sub.leadId)?.trialStudentId }, sub.picks.map((p) => p.chosenSubject), sub.id)
+    : []
+  const [retrialReason, setRetrialReason] = useState("")
+  const [previewing, setPreviewing] = useState(false)
+  const needReason = repeats.length > 0 && !retrialReason.trim()
 
   const [editingPick, setEditingPick] = useState<number | null>(null)
   const [editSubject, setEditSubject] = useState("")
@@ -63,10 +76,24 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
   // owner 2026-11-19: "who told you about us" is free text — the system suggests the family, the admin confirms (or searches by hand)
   const [referrerId, setReferrerId] = useState<string | null>(null)
 
-  const approve = async () => {
+  /** returns true when it was approved (the preview dialog closes then) */
+  const approve = async (): Promise<boolean> => {
     setBusy(true)
     try {
-      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges, newFamily, referredByFamilyId: referrerId ?? undefined }), (v) => (v.createdLead ? "อนุมัติแล้ว + สร้าง Lead จากฟอร์ม — สร้างคาบเรียนจริงแล้ว" : changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว"))) onChanged()
+      if (report(await approveSubmission(sub, { applyChanges: changes.length > 0 && applyChanges, newFamily, referredByFamilyId: referrerId ?? undefined, retrialReason: repeats.length ? retrialReason.trim() : undefined }), (v) => (v.createdLead ? "อนุมัติแล้ว + สร้าง Lead จากฟอร์ม — สร้างคาบเรียนจริงแล้ว" : changes.length && applyChanges ? `อนุมัติแล้ว + อัปเดตข้อมูล ${changes.length} รายการ` : "อนุมัติแล้ว — สร้างคาบเรียนจริงแล้ว"))) { onChanged(); return true }
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+  /** owner 2026-11-20: brothers/sisters on one Test form — approve them all in one go (they share one visit) */
+  const approveGroup = async () => {
+    setBusy(true)
+    try {
+      for (const x of [sub, ...(groupMates ?? [])]) {
+        if (!report(await approveSubmission(x, { applyChanges: false }), tx("อนุมัติ {0} แล้ว", [x.studentNickname || x.studentName]))) return
+      }
+      onChanged()
     } finally {
       setBusy(false)
     }
@@ -146,6 +173,17 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
       </div>
 
 
+      {repeats.length > 0 && (
+        <div className="mt-1.5 space-y-1.5 rounded-lg border border-warning/40 bg-warning-soft/60 p-2 text-2xs text-warning-ink">
+          <p className="flex items-center gap-1 font-semibold"><TriangleAlertIcon className="size-3.5" /> Lead นี้เคย Trial วิชานี้ไปแล้ว</p>
+          <ul className="space-y-0.5">
+            {repeats.map((r) => <li key={r.subject}><b>{r.subject}</b> · {r.prior.map((a) => fmtDate(a.date)).join(", ")}</li>)}
+          </ul>
+          <p>ถ้าจะให้ Trial อีกครั้ง ต้องใส่เหตุผล (บันทึกไว้กับคาบ Trial)</p>
+          <Textarea value={retrialReason} onChange={(e) => setRetrialReason(e.target.value)} rows={2} placeholder="เหตุผลที่ให้ Trial ซ้ำ" aria-label="เหตุผลที่ให้ Trial ซ้ำ" className="bg-background text-xs text-foreground" />
+        </div>
+      )}
+
       {matchedFamily && !knownStudent && (
         <FamilyMatchChoice className="mt-1.5" familyName={matchedFamily.name} reason="เบอร์ / LINE ตรงกัน" newFamily={newFamily} onChange={setNewFamily} />
       )}
@@ -205,13 +243,19 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
 
       {sub.status === "pending" && idle && (
         <ConfirmationActions>
+          {/* owner 2026-11-20: the whole answer sheet, read only — on the left so ปฏิเสธ / อนุมัติ stay together on the right */}
+          <Button size="sm" variant="ghost" className="mr-auto" onClick={() => setPreviewing(true)}><EyeIcon /> Preview Form</Button>
           <Button size="sm" variant="outline" className="text-danger" disabled={busy} onClick={() => (noLead ? setAskLead(true) : reject())}><XIcon /> ปฏิเสธ</Button>
-          <Button size="sm" disabled={busy} onClick={approve}><CheckIcon /> {noLead ? "อนุมัติ / สร้าง Lead" : "อนุมัติ"}</Button>
+          <Button size="sm" disabled={busy || needReason} onClick={approve}><CheckIcon /> {noLead ? "อนุมัติ / สร้าง Lead" : "อนุมัติ"}</Button>
+          {!!groupMates?.length && !noLead && <Button size="sm" disabled={busy || needReason} onClick={approveGroup}><CheckIcon /> {tx("อนุมัติทั้งกลุ่ม ({0} คน)", [groupMates.length + 1])}</Button>}
         </ConfirmationActions>
       )}
+      {previewing && <SubmissionPreviewDialog sub={sub} onClose={() => setPreviewing(false)} editable={sub.status === "pending" && can(me, "session.manage")} onSaved={onChanged}
+        onApprove={async () => { if (await approve()) setPreviewing(false) }} onReject={() => { setPreviewing(false); if (noLead) setAskLead(true); else void reject() }} approveBusy={busy} approveBlocked={needReason ? "ใส่เหตุผลที่ให้ Trial ซ้ำที่การ์ดก่อน" : undefined} approveLabel={noLead ? "อนุมัติ / สร้าง Lead" : "อนุมัติ"} />}
       {sub.status === "approved" && (
         <ConfirmationResult>
           <span>สร้างคาบเรียนจริงแล้ว</span>
+          <Button size="xs" variant="ghost" onClick={() => setPreviewing(true)}><EyeIcon /> Preview Form</Button>
           {sub.createdSessionId && (
             <Link href={`/calendar?sessionId=${sub.createdSessionId}`} className="ml-auto inline-flex items-center gap-1 text-info hover:underline">
               <CalendarIcon className="size-3" /> ดูในปฏิทิน
@@ -219,7 +263,7 @@ export function SubmissionReviewCard({ submission: sub, onChanged }: { submissio
           )}
         </ConfirmationResult>
       )}
-      {sub.status === "rejected" && <ConfirmationResult>ไม่ได้สร้างคาบเรียน</ConfirmationResult>}
+      {sub.status === "rejected" && <ConfirmationResult><span>ไม่ได้สร้างคาบเรียน</span><Button size="xs" variant="ghost" onClick={() => setPreviewing(true)}><EyeIcon /> Preview Form</Button></ConfirmationResult>}
       {askLead && (
         <Dialog open onOpenChange={(o) => !o && setAskLead(false)}>
           <DialogContent className="lg:max-w-sm">

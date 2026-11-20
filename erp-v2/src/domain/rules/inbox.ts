@@ -40,7 +40,14 @@ export const CHANNEL_LABEL: Record<Conversation["channel"], string> = {
   other: "อื่นๆ",
 }
 
-export function conversationType(c: Pick<Conversation, "familyId" | "leadId">): ConversationType {
+/**
+ * owner 2026-11-20: a chat stays a LEAD until the sale is done — approving a Test / Trial form creates the family + student and links them to the chat,
+ * but the person has not enrolled yet. So: an open Lead (not enrolled / closed, and not a win-back of a former student) wins over the family.
+ * `leads` = the CRM leads (looked up by the chat's leadId); without it the old rule applies (a family = a customer).
+ */
+export function conversationType(c: Pick<Conversation, "familyId" | "leadId">, leads?: ReadonlyArray<Pick<Lead, "id" | "stage" | "winBackOf">>): ConversationType {
+  const lead = c.leadId ? leads?.find((l) => l.id === c.leadId) : undefined
+  if (lead && lead.stage !== "enrolled" && lead.stage !== "archived" && !lead.winBackOf) return "lead"
   if (c.familyId) return "customer"
   if (c.leadId) return "lead"
   return "contact"

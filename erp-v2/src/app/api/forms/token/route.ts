@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { checkToken, createToken } from "@/server/form-store"
+import { checkToken, createToken, peekToken } from "@/server/form-store"
 import type { Brand, FormLang, FormToken, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 
 // Staff side: mint a one-time link for a lead, carrying the offered slots the admin picked
@@ -24,6 +24,12 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token")
   if (!token) return NextResponse.json({ ok: false, error: "missing token" }, { status: 400 })
+  // owner 2026-11-20: staff "Preview Form" — what was offered, even once the link is used / expired (read only)
+  if (new URL(req.url).searchParams.get("peek") === "1") {
+    const t = await peekToken(token)
+    if (!t) return NextResponse.json({ ok: false, error: "ลิงก์นี้ไม่ถูกต้อง" })
+    return NextResponse.json({ ok: true, type: t.type, offers: t.offers, grades: t.grades, branchName: t.branchName, bus: t.bus, used: t.used, brand: t.brand, sources: t.sources, subjectNames: t.subjectNames, lang: t.lang })
+  }
   const check = await checkToken(token)
   if (!check.ok) return NextResponse.json(check)
   const t = check.token

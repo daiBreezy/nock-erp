@@ -21,15 +21,15 @@ export interface PayableSibling { id: ID; number: string; nickname: string; owed
  * Upload Pay Slip (owner 2026-11-05): payment method · date · amount received (with what is still owed) · slip image ·
  * transaction ref · remarks. Opens from the "+" tile on the invoice's payment step. One slip can pay siblings' invoices too.
  */
-export function PaySlipDialog({ inv, owed, siblings, initialSlip, onClose }: { inv: Invoice; owed: number; siblings: PayableSibling[]; initialSlip?: string; onClose: () => void }) {
+export function PaySlipDialog({ inv, owed, siblings, initialSlip, allTicked, onClose }: { inv: Invoice; owed: number; siblings: PayableSibling[]; initialSlip?: string; /** opened from the family set's "รับเงินทั้งชุด": every sibling starts ticked, the amount is the whole set */ allTicked?: boolean; onClose: () => void }) {
   const pay = useStore((s) => s.recordPayment)
   const payGroup = useStore((s) => s.recordGroupPayment)
   const today = toDateStr(useNow(60_000))
   const [method, setMethod] = useState<"transfer" | "cash">("transfer")
   const [paidOn, setPaidOn] = useState(today)
-  const [withIds, setWithIds] = useState<ID[]>([])
+  const [withIds, setWithIds] = useState<ID[]>(() => (allTicked ? siblings.map((x) => x.id) : []))
   const owedAll = owed + siblings.filter((x) => withIds.includes(x.id)).reduce((a, x) => a + x.owed, 0)
-  const [amount, setAmount] = useState(String(owed))
+  const [amount, setAmount] = useState(() => String(owed + (allTicked ? siblings.reduce((a, x) => a + x.owed, 0) : 0)))
   const [slip, setSlip] = useState<string | undefined>(initialSlip)
   const [ref, setRef] = useState("")
   const [remark, setRemark] = useState("")

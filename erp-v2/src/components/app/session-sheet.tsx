@@ -1,5 +1,6 @@
 "use client"
 
+import { tx } from "@/lib/i18n"
 import { SeatHours } from "@/components/app/seat-hours"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { staffAt } from "@/domain/rules/permissions"
@@ -94,6 +95,7 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const me = useStore((st) => st.me())
   const save = useStore((st) => st.saveSummary)
   const approve = useStore((st) => st.approveSummary)
+  const sendSummary = useStore((st) => st.sendSummary)
   const now = useNow(10_000)
   const branch = useBranch()
   const L = useLookup()
@@ -148,6 +150,17 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
   const targets = (can: ID[]) => (sel.length ? sel : selectable).filter((x) => can.includes(x))
   const toSubmit = targets(submittable)
   const toApprove = targets(approvable)
+  // owner 2026-11-20: once approved, several students can go to the parents — or be kept as History only — in one go, like submit / approve
+  const sendable = can(me, "summary.approve") ? present.filter((sid) => summaryOf(sid)?.status === "approved") : []
+  const toSend = targets(sendable)
+  const sendMany = () => {
+    const ids = toSend
+    const results = ids.map((sid) => sendSummary(summaryOf(sid)!.id))
+    const fails = results.filter((r) => !r.ok)
+    const noLine = results.filter((r) => r.ok && !r.value.delivered).length
+    report(fails.length ? fails[0] : { ok: true, value: undefined }, noLine ? tx("ส่งสรุป {0} คนแล้ว — {1} คนยังไม่ผูก LINE เก็บไว้ในแอปผู้ปกครองและ History", [ids.length, noLine]) : tx("ส่งสรุปถึงผู้ปกครอง {0} คนแล้ว", [ids.length - fails.length]))
+    setPicked(new Set())
+  }
   const submitMany = () => {
     const ids = toSubmit
     const fails = ids.map((sid) => save(s.id, sid, textOf(sid), true)).filter((r) => !r.ok)
@@ -235,27 +248,27 @@ function Body({ id, onClose }: { id: ID; onClose: () => void }) {
               </div>
             )}
             {viewOnly && <p className="text-xs text-muted-foreground">ดูอย่างเดียว — ไม่ใช่คาบที่คุณสอน</p>}
-            {state === "upcoming" && <p className="text-xs text-muted-foreground">ยังไม่ถึงเวลาเรียน — เช็คชื่อ เขียนสรุป ลา หรือย้ายคาบ เตรียมไว้ล่วงหน้าได้เลย</p>}
             {locked && <p className="text-xs text-warning">ส่งสรุปถึงผู้ปกครองแล้ว — คาบนี้ถูกล็อก แก้ไขไม่ได้</p>}
-            {selectable.length > 0 && (
-              // owner 2026-11-13: a quiet utility bar — outline/ghost only, no filled colour, so it never competes with
-              // the per-row มา/ลา (green/red) or the real send CTA below each summary. No frame; buttons always shown,
-              // greyed out when there's nothing to do, so the list never jumps when a box is ticked. `top-0` lands flush
-              // against the real scroll edge because the scrolling box itself carries no padding (see above).
+            {/* owner 2026-11-20: ONE sticky bar (there were three stacked: a hint line, "select many", "save the default มา") — the left says what is
+                going on, the right holds the one thing to do: ticked → send / approve those summaries · else unsaved default มา → save the check-in.
+                The "not time yet" hint became the ⓘ. */}
+            {(selectable.length > 0 || defaultPresent.length > 0) && (
               <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b bg-background px-4 py-3 text-sm sm:-mx-5 sm:px-5">
-                <Checkbox checked={sel.length === selectable.length} onCheckedChange={(v) => setPicked(v ? new Set(selectable) : new Set())} />
-                <span className="text-muted-foreground">{sel.length ? `เลือก ${sel.length} คน` : "เลือกสรุปหลายคนพร้อมกัน"}</span>
+                {selectable.length > 0 && <Checkbox checked={sel.length === selectable.length} onCheckedChange={(v) => setPicked(v ? new Set(selectable) : new Set())} />}
+                <span className="text-muted-foreground">{sel.length ? `เลือก ${sel.length} คน` : defaultPresent.length > 0 ? `ตั้งเป็น "มา" ไว้ให้ ${defaultPresent.length} คน — ยังไม่ได้บันทึก` : "เลือกสรุปหลายคนพร้อมกัน"}</span>
+                {state === "upcoming" && <InfoTip text="ยังไม่ถึงเวลาเรียน — เช็คชื่อ เขียนสรุป ลา หรือย้ายคาบ เตรียมไว้ล่วงหน้าได้เลย" />}
                 <span className="ml-auto flex gap-1.5">
-                  <Button variant="outline" disabled={toSubmit.length === 0} onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({toSubmit.length})</Button>
-                  <Button variant="outline" disabled={toApprove.length === 0} onClick={approveMany}><CheckIcon /> อนุมัติ ({toApprove.length})</Button>
+                  {sel.length > 0 || defaultPresent.length === 0 ? (
+                    <>
+                      <Button variant="outline" disabled={toSubmit.length === 0} onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({toSubmit.length})</Button>
+                      <Button variant="outline" disabled={toApprove.length === 0} onClick={approveMany}><CheckIcon /> อนุมัติ ({toApprove.length})</Button>
+                      {/* shown only when some summary is already approved — "ส่งผู้ปกครอง" is the one filled button, as on each student's own card */}
+                      {sendable.length > 0 && <Button disabled={toSend.length === 0} onClick={sendMany}><SendIcon /> ส่งผู้ปกครอง ({toSend.length})</Button>}
+                    </>
+                  ) : (
+                    <Button onClick={saveDefaults}><CheckIcon /> บันทึกเช็คชื่อ</Button>
+                  )}
                 </span>
-              </div>
-            )}
-            {/* owner 2026-11-19: everyone not marked yet shows มา (faded = not saved); this bar saves them in one tap. Leave / already marked stay as they are */}
-            {defaultPresent.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-b py-3 text-sm">
-                <span className="text-muted-foreground">{`ตั้งเป็น "มา" ไว้ให้ ${defaultPresent.length} คน — ยังไม่ได้บันทึก`}</span>
-                <Button className="ml-auto" size="sm" onClick={saveDefaults}><CheckIcon /> บันทึกเช็คชื่อ</Button>
               </div>
             )}
             {s.studentIds.length === 0 && !s.rescheduledOut?.length && <Empty>ยังไม่มีนักเรียนในคาบนี้</Empty>}
@@ -1124,7 +1137,6 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
   const approve = useStore((s) => s.approveSummary)
   const requestChanges = useStore((s) => s.requestSummaryChanges)
   const send = useStore((s) => s.sendSummary)
-  const keep = useStore((s) => s.keepSummary)
   const [withText, setWithText] = useState(false)
   const [note, setNote] = useState("")
   const [asking, setAsking] = useState(false)
@@ -1259,9 +1271,7 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
         )}
         {status === "approved" && can(me, "summary.approve") && summary && (
           <>
-            {/* owner 2026-11-13: not every summary goes to the parent (told in person) — keep it as History only; it still feeds the Course Summary */}
-            <Button variant="outline" onClick={() => report(keep(summary.id), "เก็บเป็น History แล้ว — ไม่ได้ส่งผู้ปกครอง")}><HistoryIcon /> เก็บเป็น History (ไม่ส่ง)</Button>
-            <Button onClick={() => report(send(summary.id), "ส่งผู้ปกครองทาง LINE แล้ว")}><SendIcon /> ส่งผู้ปกครอง</Button>
+            <Button onClick={() => report(send(summary.id), (v) => (v.delivered ? "ส่งผู้ปกครองทาง LINE แล้ว" : "ส่งแล้ว — ผู้ปกครองยังไม่ได้ผูก LINE · เก็บไว้ในแอปผู้ปกครองและ History"))}><SendIcon /> ส่งผู้ปกครอง</Button>
           </>
         )}
       </div>

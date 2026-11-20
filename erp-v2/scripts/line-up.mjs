@@ -148,7 +148,9 @@ function startTunnel() {
   let url = null, synced = false, lastError = 0
   const onData = (buf) => {
     const s = buf.toString()
-    const m = s.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)
+    // "api.trycloudflare.com" is Cloudflare's own API (it shows up in cloudflared's error lines when the network drops) —
+    // never our tunnel. Taking it as the public URL pointed the LINE webhook + LIFF at a page that says "Method Not Allowed".
+    const m = [...s.matchAll(/https:\/\/([a-z0-9-]+)\.trycloudflare\.com/g)].find((x) => x[1] !== "api")
     if (m && !url) { url = m[0]; setTimeout(() => syncAll(url).then(() => { synced = true }), 3000) }
     // a quick tunnel that Cloudflare forgot never comes back — start a fresh one
     if (/Tunnel not found|failed to sufficiently increase receive buffer|Unauthorized/.test(s) && synced && Date.now() - lastError > 60_000) {

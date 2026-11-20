@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CopyIcon, DoorOpenIcon, ExternalLinkIcon, RefreshCwIcon, SendIcon, StarIcon, UndoIcon } from "lucide-react"
+import { ChevronDownIcon, CopyIcon, DoorOpenIcon, ExternalLinkIcon, RefreshCwIcon, SendIcon, StarIcon, UndoIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -154,6 +154,8 @@ export function ExitPanel({ stu, bare, preview }: { stu: Student; bare?: boolean
   const [fetched, setResp] = useState<ExitResponse | null>(null)
   const resp = preview ? preview.response : fetched
   const [closing, setClosing] = useState(false)
+  const [openClosed, setOpenClosed] = useState(false)
+  const system = useStore((s) => s.system)
   const [checked, setChecked] = useState(0)
   const ex = stu.exit
   const token = ex?.token
@@ -165,11 +167,25 @@ export function ExitPanel({ stu, bare, preview }: { stu: Student; bare?: boolean
   }, [token, ex?.status, checked, preview])
   if (!ex) return null
   if (ex.status === "closed") {
+    // owner 2026-11-20: a finished exit is history — folded to one line (last day · main reason), open it to read the answers; inside a chat card (bare) it stays open
+    const folded = !bare && !openClosed
+    const reason = ex.reasonId ? Loss.reasonLabel(ex.reasonId, system.lossReasons) : ""
     return (
-      <section className={bare ? "space-y-2" : "space-y-2 rounded-2xl border bg-muted/30 p-3"}>
-        <p className="text-sm font-medium">ออกแล้ว · เรียนวันสุดท้าย {fmtDate(ex.lastDate)}{ex.noReply ? " · ผู้ปกครองไม่ได้ตอบฟอร์ม (Admin ปิดเอง)" : ""}</p>
-        {ex.answers ? <ExitAnswersView answers={ex.answers} /> : <ReasonLine reasonId={ex.reasonId} note={ex.note} />}
-        {ex.money && ex.money !== "none" && <p className="text-xs text-muted-foreground">เงินที่เหลือ: {ex.money === "refund" ? "คืนเงิน" : "เก็บเป็นเครดิต"}</p>}
+      <section className={bare ? "space-y-2" : "rounded-2xl border bg-muted/30 p-3"}>
+        {bare ? <p className="text-sm font-medium">ออกแล้ว · เรียนวันสุดท้าย {fmtDate(ex.lastDate)}{ex.noReply ? " · ผู้ปกครองไม่ได้ตอบฟอร์ม (Admin ปิดเอง)" : ""}</p> : (
+          <Button variant="ghost" size="inline" type="button" aria-expanded={!folded} onClick={() => setOpenClosed((o) => !o)} className="flex w-full items-center gap-2 text-left hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent">
+            <span className="text-sm font-medium">ออกแล้ว · เรียนวันสุดท้าย {fmtDate(ex.lastDate)}</span>
+            {folded && reason && <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{reason}</span>}
+            <ChevronDownIcon className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform", !folded && "rotate-180")} />
+          </Button>
+        )}
+        {!folded && (
+          <div className={cn("space-y-2", !bare && "mt-2")}>
+            {!bare && ex.noReply && <p className="text-xs text-muted-foreground">ผู้ปกครองไม่ได้ตอบฟอร์ม (Admin ปิดเอง)</p>}
+            {ex.answers ? <ExitAnswersView answers={ex.answers} /> : <ReasonLine reasonId={ex.reasonId} note={ex.note} />}
+            {ex.money && ex.money !== "none" && <p className="text-xs text-muted-foreground">เงินที่เหลือ: {ex.money === "refund" ? "คืนเงิน" : "เก็บเป็นเครดิต"}</p>}
+          </div>
+        )}
       </section>
     )
   }

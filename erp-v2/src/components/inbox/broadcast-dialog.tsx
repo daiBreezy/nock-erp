@@ -36,7 +36,7 @@ export function BroadcastDialog({ conversations, onClose }: { conversations: Con
   const answered = current ? responses.filter((r) => r.campaignId === current.id).length : 0
 
   const openLead = (c: Conversation) => { const l = leads.find((x) => x.id === c.leadId); return !!l && l.stage !== "archived" && l.stage !== "enrolled" }
-  const targets = conversations.filter((c) => audience === "all" || (audience === "customer" ? conversationType(c) === "customer" : conversationType(c) === "lead" && openLead(c)))
+  const targets = conversations.filter((c) => audience === "all" || (audience === "customer" ? conversationType(c, leads) === "customer" : conversationType(c, leads) === "lead" && openLead(c)))
   const live = targets.filter((c) => c.id.startsWith("line_")).length
 
   const run = async () => {

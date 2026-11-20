@@ -675,3 +675,23 @@ export const INVOICE_STATUS_LABEL: Record<Invoice["status"], string> = {
   paid: "ชำระครบ",
   void: "ยกเลิก",
 }
+
+// ---------- course summary before the PDF (owner 2026-11-20) ----------
+
+/** what the parent is shown in the summary — course · classes · start · periods · money. A change to any of it makes the old summary stale. */
+export function agreementHash(inv: Invoice, totals: InvoiceTotals): string {
+  return JSON.stringify([
+    inv.lines.map((l) => [l.courseId, [...l.classIds].sort(), l.startDate, l.periods, l.leftover ?? null]).sort(),
+    inv.bus.length, totals.total, inv.advance.map((a) => [a.name, a.amount]),
+  ])
+}
+
+export type AgreementState = "none" | "sent" | "confirmed" | "stale"
+/** none = never sent · sent = waiting for the parent · confirmed = parent agreed · stale = the draft changed after it was sent */
+export function agreementState(inv: Invoice, totals: InvoiceTotals): AgreementState {
+  const a = inv.agreement
+  if (!a) return "none"
+  if (a.hash !== agreementHash(inv, totals)) return "stale"
+  return a.confirmedAt ? "confirmed" : "sent"
+}
+export const AGREEMENT_LABEL: Record<AgreementState, string> = { none: "ยังไม่ส่งสรุปคอร์ส", sent: "ส่งสรุปแล้ว · รอผู้ปกครองยืนยัน", confirmed: "ผู้ปกครองยืนยันแล้ว", stale: "แก้ใบหลังส่งสรุป — ต้องส่งสรุปใหม่" }

@@ -143,12 +143,63 @@ export function picksClash(chosen: Record<string, Pick<FormOfferSlot, "date" | "
   return Object.entries(chosen).some(([subject, x]) => slotClashes(x, chosen, subject))
 }
 
+/**
+ * Trial (owner 2026-11-20): a Lead / child counts the Trial per SUBJECT — one Trial per subject. A second Trial in a subject they already tried
+ * is still allowed, but the admin must be warned and write a reason. Earlier Trials = this Lead's (or the child it became) Trial assessments in
+ * that subject whose session still stands (a cancelled session is not a Trial that happened). `exceptSubmissionId` = the submission being approved.
+ */
+export function priorTrials(assessments: Assessment[], sessions: Pick<Session, "id" | "cancelled">[], who: { leadId?: ID | null; studentId?: ID | null }, subject: string, exceptSubmissionId?: ID): Assessment[] {
+  return assessments.filter((a) =>
+    a.type === "trial" && a.subject === subject && !(exceptSubmissionId && a.submissionId === exceptSubmissionId)
+    && ((!!who.leadId && a.leadId === who.leadId) || (!!who.studentId && a.studentId === who.studentId))
+    && sessions.some((x) => x.id === a.sessionId && !x.cancelled))
+}
+
+/** which of these subjects has the Lead already tried? (empty = a normal first Trial) */
+export function repeatTrials(assessments: Assessment[], sessions: Pick<Session, "id" | "cancelled">[], who: { leadId?: ID | null; studentId?: ID | null }, subjects: string[], exceptSubmissionId?: ID): { subject: string; prior: Assessment[] }[] {
+  return [...new Set(subjects)].map((subject) => ({ subject, prior: priorTrials(assessments, sessions, who, subject, exceptSubmissionId) })).filter((x) => x.prior.length > 0)
+}
+
 /** First subject-qualified, active teacher of this branch with no overlapping session that date. */
-function freeTeacher(staff: Staff[], sessions: Session[], branchId: ID, subject: string, date: DateStr, start: TimeStr, minutes: number): ID | null {
+/** every teacher who could take this time — qualified for the subject at the branch and free the whole stretch (owner 2026-11-19: the Test / Trial dialog
+ *  shows how many, and lets the admin choose who takes the class) */
+export function freeTeachersAt(staff: Staff[], sessions: Session[], branchId: ID, subject: string, date: DateStr, start: TimeStr, minutes: number): Staff[] {
   const qualified = staff.map((t) => staffAt(t, branchId)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branchId) && t.subjects.includes(subject))
   const daySessions = sessions.filter((s) => !s.cancelled && s.branchId === branchId && s.date === date)
-  const free = qualified.find((t) => !daySessions.some((s) => teachersOf(s).includes(t.id) && slotsOverlap(s.start, s.minutes, start, minutes)))
-  return free?.id ?? null
+  return qualified.filter((t) => !daySessions.some((s) => teachersOf(s).includes(t.id) && slotsOverlap(s.start, s.minutes, start, minutes)))
+}
+
+/**
+ * owner 2026-11-20: subjects (and children) in ONE visit have ONE teacher — any teacher free for the whole stretch who teaches AT LEAST ONE of the subjects
+ * (a Maths + English visit is fine with a Maths teacher or an English teacher). Order = the order of `subjects`, then the staff list.
+ */
+export function visitTeachersAt(staff: Staff[], sessions: Session[], branchId: ID, subjects: string[], date: DateStr, start: TimeStr, minutes: number): Staff[] {
+  const seen = new Set<ID>()
+  const out: Staff[] = []
+  for (const sj of subjects) for (const t of freeTeachersAt(staff, sessions, branchId, sj, date, start, minutes)) if (!seen.has(t.id)) { seen.add(t.id); out.push(t) }
+  return out
+}
+
+/**
+ * owner 2026-11-20: the times a shared visit can be offered. Each subject's free times (a qualified teacher + a room) are merged: a time is offered when ANY of the
+ * subjects has a free teacher then, and it is handed to every subject (the one visit has one teacher). Ids are renumbered so no two times share one.
+ * Only free (generic) times — and, with more than one subject, only those that can grow to the 2-hour visit.
+ */
+export function visitOffers(offers: FormSubjectOffer[], subjects: string[]): FormSubjectOffer[] {
+  const mine = offers.filter((o) => subjects.includes(o.subject))
+  const need2h = subjects.length > 1
+  const byTime = new Map<string, FormOfferSlot>()
+  for (const o of mine) for (const x of o.slots) {
+    if (x.source !== "generic" || (need2h && x.fits2h === false)) continue
+    const key = `${x.date} ${x.start}`
+    if (!byTime.has(key)) byTime.set(key, x)
+  }
+  const merged = [...byTime.values()].sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).map((x, i) => ({ ...x, id: `off_v${i}` }))
+  return subjects.map((subject) => ({ subject, slots: merged }))
+}
+
+function freeTeacher(staff: Staff[], sessions: Session[], branchId: ID, subject: string, date: DateStr, start: TimeStr, minutes: number): ID | null {
+  return freeTeachersAt(staff, sessions, branchId, subject, date, start, minutes)[0]?.id ?? null
 }
 
 function teacherFree(sessions: Session[], branchId: ID, teacherId: ID, date: DateStr, start: TimeStr, minutes: number) {
@@ -180,6 +231,8 @@ export function findOfferSlots(params: {
   now: Date
   minutes?: number
   courses?: Pick<Course, "id" | "maxStudents">[]
+  /** owner 2026-11-20: offered "by course" — only these classes' sessions are offered (the picked courses' own classes), not every class of the subject */
+  classIds?: ID[]
 }): FormOfferSlot[] {
   const { branch, staff, sessions, classes, holidays, subject, from, to, now } = params
   const minutes = params.minutes ?? branch.defaultSessionMinutes
@@ -210,6 +263,7 @@ export function findOfferSlots(params: {
   let ci = 0
   for (const s of sessions) {
     if (s.cancelled || s.branchId !== branch.id || s.subject !== subject || !s.classId) continue
+    if (params.classIds && !params.classIds.includes(s.classId)) continue
     if (s.date < from || s.date > to) continue
     if (isHoliday(s.date, branch.id, holidays)) continue
     if (at(s.date, s.start) < now) continue
@@ -277,8 +331,9 @@ export function buildCombinedSessionDraft(
     date: first.slot.date,
     start: first.slot.start,
     minutes: COMBINED_MINUTES,
+    // one visit = one teacher for every subject (owner 2026-11-20) — no co-teachers
     teacherId: first.slot.teacherId,
-    coTeacherIds: picks.slice(1).map((p) => p.slot.teacherId).filter((id): id is ID => !!id),
+    coTeacherIds: [],
     roomId,
     studentIds: [studentId],
     trial: true,
@@ -306,7 +361,14 @@ export type ApprovalBooking =
   | { kind: "join"; subject: string; sessionId: ID }
   | { kind: "new"; subject: string; draft: Omit<Session, "id" | "customized" | "cancelled"> }
 
-export type ApprovalPlan = { oneVisit: boolean; combinedDraft?: Omit<Session, "id" | "customized" | "cancelled">; bookings: ApprovalBooking[] }
+export type ApprovalPlan = { oneVisit: boolean; combinedDraft?: Omit<Session, "id" | "customized" | "cancelled">; bookings: ApprovalBooking[]; /** a sibling's approval already booked this very visit — join it instead of booking a second one */ joinSessionId?: ID }
+
+/** owner 2026-11-20: brothers/sisters on one Test come together — the 2nd child's approval joins the visit the 1st one booked
+ *  (same day, time, teacher and room as the offered slot) instead of clashing with it. */
+export function siblingVisit(sessions: Session[], slot: FormOfferSlot, branchId: ID, type: FormType): Session | undefined {
+  if (type !== "test" || slot.source !== "generic") return undefined
+  return sessions.find((x) => !x.cancelled && x.trial && x.assessment === type && x.branchId === branchId && x.date === slot.date && x.start === slot.start && x.teacherId === slot.teacherId && x.roomId === slot.roomId)
+}
 
 /**
  * grill #1 (owner 2026-10-27): approving a multi-subject form must be all-or-nothing. The old loop booked
@@ -346,6 +408,8 @@ export function planApproval(params: {
   if (oneVisit) {
     const combinedDraft = buildCombinedSessionDraft(picks.map((p) => ({ subject: p.chosenSubject, slot: p.chosenSlot })), branch.id, "", branch, sessions, type)
     if (!combinedDraft) return { ok: false, error: "รวมช่วงเวลานี้เป็นคาบเดียวไม่ได้" }
+    const sib = siblingVisit(sessions, first, branch.id, type)
+    if (sib) return { ok: true, value: { oneVisit: true, combinedDraft, joinSessionId: sib.id, bookings: picks.map((p) => ({ kind: "join", subject: p.chosenSubject, sessionId: sib.id })) } }
     const err = blockNew(combinedDraft, sessions)
     if (err) return { ok: false, error: err }
     return { ok: true, value: { oneVisit: true, combinedDraft, bookings: picks.map((p) => ({ kind: "new", subject: p.chosenSubject, draft: combinedDraft })) } }
@@ -360,6 +424,8 @@ export function planApproval(params: {
       if (returningStudentId && se.studentIds.includes(returningStudentId)) return { ok: false, error: `นักเรียนอยู่ในคาบของวิชา${p.chosenSubject}แล้ว` }
       bookings.push({ kind: "join", subject: p.chosenSubject, sessionId: p.chosenSlot.sessionId! })
     } else {
+      const sib = siblingVisit(sessions, p.chosenSlot, branch.id, type)
+      if (sib) { bookings.push({ kind: "join", subject: p.chosenSubject, sessionId: sib.id }); continue }
       const draft = buildSessionDraftFromSlot(p.chosenSlot, p.chosenSubject, branch.id, "", type)
       const err = blockNew(draft, working)
       if (err) return { ok: false, error: `วิชา${p.chosenSubject}: ${err}` }

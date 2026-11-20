@@ -17,7 +17,7 @@ import { sendEnrollToChat } from "@/lib/forms"
 
 const ASKS = ["ข้อมูลผู้ปกครอง (ชื่อ · เบอร์ · ที่อยู่ · ใบกำกับภาษี)", "ข้อมูลนักเรียน (ชื่อ · ชั้น · โรงเรียน · วันเกิด)", "อยากเริ่มเรียนวันไหน · ขอใช้รถรับส่งไหม"]
 
-export function SendEnrollDialog({ conversationId, onClose, onInvoice }: { conversationId: ID; onClose: () => void; onInvoice?: () => void }) {
+export function SendEnrollDialog({ conversationId, onClose, onInvoice, preferNewest }: { conversationId: ID; onClose: () => void; onInvoice?: () => void; /** came back from drafting an invoice → pick the newest unpaid one */ preferNewest?: boolean }) {
   const [busy, setBusy] = useState(false)
   // owner 2026-11-19: send the invoice WITH the form — the parent opens one link, sees it, pays and attaches the slip.
   // Only this chat's own unpaid invoices are offered (the family's children, or the lead's child)
@@ -31,7 +31,7 @@ export function SendEnrollDialog({ conversationId, onClose, onInvoice }: { conve
   const lead = useStore((s) => s.leads.find((l) => l.id === conv?.leadId))
   const mine = new Set(students.filter((x) => (conv?.familyId && x.familyId === conv.familyId) || x.id === lead?.trialStudentId || x.id === lead?.convertedStudentId).map((x) => x.id))
   const open = invoices.filter((i) => mine.has(i.studentId) && i.number && i.status !== "paid" && i.status !== "void")
-  const [invoiceId, setInvoiceId] = useState<ID | null>(null)
+  const [invoiceId, setInvoiceId] = useState<ID | null>(() => (preferNewest ? [...open].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.id ?? null : null))
   const totalOf = (i: (typeof invoices)[number]) => { const b = branches.find((x) => x.id === i.branchId); return b ? Bill.invoiceTotals(i, { branch: b, courses, classes, holidays }).total : 0 }
   const send = async () => {
     setBusy(true)

@@ -1,6 +1,8 @@
+import { interestCourseIdsFor } from "./crm"
 // Regression tests: each case reproduces a bug found on Dev staging and proves the rule prevents it.
 import { describe, expect, it } from "vitest"
 import { agoLabel } from "../dates"
+import { catalogInterests } from "./catalog"
 import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Conversation, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, setBranchBrands, sameDayInYears, missingSeriesRows, holidayForBrand, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
 import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
@@ -11,14 +13,14 @@ import { brandPriceUnits, brandUsesBus, busRate, copyHours, gradeLabel, subjectL
 import { forceAudience, isUnread, messageAudience, noteRecipients, notify, validateMessage, visibleTo } from "./notifications"
 import * as Sum from "./summaries"
 import * as Pay from "./billing"
-import { chatDayLabel, groupByDay } from "./inbox"
+import { chatDayLabel, conversationType, groupByDay } from "./inbox"
 import { composeAddress } from "./address"
 import { addressFromNominatim } from "../../lib/reverse-geocode"
 import { keepLineLinks, withoutLineLink } from "../../store/keep-line-links"
 import { findFamilyDuplicates, findStudentDuplicates, familyFromLead, familyFromSubmission, familyNameFor, splitName, joinName, futureSessionsOf, matchExistingFamily, mergeSubmission, nicknameFrom, searchStudents, studentLabel, submissionChanges, uniqueFamilies, validateFamily, validateStaff, validateStudent } from "./people"
 import { suggestFixes } from "./suggest"
-import { advanceStage, canSetStage, daysAgo, groupOf, leadFromSubmission, restoreStage, siblingLead, validateLead } from "./crm"
-import { isAssessmentSession, allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel, slotClashes, picksClash, canEditTogether } from "./forms"
+import { childGradesOf, flatFromKids, leadKids, advanceStage, canSetStage, daysAgo, groupOf, leadFromSubmission, restoreStage, siblingLead, validateLead } from "./crm"
+import { isAssessmentSession, allAssessmentsAttended, APPROVE_STAGE, assessmentsFollowSessions, ATTENDED_STAGE, buildFormPrefill, commonSlots, buildCombinedSessionDraft, buildSessionDraftFromSlot, findOfferSlots, lastAssessmentDate, openHourStarts, planApproval, priorApproval, sessionKindLabel, slotClashes, picksClash, canEditTogether, freeTeachersAt } from "./forms"
 import { customerRows, filterCustomers } from "./customers"
 import { invoiceMessage, invoiceBundleMessage, receiptMessage, voidMessage, familyReceiptMessage } from "./messages"
 import * as Refund from "./refunds"
@@ -569,6 +571,98 @@ describe("forms", () => {
     expect(busySlots.some((s) => s.source === "generic" && s.start === "09:00")).toBe(false)
   })
 
+  it("owner 2026-11-19: freeTeachersAt lists every qualified teacher who is free the whole stretch", () => {
+    const busy: Session = { id: "s_busy2", branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: [], trial: false, customized: false, cancelled: false } as Session
+    expect(freeTeachersAt([teacher], [], "b1", "Maths", "2026-09-29", "09:00", 60).map((t) => t.id)).toEqual(["t1"])
+    expect(freeTeachersAt([teacher], [busy], "b1", "Maths", "2026-09-29", "09:00", 60)).toEqual([])
+    expect(freeTeachersAt([teacher], [busy], "b1", "Maths", "2026-09-29", "08:00", 120)).toEqual([]) // a 2-hour stretch that touches the busy hour
+    expect(freeTeachersAt([teacher], [busy], "b1", "Maths", "2026-09-29", "10:00", 60).map((t) => t.id)).toEqual(["t1"])
+    expect(freeTeachersAt([teacher], [], "b1", "English", "2026-09-29", "09:00", 60)).toEqual([]) // not qualified for the subject
+  })
+
+  it("owner 2026-11-20: offered by course → only the picked courses' own classes (classIds) show, not every class of the subject", () => {
+    const mk = (id: string, classId: string): Session => ({ id, branchId: "b1", classId, subject: "Maths", date: "2026-09-29", start: "15:00", minutes: 60, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: [], trial: false, customized: false, cancelled: false } as Session)
+    const sessions = [mk("s1", "k1"), mk("s2", "k2")]
+    const base = { branch, staff: [teacher], sessions, classes: [klass({ id: "k1" }), klass({ id: "k2" })], holidays: [], subject: "Maths", from: "2026-09-29", to: "2026-09-29", now: new Date(2026, 8, 28) }
+    const classIdsOf = (p: Partial<Parameters<typeof findOfferSlots>[0]>) => findOfferSlots({ ...base, ...p }).filter((x) => x.source === "class").map((x) => x.classId)
+    expect(classIdsOf({}).sort()).toEqual(["k1", "k2"])
+    expect(classIdsOf({ classIds: ["k1"] })).toEqual(["k1"])
+    expect(classIdsOf({ classIds: [] })).toEqual([])
+  })
+
+  it("owner 2026-11-20: a Lead's kids — legacy fields become kid 1; children from the forms fill blank names, then join as new kids", () => {
+    const old = { childGrade: "ป.5", childCount: 2, subject: "คณิต", subjects: ["คณิต"], interestCourseIds: ["c1"] }
+    const k = leadKids(old)
+    expect(k.map((x) => [x.grade, x.subjects, x.courseIds])).toEqual([["ป.5", ["คณิต"], ["c1"]], ["", [], []]])
+    // the form brings พี่ (ป.5) and น้อง (ป.3): they take the two blank names
+    expect(leadKids(old, [{ name: "Test พี่", alias: "พี่", grade: "ป.5" }, { name: "Test น้อง", alias: "น้อง", grade: "ป.3" }]).map((x) => [x.name, x.grade])).toEqual([["พี่", "ป.5"], ["น้อง", "ป.3"]])
+    // a third child joins as a new kid; a child already named is matched, never doubled
+    const withNames = leadKids({ ...old, kids: [{ id: "a", name: "พี่", grade: "ป.5", subjects: [], courseIds: [], note: "x" }] }, [{ name: "Test พี่", alias: "พี่", grade: "ป.5" }, { name: "Test เล็ก", grade: "ป.1" }])
+    expect(withNames.map((x) => x.name)).toEqual(["พี่", "Test เล็ก"])
+    expect(withNames[0].note).toBe("x")
+    // the flat fields follow the kids
+    const flat = flatFromKids([{ id: "a", name: "", grade: "ป.5", subjects: ["คณิต"], courseIds: ["c1"], note: "" }, { id: "b", name: "", grade: "ป.3", subjects: ["อังกฤษ", "คณิต"], courseIds: ["c2"], note: "" }])
+    expect([flat.childGrade, flat.childCount, flat.subjects, flat.interestCourseIds]).toEqual(["ป.5", 2, ["คณิต", "อังกฤษ"], ["c1", "c2"]])
+  })
+
+  it("owner 2026-11-20: a Lead's children are one grade each — the first is childGrade, older leads pad with a count", () => {
+    expect(childGradesOf({ childGrade: "ป.5" })).toEqual(["ป.5"])
+    expect(childGradesOf({ childGrade: "ป.5", childCount: 2 })).toEqual(["ป.5", ""])
+    expect(childGradesOf({ childGrade: "ป.6", childGrades: ["ป.5", "ป.3", "ม.1"] })).toEqual(["ป.6", "ป.3", "ม.1"]) // the edit form's childGrade wins for child 1
+    expect(childGradesOf({ childGrade: "" })).toEqual([""])
+  })
+
+  it("owner 2026-11-20: a chat stays a Lead until the sale is done — a family from an approved Test / Trial does not make it a Customer", () => {
+    const L = (stage: string, winBackOf?: string) => ({ id: "L1", stage: stage as never, winBackOf })
+    expect(conversationType({ familyId: "F1", leadId: "L1" }, [L("trial")])).toBe("lead")        // booked a trial: family exists, still a lead
+    expect(conversationType({ familyId: "F1", leadId: "L1" }, [L("enrolled")])).toBe("customer") // enrolled → customer
+    expect(conversationType({ familyId: "F1", leadId: "L1" }, [L("archived")])).toBe("customer") // lead closed
+    expect(conversationType({ familyId: "F1", leadId: "L1" }, [L("contact", "stu9")])).toBe("customer") // win-back of a former student
+    expect(conversationType({ familyId: "F1", leadId: null })).toBe("customer")
+    expect(conversationType({ familyId: null, leadId: "L1" }, [L("contact")])).toBe("lead")
+    expect(conversationType({ familyId: null, leadId: null })).toBe("contact")
+  })
+
+  it("owner 2026-11-20: one Trial per SUBJECT — a repeat is flagged (needs a reason); cancelled sessions and other children do not count", () => {
+    const as = (p: Partial<Assessment>): Assessment => ({ id: "a1", type: "trial", leadId: "L1", studentId: "S1", sessionId: "x1", subject: "Maths", date: "2026-11-10", start: "10:00", ...p })
+    const live = [{ id: "x1", cancelled: false }, { id: "x2", cancelled: true }]
+    const who = { leadId: "L1", studentId: "S1" }
+    expect(repeatTrials([as({})], live, who, ["Maths", "English"]).map((r) => r.subject)).toEqual(["Maths"])
+    expect(repeatTrials([as({})], live, who, ["English"])).toEqual([])                         // another subject = a first Trial
+    expect(repeatTrials([as({ sessionId: "x2" })], live, who, ["Maths"])).toEqual([])        // the earlier session was cancelled
+    expect(repeatTrials([as({ type: "test" })], live, who, ["Maths"])).toEqual([])           // a placement Test is not a Trial
+    expect(repeatTrials([as({ leadId: "L9", studentId: "S9" })], live, who, ["Maths"])).toEqual([]) // someone else's
+    expect(repeatTrials([as({ submissionId: "sub1" })], live, who, ["Maths"], "sub1")).toEqual([])  // the submission being approved
+  })
+
+  it("owner 2026-11-20: a sibling's approval joins the visit the first child booked (same day/time/teacher/room), only for a Test", () => {
+    const slot: FormOfferSlot = { id: "a", date: "2026-09-29", start: "09:00", minutes: 120, source: "generic", teacherId: "t1", roomId: "r1", classId: null } as FormOfferSlot
+    const booked: Session = { id: "s_sib", branchId: "b1", classId: null, subject: "Maths + English", date: "2026-09-29", start: "09:00", minutes: 120, teacherId: "t1", coTeacherIds: [], roomId: "r1", studentIds: ["S1"], customized: false, cancelled: false, trial: true, assessment: "test" } as Session
+    expect(siblingVisit([booked], slot, "b1", "test")?.id).toBe("s_sib")
+    expect(siblingVisit([booked], slot, "b1", "trial")).toBeUndefined()
+    expect(siblingVisit([{ ...booked, cancelled: true }], slot, "b1", "test")).toBeUndefined()
+    expect(siblingVisit([{ ...booked, teacherId: "t2" }], slot, "b1", "test")).toBeUndefined()
+  })
+
+  it("owner 2026-11-20: a shared visit has ONE teacher who teaches at least one of the subjects; the offered times are merged across subjects", () => {
+    const both = { ...teacher, id: "t2", subjects: ["Maths", "English"] }
+    const eng = { ...teacher, id: "t3", subjects: ["English"] }
+    // t1 teaches Maths only, t3 English only: either can take a Maths + English visit
+    expect(visitTeachersAt([teacher, eng], [], "b1", ["Maths", "English"], "2026-09-29", "09:00", 120).map((t) => t.id)).toEqual(["t1", "t3"])
+    // nobody teaches any of the subjects → no teacher
+    expect(visitTeachersAt([{ ...teacher, subjects: ["Science"] }], [], "b1", ["Maths", "English"], "2026-09-29", "09:00", 120)).toEqual([])
+    // the only teacher is busy in the stretch → nobody
+    const busy: Session = { id: "s_b3", branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "10:00", minutes: 60, teacherId: "t2", coTeacherIds: [], roomId: "r1", studentIds: [], trial: false, customized: false, cancelled: false } as Session
+    expect(visitTeachersAt([both], [busy], "b1", ["Maths", "English"], "2026-09-29", "09:00", 120)).toEqual([])
+    // offers: Maths has 09:00 and 10:00, English has 10:00 and 11:00 → every subject is offered 09:00, 10:00, 11:00 (a time any of them can staff)
+    const slot = (id: string, start: string, over: Partial<FormOfferSlot> = {}): FormOfferSlot => ({ id, date: "2026-09-29", start, minutes: 60, source: "generic", teacherId: "t1", roomId: "r1", classId: null, sessionId: null, fits2h: true, ...over })
+    const merged = visitOffers([{ subject: "Maths", slots: [slot("a", "09:00"), slot("b", "10:00")] }, { subject: "English", slots: [slot("a", "10:00"), slot("b", "11:00"), slot("c", "12:00", { fits2h: false }), slot("d", "13:00", { source: "class" })] }], ["Maths", "English"])
+    expect(merged.map((o) => o.subject)).toEqual(["Maths", "English"])
+    expect(merged[0].slots.map((x) => x.start)).toEqual(["09:00", "10:00", "11:00"])   // 12:00 can't grow to 2h, 13:00 is a class
+    expect(new Set(merged[0].slots.map((x) => x.id)).size).toBe(3)                        // ids renumbered — no clash between subjects
+    expect(merged[1].slots).toEqual(merged[0].slots)
+  })
+
   it("owner 2026-11-18: findOfferSlots never offers a time that booking (validateClass) would refuse because every room's worth of sessions overlaps — even sessions with no room set", () => {
     const mk = (id: string): Session => ({ id, branchId: "b1", classId: null, subject: "Maths", date: "2026-09-29", start: "09:00", minutes: 60, teacherId: null, coTeacherIds: [], roomId: null, studentIds: [], trial: false, customized: true, cancelled: false })
     const crowded = branch.rooms.map((_, i) => mk(`s_crowd${i}`)) // as many overlapping sessions as rooms, none holding a room id
@@ -615,7 +709,7 @@ describe("forms", () => {
     expect(draft?.minutes).toBe(120)
     expect(draft?.subject).toBe("Maths + English")
     expect(draft?.teacherId).toBe("t1")
-    expect(draft?.coTeacherIds).toEqual(["t2"])
+    expect(draft?.coTeacherIds).toEqual([]) // owner 2026-11-20: one visit = one teacher, no co-teachers
   })
 
   it("buildCombinedSessionDraft refuses to merge picks on different dates or times, or a class-sourced pick", () => {
@@ -2503,7 +2597,8 @@ import { monthLoad, studentsOfTeacher, teacherWeek } from "./staff-overview"
 import { calendarNotesFor, cleanNote, noteTarget } from "./calendar-notes"
 import { leaveReasonText } from "./scheduling"
 import { formLinkOf } from "./inbox"
-import { enrollClassOffers, enrollClassValid } from "./forms"
+import { enrollClassOffers, enrollClassValid, visitTeachersAt, visitOffers, repeatTrials, siblingVisit } from "./forms"
+import { phoneIssue, validEmail } from "./people"
 
 describe("staff overview — one teacher's week (owner 2026-10-09)", () => {
   const ses = (id: string, date: string, over: Partial<Session> = {}): Session => ({ id, branchId: "b1", classId: null, subject: "คณิต", date, start: "10:00", minutes: 90, teacherId: "t1", coTeacherIds: [], roomId: null, studentIds: ["a", "b"], trial: false, customized: false, cancelled: false, ...over })
@@ -3626,5 +3721,71 @@ describe("Liclass names: surname first (owner 2026-11-19)", () => {
     expect(splitName("สมชาย ใจดี")).toEqual({ first: "สมชาย", last: "ใจดี" })
     expect(joinName({ first: "สมชาย", last: "ใจดี" })).toBe("สมชาย ใจดี")
     expect(splitName("Sato", true)).toEqual({ first: "Sato", last: "" })
+  })
+})
+
+describe("Catalog interests on a Lead", () => {
+  const lookup = { classes: [{ id: "k1", grades: ["ป.5"], courseId: "c1" }], courses: [{ id: "c1", name: "คณิต ป.5 รายเดือน", grades: ["ป.5"] }] }
+  const msg = (id: string, at: string, meta: object) => ({ id, at, meta: { formKind: "catalog_request", subjects: ["คณิต"], ...meta } })
+  it("keeps grade · subject · course, newest first; the same class tapped again is one line; Trial wins", () => {
+    const r = catalogInterests([
+      msg("m1", "2026-11-19T10:00:00Z", { action: "interest", classId: "k1", courseId: "c1", className: "คณิต ป.5 (ส.)", when: "ทุก ส. 13:00–14:00" }),
+      msg("m2", "2026-11-19T11:00:00Z", { action: "trial", classId: "k1", courseId: "c1", className: "คณิต ป.5 (ส.)", when: "ทุก ส. 13:00–14:00" }),
+      msg("m3", "2026-11-19T12:00:00Z", { action: "interest", classId: "", courseId: "c2", className: "วิทย์ ม.ต้น", subjects: ["วิทย์"], grades: ["ม.1"], when: "ยังไม่มีรอบเรียน" }),
+      { id: "x", at: "2026-11-19T09:00:00Z" },
+    ], lookup)
+    expect(r.map((x) => x.id)).toEqual(["m3", "m2"])
+    expect(r[1]).toMatchObject({ action: "trial", grades: ["ป.5"], course: "คณิต ป.5 รายเดือน", className: "คณิต ป.5 (ส.)" })
+    expect(r[0]).toMatchObject({ grades: ["ม.1"], className: "", subjects: ["วิทย์"] })
+  })
+})
+
+describe("form field problems are named (owner 2026-11-20)", () => {
+  it("a phone says why it is not valid: empty · stray characters · too many / too few digits · not starting with 0", () => {
+    expect(phoneIssue("")).toBe("empty")
+    expect(phoneIssue("08x-123")).toBe("chars")
+    expect(phoneIssue("08123456789")).toBe("long")       // 11 digits
+    expect(phoneIssue("081234")).toBe("short")
+    expect(phoneIssue("8123456789")).toBe("zero")         // 10 digits, no leading 0
+    expect(phoneIssue("081-234-5678")).toBeNull()
+    expect(phoneIssue("021234567")).toBeNull()            // landline, 9 digits
+  })
+  it("an email must look like one", () => {
+    expect(validEmail("name@example.com")).toBe(true)
+    expect(validEmail("name@example")).toBe(false)
+    expect(validEmail("name example.com")).toBe(false)
+  })
+})
+
+describe("invoice starts with the courses the family was interested in", () => {
+  const base = { childGrade: "ป.5", subject: "", subjects: [] as string[], childGrades: undefined, childCount: undefined }
+  const lead = { ...base, interestCourseIds: ["c1", "c2"], kids: [
+    { id: "k1", name: "Dai", grade: "ป.5", subjects: [], courseIds: ["c1"], note: "" },
+    { id: "k2", name: "Mint", grade: "ป.2", subjects: [], courseIds: ["c2"], note: "" },
+  ] }
+  it("picks the matching child's courses", () => { expect(interestCourseIdsFor(lead, { nickname: "mint" })).toEqual(["c2"]) })
+  it("no match with several kids → all of them", () => { expect(interestCourseIdsFor(lead, { nickname: "Zed" })).toEqual(["c1", "c2"]) })
+})
+
+describe("course summary before the PDF", () => {
+  const base = { id: "i", branchId: "b1", studentId: "a", number: null, lines: [{ id: "l", courseId: "c1", classIds: ["k1"], startDate: "2026-12-01", periods: 4 }], bus: [], bookFee: 0, advance: [], concession: null, noteToParent: "", status: "draft", pdf: "none", createdBy: "adm", createdAt: "", payments: [] } as unknown as Invoice
+  const totals = { total: 4600 } as unknown as ReturnType<typeof invoiceTotals>
+  it("never sent → none", () => { expect(Pay.agreementState(base, totals)).toBe("none") })
+  it("sent, then confirmed", () => {
+    const hash = Pay.agreementHash(base, totals)
+    const sent = { ...base, agreement: { sentAt: "t", sentBy: "adm", hash } }
+    expect(Pay.agreementState(sent, totals)).toBe("sent")
+    expect(Pay.agreementState({ ...sent, agreement: { ...sent.agreement, confirmedAt: "t2", confirmedBy: "adm" } }, totals)).toBe("confirmed")
+  })
+  it("editing the draft after it was confirmed makes the summary stale", () => {
+    const hash = Pay.agreementHash(base, totals)
+    const confirmed = { ...base, agreement: { sentAt: "t", sentBy: "adm", hash, confirmedAt: "t2", confirmedBy: "adm" } }
+    expect(Pay.agreementState({ ...confirmed, lines: [{ ...confirmed.lines[0], startDate: "2026-12-08" }] }, totals)).toBe("stale")
+    expect(Pay.agreementState(confirmed, { total: 5000 } as unknown as typeof totals)).toBe("stale")
+  })
+  it("class order does not matter", () => {
+    const a = { ...base, lines: [{ ...base.lines[0], classIds: ["k1", "k2"] }] }
+    const b = { ...base, lines: [{ ...base.lines[0], classIds: ["k2", "k1"] }] }
+    expect(Pay.agreementHash(a, totals)).toBe(Pay.agreementHash(b, totals))
   })
 })

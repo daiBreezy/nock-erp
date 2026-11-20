@@ -95,7 +95,7 @@ export function PanelMore({ items, className }: { items: (MoreItem | false | nul
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button size="icon" variant="outline" className={cn("rounded-full", className)} aria-label="เพิ่มเติม" />}><EllipsisIcon /></DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top" className="w-52">
+      <DropdownMenuContent align="start" side="top" className="w-max min-w-52 max-w-sm">
         {list.map((it, i) => {
           const Icon = it.icon
           return (

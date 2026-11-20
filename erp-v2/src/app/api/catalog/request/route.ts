@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     if (!course || body.action !== "interest") return NextResponse.json({ ok: false, error: "invalid" })
     if (!body.lineUserId) return NextResponse.json({ ok: false, error: "line" })
     await recordInboundMessage(body.lineUserId, body.displayName ?? null, `📚 สนใจคอร์ส: ${course.name}`, {
-      meta: { formKind: "catalog_request", action: "interest", classId: "", courseId: course.id, className: course.name, subjects: course.subjects, when: "ยังไม่มีรอบเรียน" },
+      meta: { formKind: "catalog_request", action: "interest", classId: "", courseId: course.id, className: course.name, subjects: course.subjects, grades: course.grades, when: "ยังไม่มีรอบเรียน" },
     })
     return NextResponse.json({ ok: true })
   }
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   }
   if (!body.lineUserId) return NextResponse.json({ ok: false, error: "line" })
   await recordInboundMessage(body.lineUserId, body.displayName ?? null, requestText(body.action, k, course), {
-    meta: { formKind: "catalog_request", action: body.action, classId: k.id, courseId: course?.id, className: k.name, subjects: k.subjects, when: classWhen(k) },
+    meta: { formKind: "catalog_request", action: body.action, classId: k.id, courseId: course?.id, className: k.name, subjects: k.subjects, grades: k.grades?.length ? k.grades : course?.grades, when: classWhen(k) },
   })
   return NextResponse.json({ ok: true })
 }

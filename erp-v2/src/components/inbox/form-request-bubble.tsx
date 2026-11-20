@@ -1,6 +1,9 @@
 "use client"
 
-import { ClipboardListIcon, ExternalLinkIcon, FileTextIcon, HeartHandshakeIcon, LogOutIcon, UserPlusIcon } from "lucide-react"
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { FormRequestPreviewDialog } from "./form-request-preview"
+import { ClipboardListIcon, EyeIcon, ExternalLinkIcon, FileTextIcon, HeartHandshakeIcon, LogOutIcon, UserPlusIcon } from "lucide-react"
 import { FORM_LINK_LABEL, formLinkOf } from "@/domain/rules/inbox"
 import { Confirmation, ConfirmationBody, ConfirmationHeader } from "@/components/ai-elements/confirmation"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
@@ -11,12 +14,18 @@ import type { ChatMessage, FormRequestMeta, FormSubmission } from "@/domain/type
 export function FormRequestBubble({ message, submissions }: { message: ChatMessage; submissions: FormSubmission[] }) {
   const meta = message.meta as FormRequestMeta
   const status = submissions.find((s) => s.token === meta.token)?.status ?? "waiting"
+  const [previewing, setPreviewing] = useState(false)
   return (
     <div className="flex justify-end">
       <Confirmation state={status} className="max-w-sm">
         <ConfirmationHeader state={status} icon={<FileTextIcon />} title={<>ส่งฟอร์ม{FORM_TYPE_LABEL[meta.type]}</>} />
-        <ConfirmationBody className="text-xs text-muted-foreground">{meta.subjects.join(", ")}</ConfirmationBody>
+        <ConfirmationBody className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate">{meta.subjects.join(", ")}</span>
+          {/* owner 2026-11-20: see what the parent was sent (the times offered) */}
+          <Button size="xs" variant="ghost" className="shrink-0" onClick={() => setPreviewing(true)}><EyeIcon /> Preview Form</Button>
+        </ConfirmationBody>
       </Confirmation>
+      {previewing && <FormRequestPreviewDialog token={meta.token} type={meta.type} onClose={() => setPreviewing(false)} />}
     </div>
   )
 }

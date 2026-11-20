@@ -1,7 +1,7 @@
 // CRM lead pipeline (Phase 2 rebuild). Spec ref: new-erp/js/crm.js (stage list + grouping).
 
 import { daysBetween, fmtDate, toDateStr } from "../dates"
-import type { DateStr, Family, FormSubmission, ID, Lead, LeadStage, Result, Student } from "../types"
+import type { LeadKid, DateStr, Family, FormSubmission, ID, Lead, LeadStage, Result, Student } from "../types"
 
 export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   new: "ลูกค้าใหม่",
@@ -223,4 +223,45 @@ export function siblingLead(f: Family, input: { id: ID; branchId: ID; childGrade
     lineUserId: f.lineUserId, createdAt: input.now, convertedStudentId: null,
     notes: [{ at: input.now, by: input.by, text: `ลูกอีกคนของ${f.name} — ส่งฟอร์ม Test / Trial จาก Inbox` }],
   }
+}
+
+/** owner 2026-11-20: a Lead's children as grades — one entry per child (1 child = 1 grade). The first is always `childGrade` (the edit form still sets that one);
+ *  older leads that only have a `childCount` get "" (not known yet) for the others. */
+export function childGradesOf(l: Pick<Lead, "childGrade" | "childGrades" | "childCount">): string[] {
+  const n = Math.max(1, l.childGrades?.length ?? 0, l.childCount ?? 1)
+  return Array.from({ length: n }, (_, i) => (i === 0 ? l.childGrade : l.childGrades?.[i] ?? ""))
+}
+
+const norm = (x?: string) => (x ?? "").trim().toLowerCase()
+
+/**
+ * owner 2026-11-20: the children of a Lead, each with their own name · grade · subjects / courses · note. Older leads (no `kids`) become kid 1 from the flat fields
+ * (+ blank kids up to their count); children that came in on the parent's forms / the family file fill the blank names first, then join as new kids (matched by name).
+ */
+export function leadKids(lead: Pick<Lead, "kids" | "childGrade" | "childGrades" | "childCount" | "subject" | "subjects" | "interestCourseIds">, known: { name: string; grade: string; alias?: string }[] = []): LeadKid[] {
+  const kids: LeadKid[] = lead.kids?.length
+    ? lead.kids.map((k) => ({ ...k }))
+    : childGradesOf(lead).map((grade, i) => ({ id: `k${i + 1}`, name: "", grade, subjects: i === 0 ? leadSubjects(lead) : [], courseIds: i === 0 ? [...(lead.interestCourseIds ?? [])] : [], note: "" }))
+  for (const f of known) {
+    const hit = kids.find((k) => k.name && (norm(k.name) === norm(f.name) || norm(k.name) === norm(f.alias)))
+    if (hit) { if (!hit.grade && f.grade) hit.grade = f.grade; continue }
+    const blank = kids.find((k) => !k.name)
+    if (blank) { blank.name = f.alias || f.name; if (!blank.grade) blank.grade = f.grade }
+    else kids.push({ id: `k${kids.length + 1}`, name: f.alias || f.name, grade: f.grade, subjects: [], courseIds: [], note: "" })
+  }
+  return kids
+}
+
+/** owner 2026-11-20: the courses staff marked as "interested" for THIS child — the invoice starts with them ticked. The kid matched by name; a lone kid, or no match → every course the lead is interested in */
+export function interestCourseIdsFor(lead: Pick<Lead, "kids" | "childGrade" | "childGrades" | "childCount" | "subject" | "subjects" | "interestCourseIds">, child?: { name?: string; nickname?: string }): ID[] {
+  const kids = leadKids(lead)
+  const hit = child ? kids.find((k) => k.name && (norm(k.name) === norm(child.nickname) || norm(k.name) === norm(child.name))) : undefined
+  const ids = hit ? hit.courseIds : kids.length === 1 ? kids[0].courseIds : kids.flatMap((k) => k.courseIds)
+  return [...new Set(ids)]
+}
+
+/** the flat Lead fields the rest of the app reads (board filters, lists, Reports) — derived from the kids: kid 1's grade, every kid's subjects and courses */
+export function flatFromKids(kids: LeadKid[]): Pick<Lead, "kids" | "childGrade" | "childGrades" | "childCount" | "subject" | "subjects" | "interestCourseIds"> {
+  const subjects = [...new Set(kids.flatMap((k) => k.subjects))]
+  return { kids, childGrade: kids[0]?.grade ?? "", childGrades: kids.map((k) => k.grade), childCount: kids.length, subject: subjects[0] ?? "", subjects, interestCourseIds: [...new Set(kids.flatMap((k) => k.courseIds))] }
 }

@@ -54,7 +54,7 @@ export async function sendTestTrialForm(input: {
  *  already merged into one shared 2-hour room block by `submitForm` — no cross-submission grouping is
  *  needed here since each `FormSubmission` row is already one whole child (see `groupId` for how staff
  *  can tell "these children arrived together" without approval being forced to happen together too). */
-export async function approveSubmission(sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean; referredByFamilyId?: ID }): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID; createdLead: boolean }>> {
+export async function approveSubmission(sub: FormSubmission, opts?: { applyChanges?: boolean; newFamily?: boolean; referredByFamilyId?: ID; retrialReason?: string }): Promise<Result<{ sessionId: ID; studentId: ID; leadId: ID; createdLead: boolean }>> {
   // a form sent from a chat that has no Lead (owner 2026-11-18): the answers already hold everything — make the Lead, then approve as usual
   const store = useStore.getState()
   const createdLead = !store.leads.some((l) => l.id === sub.primaryLeadId)
@@ -87,6 +87,13 @@ export async function rejectSubmission(sub: FormSubmission, opts?: { createLead?
  *  the token's original offers. */
 export async function editSubmissionSlot(sub: FormSubmission, pickIndex: number, subject: string, slot: FormOfferSlot): Promise<Result> {
   const r = await postJson<{ ok: boolean; error?: string }>("/api/forms/edit", { id: sub.id, pickIndex, subject, slot })
+  if (!r.ok) return { ok: false, error: r.error ?? "แก้ไขไม่สำเร็จ" }
+  return { ok: true, value: undefined }
+}
+
+/** Admin correction of the answers the parent typed (owner 2026-11-20) — a field sent as null is cleared */
+export async function editSubmissionAnswers(sub: FormSubmission, answers: Record<string, unknown>): Promise<Result> {
+  const r = await postJson<{ ok: boolean; error?: string }>("/api/forms/edit", { id: sub.id, answers })
   if (!r.ok) return { ok: false, error: r.error ?? "แก้ไขไม่สำเร็จ" }
   return { ok: true, value: undefined }
 }

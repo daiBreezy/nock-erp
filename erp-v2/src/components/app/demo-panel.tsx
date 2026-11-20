@@ -32,6 +32,7 @@ export function DemoPanel() {
   const [busy, setBusy] = useState("")
   const now = useNow(10_000)
   // real LINE chats of one person (not groups) — the owner's own test accounts
+  const allLeads = useStore((st) => st.leads)
   const liveChats = conversations.filter((c) => c.id.startsWith("line_") && !c.group)
   // owner 2026-11-18: test a flow, then start the next one from zero — forget the link on the server, then reseed without it
   const startOver = async (id: string) => {
@@ -89,7 +90,7 @@ export function DemoPanel() {
                 <div key={c.id} className="flex items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5 text-sm">
                   <UserRoundIcon className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                  <span className="shrink-0 text-2xs text-muted-foreground">{{ contact: "Visitor", lead: "Lead", customer: "Cust" }[conversationType(c)] ?? ""}</span>
+                  <span className="shrink-0 text-2xs text-muted-foreground">{{ contact: "Visitor", lead: "Lead", customer: "Cust" }[conversationType(c, allLeads)] ?? ""}</span>
                   <Button size="xs" variant="outline" disabled={busy === c.id} onClick={() => startOver(c.id)}>เริ่มใหม่</Button>
                 </div>
               ))}

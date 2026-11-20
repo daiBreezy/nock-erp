@@ -2,7 +2,7 @@
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { BookOpenIcon, CalendarSearchIcon, InfoIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon, UsersIcon, BadgeCheckIcon, TargetIcon, UserRoundIcon, UserXIcon } from "lucide-react"
+import { ListFilterIcon, FlagIcon, BookOpenIcon, CalendarSearchIcon, InfoIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon, UsersIcon, BadgeCheckIcon, TargetIcon, UserRoundIcon, UsersRoundIcon, UserXIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -19,6 +19,7 @@ import { FamilySheet } from "@/components/app/family-sheet"
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { avatarTone, initial } from "@/components/app/subject-color"
+import { FOLLOW_UP_SOLID } from "@/components/app/tags"
 import { FormLinkBubble, FormRequestBubble } from "@/components/inbox/form-request-bubble"
 import { FormSubmissionBubble } from "@/components/inbox/form-submission-bubble"
 import { MessageBubble } from "@/components/inbox/message-bubble"
@@ -27,6 +28,8 @@ import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { GroupSheet } from "@/components/inbox/group-sheet"
 import { groupMemberLabel } from "@/domain/rules/inbox"
 import { LeadDialog } from "@/components/crm/lead-dialog"
+import { interestCourseIdsFor, leadKids } from "@/domain/rules/crm"
+import { startFamilySet } from "@/lib/family-set"
 import { LeadSheet } from "@/components/crm/lead-sheet"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -56,6 +59,7 @@ export default function InboxPage() {
   const students = useStore((s) => s.students)
   const openConversation = useStore((s) => s.openConversation)
   const assign = useStore((s) => s.assignConversation)
+  const toggleFollowUp = useStore((s) => s.toggleFollowUp)
   const send = useStore((s) => s.sendChatMessage)
   const simulateReply = useStore((s) => s.simulateParentReply)
   const mergeLive = useStore((s) => s.mergeLiveConversations)
@@ -71,7 +75,7 @@ export default function InboxPage() {
   const [search, setSearch] = useState("")
   const [searching, setSearching] = useState(false)
   // owner 2026-10-06: filters sync to the URL (?type=&read=&assignee=) so a reload or shared link keeps them
-  const [typeFilter, setTypeFilter] = useQueryState<"all" | ConversationType>("type", "all")
+  const [typeFilter, setTypeFilter] = useQueryState<"all" | "followup" | ConversationType>("type", "all")
   const [readFilter, setReadFilter] = useQueryState<"all" | "unread" | "read">("read", "all")
   const userId = useStore((s) => s.userId)
   const [assigneeFilter, setAssigneeFilter] = useQueryState<string>("assignee", "all")
@@ -97,6 +101,8 @@ export default function InboxPage() {
     window.addEventListener("pointerup", up)
   }
   const [sendingEnroll, setSendingEnroll] = useState(false)
+  // owner 2026-11-20: Enroll form travels with the invoice — after drafting one from the enroll dialog, come back to it with that invoice picked
+  const [enrollBack, setEnrollBack] = useState(false)
   const [draft, setDraft] = useState("")
   // owner 2026-10-19: another page prepared a message for this chat (e.g. "ขอหมุดบ้าน" on Transport › Zones) — it waits in
   // the box; the admin reads it and presses send. Kept out of the URL (it names the child).
@@ -157,7 +163,7 @@ export default function InboxPage() {
   const lastMessage = (id: ID) => [...messages].filter((m) => m.conversationId === id).sort((a, b) => b.at.localeCompare(a.at))[0]
 
   const filtered = conversations
-    .filter((c) => typeFilter === "all" || conversationType(c) === typeFilter)
+    .filter((c) => typeFilter === "all" || (typeFilter === "followup" ? !!c.followUp : conversationType(c, leads) === typeFilter))
     .filter((c) => readFilter === "all" || (readFilter === "unread" ? c.unread : !c.unread))
     .filter((c) => assigneeFilter === "all" || (assigneeFilter === "none" ? !c.assigneeId : c.assigneeId === (assigneeFilter === "me" ? userId : assigneeFilter)))
     .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()))
@@ -228,6 +234,7 @@ export default function InboxPage() {
   }
   // owner 2026-10-16: draft an invoice for this parent's child straight from the chat (same panel as Billing)
   const [invoicePanel, setInvoicePanel] = useState<{ id: ID | "new"; studentId?: ID; slip?: string } | null>(null)
+  const panelStudent = students.find((x) => x.id === invoicePanel?.studentId)
   const leadStudentId = lead?.trialStudentId && students.some((x) => x.id === lead.trialStudentId) ? lead.trialStudentId : undefined
   // owner 2026-10-16: course + classes are agreed in the chat and picked on the invoice — a brand-new lead becomes a student first
   const openInvoice = (studentId?: ID) => {
@@ -235,6 +242,12 @@ export default function InboxPage() {
     if (sid || !lead) return setInvoicePanel({ id: "new", studentId: sid })
     const r = useStore.getState().convertLeadToStudent(lead.id)
     if (report(r, "สร้างนักเรียนจาก Lead แล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย")) setInvoicePanel({ id: "new", studentId: r.value.studentId })
+  }
+
+  const leadKidCount = lead ? leadKids(lead).length : 0
+  const openFamilySet = () => {
+    const r = startFamilySet(kids.length > 1 && family ? { familyId: family.id } : lead ? { leadId: lead.id } : {})
+    if (report(r, "สร้างชุดครอบครัวแล้ว — เติมคอร์สให้ลูกแต่ละคน")) setInvoicePanel({ id: r.value.firstId })
   }
 
   const select = (id: ID) => {
@@ -294,7 +307,7 @@ export default function InboxPage() {
           {/* Conversation type and assignee selectors; read status as directly accessible chips. */}
           <div className="grid grid-cols-2 gap-1.5">
             <NativeSelect value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
-              options={[{ value: "all", label: "ทุกประเภท" }, ...(["customer", "lead", "contact"] as const).map((t) => ({ value: t, label: CONVERSATION_TYPE_LABEL[t] }))]} />
+              options={[{ value: "all", label: "ทุกประเภท", icon: ListFilterIcon }, { value: "followup", label: `Follow-up (${conversations.filter((c) => c.followUp).length})`, icon: FlagIcon }, ...(["customer", "lead", "contact"] as const).map((t) => ({ value: t, label: CONVERSATION_TYPE_LABEL[t], icon: TYPE_MARK[t].Icon }))]} />
             <NativeSelect value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} aria-label="ผู้ดูแล"
               options={assigneeChips.map((a) => ({ value: a.key, label: `${a.label} (${a.count})` }))} />
           </div>
@@ -322,13 +335,16 @@ export default function InboxPage() {
                 </span>
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>{c.name}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>{c.name}</span>
+                      {c.followUp && <span role="img" aria-label="Follow-up" title="Follow-up" className={cn("inline-grid size-4.5 shrink-0 place-items-center rounded-full", FOLLOW_UP_SOLID)}><FlagIcon className="size-2.5" /></span>}
+                    </span>
                     <span className="shrink-0 text-2xs text-muted-foreground">{lm ? chatListTime(lm.at, now) : ""}</span>
                   </div>
                   <div className={cn("truncate text-xs", c.unread ? "font-medium text-foreground" : "text-muted-foreground")}>{lm ? `${c.group && lm.sender ? `${lm.sender.name}: ` : ""}${lm.text}` : "—"}</div>
                   {/* owner 2026-11-12: chips were too busy → one quiet grey line, icon + word, separated by centre dots (no boxes). Type slot is fixed width so rows line up; empty ones are fainter */}
                   <div className="flex items-center gap-1.5 pt-0.5 text-2xs text-muted-foreground">
-                    <TypeMark type={conversationType(c)} />
+                    <TypeMark type={conversationType(c, leads)} />
                     <span aria-hidden>·</span>
                     <span className={cn("inline-flex min-w-0 items-center gap-1", !assignee && "opacity-60")}>
                       {assignee ? <UserCheckIcon className="size-3 shrink-0" /> : <UserXIcon className="size-3 shrink-0" />}
@@ -367,7 +383,7 @@ export default function InboxPage() {
                 <span className="block truncate text-sm font-semibold">{selected.name}</span>
                 {/* owner 2026-11-12: no chips in the header either — one quiet grey line like the list: channel · group · family · type */}
                 <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
-                  <TypeMark type={conversationType(selected)} />
+                  <TypeMark type={conversationType(selected, leads)} />
                   <span aria-hidden>·</span>
                   <span className="inline-flex shrink-0 items-center gap-1">{isLive(selected.id) && <RadioIcon className="size-3" aria-label="LIVE — LINE จริง" />}{CHANNEL_LABEL[selected.channel]}</span>
                   {selected.group && <><span aria-hidden>·</span><span className="inline-flex shrink-0 items-center gap-1"><UsersIcon className="size-3" /> แชทกลุ่ม</span></>}
@@ -378,6 +394,12 @@ export default function InboxPage() {
               {!selected.group && !family && !lead && (
                 <Button size="sm" onClick={() => setCreatingLead(true)}><UserPlusIcon /> Add Lead</Button>
               )}
+              {/* owner 2026-11-20: flag the chat "Follow-up" — a loud tag in the list tells the others to come look; press again to clear */}
+              <Button size="sm" variant="outline" aria-pressed={!!selected.followUp} title={selected.followUp ? "เอา Follow-up ออก" : "ติดธง Follow-up ให้คนอื่นแวะมาดู"}
+                className={cn(selected.followUp && cn("border-transparent hover:opacity-90", FOLLOW_UP_SOLID))}
+                onClick={() => report(toggleFollowUp(selected.id), (v) => (v.on ? "ติด Follow-up แล้ว" : "เอา Follow-up ออกแล้ว"))}>
+                <FlagIcon /> Follow-up
+              </Button>
               {/* owner 2026-10-05: assignee is an action next to the side-panel button, same size as the others */}
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label="มอบหมายผู้ดูแล" className={cn(!selected.assigneeId && "text-muted-foreground")} />}>
@@ -394,7 +416,7 @@ export default function InboxPage() {
               </DropdownMenu>
               <Button
                 size="icon-sm" variant="outline" aria-label="ข้อมูลติดต่อ"
-                onClick={() => { if (selected.group) setGroupInfo(true); else if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
+                onClick={() => { if (selected.group) setGroupInfo(true); else if (lead && conversationType(selected, leads) === "lead") setOpenLeadId(lead.id); else if (family) setOpenFamilyId(family.id); else if (lead) setOpenLeadId(lead.id); else setLinking(true) }}
               >
                 <InfoIcon />
               </Button>
@@ -414,7 +436,7 @@ export default function InboxPage() {
                       if (m.kind === "form_submission") return <FormSubmissionBubble key={m.id} message={m} submissions={submissions} onChanged={pollSubmissions} />
                       if (isExitFormMessage(m)) return <ExitFormChatCard key={m.id} message={m} conversation={selected} />
                       if (m.meta?.formKind === "parent_request") return <ParentRequestChatCard key={m.id} message={m} />
-                      if (m.meta?.formKind === "catalog_request") return <CatalogRequestCard key={m.id} message={m} linked={!!(lead || family)} onLink={() => setLinking(true)} onTrial={(subs) => { setFormType("trial"); setFormSubjects(subs); setSendingFormOpen(true) }} />
+                      if (m.meta?.formKind === "catalog_request") return <CatalogRequestCard key={m.id} message={m} />
                       if (isEnrollSubmissionMessage(m)) return <EnrollSubmissionChatCard key={m.id} message={m} conversation={selected} />
                       const link = formLinkOf(m)
                       if (link) return <FormLinkBubble key={m.id} message={m} answered={link.form === "custom" ? formResponses.some((r) => r.token === link.token) : link.form === "exit" && thread.some((x) => isExitFormMessage(x) && (x.meta?.formKind === "exit_form" ? x.meta.token === link.token : x.at > m.at))} />
@@ -440,8 +462,8 @@ export default function InboxPage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger render={<Button size="icon" variant="ghost" className="rounded-full text-muted-foreground" aria-label="แนบฟอร์ม / รูปภาพ" />}><PlusIcon /></DropdownMenuTrigger>
                     <DropdownMenuContent side="top" align="start" className="w-44">
-                      {/* owner 2026-11-12: the calendar helps WRITE a message (pick free times → "ใส่ในข้อความ"), so it lives with the other things that go into a message, not in the header */}
-                      <DropdownMenuItem onClick={() => setCalOpen((o) => !o)}><CalendarSearchIcon /> ปฏิทิน / หาเวลาว่าง</DropdownMenuItem>
+                      {/* owner 2026-10-22: the branch's course catalog — the parent filters grade / subject and taps a class */}
+                      {(!selected.group || family) && <DropdownMenuItem onClick={() => viaGroup(async () => report(await sendCatalogToChat(selected.id), "ส่ง Catalog แล้ว"))}><BookOpenIcon /> Catalog คอร์ส<Sent at={linkSent("pk_")} /></DropdownMenuItem>}
                       {/* a LINE group = everyone in it sees the message → family-private links (forms · catalog · invoice) are hidden there */}
                       {(!selected.group || family) && <DropdownMenuSub>
                         <DropdownMenuSubTrigger><FileTextIcon /> ฟอร์ม</DropdownMenuSubTrigger>
@@ -478,16 +500,16 @@ export default function InboxPage() {
                           )}
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>}
-                      <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>
-                      {/* owner 2026-10-22: the branch's course catalog — the parent filters grade / subject and taps a class */}
-                      {(!selected.group || family) && <DropdownMenuItem onClick={() => viaGroup(async () => report(await sendCatalogToChat(selected.id), "ส่ง Catalog แล้ว"))}><BookOpenIcon /> Catalog คอร์ส<Sent at={linkSent("pk_")} /></DropdownMenuItem>}
-                      {!selected.group && (kids.length > 1 ? (
+                      {!selected.group && (kids.length > 1 || leadKidCount > 1 ? (
                         <DropdownMenuSub>
                           <DropdownMenuSubTrigger><ReceiptIcon /> ใบแจ้งหนี้</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
                             <DropdownMenuGroup>
-                              <DropdownMenuLabel>ลูกคนไหน</DropdownMenuLabel>
-                              {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => openInvoice(k.id)}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
+                              {/* owner 2026-11-20: a whole-family set starts as blank Drafts, the courses are filled in after */}
+                              <DropdownMenuItem onClick={openFamilySet}><UsersRoundIcon /> ทั้งครอบครัว ({Math.max(kids.length, leadKidCount)} คน)</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>หรือใบเดียว — ลูกคนไหน</DropdownMenuLabel>
+                              {kids.length > 1 ? kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => openInvoice(k.id)}>{k.nickname} · {k.grade}</DropdownMenuItem>) : <DropdownMenuItem onClick={() => openInvoice()}>ลูกคนแรก</DropdownMenuItem>}
                             </DropdownMenuGroup>
                           </DropdownMenuSubContent>
                         </DropdownMenuSub>
@@ -496,6 +518,10 @@ export default function InboxPage() {
                           <ReceiptIcon /> ใบแจ้งหนี้{!kids.length && !lead ? <Hint>ผูกแชทก่อน</Hint> : null}
                         </DropdownMenuItem>
                       ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => imageInput.current?.click()}><ImageIcon /> รูปภาพ</DropdownMenuItem>
+                      {/* owner 2026-11-12: the calendar helps WRITE a message (pick free times → "ใส่ในข้อความ"), so it lives with the other things that go into a message, not in the header */}
+                      <DropdownMenuItem onClick={() => setCalOpen((o) => !o)}><CalendarSearchIcon /> ปฏิทิน / หาเวลาว่าง</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Input ref={imageInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadImage(f) }} />
@@ -525,8 +551,8 @@ export default function InboxPage() {
         <CalendarPanel key={selected.id} branchId={lead?.branchId ?? selected.branchId} subject={lead?.subject} onClose={() => setCalOpen(false)}
           onInsert={(text) => { setDraft((d) => (d.trim() ? `${d}\n${text}` : text)); composer.current?.focus() }} />
       )}
-      {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} onClose={() => setInvoicePanel(null)} />}
-      {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => setSendingEnroll(false)} onInvoice={() => openInvoice()} />}
+      {invoicePanel && <InvoiceSheet id={invoicePanel.id} defaultStudentId={invoicePanel.studentId} slipMediaId={invoicePanel.slip} defaultCourseIds={lead && invoicePanel.id === "new" ? interestCourseIdsFor(lead, panelStudent) : undefined} onClose={() => { setInvoicePanel(null); if (enrollBack) setSendingEnroll(true) }} />}
+      {sendingEnroll && selected && <SendEnrollDialog conversationId={selected.id} onClose={() => { setSendingEnroll(false); setEnrollBack(false) }} onInvoice={() => { setEnrollBack(true); openInvoice() }} preferNewest={enrollBack || undefined} />}
       {sendingFormOpen && selected && (
         <SendFormDialog
           leadId={lead?.id ?? null} branchId={lead?.branchId ?? selected.branchId} conversationId={selected.id}

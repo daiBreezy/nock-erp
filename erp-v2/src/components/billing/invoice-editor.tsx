@@ -41,7 +41,7 @@ import { creditAgeDays, creditsAvailable } from "@/domain/rules/credit"
 
 export type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; backdateRemark?: string; leftover?: Leftover; seats?: Record<string, Seat>; creditId?: string }
 
-export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; onClose: () => void; onSaved: (inv: Invoice) => void }) {
+export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, defaultCourseIds, onClose, onSaved }: { invoice?: Invoice; defaultStudentId?: string; renewEntitlementId?: string; defaultCourseIds?: string[]; onClose: () => void; onSaved: (inv: Invoice) => void }) {
   const branch = useBranch()
   // NockAcademy has no bus service (owner 2026-11-05): no legs, no extra bus days, no Bus section
   const busOn = branchHasBus(branch)
@@ -131,6 +131,17 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
       startDate: startFor(studentId, courseId),
     }
   }
+  // owner 2026-11-20: a new invoice starts with the courses the family was interested in already ticked — staff only change what differs
+  const [seeded, setSeeded] = useState(false)
+  const leadKidsAll = useStore((st) => st.leads).flatMap((l) => l.kids ?? [])
+  if (!seeded) {
+    setSeeded(true)
+    // a blank Draft of a family set (no course yet) is filled the same way; the child's own interested courses win over the caller's list
+    const own = leadKidsAll.find((k) => k.studentId === studentId)?.courseIds
+    const wanted = own?.length ? own : defaultCourseIds ?? []
+    const ok = (invoice && invoice.lines.length) || renewFrom ? [] : wanted.filter((id) => courses.some((c) => c.id === id))
+    if (ok.length) setLines(ok.map(lineFor))
+  }
   const renewPackage = (e: Entitlement) => {
     const line = { courseId: e.courseId, classIds: e.classIds, startDate: renewStart(e) }
     const same = lines.find((l) => l.courseId === e.courseId && !l.creditId)
@@ -176,6 +187,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, o
     createdBy: invoice?.createdBy ?? me,
     createdAt: invoice?.createdAt ?? now.toISOString(),
     payments: [],
+    // editing must not drop what links this invoice to its family set / its sent summary (it used to — the child fell out of the set on Save)
+    bundleId: invoice?.bundleId, duplicatedFrom: invoice?.duplicatedFrom, agreement: invoice?.agreement,
   }
   const ctx = { branch, courses, classes, holidays }
   // bus legs follow the real class days of every course, once per day; default ticked only if the student rides the bus (BL-6)

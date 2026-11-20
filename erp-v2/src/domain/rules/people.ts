@@ -13,6 +13,20 @@ export function validPhone(p: string) {
   return /^0\d{8,9}$/.test(d) && /^[\d\s-]+$/.test(p.trim())
 }
 
+/** why a phone is not valid yet — so the form can say it in words (owner 2026-11-20): empty · stray characters · too many / too few digits · not starting with 0 */
+export type PhoneIssue = "empty" | "chars" | "long" | "short" | "zero"
+export function phoneIssue(p: string): PhoneIssue | null {
+  const raw = p.trim()
+  if (!raw) return "empty"
+  if (!/^[\d\s-]+$/.test(raw)) return "chars"
+  const d = digits(raw)
+  if (d.length > 10) return "long"
+  if (d.length < 9) return "short"
+  if (!d.startsWith("0")) return "zero"
+  return null
+}
+export const validEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim())
+
 /** owner 2026-10-12: phones are stored and shown as plain digits ("0812345678") — no dashes */
 export function formatPhone(p: string) {
   const d = digits(p)

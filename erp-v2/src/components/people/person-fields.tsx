@@ -84,33 +84,40 @@ const optional = (t: FieldsDict, label: string) => `${label} · ${t.optional}`
 
 // ---------- the fields ----------
 
-export function ParentFields({ t, value: p, onChange, linked, errors = {} }: { t: FieldsDict; value: ParentDraft; onChange: (patch: Partial<ParentDraft>) => void; linked?: string; errors?: Errors }) {
+export function ParentFields({ t, value: p, onChange, linked, errors = {}, bareName }: { t: FieldsDict; value: ParentDraft; onChange: (patch: Partial<ParentDraft>) => void; linked?: string; errors?: Errors
+  /** the parent form: the section card above already says who this is, so the first group carries no heading of its own */
+  bareName?: boolean }) {
   const autoEn = /[฀-๿]/.test(joinName(p)) ? romanizeName(joinName(p)) : ""
+  const basic = (
+    <div className="grid grid-cols-2 gap-2">
+      <F label={t.relationship}>
+        <NativeSelect value={p.rel} onChange={(e) => onChange({ rel: e.target.value as RelKey | "" })} placeholder={t.select} options={REL_KEYS.map((k) => ({ value: k, label: t.rel[k] }))} />
+      </F>
+      <F label={optional(t, t.birthDate)}><Input type="date" value={p.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
+    </div>
+  )
+  const emailField = <F label={optional(t, t.email)} error={errors.email}><Input type="email" value={p.email} onChange={(e) => onChange({ email: e.target.value })} /></F>
   return (
     // owner 2026-11-09: ONE field per line, each group under a small heading (name · general · contact)
     <div className="space-y-4">
-      <Group title={t.grpName} first>
+      <Group title={bareName ? undefined : t.grpName} first>
         {p.sf && <F label={t.lastName}><Input value={p.last} onChange={(e) => onChange({ last: e.target.value })} /></F>}
         <F label={`${t.firstName} *`} error={errors.name}><Input value={p.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
         {!p.sf && <F label={t.lastName}><Input value={p.last} onChange={(e) => onChange({ last: e.target.value })} /></F>}
-        {/* owner 2026-11-19: Liclass asks the Japanese name only — no other-language name */}
-        {!p.sf && <F label={optional(t, t.nameEn)}><Input lang="en" value={p.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>}
       </Group>
-      <Group title={t.grpBasic}>
-        <F label={t.relationship}>
-          <NativeSelect value={p.rel} onChange={(e) => onChange({ rel: e.target.value as RelKey | "" })} placeholder={t.select} options={REL_KEYS.map((k) => ({ value: k, label: t.rel[k] }))} />
-        </F>
-        <F label={optional(t, t.birthDate)}><Input type="date" value={p.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
-      </Group>
+      {!p.sf && <Group>
+        <F label={optional(t, t.nameEn)}><Input lang="en" value={p.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
+      </Group>}
+      <Group title={t.grpBasic}>{basic}</Group>
       <Group title={t.grpContact}>
         {/* LINE is linked by opening the form in LINE (or from the Inbox) — nobody types a LINE ID (owner 2026-10-15) */}
         {linked && <p className="flex items-center gap-1.5 rounded-3xl bg-success-soft/60 px-3 py-2 text-sm text-success-ink"><CheckIcon className="size-4" />{t.lineLinked(linked)}</p>}
-        <F label={optional(t, t.email)}><Input type="email" value={p.email} onChange={(e) => onChange({ email: e.target.value })} /></F>
-        <div className="min-w-0 space-y-1.5">
+        {emailField}
+        <div data-invalid={errors.phone ? "" : undefined} className="min-w-0 space-y-1.5">
           <Label className="text-xs">{t.phone} *</Label>
           {p.phones.map((ph, k) => (
             <div key={k} className="flex items-center gap-1.5">
-              <Input inputMode="tel" value={ph} placeholder="0812345678" onChange={(e) => onChange({ phones: p.phones.map((x, j) => (j === k ? e.target.value : x)) })} />
+              <Input inputMode="tel" aria-invalid={k === 0 && !!errors.phone} value={ph} placeholder="0812345678" onChange={(e) => onChange({ phones: p.phones.map((x, j) => (j === k ? e.target.value : x)) })} />
               {k === 0 ? <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-2xs text-primary">{t.defaultTag}</span> : (
                 <>
                   <Button size="xs" variant="ghost" className="shrink-0" onClick={() => onChange({ phones: [ph, ...p.phones.filter((_, j) => j !== k)] })}>{t.makeDefault}</Button>
@@ -138,6 +145,7 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
   /** the parent's form (owner 2026-11-18): the family is named after the parent's surname, so nobody is asked for it — the admin panels still show it */
   hideName?: boolean
 }) {
+  const parts = { t, f, onChange, errors, sourceOptions, extras, busOffered }
   return (
     // owner 2026-11-09: ONE field per line (province and postcode too), every group under its heading
     <div className="space-y-4">
@@ -145,8 +153,22 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
         <F label={optional(t, t.familyName)} hint={t.familyNameSub} error={errors.name}><Input value={f.name} placeholder={t.familyNamePh(parentLast.trim())} onChange={(e) => onChange({ name: e.target.value })} /></F>
         <F label={optional(t, t.familyNameEn)}><Input lang="en" value={f.nameEn} placeholder="English" onChange={(e) => onChange({ nameEn: e.target.value })} /></F>
       </Group>}
+      <FamilyAcquisition {...parts} first={hideName} />
+      <FamilyBus {...parts} />
+      <FamilyPdpa t={t} f={f} onChange={onChange} />
+      <FamilyTax t={t} f={f} onChange={onChange} />
+    </div>
+  )
+}
+
+type PartProps = { t: FieldsDict; f: FamilyDraft; onChange: (patch: Partial<FamilyDraft>) => void }
+
+/** owner 2026-11-20: the parent form shows each of these as its own numbered section card, so they are separate pieces */
+export function FamilyAcquisition({ t, f, onChange, sourceOptions, extras, first }: PartProps & { sourceOptions?: string[]; extras?: boolean; first?: boolean }) {
+  return (
+    <>
       {/* owner 2026-11-18: a dropdown you can tick several in — saves the space the 7 boxes took */}
-      <Group title={t.acquisition} sub={t.acquisitionSub} first={hideName}>
+      <Group title={t.acquisition} sub={t.acquisitionSub} first={first}>
         {sourceOptions?.length
           ? <MultiPick value={f.sourceLabels} onChange={(sourceLabels) => onChange({ sourceLabels, acquisitions: sourceKeysOf(sourceLabels, t) })} placeholder={t.select} options={sourceOptions.map((x) => ({ value: x, label: x }))} />
           : <MultiPick value={f.acquisitions} onChange={(acquisitions) => onChange({ acquisitions })} placeholder={t.select} options={SOURCE_KEYS.map((k) => ({ value: k, label: t.src[k] }))} />}
@@ -156,8 +178,15 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
           <Input value={f.referral} placeholder={t.referralPh} onChange={(e) => onChange({ referral: e.target.value })} />
         </Group>
       )}
+    </>
+  )
+}
+
+export function FamilyBus({ t, f, onChange, errors = {}, busOffered, first }: PartProps & { errors?: Errors; busOffered?: boolean; first?: boolean }) {
+  return (
+    <>
       {busOffered && (
-        <Group>
+        <Group first={first}>
           <label className="flex items-start gap-2 text-sm"><Checkbox checked={f.busUse} onCheckedChange={(v) => onChange({ busUse: !!v })} className="mt-0.5" /><span><span className="font-semibold">{t.busUse}</span><span className="block text-xs text-muted-foreground">{t.busUseSub}</span></span></label>
           {f.busUse && (
             <div className="flex flex-wrap gap-1.5 pl-6">
@@ -169,12 +198,17 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
         </Group>
       )}
       {(!busOffered || f.busUse) && (
-        <Group title={optional(t, t.address)} sub={t.pinSub}>
+        <Group title={optional(t, t.address)} sub={t.pinSub} first={first && !busOffered}>
           <AddressFields t={t} value={f} onChange={onChange} errors={errors} />
         </Group>
       )}
-      {extras && (
-        <Group title={t.pdpaTitle} sub={t.pdpaSub}>
+    </>
+  )
+}
+
+export function FamilyPdpa({ t, f, onChange, noTitle }: PartProps & { /** the section card above already carries the title */ noTitle?: boolean }) {
+  return (
+        <Group title={noTitle ? undefined : t.pdpaTitle} sub={t.pdpaSub} first={noTitle}>
           <div className="space-y-1.5">
             {(["allow", "blur", "deny"] as const).map((k) => (
               <Button variant="row" size="inline" key={k} type="button" aria-pressed={f.pdpa === k} onClick={() => onChange({ pdpa: k })}
@@ -185,9 +219,14 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
             ))}
           </div>
         </Group>
-      )}
+  )
+}
+
+export function FamilyTax({ t, f, onChange, first }: PartProps & { first?: boolean }) {
+  return (
+    <>
       {/* the checkbox's own label is this group's heading — no second title above it */}
-      <Group>
+      <Group first={first}>
         <label className="flex items-start gap-2 text-sm"><Checkbox checked={f.wantTax} onCheckedChange={(v) => onChange({ wantTax: !!v })} className="mt-0.5" /><span><span className="font-semibold">{t.tax}</span><span className="block text-xs text-muted-foreground">{t.taxSub}</span></span></label>
         {f.wantTax && (
           <div className="space-y-3">
@@ -197,11 +236,13 @@ export function FamilyFields({ t, value: f, onChange, parentLast, errors = {}, h
           </div>
         )}
       </Group>
-    </div>
+    </>
   )
 }
 
-export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) => g, province, maxBirth, lastPh, errors = {} }: {
+export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) => g, province, maxBirth, lastPh, errors = {}, bareName }: {
+  /** the parent form: the section card above already says who this is, so the first group carries no heading of its own */
+  bareName?: boolean
   t: FieldsDict; value: StudentDraft; onChange: (patch: Partial<StudentDraft>) => void; grades: string[]; gradeLabel?: (g: string) => string
   /** the branch's province — its schools come first in the school list */
   province?: string; maxBirth?: string; errors?: Errors
@@ -212,33 +253,52 @@ export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) 
   const full = joinName(s)
   const autoEn = /[฀-๿]/.test(full) ? romanizeName(full) : ""
   const autoNickEn = /[฀-๿]/.test(s.nickname) ? romanizeName(s.nickname) : ""
-  return (
-    // owner 2026-11-09: ONE field per line, each group under a small heading (name · general · school · note)
-    <div className="space-y-4">
-      <Group title={t.grpStudentName} first>
-        {s.sf && <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>}
-        <F label={`${t.firstName} *`} error={errors.name}><Input value={s.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
-        {!s.sf && <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>}
-        {/* owner 2026-11-19: Japanese children have no nickname — Liclass asks for none (the given name stands in) */}
-        {!s.sf && <F label={t.nickname} error={errors.nickname}><Input value={s.nickname} placeholder={s.first} onChange={(e) => onChange({ nickname: e.target.value })} /></F>}
-        {!s.sf && <F label={optional(t, t.nameEn)}><Input lang="en" value={s.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>}
-        {!s.sf && <F label={optional(t, t.nicknameEn)}><Input lang="en" value={s.nicknameEn} placeholder={autoNickEn || "English"} onChange={(e) => onChange({ nicknameEn: e.target.value })} /></F>}
-      </Group>
-      <Group title={t.grpBasic}>
-        <F label={`${t.grade} *`} error={errors.grade}>
-          <NativeSelect value={s.grade} onChange={(e) => onChange({ grade: e.target.value })} placeholder={t.select} options={grades.map((g) => ({ value: g, label: gradeLabel(g) }))} />
-        </F>
-        <F label={optional(t, t.gender)}>
-          <NativeSelect value={s.gender} onChange={(e) => onChange({ gender: e.target.value as Gender | "" })} placeholder={t.select} options={(["male", "female"] as const).map((g) => ({ value: g, label: t.genders[g] }))} />
-        </F>
-        <F label={`${optional(t, t.birthDate)}${age !== null ? ` · ${t.age(age)}` : ""}`} error={errors.birthDate}><Input type="date" max={maxBirth} value={s.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
-      </Group>
+  const nameEns = (
+    <>
+      {!s.sf && <F label={optional(t, t.nameEn)}><Input lang="en" value={s.nameEn} placeholder={autoEn || "English"} onChange={(e) => onChange({ nameEn: e.target.value })} /></F>}
+      {!s.sf && <F label={optional(t, t.nicknameEn)}><Input lang="en" value={s.nicknameEn} placeholder={autoNickEn || "English"} onChange={(e) => onChange({ nicknameEn: e.target.value })} /></F>}
+    </>
+  )
+  const genderField = (
+      <F label={optional(t, t.gender)}>
+        <NativeSelect value={s.gender} onChange={(e) => onChange({ gender: e.target.value as Gender | "" })} options={[...(["male", "female"] as const).map((g) => ({ value: g, label: t.genders[g] })), { value: "", label: t.genderNone }]} />
+      </F>
+  )
+  const birthField = (
+      <F label={`${optional(t, t.birthDate)}${age !== null ? ` · ${t.age(age)}` : ""}`} error={errors.birthDate}><Input type="date" max={maxBirth} value={s.birthDate} onChange={(e) => onChange({ birthDate: e.target.value })} /></F>
+  )
+  const schoolNote = (
+    <>
       <Group title={optional(t, t.school)}>
         <SchoolPicker value={s.school} schoolId={s.schoolId} province={province} onChange={(v) => onChange({ school: v.school ?? "", schoolId: v.schoolId })} />
       </Group>
       <Group title={t.note}>
         <Textarea rows={2} maxLength={250} value={s.note} onChange={(e) => onChange({ note: e.target.value })} placeholder={t.notePh} />
       </Group>
+    </>
+  )
+  return (
+    // owner 2026-11-09: ONE field per line, each group under a small heading (name · general · school · note)
+    <div className="space-y-4">
+      <Group title={bareName ? undefined : t.grpStudentName} first>
+        {s.sf && <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>}
+        <F label={`${t.firstName} *`} error={errors.name}><Input value={s.first} onChange={(e) => onChange({ first: e.target.value })} /></F>
+        {!s.sf && <F label={t.lastName}><Input value={s.last} placeholder={lastPh} onChange={(e) => onChange({ last: e.target.value })} /></F>}
+        {/* owner 2026-11-19: Japanese children have no nickname — Liclass asks for none (the given name stands in) */}
+        {!s.sf && <F label={t.nickname} error={errors.nickname}><Input value={s.nickname} placeholder={s.first} onChange={(e) => onChange({ nickname: e.target.value })} /></F>}
+      </Group>
+      {!s.sf && <Group>{nameEns}</Group>}
+      <Group title={t.grpBasic}>
+        {/* owner 2026-11-20: grade and gender share a line */}
+        <div className="grid grid-cols-2 gap-2">
+          <F label={`${t.grade} *`} error={errors.grade}>
+            <NativeSelect value={s.grade} onChange={(e) => onChange({ grade: e.target.value })} placeholder={t.select} options={grades.map((g) => ({ value: g, label: gradeLabel(g) }))} />
+          </F>
+          {genderField}
+        </div>
+        {birthField}
+      </Group>
+      {schoolNote}
     </div>
   )
 }
@@ -280,7 +340,8 @@ function Group({ title, sub, first, children }: { title?: string; sub?: string; 
 
 function F({ label, hint, error, className, children }: { label: string; hint?: string; error?: string | false; className?: string; children: React.ReactNode }) {
   return (
-    <div className={cn("min-w-0 space-y-1", className)}>
+    // owner 2026-11-20: a field with a problem gets a red outline + the reason in words (data-invalid lets the form scroll to the first one)
+    <div data-invalid={error ? "" : undefined} className={cn("min-w-0 space-y-1", error && "[&_input]:border-destructive [&_input]:ring-3 [&_input]:ring-destructive/20 [&_button[role=combobox]]:border-destructive [&_button[role=combobox]]:ring-3 [&_button[role=combobox]]:ring-destructive/20", className)}>
       {/* owner 2026-10-13: no grey helper lines under fields — the explanation sits behind an ⓘ */}
       <Label className="text-xs">{label}{hint && <InfoTip text={hint} className="-my-1" />}</Label>
       {children}

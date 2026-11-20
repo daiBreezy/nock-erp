@@ -15,7 +15,7 @@ export function MultiPick<T extends string>({ value, onChange, options, placehol
         <span className={cn("min-w-0 flex-1 truncate", !shown && "text-muted-foreground")}>{shown || placeholder}</span>
         <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-(--anchor-width) min-w-52 space-y-0.5 p-1.5">
+      <PopoverContent align="start" className="w-(--anchor-width) min-w-52 gap-0.5 p-1.5">
         {options.map((o) => {
           const on = value.includes(o.value)
           return (

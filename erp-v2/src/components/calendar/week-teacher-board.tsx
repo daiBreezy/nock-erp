@@ -2,8 +2,8 @@
 
 import { WEEKDAY_TONE } from "@/components/app/tags"
 import { staffAt } from "@/domain/rules/permissions"
-import { Fragment, useMemo, useState } from "react"
-import { AlertTriangleIcon, ClockFadingIcon, CalendarOffIcon, CircleDashedIcon, XIcon, ArrowLeftRightIcon, BanIcon, EllipsisIcon, CheckIcon, RotateCcwIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, UserIcon, UsersIcon } from "lucide-react"
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { AlertTriangleIcon, ClockFadingIcon, CalendarOffIcon, CircleDashedIcon, XIcon, ArrowLeftRightIcon, ChevronLeftIcon, ChevronRightIcon, BanIcon, EllipsisIcon, CheckIcon, RotateCcwIcon, PencilLineIcon, PinIcon, PlusIcon, Trash2Icon, UserIcon, UsersIcon } from "lucide-react"
 import type { ClassPrefill } from "@/components/app/class-dialog"
 import { ConflictResolver, liveConflicts } from "@/components/app/conflict-resolver"
 import { avatarTone, subjectColor } from "@/components/app/subject-color"
@@ -85,8 +85,12 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
   const teacherIds = useMemo(() => {
     const ids = [...new Set(live.map((s) => s.teacherId ?? ""))]
     const name = (id: string) => staff.find((t) => t.id === id)?.nickname ?? "~"
-    return ids.sort((a, b) => (a === "" ? 1 : b === "" ? -1 : name(a).localeCompare(name(b), "th")))
-  }, [live, staff])
+    const sorted = ids.sort((a, b) => (a === "" ? 1 : b === "" ? -1 : name(a).localeCompare(name(b), "th")))
+    // owner 2026-11-20: a teacher who opens the calendar always finds their OWN column first (even a week with no classes) — no sideways hunting
+    const mine = staff.find((t) => t.id === me)
+    if (mine?.roles.includes("teacher")) return [me, ...sorted.filter((id) => id !== me)]
+    return sorted
+  }, [live, staff, me])
 
   const endMin = (row: Row) => toMinutes(row.end)
   const rowPast = (date: DateStr, row: Row) => date < today || (date === today && endMin(row) <= nowMin)
@@ -107,15 +111,18 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
     if (plain) return hourRows(date)
     const blocks = blocksOn(branch, date)
     const ofDay = live.filter((s) => s.date === date)
-    // sessions outside every block still show — as their own row at their start time
-    const loose = [...new Set(ofDay.filter((s) => !blockFor(blocks, s.start)).map((s) => s.start))]
-    return [...blocks.map((b) => ({ start: b.start, end: b.end, block: true })), ...loose.map((t) => ({ start: t, end: endTime(t, 60), block: false }))]
-      .sort((a, b) => a.start.localeCompare(b.start))
+    // owner 2026-11-20: sessions outside every block share ONE "นอกช่วง" row (it used to be a row per odd start time — 11:30, 11:40, … — which read as noise);
+    // each card still carries its own time
+    const loose = ofDay.filter((s) => !blockFor(blocks, s.start))
+    const looseRow: Row[] = loose.length
+      ? [{ start: loose.map((s) => s.start).sort()[0], end: loose.map((s) => endTime(s.start, s.minutes)).sort().at(-1)!, block: false }]
+      : []
+    return [...blocks.map((b) => ({ start: b.start, end: b.end, block: true })), ...looseRow].sort((a, b) => a.start.localeCompare(b.start))
   }
   const cellSessions = (date: DateStr, teacherId: string, row: Row) => {
     if (plain) return live.filter((s) => s.date === date && (s.teacherId ?? "") === teacherId && s.start >= row.start && s.start < row.end).sort((a, b) => a.start.localeCompare(b.start))
     const blocks = blocksOn(branch, date)
-    return live.filter((s) => s.date === date && (s.teacherId ?? "") === teacherId && (row.block ? blockFor(blocks, s.start)?.start === row.start : s.start === row.start && !blockFor(blocks, s.start)))
+    return live.filter((s) => s.date === date && (s.teacherId ?? "") === teacherId && (row.block ? blockFor(blocks, s.start)?.start === row.start : !blockFor(blocks, s.start)))
       .sort((a, b) => a.start.localeCompare(b.start))
   }
   const nowPct = (row: Row) => Math.min(100, Math.max(0, ((nowMin - toMinutes(row.start)) / (endMin(row) - toMinutes(row.start))) * 100))
@@ -137,19 +144,27 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
         const closed = !branch.hours[weekdayOf(date)]
         const holiday = isHoliday(date, branch.id, holidays)
         return (
-          <section key={date} id={`day-${date}`} className="scroll-mt-32 overflow-x-auto rounded-3xl bg-card shadow-sm ring-1 ring-foreground/10">
+          <HScrollSection key={date} id={`day-${date}`} className="scroll-mt-32 rounded-3xl bg-card shadow-sm ring-1 ring-foreground/10">
+            {(sc) => (
             <div className="min-w-fit">
-              <div className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
+              <div data-pan className={cn("flex items-center gap-2 px-4 py-2 text-sm font-semibold", dayTone(date, today))}>
                 {/* the band spans the whole table; the text sticks to the left edge so a sideways scroll never moves it */}
                 <span className="sticky left-4">{DAY_FULL[weekdayOf(date)]} {fmtDate(date, { year: true })}{date === today ? " · วันนี้" : date < today ? " · ผ่านไปแล้ว" : ""}{holiday ? " · วันหยุด" : closed ? " · สาขาปิด" : ""}</span>
                 {periodsOn(branch, date)[0] && <span className="rounded-full bg-special-soft px-2 py-0.5 text-2xs font-medium text-special-ink">ช่วง {periodsOn(branch, date)[0].name}</span>}
+                {/* owner 2026-11-20: mouse users — step the table sideways with the arrows (also: drag or wheel on this band / the teacher names, or Shift + wheel) */}
+                {(sc.canLeft || sc.canRight) && (
+                  <span className="sticky right-4 ml-auto flex gap-1">
+                    <Button size="icon-xs" variant="outline" type="button" aria-label="เลื่อนไปทางซ้าย" disabled={!sc.canLeft} onClick={() => sc.by(-1)}><ChevronLeftIcon /></Button>
+                    <Button size="icon-xs" variant="outline" type="button" aria-label="เลื่อนไปทางขวา" disabled={!sc.canRight} onClick={() => sc.by(1)}><ChevronRightIcon /></Button>
+                  </span>
+                )}
               </div>
               {rows.length === 0 || teacherIds.length === 0 ? (
                 <p className="p-6 text-center text-sm text-muted-foreground">{closed || holiday ? "ไม่มีคลาส" : "ยังไม่มีคลาสวันนี้"}</p>
               ) : (
                 <div className="grid bg-muted/40 text-sm" style={{ gridTemplateColumns: cols }}>
                   {/* teacher headers: avatar · name · subjects · classes that day */}
-                  <div className="sticky left-0 z-10 border-r border-b bg-card" />
+                  <div data-pan className="sticky left-0 z-10 border-r border-b bg-card" />
 
                   {teacherIds.map((tid) => {
                     const t = staff.find((x) => x.id === tid)
@@ -161,7 +176,7 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                     const upcoming = date >= today
                     const firstSlot = rows.find((r) => r.block)?.start ?? branch.hours[weekdayOf(date)]?.open
                     return (
-                      <div key={tid || "none"} className="group/head relative flex items-center gap-3 border-b border-l bg-card px-4 py-3">
+                      <div key={tid || "none"} data-pan className="group/head relative flex items-center gap-3 border-b border-l bg-card px-4 py-3">
                         {/* owner 2026-10-15: the same picture as on the Staff page (photo, else the initial) */}
                         {t ? <PersonAvatar person={t} className="size-11 text-base" /> : <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold", avatarTone("none"))}>?</span>}
                         <div className="min-w-0 flex-1">
@@ -223,8 +238,9 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                       <Fragment key={row.start}>
                         {/* owner 2026-10-15: no Room bar — the room sits inside each class card, the same in both views */}
                         <div className={cn("sticky left-0 z-10 flex flex-col items-center gap-1 border-r border-b bg-card px-2 py-3 text-sm tabular-nums", plain ? "justify-start" : "justify-center", past && "text-muted-foreground", nowHere && "font-semibold text-primary")}>
-                          <span>{row.start}</span>
-                          {!plain && <span>{row.block ? row.end : "นอกช่วง"}</span>}
+                          {/* the "outside the blocks" row has no hour of its own — just its name */}
+                          <span>{row.block || plain ? row.start : "นอกช่วง"}</span>
+                          {!plain && row.block && <span>{row.end}</span>}
                         </div>
                         {teacherIds.map((tid) => {
                           const cell = cellSessions(date, tid, row)
@@ -269,7 +285,8 @@ export function WeekTeacherBoard({ from, sessions, onOpen, onSlot, canCreate, da
                 </div>
               )}
             </div>
-          </section>
+            )}
+          </HScrollSection>
         )
       })}
     </div>
@@ -595,3 +612,45 @@ function StudentLine({ divider, drag, nickname, grade, notes, time, result, move
   )
 }
 
+/**
+ * A day's table that scrolls sideways (owner 2026-11-20 — teachers use a mouse, and a mouse can't swipe): `by(±1)` steps one teacher column,
+ * and dragging or turning the wheel on anything marked `data-pan` (the day band, the teacher names) moves it too. Shift + wheel works as always.
+ */
+function HScrollSection({ id, className, children }: { id: string; className?: string; children: (api: { canLeft: boolean; canRight: boolean; by: (dir: -1 | 1) => void }) => ReactNode }) {
+  const [el, setEl] = useState<HTMLElement | null>(null)
+  const [edge, setEdge] = useState({ canLeft: false, canRight: false })
+  const measure = useCallback(() => {
+    if (!el) return
+    const canLeft = el.scrollLeft > 1, canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+    setEdge((e) => (e.canLeft === canLeft && e.canRight === canRight ? e : { canLeft, canRight }))
+  }, [el])
+  useEffect(() => {
+    if (!el) return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    // a turn of the wheel over the pan zones goes sideways (needs a non-passive listener to stop the page scrolling instead)
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-pan]") || el.scrollWidth <= el.clientWidth || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return
+      e.preventDefault()
+      el.scrollBy({ left: e.deltaY })
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => { ro.disconnect(); el.removeEventListener("wheel", onWheel) }
+  }, [el, measure])
+  const [drag, setDrag] = useState<{ x: number; left: number } | null>(null)
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 || !el || !(e.target as HTMLElement).closest("[data-pan]") || (e.target as HTMLElement).closest("button, a, input, select, textarea, [role=menuitem]")) return
+    setDrag({ x: e.clientX, left: el.scrollLeft })
+    el.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = (e: React.PointerEvent) => { if (drag && el) el.scrollTo({ left: drag.left - (e.clientX - drag.x) }) }
+  const onPointerUp = (e: React.PointerEvent) => { if (drag && el) { setDrag(null); el.releasePointerCapture(e.pointerId) } }
+  const by = (dir: -1 | 1) => el?.scrollBy({ left: dir * 272, behavior: "smooth" })
+  return (
+    <section ref={setEl} id={id} onScroll={measure} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+      className={cn("overflow-x-auto [&_[data-pan]]:cursor-grab", drag && "select-none [&_[data-pan]]:cursor-grabbing", className)}>
+      {children({ ...edge, by })}
+    </section>
+  )
+}

@@ -73,6 +73,12 @@ export async function createToken(input: {
 
 export type TokenCheck = { ok: true; token: FormToken } | { ok: false; error: string }
 
+/** staff side (the chat's "Preview Form"): the token as it was sent, even after the parent used it or it expired — nothing is changed */
+export async function peekToken(token: string) {
+  const store = await readStore()
+  return store.tokens.find((x) => x.token === token) ?? null
+}
+
 export async function checkToken(token: string): Promise<TokenCheck> {
   const store = await readStore()
   const t = store.tokens.find((x) => x.token === token)
@@ -169,6 +175,29 @@ export async function reviewSubmission(id: ID, status: "approved" | "rejected", 
 
 /** Admin correction — free to pick any subject/slot for one of this child's picks, not constrained to
  *  the token's original offers. `pickIndex` selects which of the child's subject picks to replace. */
+/** the answers staff may correct (owner 2026-11-20) — never the status, picks, ids or who sent it */
+export const EDITABLE_ANSWERS = [
+  "parents", "familyName", "familyNameEn", "familyAddress", "familyAddressParts", "familyPostcode", "familyProvince", "familyLocation", "familyAddressNote",
+  "acquisitions", "acquisitionLabels", "familyBusLeg", "referral", "pdpa", "taxInfo",
+  "studentName", "studentNickname", "studentNameEn", "studentNicknameEn", "studentGender", "studentGrade", "studentBirthDate", "studentSchool", "studentSchoolId", "studentNote",
+] as const
+
+/** Staff correction of what the parent typed — only while the form is still waiting for approval. A field sent as null is cleared. */
+export async function editSubmissionAnswers(id: ID, answers: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
+  return mutate((store) => {
+    const sub = store.submissions.find((s) => s.id === id)
+    if (!sub) return { ok: false as const, error: "ไม่พบฟอร์มนี้" }
+    if (sub.status !== "pending") return { ok: false as const, error: "ฟอร์มนี้ตรวจแล้ว — แก้คำตอบไม่ได้" }
+    const target = sub as unknown as Record<string, unknown>
+    for (const k of EDITABLE_ANSWERS) {
+      if (!(k in answers)) continue
+      if (answers[k] === null) delete target[k]
+      else target[k] = answers[k]
+    }
+    return { ok: true as const }
+  })
+}
+
 export async function editSubmissionSlot(id: ID, pickIndex: number, subject: string, slot: FormOfferSlot): Promise<{ ok: true } | { ok: false; error: string }> {
   return mutate((store) => {
     const sub = store.submissions.find((s) => s.id === id)

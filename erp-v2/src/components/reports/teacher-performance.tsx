@@ -74,7 +74,7 @@ function Frac({ a, b, r }: { a: number; b: number; r: number | null }) {
   )
 }
 
-const Head = ({ tip, children }: { tip: string; children: React.ReactNode }) => <span className="inline-flex items-center gap-1">{children}<InfoTip text={tip} /></span>
+const Head = ({ tip, children }: { tip: string; children: React.ReactNode }) => <span className="inline-flex items-center gap-1">{children}<InfoTip text={tip} splitTitle /></span>
 
 export function TeacherPerformance({ teachers, today }: { teachers: Staff[]; today: string }) {
   // owner 2026-11-19: Referral points are real now (1 point per referred family that paid, shared by the referrer's teachers) — added on top of the mock figure

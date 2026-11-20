@@ -43,3 +43,46 @@ export const classWhen = (k: Pick<EnrollClassOffer, "weekday" | "start" | "minut
 export function requestText(action: "interest" | "trial", k: Pick<EnrollClassOffer, "name" | "weekday" | "start" | "minutes">, course?: Pick<CatalogCourse, "name">) {
   return `${action === "trial" ? "📅 ขอนัดทดลองเรียน" : "📚 สนใจคลาสนี้"}: ${k.name} · ${classWhen(k)}${course ? ` (${course.name})` : ""}`
 }
+
+/** one thing a parent tapped "interested" on in the catalog — what the Lead panel keeps (owner 2026-11-19) */
+export interface CatalogInterest {
+  id: string
+  at: string
+  action: "interest" | "trial"
+  subjects: string[]
+  grades: string[]
+  /** the course (package) — "" when the parent tapped a class that has none */
+  course: string
+  /** the class and when it meets — "" when the course has no class yet */
+  className: string
+  when: string
+  /** owner 2026-11-20: the ids — so the Lead panel can tick several and send ONE form, and the course list can mark what the parent asked about */
+  courseId: string | null
+  classId: string | null
+}
+
+/**
+ * Every catalog tap in a conversation, newest first. Tapping the same class (or course) again is one line (the latest tap), a Trial request
+ * beats an "interested". Grades/course come from the message, or — for older messages — from the school's classes + courses.
+ */
+export function catalogInterests(
+  messages: ReadonlyArray<{ id: string; at: string; meta?: unknown }>,
+  lookup: { classes: ReadonlyArray<{ id: string; grades: string[]; courseId: string | null }>; courses: ReadonlyArray<{ id: string; name: string; grades: string[] }> },
+): CatalogInterest[] {
+  const out = new Map<string, CatalogInterest>()
+  for (const m of [...messages].sort((a, b) => a.at.localeCompare(b.at))) {
+    const meta = m.meta as { formKind?: string; action?: "interest" | "trial"; classId?: string; courseId?: string; className?: string; subjects?: string[]; grades?: string[]; when?: string } | undefined
+    if (meta?.formKind !== "catalog_request") continue
+    const k = lookup.classes.find((c) => c.id === meta.classId)
+    const course = lookup.courses.find((c) => c.id === (meta.courseId || k?.courseId))
+    const key = meta.classId || `course:${meta.courseId ?? meta.className}`
+    const prev = out.get(key)
+    const action = prev?.action === "trial" || meta.action === "trial" ? "trial" : "interest"
+    out.set(key, {
+      id: m.id, at: m.at, action, subjects: meta.subjects ?? [], grades: meta.grades?.length ? meta.grades : k?.grades ?? course?.grades ?? [],
+      course: course?.name ?? (meta.classId ? "" : meta.className ?? ""), className: meta.classId ? meta.className ?? "" : "", when: meta.classId ? meta.when ?? "" : "",
+      courseId: course?.id ?? null, classId: meta.classId ?? null,
+    })
+  }
+  return [...out.values()].sort((a, b) => b.at.localeCompare(a.at))
+}

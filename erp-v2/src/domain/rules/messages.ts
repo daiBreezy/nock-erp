@@ -334,3 +334,36 @@ export function busDoneMessage(brand: Brand | undefined, nickname: string, p: { 
 /** the leave the admin recorded: each day + time written in the message language */
 export const leaveDoneMessage = (brand: Brand | undefined, nickname: string, days: { date: DateStr; start: string }[]) =>
   both(brand, (l) => fill(l, N[l].doneLeave, [dn(l, nickname), days.map((d) => `${dateIn(l, d.date, { weekday: true })} ${d.start}`).join(", ")]))
+
+
+// ---------- the course summary before the invoice (owner 2026-11-20) ----------
+const AG: Record<MsgLang, Record<string, string>> = {
+  th: { head: "📋 สรุปคอร์สที่คุยกันไว้", intro: "ขอสรุปรายละเอียดให้ตรวจอีกครั้งก่อนออกใบแจ้งหนี้นะคะ", student: "นักเรียน", start: "เริ่มเรียน {0}", sessions: "{0} คาบ", with: "ครู{0}", bus: "ค่ารถรับส่ง {0}", total: "ยอดรวม", ask: "หากถูกต้องรบกวนตอบ “ยืนยัน” ได้เลยค่ะ ถ้าต้องการแก้ไขบอกได้เลยนะคะ 🙏", noClass: "ยังไม่ได้เลือกคลาส" },
+  ja: { head: "📋 ご相談いただいたコースのまとめ", intro: "請求書を作成する前に、内容をご確認ください。", student: "生徒", start: "開始日 {0}", sessions: "{0}回", with: "{0}先生", bus: "バス代 {0}", total: "合計", ask: "内容に問題なければ「確認しました」とご返信ください。修正がある場合もお知らせください 🙏", noClass: "クラス未選択" },
+  en: { head: "📋 Summary of the course we discussed", intro: "Please check the details below before we issue the invoice.", student: "Student", start: "Starts {0}", sessions: "{0} sessions", with: "teacher {0}", bus: "Bus fee {0}", total: "Total", ask: "If everything is correct, please reply “Confirm”. Tell us if anything needs to change 🙏", noClass: "No class chosen yet" },
+}
+const ag = (l: MsgLang, k: string, ...a: (string | number)[]) => a.reduce<string>((t, v, i) => t.replace(`{${i}}`, String(v)), AG[l][k])
+
+/** ONE message for one child or a whole family set: each child · each course · the classes (day, time, teacher) · start date · sessions · money. */
+export function courseAgreementMessage(items: { totals: InvoiceTotals; student: Student; busOn?: boolean }[], ctx: { branch: Branch; teacherName: (id: string | null) => string }): string {
+  const total = items.reduce((a, x) => a + x.totals.total, 0)
+  return only(ctx.branch.brand, (l) => [
+    AG[l].head, AG[l].intro,
+    ...items.flatMap((x) => [
+      "",
+      `${AG[l].student}${l === "ja" ? "：" : ": "}${dn(l, x.student.nickname)} · ${dn(l, x.student.grade)}`,
+      ...x.totals.lines.filter((q) => q.course).flatMap((q) => [
+        `• ${dn(l, q.course!.name)}${q.quote ? ` · ${ag(l, "start", dateIn(l, q.quote.from, { weekday: true }))} · ${ag(l, "sessions", q.quote.sessions.length)}` : ""} · ${fmtMoney(q.amount + q.courseFee - q.promotion)}`,
+        ...(q.klasses.length ? q.klasses.map((k) => {
+          const t = ctx.teacherName(k.teacherId)
+          return `   ${DAY[l][k.weekday]} ${k.start}–${fromMinutes(toMinutes(k.start) + k.minutes)}${t ? ` · ${ag(l, "with", dn(l, t))}` : ""}`
+        }) : [`   ${AG[l].noClass}`]),
+      ]),
+      x.totals.bus ? ag(l, "bus", fmtMoney(x.totals.bus)) : null,
+    ]),
+    "",
+    `${AG[l].total} ${fmtMoney(total)}`,
+    "",
+    AG[l].ask,
+  ].filter((x) => x !== null).join("\n"))
+}

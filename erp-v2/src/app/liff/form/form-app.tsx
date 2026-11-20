@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { addDays, endTime, toDateStr } from "@/domain/dates"
 import { commonSlots, picksClash, slotClashes } from "@/domain/rules/forms"
+import { phoneIssue, validEmail } from "@/domain/rules/people"
 import { CatalogApp } from "../catalog/catalog-app"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
-import type { Brand, EnrollClassOffer, EnrollInvoiceSnap, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
+import type { Brand, FormSubmission, EnrollClassOffer, EnrollInvoiceSnap, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
-import { addressPartsOf, emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
+import { addressPartsOf, emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyAcquisition, FamilyBus, FamilyPdpa, FamilyTax, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
 import { joinName } from "@/domain/rules/people"
 import { DICT, fmtBirth, fmtFormDate } from "./i18n"
 import { classTimeLabel, courseLine, ENROLL_DICT, EnrollFields, enrollValid, InvoicePay, PREVIEW_INVOICE, timeLabel, type EnrollFieldsValue } from "./enroll"
@@ -68,6 +69,9 @@ export function LiffForm() {
   const previewParam = params.get("preview")
   const preview = previewParam === "enroll" ? null : (previewParam as FormType | null)
   const previewEnroll = previewParam === "enroll"
+  /** owner 2026-11-20: staff correct a submitted answer sheet IN the real parent form (the inbox opens this page in a dialog) — "บันทึก" saves, nothing is sent to the parent */
+  const editSubId = params.get("submission")
+  const [editSub, setEditSub] = useState<FormSubmission | null>(null)
   const liffRef = useRef<{ closeWindow: () => void } | null>(null)
   const [token, setToken] = useState(initialToken)
   const [phase, setPhase] = useState<Phase>("init")
@@ -110,7 +114,8 @@ export function LiffForm() {
   /** what we already know → cards the parent only checks (owner 2026-09-29: never type it twice) */
   const applyPrefill = (p: FormPrefill | null, gradeList: string[], offerList: FormSubjectOffer[], lineName: string, sf = false) => {
     if (p?.parents.length) {
-      setParents(p.parents.map((x) => ({ ...parentDraftOf(x, sf), editing: false })))
+      // owner 2026-11-20: only a parent we already hold complete details for (name + phone) is shown folded — anyone new opens expanded
+      setParents(p.parents.map((x) => { const d = parentDraftOf(x, sf); return { ...d, editing: !(d.first.trim() && d.phones[0]?.trim()) } }))
       setPrimaryIdx(Math.max(0, p.parents.findIndex((x) => x.primary)))
       setFam({
         ...emptyFamilyDraft(), referral: p.referral ?? "", pdpa: p.pdpa ?? "",
@@ -118,11 +123,12 @@ export function LiffForm() {
         address: p.address ?? "", parts: addressPartsOf(p.address, p.addressParts), province: p.province ?? "", postcode: p.postcode ?? "", location: p.location, addressNote: p.addressNote ?? "",
         wantTax: !!p.taxInfo, tax: p.taxInfo ?? { customerName: "", taxId: "", address: "" },
       })
-      setKnown(true)
+      setKnown(p.parents.some((x) => { const d = parentDraftOf(x, sf); return !!(d.first.trim() && d.phones[0]?.trim()) }))
     } else setParents([emptyParent(lineName, sf)])
     const subjects = offerList.map((o) => o.subject)
     setStudents(p?.students.length
-      ? p.students.map((s) => ({ ...emptyStudent(s.grade, subjects, sf), ...studentDraftOf(s, sf), editing: false }))
+      // owner 2026-11-20: a child sees only the subjects the admin set for THEM (their `interests`), when those are on offer — else every offered subject
+      ? p.students.map((s) => { const own = (s.interests ?? []).filter((x) => subjects.includes(x)); const d = studentDraftOf(s, sf); return { ...emptyStudent(s.grade, own.length ? own : subjects, sf), ...d, editing: !(d.first.trim() && d.grade) } })
       : [emptyStudent(p?.childGrade ?? "", subjects, sf)])
   }
 
@@ -173,6 +179,30 @@ export function LiffForm() {
         setPhase("ready")
         return
       }
+      if (editSubId) {
+        const subs = await fetch("/api/forms/submissions").then((r) => r.json()).catch(() => ({ submissions: [] }))
+        const sub = (subs.submissions as FormSubmission[] | undefined)?.find((x) => x.id === editSubId)
+        if (!sub) { setError("ไม่พบฟอร์มนี้"); setPhase("invalid"); return }
+        const tk = await fetch(`/api/forms/token?token=${encodeURIComponent(sub.token)}&peek=1`).then((r) => r.json()).catch(() => ({ ok: false }))
+        if (cancelled) return
+        const brand: Brand = tk.brand ?? "nockacademy"
+        const subjects = [...new Set(sub.picks.map((p) => p.chosenSubject))]
+        const offersOf: FormSubjectOffer[] = subjects.map((subject) => ({ subject, slots: sub.picks.filter((p) => p.chosenSubject === subject).map((p) => p.chosenSlot) }))
+        setEditSub(sub); setFormType(sub.type); setOffers(offersOf); setGrades(tk.grades?.length ? tk.grades : [sub.studentGrade]); setDisplayName(sub.parents[0]?.name ?? ""); setLineUserId("preview")
+        setSeparate(new Set(sub.picks.map((p) => `${p.chosenSlot.date} ${p.chosenSlot.start}`)).size > 1)
+        setSubjectNames(tk.subjectNames ?? {}); setBranchName(tk.branchName ?? ""); setBrandId(brand); setBusOffered(tk.bus ?? brand === "liclass"); setSourceOptions(tk.sources)
+        if (!params.get("lang")) setLang(tk.lang ?? brandLang(brand))
+        applyPrefill({
+          parents: sub.parents, address: sub.familyAddress, addressParts: sub.familyAddressParts, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote,
+          acquisitions: sub.acquisitions, familyName: sub.familyName, familyNameEn: sub.familyNameEn, taxInfo: sub.taxInfo, referral: sub.referral, pdpa: sub.pdpa,
+          students: [{ name: sub.studentName, nickname: sub.studentNickname, nameEn: sub.studentNameEn, nicknameEn: sub.studentNicknameEn, gender: sub.studentGender, grade: sub.studentGrade, birthDate: sub.studentBirthDate, school: sub.studentSchool, schoolId: sub.studentSchoolId, note: sub.studentNote }],
+        } as FormPrefill, tk.grades ?? [], offersOf, "", brand === "liclass")
+        setFam((x) => ({ ...x, sourceLabels: sub.acquisitionLabels ?? [], busUse: !!sub.familyBusLeg, busLeg: sub.familyBusLeg ?? "both" }))
+        setStudents((ss) => ss.map((st) => ({ ...st, editing: true, activeSubjects: subjects, chosen: Object.fromEntries(sub.picks.map((p) => [p.chosenSubject, p.chosenSlot])) })))
+        setParents((ps) => ps.map((p) => ({ ...p, editing: true })))
+        setPhase("ready")
+        return
+      }
       if (preview) {
         const d = previewData(preview, params.get("fresh") === "1")
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview"); setSeparate(preview === "trial")
@@ -220,13 +250,34 @@ export function LiffForm() {
     }
     run()
     return () => { cancelled = true }
-  }, [initialToken, preview]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialToken, preview, editSubId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setParent = (i: number, patch: Partial<ParentBlock>) => setParents((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)))
   const setStudent = (key: string, patch: Partial<StudentBlock>) => setStudents((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s)))
 
-  const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && p.phones[0]?.trim()) && !!fam.pdpa
+  // owner 2026-11-20: several children on a Test that is ONE visit come together — the time is picked once (on child 1) and every child gets it
+  const together = formType === "test" && !separate && students.length > 1
+  const unionSubjects = [...new Set(students.flatMap((x) => x.activeSubjects))]
+  const pickVisit = (bySubject: Record<string, FormOfferSlot>) => setStudents((ss) => ss.map((st) => ({ ...st, chosen: Object.fromEntries(st.activeSubjects.filter((sj) => bySubject[sj]).map((sj) => [sj, bySubject[sj]])) })))
+  const parentsValid = parents.length > 0 && parents.every((p) => p.first.trim() && !phoneIssue(p.phones[0] ?? "") && (!p.email.trim() || validEmail(p.email))) && !!fam.pdpa
   const studentsValid = students.length > 0 && students.every((s) => s.first.trim() && s.grade && (enroll ? (enroll.classOffers ? (enroll.classOffers.length ? enrollClassValid(s.enroll) : !!s.enroll.startDate) : enrollValid(s.enroll)) : s.activeSubjects.length > 0 && s.activeSubjects.every((subj) => s.chosen[subj]) && !(separate && picksClash(s.chosen))))
+  /** owner 2026-11-20: a field that is missing or wrong turns red with the reason in words. Wrong-looking input (stray characters, too many digits) shows at once;
+   *  "empty" and "not finished yet" wait until the parent presses Next — nobody gets shouted at while still typing */
+  const [attempt, setAttempt] = useState<Record<string, boolean>>({})
+  const flagStep = (k: string) => { setAttempt((a) => ({ ...a, [k]: true })); setTimeout(() => document.querySelector("[data-invalid]")?.scrollIntoView({ block: "center", behavior: "smooth" }), 60) }
+  const phoneMsg = (v: string, strict: boolean) => {
+    const i = phoneIssue(v)
+    if (!i) return undefined
+    if (i === "chars") return t.errPhoneChars
+    if (i === "long") return t.errPhoneLong
+    if (!strict) return undefined
+    return i === "empty" ? t.errRequired : i === "short" ? t.errPhoneShort : t.errPhoneZero
+  }
+  const parentErrs = parents.map((p) => ({
+    name: attempt.parent && !p.first.trim() ? t.errRequired : undefined,
+    phone: phoneMsg(p.phones[0] ?? "", !!attempt.parent),
+    email: attempt.parent && p.email.trim() && !validEmail(p.email) ? t.errEmail : undefined,
+  }))
 
   /** the child's surname box left empty = the main parent's surname (owner 2026-11-18) */
   const parentLast = parents[primaryIdx]?.last.trim() ?? ""
@@ -246,6 +297,23 @@ export function LiffForm() {
     setError("")
     setPhase("submitting")
     if (preview || previewEnroll) { setPhase("done"); return }
+    if (editSubId && editSub) {
+      // staff correction: write the answers back (a field cleared in the form is cleared in the answer sheet), then tell the inbox
+      const sd = studentInputOf(withLast(students[0]))
+      const fp = familyPayload() as Record<string, unknown>
+      const nul = (v: unknown) => (v === undefined || v === "" ? null : v)
+      const answers: Record<string, unknown> = {
+        studentName: sd.name, studentNickname: nul(sd.nickname), studentNameEn: nul(sd.nameEn), studentNicknameEn: nul(sd.nicknameEn), studentGender: nul(sd.gender), studentGrade: sd.grade,
+        studentBirthDate: nul(sd.birthDate), studentSchool: nul(sd.school), studentSchoolId: nul(sd.schoolId), studentNote: nul(sd.note),
+        parents: parentsPayload().map((p, i) => ({ ...p, lineId: editSub.parents[i]?.lineId })),
+      }
+      for (const k of ["familyName", "familyNameEn", "familyAddress", "familyAddressParts", "familyPostcode", "familyProvince", "familyLocation", "familyAddressNote", "acquisitions", "acquisitionLabels", "taxInfo", "familyBusLeg", "referral", "pdpa"]) answers[k] = nul(fp[k])
+      const res = await fetch("/api/forms/edit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editSubId, answers }) }).then((r) => r.json()).catch(() => ({ ok: false, error: "บันทึกไม่สำเร็จ — เครือข่ายมีปัญหา" }))
+      if (!res.ok) { setError(res.error ?? "บันทึกไม่สำเร็จ"); setPhase("ready"); return }
+      window.parent.postMessage({ type: "nock-submission-saved" }, window.location.origin)
+      setPhase("done")
+      return
+    }
     if (enroll) {
       const res = await fetch("/api/parent-forms/enroll-submit", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -299,15 +367,14 @@ export function LiffForm() {
         {invoice?.status === "void" && phase !== "done" && <p className="flex items-center gap-2 rounded-2xl bg-danger-soft px-3 py-2.5 text-sm text-danger-ink"><XCircleIcon className="size-4 shrink-0" />{te.invoiceVoid}</p>}
         {phase === "done" && <p className="flex items-center gap-2 rounded-2xl bg-success-soft px-3 py-2.5 text-sm text-success-ink"><CheckCircle2Icon className="size-4 shrink-0" />{enroll ? `${te.sent} · ${te.sentSub}` : `${t.sent(formType)} · ${t.sentSub}`}</p>}
 
-        {displayName && phase !== "done" && <p className="text-sm text-muted-foreground">{t.hello(displayName)}</p>}
 
         <ol className="flex flex-wrap items-center gap-1.5 text-xs">
           {t.steps.map((label, i) => (
             <li key={label} className="flex items-center gap-1.5">
               {i > 0 && <span className="h-px w-3 bg-border" />}
               {/* owner 2026-10-15: in a preview the steps are buttons — jump anywhere, no typing needed */}
-              <Button variant="ghost" size="inline" type="button" disabled={!(preview || previewEnroll) || phase === "done"} onClick={() => setStep(STEP_KEYS[i])}
-                className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 disabled:cursor-default", (preview || previewEnroll) && phase !== "done" && "hover:ring-2 hover:ring-primary/30",
+              <Button variant="ghost" size="inline" type="button" disabled={!(preview || previewEnroll || editSubId) || phase === "done"} onClick={() => setStep(STEP_KEYS[i])}
+                className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 disabled:cursor-default", (preview || previewEnroll || editSubId) && phase !== "done" && "hover:ring-2 hover:ring-primary/30",
                   phase === "done" || i < stepIndex ? "bg-primary/10 text-primary" : i === stepIndex ? "bg-primary text-primary-foreground" : "border text-muted-foreground")}>
                 {phase === "done" || i < stepIndex ? <CheckIcon className="size-3" /> : <PencilIcon className="size-3" />}{label}
               </Button>
@@ -318,34 +385,46 @@ export function LiffForm() {
         {phase === "done" ? summary : step === "parent" ? (
           <section className="space-y-3">
             <SectionHead icon={UsersIcon} title={t.parentTitle} sub={t.parentSub} action={<Button size="sm" variant="secondary" onClick={() => setParents((ps) => [...ps, emptyParent("", brandId === "liclass")])}><PlusIcon /> {t.addParent}</Button>} />
-            {known && <p className="text-xs text-muted-foreground">{t.known}</p>}
+            <Section t={t} n={1} total={SEC_TOTAL} title={t.secParent} required>
+              {known && <p className="text-xs text-muted-foreground">{t.known}</p>}
             {parents.map((p, i) => p.editing ? (
-              <Card key={i}>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">{t.parentN(i + 1)}</p>
-                  <span className="flex items-center gap-2">
-                    {parents.length > 1 && <Button size="icon-xs" variant="ghost" className="text-danger" aria-label={t.remove} onClick={() => { setParents((ps) => ps.filter((_, j) => j !== i)); setPrimaryIdx(0) }}><TrashIcon /></Button>}
-                    {known && <Button size="xs" variant="outline" disabled={!p.first.trim() || !p.phones[0]?.trim()} onClick={() => setParent(i, { editing: false })}><CheckIcon /> {t.done}</Button>}
-                  </span>
-                </div>
-                <ParentFields t={t} value={p} onChange={(patch) => setParent(i, patch)} linked={i === 0 && lineUserId ? displayName : undefined} />
+              <div key={i} className={cn("space-y-3", i > 0 && "border-t pt-4")}>
+                {(parents.length > 1 || known) && (
+                  <div className="flex items-center justify-between">
+                    {parents.length > 1 ? <p className="text-sm font-semibold">{t.parentN(i + 1)}</p> : <span />}
+                    <span className="flex items-center gap-2">
+                      {parents.length > 1 && <Button size="icon-xs" variant="ghost" className="text-danger" aria-label={t.remove} onClick={() => { setParents((ps) => ps.filter((_, j) => j !== i)); setPrimaryIdx(0) }}><TrashIcon /></Button>}
+                      {known && <Button size="xs" variant="outline" disabled={!p.first.trim() || !p.phones[0]?.trim()} onClick={() => setParent(i, { editing: false })}><CheckIcon /> {t.done}</Button>}
+                    </span>
+                  </div>
+                )}
+                <ParentFields bareName errors={parentErrs[i]} t={t} value={p} onChange={(patch) => setParent(i, patch)} linked={i === 0 && lineUserId ? displayName : undefined} />
                 {parents.length > 1 && (
                   <label className="flex items-center gap-2 rounded-2xl bg-muted/60 px-3 py-2 text-sm"><Checkbox checked={primaryIdx === i} onCheckedChange={() => setPrimaryIdx(i)} /> {t.primaryParent}</label>
                 )}
-              </Card>
+              </div>
             ) : (
               <ParentCard key={i} t={t} lang={lang} p={p} linked={i === 0 && lineUserId ? displayName : undefined} primary={primaryIdx === i && parents.length > 1} onEdit={() => setParent(i, { editing: true })} />
             ))}
-
-            <Card>
-              <FamilyFields hideName extras busOffered={busOffered} sourceOptions={sourceOptions} t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={parents[primaryIdx]?.last ?? ""} />
-            </Card>
+            </Section>
+            <Section t={t} n={2} total={SEC_TOTAL} title={t.secSource}>
+              <FamilyAcquisition t={t} f={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} sourceOptions={sourceOptions} extras first />
+            </Section>
+            <Section t={t} n={3} total={SEC_TOTAL} title={busOffered ? t.secBus : t.secAddress}>
+              <FamilyBus t={t} f={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} busOffered={busOffered} first />
+            </Section>
+            <Section t={t} n={4} total={SEC_TOTAL} title={t.secPdpa} required error={attempt.parent && !fam.pdpa ? t.errPdpa : undefined}>
+              <FamilyPdpa t={t} f={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} noTitle />
+            </Section>
+            <Section t={t} n={5} total={SEC_TOTAL} title={t.secTax}>
+              <FamilyTax t={t} f={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} first />
+            </Section>
           </section>
         ) : step === "student" ? (
           <section className="space-y-3">
             <SectionHead icon={UserRoundIcon} title={t.studentTitle} sub={enroll ? te.studentSub : t.studentSub} action={<Button size="sm" variant="secondary" onClick={() => setStudents((ss) => [...ss, emptyStudent("", offers.map((o) => o.subject), brandId === "liclass")])}><PlusIcon /> {t.addStudent}</Button>} />
             {students.map((s, i) => (
-              <StudentCard key={s.key} lastPh={parentLast} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll} separate={separate}
+              <StudentCard key={s.key} lastPh={parentLast} t={t} lang={lang} names={names} n={i + 1} formType={formType} student={s} grades={grades} offers={offers} enroll={enroll} separate={separate} together={together} unionSubjects={unionSubjects} pickVisit={pickVisit} showErr={!!attempt.student}
                 onChange={(patch) => setStudent(s.key, patch)} onRemove={students.length > 1 ? () => setStudents((ss) => ss.filter((x) => x.key !== s.key)) : undefined} />
             ))}
           </section>
@@ -364,12 +443,12 @@ export function LiffForm() {
       {phase !== "done" && (
         <footer className="fixed inset-x-0 bottom-0 border-t bg-background/95 backdrop-blur">
           <div className="mx-auto flex max-w-lg items-center gap-2 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <Button variant="ghost" onClick={() => (liffRef.current ? liffRef.current.closeWindow() : setStep("parent"))}>{t.cancel}</Button>
+            <Button variant="ghost" onClick={() => (editSubId ? window.parent.postMessage({ type: "nock-submission-cancel" }, window.location.origin) : liffRef.current ? liffRef.current.closeWindow() : setStep("parent"))}>{t.cancel}</Button>
             <span className="ml-auto" />
             {stepIndex > 0 && <Button variant="secondary" onClick={() => setStep(STEP_KEYS[stepIndex - 1])}><ChevronLeftIcon /> {t.back}</Button>}
-            {step === "parent" && <Button disabled={!parentsValid} onClick={() => { setParents((ps) => ps.map((p) => ({ ...p, editing: p.editing && !(p.first.trim() && p.phones[0]?.trim()) }))); setStep("student") }}>{t.next} <ChevronRightIcon /></Button>}
-            {step === "student" && <Button disabled={!studentsValid} onClick={() => setStep("summary")}>{t.next} <ChevronRightIcon /></Button>}
-            {step === "summary" && <Button disabled={phase === "submitting" || invoice?.status === "void"} onClick={submit}>{phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />} {t.submit}</Button>}
+            {step === "parent" && <Button onClick={() => { if (!parentsValid) { flagStep("parent"); return } setParents((ps) => ps.map((p) => ({ ...p, editing: p.editing && !(p.first.trim() && p.phones[0]?.trim()) }))); setStep("student") }}>{t.next} <ChevronRightIcon /></Button>}
+            {step === "student" && <Button onClick={() => { if (!studentsValid) { flagStep("student"); return } setStep("summary") }}>{t.next} <ChevronRightIcon /></Button>}
+            {step === "summary" && <Button disabled={phase === "submitting" || invoice?.status === "void"} onClick={submit}>{phase === "submitting" ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />} {editSubId ? "บันทึก" : t.submit}</Button>}
           </div>
         </footer>
       )}
@@ -401,26 +480,28 @@ function ParentCard({ t, lang, p, primary, linked, onEdit }: { t: T; lang: FormL
   )
 }
 
-function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove, enroll, separate, lastPh }: {
-  lastPh?: string; t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]; enroll: EnrollInfo | null; separate?: boolean
+function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, onChange, onRemove, enroll, separate, lastPh, together, unionSubjects, pickVisit, showErr }: {
+  showErr?: boolean;
+  together?: boolean; unionSubjects: string[]; pickVisit: (b: Record<string, FormOfferSlot>) => void; lastPh?: string; t: T; lang: FormLang; names: Names; n: number; formType: FormType; student: StudentBlock; grades: string[]; offers: FormSubjectOffer[]; enroll: EnrollInfo | null; separate?: boolean
   onChange: (patch: Partial<StudentBlock>) => void; onRemove?: () => void
 }) {
   // one list: only times every chosen subject is free at together (owner 2026-09-30) — 2+ subjects = one 2-hour visit
-  const times = commonSlots(offers, s.activeSubjects)
+  const times = commonSlots(offers, together ? unionSubjects : s.activeSubjects)
   const picked = visitOf(s)
+  const follower = !!together && n > 1
   const age = ageOf(s.birthDate)
 
   return (
-    <Card done={!s.editing}>
+    <div className="space-y-3">
+      <Section t={t} n={1} total={2} title={t.studentN(n)} required>
       {s.editing ? (
         <>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold">{t.studentN(n)}</p>
-            <span className="flex items-center gap-2">
-              {onRemove && <Button size="icon-xs" variant="ghost" className="text-danger" aria-label={t.remove} onClick={onRemove}><TrashIcon /></Button>}
-            </span>
-          </div>
-          <StudentFields t={t} value={s} onChange={onChange} grades={grades} gradeLabel={names.grade} lastPh={lastPh} />
+          {onRemove && (
+            <div className="flex justify-end">
+              <Button size="icon-xs" variant="ghost" className="text-danger" aria-label={t.remove} onClick={onRemove}><TrashIcon /></Button>
+            </div>
+          )}
+          <StudentFields bareName t={t} value={s} onChange={onChange} grades={grades} gradeLabel={names.grade} lastPh={lastPh} errors={{ name: showErr && !s.first.trim() ? t.errRequired : undefined, grade: showErr && !s.grade ? t.errGrade : undefined }} />
         </>
       ) : (
         <div className="space-y-1.5">
@@ -436,12 +517,14 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
         </div>
       )}
 
+      </Section>
+      <Section t={t} n={2} total={2} title={enroll ? ENROLL_DICT[lang].title : t.secTime} required error={showErr && !enroll && s.activeSubjects.some((sj) => !s.chosen[sj]) ? t.errTime : undefined}>
       {enroll ? (
         <EnrollFields t={ENROLL_DICT[lang]} lang={lang} grade={s.grade} subjects={enroll.subjects} subjectLabel={names.subject} courses={enroll.courses} classOffers={enroll.classOffers} plan={enroll.plan && { ...enroll.plan, bus: false }} busOffered={false}
           value={s.enroll} onChange={(patch) => onChange({ enroll: { ...s.enroll, ...patch } })} minDate={toDateStr(new Date())} />
       ) : (<>
       {/* owner 2026-11-18: the admin chose the subjects from the chat — the parent sees them (no ticking) and only picks a time */}
-      <div className="space-y-2 border-t pt-3">
+      <div className="space-y-2">
         <p className="text-sm font-semibold">{t.subjectsFor(formType)}</p>
         <div className="flex flex-wrap gap-1.5">
           {s.activeSubjects.map((subject) => <span key={subject} className="rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium">{names.subject(subject)}</span>)}
@@ -452,7 +535,8 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
         // owner 2026-10-22: a time per subject (Trial / separate test days)
         <div key={subject} className="space-y-2 border-t pt-3">
           <p className="text-sm font-semibold">{t.schedule(formType)} · {names.subject(subject)} *</p>
-          <div className="space-y-1">
+          {/* owner 2026-11-20: wide enough (card width, not screen) = two columns */}
+          <div className="@container"><div className="grid gap-1 @sm:grid-cols-2">
             {(offers.find((o) => o.subject === subject)?.slots ?? []).toSorted((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).map((x) => {
               const active = s.chosen[subject]?.id === x.id
               // Trial: several subjects on one day is fine, two at the same time is not (owner 2026-11-18)
@@ -468,18 +552,22 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
                 </Button>
               )
             })}
-          </div>
+          </div></div>
         </div>
       ))}
-      {!separate && s.activeSubjects.length > 0 && (
+      {follower && (
+        <p className="border-t pt-3 text-sm text-muted-foreground">{lang === "ja" ? "1人目と同じ日時で一緒に受けます" : lang === "en" ? "Comes together with child 1 — same time" : "มาพร้อมกับลูกคนที่ 1 — เวลาเดียวกัน"}{picked && <b className="ml-1 tabular-nums text-foreground">{fmtFormDate(picked.date, lang)} {picked.start}–{endTime(picked.start, picked.minutes)}</b>}</p>
+      )}
+      {!separate && !follower && s.activeSubjects.length > 0 && (
         <div className="space-y-2 border-t pt-3">
           <p className="text-sm font-semibold">{t.schedule(formType)} *</p>
           {times.length === 0 && <Empty>{t.noCommon}</Empty>}
-          <div className="space-y-1">
+          {/* owner 2026-11-20: wide enough (card width, not screen) = two columns */}
+          <div className="@container"><div className="grid gap-1 @sm:grid-cols-2">
             {times.map((x) => {
               const active = picked?.date === x.date && picked.start === x.start
               return (
-                <Button variant="row" size="inline" key={x.date + x.start} type="button" onClick={() => onChange({ chosen: x.bySubject })}
+                <Button variant="row" size="inline" key={x.date + x.start} type="button" onClick={() => (together ? pickVisit(x.bySubject) : onChange({ chosen: x.bySubject }))}
                   className={cn("flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left transition", active ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted")}>
                   <span className={cn("grid size-4 shrink-0 place-items-center rounded-full border-2", active ? "border-primary" : "border-muted-foreground/50")}>{active && <span className="size-2 rounded-full bg-primary" />}</span>
                   <span>
@@ -489,11 +577,12 @@ function StudentCard({ t, lang, names, n, formType, student: s, grades, offers, 
                 </Button>
               )
             })}
-          </div>
+          </div></div>
         </div>
       )}
       </>)}
-    </Card>
+      </Section>
+    </div>
   )
 }
 
@@ -601,6 +690,23 @@ function SectionHead({ icon: Icon, title, sub, action }: { icon: React.Component
 /** a section being filled = flat, divider above; a section already filled in (`done`) = a card (owner 2026-11-09) */
 function Card({ children, done }: { children: React.ReactNode; done?: boolean }) {
   return <div className={done ? "space-y-3 rounded-2xl bg-card p-4 shadow-sm ring-1 ring-foreground/5" : "space-y-3 border-t pt-4 first:border-t-0 first:pt-0"}>{children}</div>
+}
+
+const SEC_TOTAL = 5
+
+/** owner 2026-11-20: every part of the form is its own card with a clear numbered title (n/total) — nothing hidden, nothing run together */
+function Section({ t, n, total, title, required, error, children }: { t: T; n: number; total: number; title: string; required?: boolean; error?: string; children: React.ReactNode }) {
+  return (
+    <div data-invalid={error ? "" : undefined} className={cn("space-y-3 rounded-2xl bg-card p-4 shadow-sm ring-1", error ? "ring-2 ring-destructive" : "ring-foreground/5")}>
+      <div className="flex items-center gap-2">
+        <span aria-label={t.secN(n, total)} className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-2xs font-semibold tabular-nums text-primary-foreground">{n}/{total}</span>
+        <p className="min-w-0 flex-1 text-sm font-semibold">{title}</p>
+        <span className={cn("shrink-0 text-2xs", required ? "font-medium text-primary" : "text-muted-foreground")}>{required ? t.req : t.optional}</span>
+      </div>
+      {error && <p className="text-xs font-medium text-danger">{error}</p>}
+      {children}
+    </div>
+  )
 }
 
 function Line({ icon: Icon, children }: { icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {

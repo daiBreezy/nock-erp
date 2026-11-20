@@ -3,7 +3,7 @@
 import { tx } from "@/lib/i18n"
 import { familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
-import { MapPinOffIcon, MessageCircleIcon, PlusIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { BusIcon, PlusIcon, TriangleAlertIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import { ListPage, ShowChip, SearchBox } from "@/components/app/page-layout"
 import { Kpi } from "@/components/app/kpi"
 import { BranchCodes, useBranchScope } from "@/components/app/branch-scope"
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import type { Family, ID, Student } from "@/domain/types"
 import { EditCell } from "@/components/app/inline-edit"
 import { can } from "@/domain/rules/permissions"
+import { branchHasBus } from "@/domain/rules/settings"
 import { report } from "@/lib/feedback"
 import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
@@ -30,9 +31,11 @@ export default function FamiliesPage() {
   const scope = useBranchScope()
   const families = useStore((s) => s.families)
   const students = useStore((s) => s.students)
+  const allBranches = useStore((s) => s.branches)
   const [q, setQ] = useState("")
   const [lineF, setLineF] = useState("")
-  const [noAddr, setNoAddr] = useState(false)
+  const [follow, setFollow] = useState(false) // owner 2026-11-20: "ต้องตามเรื่อง" = LINE not fully linked, or a bus family with no address
+  const [busF, setBusF] = useState(false)
   const [multi, setMulti] = useState(false) // owner Row 41: families with more than one child
   const [showArchived, setShowArchived] = useState(false) // NEGATIVE-ACTIONS.md §5: ดูที่เก็บเข้าคลัง
   const [openId, setOpenId] = useState<ID | null>(null)
@@ -63,9 +66,15 @@ export default function FamiliesPage() {
   const active = inScope.filter((f) => !f.archived)
   const archivedCount = inScope.length - active.length
   const lineDone = (f: Family) => linkedCount(f) === f.parents.length
+  const usesBus = (f: Family) => (kidsOf.get(f.id) ?? []).some((s) => s.usesBus && !s.archived)
+  // an address only matters when the family rides the bus (owner 2026-11-20) — so only then is a missing one a thing to chase
+  const noAddress = (f: Family) => !f.address && !f.postcode
+  const needsFollow = (f: Family) => !lineDone(f) || (usesBus(f) && noAddress(f))
+  const busOn = scope.ids.some((id) => branchHasBus(allBranches.find((b) => b.id === id)))
   const rows = (showArchived ? inScope : active)
     .filter((f) => !multi || (kidsOf.get(f.id)?.length ?? 0) >= 2)
-    .filter((f) => !noAddr || (!f.address && !f.postcode))
+    .filter((f) => !follow || needsFollow(f))
+    .filter((f) => !busF || usesBus(f))
     .filter((f) => !lineF || (lineF === "linked" ? linkedCount(f) === f.parents.length : linkedCount(f) < f.parents.length))
     .filter((f) => !needle || `${f.name} ${f.parents.map((p) => `${p.name} ${p.phone}`).join(" ")} ${(kidsOf.get(f.id) ?? []).map((s) => `${s.nickname} ${s.name}`).join(" ")}`.toLowerCase().includes(needle))
     .sort((a, b) => {
@@ -80,12 +89,16 @@ export default function FamiliesPage() {
   const pg = usePage(useFocusFirst(rows, focusKeys))
   const orphans = students.filter((s) => scope.ids.includes(s.branchId) && !s.familyId).length
 
-  const kpi = { all: active.length, multi: active.filter((f) => (kidsOf.get(f.id)?.length ?? 0) >= 2).length, linked: active.filter(lineDone).length, missing: active.filter((f) => !lineDone(f)).length, noAddr: active.filter((f) => !f.address && !f.postcode).length }
+  const kpi = { all: active.length, multi: active.filter((f) => (kidsOf.get(f.id)?.length ?? 0) >= 2).length, bus: active.filter(usesBus).length, follow: active.filter(needsFollow).length, noLine: active.filter((f) => !lineDone(f)).length, busNoAddr: active.filter((f) => usesBus(f) && noAddress(f)).length }
 
   const columns: Column<Family>[] = [
     { id: "name", label: "ครอบครัว", width: "150px", sort: "name", required: true, className: "font-medium", cell: (f) => (
       <div className="flex min-w-0 items-center gap-1">
         <EditCell value={f.name} display={familyShortName(f.name)} disabled={!manage || !!f.archived} className="min-w-0 flex-1" onSave={(v) => edit(f, { name: v })} />
+        {/* owner 2026-11-20: same "not on LINE" icon as the Students list — always rendered in a fixed slot so names line up */}
+        <span className="inline-grid size-4 shrink-0 place-items-center">
+          {!lineDone(f) && <UnlinkIcon role="img" aria-label={linkedCount(f) === 0 ? "ไม่มี LINE" : "ผูก LINE ไม่ครบ"} className="size-3.5 text-warning"><title>{linkedCount(f) === 0 ? "ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้" : `ผูก LINE แล้ว ${linkedCount(f)}/${f.parents.length} คน`}</title></UnlinkIcon>}
+        </span>
         {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
       </div>
     ) },
@@ -130,11 +143,12 @@ export default function FamiliesPage() {
     <ListPage branch={scope.select} title="ครอบครัว" description="ผู้ปกครอง ช่องทางติดต่อ LINE และลูกที่เรียนอยู่"
         actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มครอบครัว</Button>}
       kpis={<>
-        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} info={orphans > 0 ? tx("นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)", [orphans]) : undefined} onClick={() => { setLineF(""); setNoAddr(false); setMulti(false) }} />
+        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} info={orphans > 0 ? tx("นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)", [orphans]) : undefined} onClick={() => { setLineF(""); setFollow(false); setBusF(false); setMulti(false) }} />
         <Kpi icon={UsersRoundIcon} label="มีลูกหลายคน" value={kpi.multi} tone="special" onClick={() => setMulti(!multi)} active={multi} />
-        <Kpi icon={MessageCircleIcon} label="ผูก LINE ครบ" value={kpi.linked} tone="emerald" onClick={() => setLineF(lineF === "linked" ? "" : "linked")} active={lineF === "linked"} />
-        <Kpi icon={UnlinkIcon} label="ยังผูก LINE ไม่ครบ" value={kpi.missing} tone="amber" emphasis={!!(kpi.missing)} onClick={() => setLineF(lineF === "missing" ? "" : "missing")} active={lineF === "missing"} />
-        <Kpi icon={MapPinOffIcon} label="ยังไม่มีที่อยู่" value={kpi.noAddr} tone="red" emphasis={!!(kpi.noAddr)} onClick={() => setNoAddr(!noAddr)} active={noAddr} />
+        {busOn && <Kpi icon={BusIcon} label="ใช้รถรับส่ง" value={kpi.bus} tone="sky" onClick={() => setBusF(!busF)} active={busF} />}
+        <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.follow} tone="amber" emphasis={kpi.follow > 0}
+          sub={<>ผูก LINE ไม่ครบ {kpi.noLine}{busOn && <>{" · "}รถไม่มีที่อยู่ {kpi.busNoAddr}</>}</>} onClick={() => setFollow(!follow)} active={follow}
+          info="ครอบครัวที่ยังผูก LINE ไม่ครบทุกคน หรือใช้รถรับส่งแต่ยังไม่มีที่อยู่ (รถต้องรู้ที่อยู่)" />
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก" />}
       filters={<>

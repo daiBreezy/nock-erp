@@ -46,11 +46,17 @@ export const TAG_HUE = {
   entity: { lead: "indigo", family: "teal", student: "slate" },
   /** a student who studies on credit — the course is added, the invoice is still to come (owner 2026-11-19) */
   studentCredit: { credit: "rose" },
+  /** the course a parent tapped "interested" on in the catalog (owner 2026-11-20) — indigo, the Lead's colour */
+  interest: { catalog: "indigo" },
+  /** a chat flagged "Follow-up" (owner 2026-11-20) — orange, none of the system colours; drawn SOLID (FOLLOW_UP_SOLID) so it stands out in the list */
+  chatFlag: { followUp: "orange" },
   studentFlow: { start: "emerald", new: "sky", returning: "violet", active: "emerald", paused: "gray", grace: "amber", future: "indigo", lost: "red" },
 } as const satisfies Record<string, Record<string, Hue>>
 export type TagFamily = keyof typeof TAG_HUE
 
 const hueOf = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string): Hue => (TAG_HUE[family] as Record<string, Hue>)[key] ?? "gray"
+/** the loud, filled form of the Follow-up tag (white on solid orange) — the hue is still chatFlag.followUp */
+export const FOLLOW_UP_SOLID = "bg-orange-500 text-white aria-pressed:bg-orange-500 dark:bg-orange-600 dark:aria-pressed:bg-orange-600"
 /** a tag's chip classes */
 export const tagChip = <F extends TagFamily>(family: F, key: keyof (typeof TAG_HUE)[F] & string) => HUE[hueOf(family, key)].chip
 /** a tag's solid colour — for chart marks that stand for that tag */

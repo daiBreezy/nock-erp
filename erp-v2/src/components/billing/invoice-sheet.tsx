@@ -7,6 +7,7 @@ import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, Fi
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
 import { InvoiceEditor } from "./invoice-editor"
@@ -47,15 +48,15 @@ function Block({ title, hint, children }: { title: string; hint?: string; childr
  * Invoice side panel (owner 2026-10-09 — same pattern as every entity): the invoice and its next step; แก้ไข switches
  * the panel to the editor; "new" opens the editor and becomes the invoice view once saved. Header · Body · Bottom.
  */
-export function InvoiceSheet({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose }: { id: ID | "new" | null; slipMediaId?: string; defaultStudentId?: ID; renewEntitlementId?: ID; onClose: () => void }) {
+export function InvoiceSheet({ id, slipMediaId, defaultStudentId, renewEntitlementId, defaultCourseIds, onClose }: { id: ID | "new" | null; slipMediaId?: string; defaultStudentId?: ID; renewEntitlementId?: ID; /** courses the family is interested in — start ticked on a new invoice */ defaultCourseIds?: ID[]; onClose: () => void }) {
   return (
     <EntityPanel open={!!id} onClose={onClose} wide>
-      {id && <Panel key={id} id={id} slipMediaId={slipMediaId} defaultStudentId={defaultStudentId} renewEntitlementId={renewEntitlementId} onClose={onClose} />}
+      {id && <Panel key={id} id={id} slipMediaId={slipMediaId} defaultStudentId={defaultStudentId} renewEntitlementId={renewEntitlementId} defaultCourseIds={defaultCourseIds} onClose={onClose} />}
     </EntityPanel>
   )
 }
 
-function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose }: { id: ID | "new"; slipMediaId?: string; defaultStudentId?: ID; renewEntitlementId?: ID; onClose: () => void }) {
+function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, defaultCourseIds, onClose }: { id: ID | "new"; slipMediaId?: string; defaultStudentId?: ID; renewEntitlementId?: ID; defaultCourseIds?: ID[]; onClose: () => void }) {
   const isNew = id === "new"
   const [createdId, setCreatedId] = useState<ID | null>(null)
   const [editing, setEditing] = useState(isNew)
@@ -81,9 +82,9 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, onClose 
   )
   if (editing && (inv || (isNew && !createdId))) return (
     <PanelForm>
-      <InvoiceEditor invoice={inv} defaultStudentId={inv ? undefined : defaultStudentId} renewEntitlementId={inv ? undefined : renewEntitlementId}
+      <InvoiceEditor invoice={inv} defaultStudentId={inv ? undefined : defaultStudentId} renewEntitlementId={inv ? undefined : renewEntitlementId} defaultCourseIds={inv ? undefined : defaultCourseIds}
         onClose={() => (inv ? setEditing(false) : onClose())}
-        onSaved={(v) => { if (isNew) setCreatedId(v.id); setEditing(false) }} />
+        onSaved={(v) => { if (isNew) setCreatedId(v.id); setEditing(false); if (isBundle) setTab("all") }} />
     </PanelForm>
   )
   const tabs = isBundle && (
@@ -109,7 +110,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const brandMemos = useStore((s) => s.system.invoiceMemos)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping })))
+  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const invoices = useStore((s) => s.invoices)
   // the message to the parent: this invoice's, else the one from this student's last invoice — editable until it is sent
   const prevNote = inv ? Bill.lastNoteFor(inv.studentId, invoices, inv.id) : ""
@@ -119,6 +120,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const [reason, setReason] = useState("")
   const [payOpen, setPayOpen] = useState(!!slipMediaId)
   const [receiptOpen, setReceiptOpen] = useState(false)
+  // owner 2026-11-20: the PDF asks first when the parent has not confirmed the course summary
+  const [gate, setGate] = useState(false)
   const [slip, setSlip] = useState<string | undefined>()
   // one slip for siblings' invoices (owner 2026-10-29)
   const [receiptIds, setReceiptIds] = useState<ID[] | null>(null)
@@ -156,6 +159,22 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const combined = receiptIds ?? group.filter((x) => x.receiptNumber && group.filter((y) => y.receiptNumber === x.receiptNumber).length > 1).map((x) => x.id)
   const toggle = (list: ID[], id: ID) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
+  // owner 2026-11-20: course summary → parent confirms → PDF. A family set shares ONE summary (sent / confirmed for every child together)
+  const setIds = (inv.bundleId ? invoices.filter((x) => x.bundleId === inv.bundleId && x.status !== "void") : [inv]).map((x) => x.id)
+  const agState = Bill.agreementState(inv, totals)
+  const generate = () => (agState === "confirmed" ? report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) : setGate(true))
+  const agreementStep = inv.status === "draft" || inv.agreement ? {
+    label: "สรุปคอร์สให้ผู้ปกครองยืนยัน",
+    state: (agState === "confirmed" ? "done" : agState === "stale" ? "warn" : "current") as "done" | "current" | "warn",
+    meta: inv.agreement ? `${fmtDateTime(inv.agreement.sentAt)} · ${who(inv.agreement.sentBy)}${inv.agreement.confirmedAt ? ` → ยืนยัน ${fmtDateTime(inv.agreement.confirmedAt)}` : ""}` : undefined,
+    detail: Bill.AGREEMENT_LABEL[agState] + (setIds.length > 1 ? ` · ทั้งชุด ${setIds.length} ใบ` : ""),
+    extra: inv.status === "draft" && manage ? (
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        <Button size="xs" variant="outline" onClick={() => report(act.sendAgreement(inv.id), agState === "none" ? "ส่งสรุปคอร์สให้ผู้ปกครองแล้ว" : "ส่งสรุปคอร์สอีกครั้งแล้ว")}><SendIcon /> {agState === "none" ? "ส่งสรุปคอร์ส" : "ส่งสรุปอีกครั้ง"}</Button>
+        {agState === "sent" && <Button size="xs" onClick={() => report(act.confirmAgreement(setIds), "บันทึกแล้ว — ผู้ปกครองยืนยันสรุปคอร์ส")}><CheckIcon /> ผู้ปกครองยืนยันแล้ว</Button>}
+      </div>
+    ) : undefined,
+  } : null
   // payments + shared-slip receipt grouping live under their own steps (owner 2026-11-05)
   const paymentsNode = inv.payments.length > 0 ? (
     <ul className="divide-y rounded-lg border text-sm">
@@ -217,11 +236,12 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   } satisfies Record<string, DocItem[]>
   const steps: { label: string; state: "done" | "current" | "todo" | "warn"; /** line 1: the date first, then who did it (owner 2026-11-05) · line 2: everything else */ meta?: string; detail: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
     { label: "สร้างใบ", state: "done", meta: `${fmtDateTime(inv.createdAt)} · ${who(inv.createdBy)}`, detail: "" },
+    ...(agreementStep ? [agreementStep] : []),
     {
       label: "สร้าง PDF",
       state: inv.pdf === "ready" ? "done" : inv.pdf === "failed" ? "warn" : inv.status === "void" ? "todo" : "current",
       docs: docsFor.invoice,
-      onAdd: inv.status === "draft" && inv.pdf !== "ready" && inv.pdf !== "generating" && manage ? () => report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) : undefined,
+      onAdd: inv.status === "draft" && inv.pdf !== "ready" && inv.pdf !== "generating" && manage ? generate : undefined,
       addLabel: "สร้าง PDF",
       detail: inv.pdf === "ready" ? "พร้อม" : inv.pdf === "generating" ? "กำลังสร้าง…" : inv.pdf === "failed" ? "สร้างไม่สำเร็จ — กดลองใหม่" : "ยังไม่สร้าง PDF",
     },
@@ -467,13 +487,27 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
             </Button>
           )}
           {inv.status === "draft" && (
-            <Button disabled={inv.pdf === "generating"} onClick={() => report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`)}>
+            <Button disabled={inv.pdf === "generating"} onClick={generate}>
               {inv.pdf === "generating" ? <Loader2Icon className="animate-spin" /> : inv.pdf === "failed" ? <RefreshCwIcon /> : <FileTextIcon />}
               {inv.pdf === "generating" ? "กำลังสร้าง PDF…" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"}
             </Button>
           )}
         </PanelFooter>
       )}
+      <Dialog open={gate} onOpenChange={setGate}>
+        <DialogContent className="lg:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ผู้ปกครองยังไม่ได้ยืนยันสรุปคอร์ส</DialogTitle>
+            <DialogDescription>
+              {agState === "none" ? "ยังไม่ได้ส่งสรุปคอร์สให้ผู้ปกครองดู" : agState === "stale" ? "แก้ใบหลังส่งสรุปไปแล้ว — สรุปที่ผู้ปกครองเห็นไม่ตรงกับใบนี้" : "ส่งสรุปแล้ว แต่ผู้ปกครองยังไม่ได้ยืนยัน"} · สร้าง PDF ต่อเลย หรือกลับไปส่ง/รอยืนยันก่อน
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setGate(false)}>กลับไปส่งสรุป</Button>
+            <Button onClick={() => { setGate(false); report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) }}>ข้ามและสร้าง PDF</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
