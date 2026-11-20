@@ -11,7 +11,7 @@ import { branchHasBus } from "@/domain/rules/settings"
 import { mergeSameCourse } from "@/domain/rules/family-overview"
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { ArchiveRestoreIcon, DoorOpenIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
+import { ArchiveRestoreIcon, CalendarDaysIcon, DoorOpenIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { startFamilySet } from "@/lib/family-set"
@@ -370,6 +370,8 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
   const me = useStore((s) => s.me())
   const now = useNow(60_000)
   const [moveFrom, setMoveFrom] = useState<Session | null>(null)
+  const staffAll = useStore((s) => s.staff)
+  const teacherNames = (k: { teacherId: ID | null; coTeacherIds: ID[] }) => [k.teacherId, ...k.coTeacherIds].filter((x): x is ID => !!x).map((id) => staffAll.find((x) => x.id === id)?.nickname).filter(Boolean).join(", ")
   const canMove = can(me, "student.move") && (can(me, "session.manage") || me.roles.includes("teacher"))
   // a class counts if the student has an upcoming session in it under this package (so a finished day drops off)
   const rows = e.classIds.map((cid) => {
@@ -384,8 +386,11 @@ function ClassTransferList({ e, stu, today }: { e: Entitlement; stu: Student; to
     <ul className="mt-1.5 space-y-1">
       {rows.map(({ k, next }) => (
         <li key={k.id} className="flex items-center gap-2 text-xs">
-          <span className="min-w-0 flex-1">
-            <span className="block truncate"><span className="font-medium">{k.name}</span> <span className="text-muted-foreground">· ทุก{TH_DAYS_FULL[k.weekday]} {k.start}–{endTime(k.start, k.minutes)}</span></span>
+          {/* owner 2026-11-20: day · time · teacher, with a calendar icon that stands out */}
+          <span className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+            <CalendarDaysIcon className="size-4 shrink-0 text-primary" />
+            <span className="min-w-0 truncate"><span className="font-medium">{TH_DAYS_FULL[k.weekday]}</span> <span className="tabular-nums">{k.start}–{endTime(k.start, k.minutes)}</span>
+              <span className="text-muted-foreground"> · {tx("ครู")} </span>{teacherNames(k) || <span className="text-warning-ink">{tx("ยังไม่มีครู")}</span>}</span>
           </span>
           {canMove && <Button variant="ghost" size="inline" type="button" onClick={() => setMoveFrom(next)} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 font-medium text-primary hover:bg-primary/10"><CalendarClockIcon className="size-3.5" /> ย้ายวัน/คาบ</Button>}
         </li>
