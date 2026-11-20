@@ -38,6 +38,8 @@ export default function FamiliesPage() {
   const [lineF, setLineF] = useState("")
   const [follow, setFollow] = useState(false) // owner 2026-11-20: "ต้องตามเรื่อง" = LINE not fully linked, or a bus family with no address
   const [busF, setBusF] = useState(false)
+  // owner 2026-11-20: the cake chip on the total card — click = families with a birthday today first
+  const [bdayFirst, setBdayFirst] = useState(false)
   const [multi, setMulti] = useState(false) // owner Row 41: families with more than one child
   const [showArchived, setShowArchived] = useState(false) // NEGATIVE-ACTIONS.md §5: ดูที่เก็บเข้าคลัง
   const [openId, setOpenId] = useState<ID | null>(null)
@@ -81,6 +83,7 @@ export default function FamiliesPage() {
     .filter((f) => !lineF || (lineF === "linked" ? linkedCount(f) === f.parents.length : linkedCount(f) < f.parents.length))
     .filter((f) => !needle || `${f.name} ${f.parents.map((p) => `${p.name} ${p.phone}`).join(" ")} ${(kidsOf.get(f.id) ?? []).map((s) => `${s.nickname} ${s.name}`).join(" ")}`.toLowerCase().includes(needle))
     .sort((a, b) => {
+      if (bdayFirst) { const d = Number(birthdaysToday(b, kidsOf.get(b.id) ?? [], today).length > 0) - Number(birthdaysToday(a, kidsOf.get(a.id) ?? [], today).length > 0); if (d) return d }
       const v = sort.key === "name" ? familyShortName(a.name).localeCompare(familyShortName(b.name), "th")
         : sort.key === "parent" ? (primaryOf(a)?.name ?? "").localeCompare(primaryOf(b)?.name ?? "", "th")
         : sort.key === "address" ? (a.address ?? "").localeCompare(b.address ?? "", "th")
@@ -88,6 +91,7 @@ export default function FamiliesPage() {
           : linkedCount(a) / a.parents.length - linkedCount(b) / b.parents.length
       return sort.desc ? -v : v
     })
+  const bdayPeople = active.reduce((n, f) => n + birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length, 0)
   const focusKeys = (f: (typeof rows)[number]) => [!f.address && !f.postcode && "no_address", !f.lineUserId && !f.parents.some((p) => p.lineLinked) && "no_line"].filter(Boolean).join(" ") || undefined
   const pg = usePage(useFocusFirst(rows, focusKeys))
   const orphans = students.filter((s) => scope.ids.includes(s.branchId) && !s.familyId).length
@@ -103,7 +107,7 @@ export default function FamiliesPage() {
           {!lineDone(f) && <UnlinkIcon role="img" aria-label={linkedCount(f) === 0 ? "ไม่มี LINE" : "ผูก LINE ไม่ครบ"} className="size-3.5 text-warning"><title>{linkedCount(f) === 0 ? "ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้" : `ผูก LINE แล้ว ${linkedCount(f)}/${f.parents.length} คน`}</title></UnlinkIcon>}
         </span>
         {/* owner 2026-11-20: a small cake while anyone in the family has a birthday today */}
-        {birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${birthdaysToday(f, kidsOf.get(f.id) ?? [], today).join(", ")}`} className="inline-flex shrink-0 text-pink-500"><CakeIcon className="size-3.5" aria-label={tx("วันเกิดวันนี้")} /></span>}
+        {birthdaysToday(f, kidsOf.get(f.id) ?? [], today).length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${birthdaysToday(f, kidsOf.get(f.id) ?? [], today).join(", ")}`} className="inline-flex shrink-0 text-pink-300"><CakeIcon className="size-3.5" aria-label={tx("วันเกิดวันนี้")} /></span>}
         {f.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}
       </div>
     ) },
@@ -148,7 +152,10 @@ export default function FamiliesPage() {
     <ListPage branch={scope.select} title="ครอบครัว" description="ผู้ปกครอง ช่องทางติดต่อ LINE และลูกที่เรียนอยู่"
         actions={<Button onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มครอบครัว</Button>}
       kpis={<>
-        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={kpi.all} info={orphans > 0 ? tx("นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)", [orphans]) : undefined} onClick={() => { setLineF(""); setFollow(false); setBusF(false); setMulti(false) }} />
+        <Kpi icon={UsersIcon} label="ครอบครัวทั้งหมด" value={bdayPeople > 0 ? <span className="inline-flex items-center gap-2">{kpi.all}
+          <span role="button" tabIndex={0} aria-pressed={bdayFirst} title={tx("วันเกิดวันนี้ {0} คน — กดเพื่อเอาขึ้นก่อน", [bdayPeople])}
+            onClick={(e) => { e.stopPropagation(); setBdayFirst(!bdayFirst) }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setBdayFirst(!bdayFirst) } }}
+            className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 text-xs leading-5 font-medium transition", bdayFirst ? "bg-pink-100 text-pink-700 ring-1 ring-pink-300" : "bg-pink-50 text-pink-500 hover:bg-pink-100")}><CakeIcon className="size-3" />{bdayPeople}</span></span> : kpi.all} info={orphans > 0 ? tx("นักเรียน {0} คนยังไม่ผูกครอบครัว — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้ (ดูได้ที่หน้านักเรียน)", [orphans]) : undefined} onClick={() => { setLineF(""); setFollow(false); setBusF(false); setMulti(false); setBdayFirst(false) }} />
         <Kpi icon={UsersRoundIcon} label="มีลูกหลายคน" value={kpi.multi} tone="special" onClick={() => setMulti(!multi)} active={multi} />
         {busOn && <Kpi icon={BusIcon} label="ใช้รถรับส่ง" value={kpi.bus} tone="sky" onClick={() => setBusF(!busF)} active={busF} />}
         <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.follow} tone="amber" emphasis={kpi.follow > 0}

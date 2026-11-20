@@ -28,6 +28,7 @@ import { SendFormDialog } from "@/components/inbox/send-form-dialog"
 import { GroupSheet } from "@/components/inbox/group-sheet"
 import { groupMemberLabel } from "@/domain/rules/inbox"
 import { LeadDialog } from "@/components/crm/lead-dialog"
+import { LinkWhoDialog } from "@/components/inbox/link-who-dialog"
 import { interestCourseIdsFor, leadKids } from "@/domain/rules/crm"
 import { startFamilySet } from "@/lib/family-set"
 import { LeadSheet } from "@/components/crm/lead-sheet"
@@ -64,6 +65,7 @@ export default function InboxPage() {
   const simulateReply = useStore((s) => s.simulateParentReply)
   const mergeLive = useStore((s) => s.mergeLiveConversations)
   const linkFamily = useStore((s) => s.linkConversationToFamily)
+  const [whoFamily, setWhoFamily] = useState<ID | null>(null)
   const linkLead = useStore((s) => s.linkConversationToLead)
 
   const [selectedId, setSelectedId] = useState<ID | null>(conversations[0]?.id ?? null)
@@ -596,9 +598,13 @@ export default function InboxPage() {
             const familyId = row.kind === "family" ? row.id : row.kind === "student" ? row.familyId : null
             const ok = row.kind === "lead"
               ? report(linkLead(selected.id, row.id), `ผูก Lead "${row.title}" แล้ว`)
-              : familyId ? report(linkFamily(selected.id, familyId), "ผูกครอบครัวแล้ว") : report({ ok: false, error: "นักเรียนคนนี้ยังไม่ผูกครอบครัว — ผูกครอบครัวในหน้านักเรียนก่อน" }, "")
+              : familyId ? (selected.id.startsWith("line_") && !selected.group ? (setWhoFamily(familyId), setPickingLink(false), false) : report(linkFamily(selected.id, familyId), "ผูกครอบครัวแล้ว")) : report({ ok: false, error: "นักเรียนคนนี้ยังไม่ผูกครอบครัว — ผูกครอบครัวในหน้านักเรียนก่อน" }, "")
             if (ok) setPickingLink(false)
           }} />
+      )}
+      {whoFamily && selected && families.find((f) => f.id === whoFamily) && (
+        <LinkWhoDialog conversation={selected} family={families.find((f) => f.id === whoFamily)!} onClose={() => setWhoFamily(null)}
+          onConfirm={(who) => { if (report(linkFamily(selected.id, whoFamily, who), "ผูกครอบครัวแล้ว")) setWhoFamily(null) }} />
       )}
       {creatingFamily && selected && (
         <FamilyForm

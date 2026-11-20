@@ -523,3 +523,40 @@ export function birthdaysToday(family: Pick<Family, "parents">, kids: Pick<Stude
   const md = today.slice(5)
   return [...family.parents.map((p) => ({ n: p.name, d: p.birthDate })), ...kids.map((k) => ({ n: k.nickname, d: k.birthDate }))].filter((x) => x.d && x.d.slice(5) === md).map((x) => x.n)
 }
+
+/** every LINE account of a family — the one it was first linked through plus each guardian's own (dad · mum · an aunt …) */
+export function lineAccountsOf(f: Pick<Family, "lineUserId" | "parents">): string[] {
+  return [...new Set([f.lineUserId, ...f.parents.map((p) => p.lineUserId)].filter((x): x is string => !!x))]
+}
+/** the guardian a LINE account belongs to (the first-linked account = the main guardian when no guardian carries it yet) */
+export function parentIndexOfAccount(f: Pick<Family, "lineUserId" | "parents">, lineUserId: string): number {
+  const own = f.parents.findIndex((p) => p.lineUserId === lineUserId)
+  if (own >= 0) return own
+  if (f.lineUserId === lineUserId) { const m = f.parents.findIndex((p) => p.primary); return m >= 0 ? m : 0 }
+  return -1
+}
+
+/** owner 2026-11-20: the account Inbox messages (and everything not a summary) go to — the MAIN contact's own LINE; else the account the family was linked through */
+export function mainLineAccount(f: Pick<Family, "lineUserId" | "parents">): string | undefined {
+  const mainAt = Math.max(0, f.parents.findIndex((p) => p.primary))
+  const main = f.parents[mainAt]
+  if (main?.lineUserId) return main.lineUserId
+  if (f.lineUserId && parentIndexOfAccount(f, f.lineUserId) === mainAt) return f.lineUserId
+  return f.lineUserId ?? lineAccountsOf(f)[0]
+}
+
+/** owner 2026-11-20: the LINE accounts that receive a SUMMARY — each guardian with a LINE account who has not been un-ticked ("รับ Summary ผ่าน LINE") */
+export function summaryAccountsOf(f: Pick<Family, "lineUserId" | "parents">): string[] {
+  const out = new Set<string>()
+  f.parents.forEach((p, i) => {
+    if (p.summaryViaLine === false) return
+    const account = p.lineUserId ?? (f.lineUserId && parentIndexOfAccount(f, f.lineUserId) === i ? f.lineUserId : undefined)
+    if (account) out.add(account)
+  })
+  return [...out]
+}
+/** does this guardian have a LINE account of their own to receive anything on? */
+export function parentHasLine(f: Pick<Family, "lineUserId" | "parents">, i: number): boolean {
+  const p = f.parents[i]
+  return !!p && (!!p.lineUserId || (!!f.lineUserId && parentIndexOfAccount(f, f.lineUserId) === i) || p.lineLinked)
+}

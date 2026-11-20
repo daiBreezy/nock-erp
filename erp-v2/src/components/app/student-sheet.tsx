@@ -1,6 +1,7 @@
 "use client"
 
 import { BUS_USE_LABEL, busUseOf } from "@/domain/rules/people"
+import * as People from "@/domain/rules/people"
 import { branchHasBus } from "@/domain/rules/settings"
 import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -101,7 +102,11 @@ function Panel({ studentId, familyId, onClose, back, onOpenStudent }: { studentI
 function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEdit: () => void; invoiceOnOpen?: boolean; back?: { label: string; onBack: () => void }; onOpenStudent: (id: ID) => void }) {
   const stu = useStore((s) => s.students.find((x) => x.id === id))
   const fam = useStore((s) => s.families.find((f) => f.id === stu?.familyId))
-  const conv = useStore((s) => s.conversations.find((c) => c.familyId && c.familyId === stu?.familyId))
+  const convs = useStore((s) => s.conversations)
+  const stuFamily = useStore((s) => s.families.find((f) => f.id === stu?.familyId))
+  // owner 2026-11-20: Inbox talks to ONE person — the chat button opens the main contact's chat (else any chat of the family)
+  const mainAccount = stuFamily ? People.mainLineAccount(stuFamily) : undefined
+  const conv = convs.find((c) => c.familyId === stu?.familyId && !!mainAccount && c.id === `line_${mainAccount}`) ?? convs.find((c) => c.familyId && c.familyId === stu?.familyId)
   const leaves = useStore((s) => s.leaves)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
   const me = useStore((s) => s.me())

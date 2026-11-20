@@ -3,6 +3,7 @@
 // Keeps the LINE ↔ family links on the server too (owner 2026-10-20): every link the ERP has goes up; when this
 // browser has lost them (data cleared, a new browser) they come back down and the families are linked again.
 import { useEffect } from "react"
+import { lineAccountsOf } from "@/domain/rules/people"
 import { useStore } from "@/store/store"
 
 let sent = ""
@@ -10,7 +11,7 @@ export function useLineLinkSync() {
   useEffect(() => {
     let alive = true
     const push = () => {
-      const links = useStore.getState().families.filter((f) => f.lineUserId).map((f) => ({ lineUserId: f.lineUserId!, familyId: f.id, familyName: f.name }))
+      const links = useStore.getState().families.flatMap((f) => lineAccountsOf(f).map((id) => ({ lineUserId: id, familyId: f.id, familyName: f.name })))
       const key = JSON.stringify(links)
       // never sends an empty list — a browser without links must not look like "no one is linked"
       if (!links.length || key === sent) return

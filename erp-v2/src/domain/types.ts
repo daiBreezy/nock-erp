@@ -644,7 +644,12 @@ export interface Parent {
   altPhones?: string[]
   /** LINE ID the parent typed (e.g. "@mom_ploy") — not the Messaging API user id */
   lineId?: string
+  /** owner 2026-11-20: gets the Summaries (lesson + course) on LINE — only a guardian with a LINE account can; unset = yes (a linked guardian receives them unless the admin un-ticks) */
+  summaryViaLine?: boolean
 }
+
+/** owner 2026-11-20: which guardian a LINE chat belongs to when it is linked to a family — one family holds several LINE accounts (dad · mum · an aunt) */
+export type LinkWho = { parentIndex: number } | { newParent: { name: string; relationship?: string } }
 
 /** The address split the way Grab / LINE MAN ask for it (owner 2026-11-09). `Family.address` stays the ONE composed line
  *  (invoices, driver sheet, reports read that) — `composeAddress` builds it from these parts. */

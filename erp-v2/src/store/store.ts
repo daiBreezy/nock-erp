@@ -39,7 +39,7 @@ import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as FB from "@/domain/rules/form-builder"
-import type { HomePin, CustomFormResponse, FormDef, GradeRolloverRecord, Brand } from "@/domain/types"
+import type { HomePin, CustomFormResponse, FormDef, GradeRolloverRecord, Brand, LinkWho } from "@/domain/types"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
@@ -414,7 +414,7 @@ type Store = DB & UIState & {
   /** upserts conversations/messages polled from the real LINE webhook (server-side store) into local state */
   mergeLiveConversations: (conversations: Conversation[], messages: ChatMessage[]) => void
   /** attaches an unlinked (LINE-only) conversation to an existing Family, and records that family's real LINE identity */
-  linkConversationToFamily: (conversationId: ID, familyId: ID) => Result
+  linkConversationToFamily: (conversationId: ID, familyId: ID, who?: LinkWho) => Result
   /** owner 2026-10-20: put back LINE ↔ family links the server kept (this browser lost them) — only families with no
    *  LINE yet, and only a LINE account no other family has; returns how many came back */
   restoreLineLinks: (links: { lineUserId: string; familyId: ID; familyName?: string }[]) => number
@@ -562,15 +562,18 @@ export const useStore = create<Store>()(
         set((st) => ({ logs: [{ id: uid("lg"), at: st.now().toISOString(), by: system ? null : st.userId, category, studentIds, action, detail }, ...st.logs] }))
       /** real LINE push to a family (E2E 2026-09-28). Families from the seed have no LINE user id — their
        *  "LINE แล้ว" is a demo flag, so they stay simulated. Returns immediately; `done` runs when LINE answers. */
-      const pushLine = (familyId: ID | null | undefined, text: string, done: (ok: boolean, error?: string) => void, extra?: { meta?: ChatMessageMeta }): LineDelivery => {
+      const pushLine = (familyId: ID | null | undefined, text: string, done: (ok: boolean, error?: string) => void, extra?: { meta?: ChatMessageMeta; /** owner 2026-11-20: a Summary goes to EVERY LINE account of the family; everything else to the main contact only */ everyone?: boolean }): LineDelivery => {
         const fam = get().families.find((f) => f.id === familyId)
-        if (fam?.lineUserId) {
-          fetch("/api/line/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: `line_${fam.lineUserId}`, text, ...(extra?.meta ? { meta: extra.meta } : {}) }) })
-            .then((r) => r.json())
-            .then((d: { ok: boolean; error?: string }) => done(d.ok, d.error))
-            .catch(() => done(false, "เรียก LINE API ไม่ได้"))
+        const accounts = fam ? (extra?.everyone ? People.summaryAccountsOf(fam) : [People.mainLineAccount(fam)].filter((x): x is string => !!x)) : []
+        if (accounts.length) {
+          const post = (account: string) => fetch("/api/line/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: `line_${account}`, text, ...(extra?.meta ? { meta: extra.meta } : {}) }) })
+            .then((r) => r.json() as Promise<{ ok: boolean; error?: string }>)
+            .catch(() => ({ ok: false, error: "เรียก LINE API ไม่ได้" }))
+          void Promise.all(accounts.map(post)).then((rs) => done(rs.some((r) => r.ok), rs.find((r) => !r.ok)?.error))
           return "sending"
         }
+        // a Summary nobody ticked to receive is "no LINE" (it waits on the web / History), not a fake delivery
+        if (extra?.everyone && fam?.parents.some((p) => p.summaryViaLine === false)) return "no_line"
         return fam?.parents.some((p) => p.lineLinked) ? "delivered" : "no_line"
       }
       /** a student's packages with their real end date (long leave + one class per quota leave) */
@@ -2333,7 +2336,7 @@ export const useStore = create<Store>()(
           // not delivered → back to "approved" so it can be sent again
           set((st) => ({ summaries: st.summaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
           toast.error(`ส่งสรุปของ ${stu.nickname} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
-        })
+        }, { everyone: true })
         set({ summaries: s.summaries.map((x) => (x.id === id ? { ...x, status: "sent", history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "send" }] } : x)) })
         // owner 2026-11-20: no LINE is not a failure — the summary is "sent": it waits on the web (parent app) and stays in History
         if (delivery === "no_line") log("attendance", [cur.studentId], "ส่งสรุปการเรียน", "ผู้ปกครองยังไม่ได้ผูก LINE — เก็บไว้ในแอปผู้ปกครอง + History")
@@ -2413,7 +2416,7 @@ export const useStore = create<Store>()(
           if (ok) return log("attendance", [cur.studentId], "ส่งสรุปจบคอร์ส", "ถึงผู้ปกครองทาง LINE แล้ว")
           set((st) => ({ courseSummaries: st.courseSummaries.map((x) => (x.id === id ? { ...x, status: "approved", history: x.history.slice(0, -1) } : x)) }))
           toast.error(`ส่งสรุปจบคอร์สของ ${stu.nickname} ทาง LINE ไม่สำเร็จ — ${error ?? ""}`)
-        })
+        }, { everyone: true })
         if (delivery === "no_line") return fail("ผู้ปกครองยังไม่ได้ผูก LINE — ยังไม่ได้ส่ง (สรุปยังอยู่สถานะอนุมัติแล้ว)")
         set({ courseSummaries: s.courseSummaries.map((x) => (x.id === id ? { ...x, status: "sent", history: [...x.history, { at: s.now().toISOString(), by: s.userId, action: "send" }] } : x)) })
         if (delivery === "delivered") log("attendance", [cur.studentId], "ส่งสรุปจบคอร์ส", "ส่งถึงผู้ปกครองทาง LINE")
@@ -4010,7 +4013,7 @@ export const useStore = create<Store>()(
         return r.restored
       },
 
-      linkConversationToFamily: (conversationId, familyId) => {
+      linkConversationToFamily: (conversationId, familyId, who) => {
         const s = get()
         const perm = requirePerm(s.me(), "inbox.manage")
         if (!perm.ok) return perm
@@ -4019,11 +4022,27 @@ export const useStore = create<Store>()(
         const family = s.families.find((f) => f.id === familyId)
         if (!family) return fail("ไม่พบครอบครัวนี้")
         const lineUserId = conversationId.startsWith("line_") ? conversationId.slice(5) : undefined
+        let parents = family.parents
+        if (lineUserId) {
+          // owner 2026-11-20: ONE family holds several LINE accounts (dad · mum · an aunt) — each chat belongs to ONE guardian, never overwrites another's
+          const mainAt = Math.max(0, parents.findIndex((p) => p.primary))
+          const hasAccount = (p: (typeof parents)[number], i: number) => !!p.lineUserId || (i === mainAt && !!family.lineUserId)
+          const free = parents.findIndex((p, i) => !hasAccount(p, i))
+          const target: { at: number } | { add: { name: string; relationship?: string } } =
+            who && "parentIndex" in who ? { at: who.parentIndex }
+            : who && "newParent" in who ? { add: who.newParent }
+            : !family.lineUserId && !parents.some((p) => p.lineUserId) ? { at: mainAt }
+            : free >= 0 ? { at: free } : { add: { name: conv.lineName ?? conv.name, relationship: "ญาติ" } }
+          if ("at" in target && !parents[target.at]) return fail("ไม่พบผู้ปกครองคนนี้")
+          // the same LINE account is one person: take it off any other guardian first
+          parents = parents.map((p) => (p.lineUserId === lineUserId ? { ...p, lineUserId: undefined, lineLinked: false } : p))
+          parents = "at" in target
+            ? parents.map((p, i) => (i === target.at ? { ...p, lineUserId, lineLinked: true } : p))
+            : [...parents, { name: target.add.name.trim() || conv.name, phone: "", lineLinked: true, primary: false, relationship: target.add.relationship, lineUserId }]
+        }
         set({
           conversations: s.conversations.map((c) => (c.id === conversationId ? { ...c, familyId, leadId: null, name: family.name, lineName: c.lineName ?? (lineUserId ? c.name : undefined) } : c)),
-          families: lineUserId
-            ? s.families.map((f) => (f.id === familyId ? { ...f, lineUserId, parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f))
-            : s.families,
+          families: lineUserId ? s.families.map((f) => (f.id === familyId ? { ...f, lineUserId: f.lineUserId ?? lineUserId, parents } : f)) : s.families,
         })
         return OK
       },

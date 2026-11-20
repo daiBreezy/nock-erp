@@ -182,14 +182,11 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
   const lc = leadToCustomer(family, kids, leads, invoices, ents)
   const today = toDateStr(useNow())
   const owed = useOwed(useInvoicesOf(new Set(kids.map((k) => k.id))))
-  const main = family.parents.find((p) => p.primary) ?? family.parents[0]
   const addr = [family.address, family.province, family.postcode].filter(Boolean).join(" ")
   const referrer = family.referredByFamilyId ? families.find((f) => f.id === family.referredByFamilyId)?.name : undefined
   const sources = [...(family.sources ?? []).map((x) => LEAD_SOURCE_LABEL[x] ?? x), ...(family.sourceLabels ?? [])]
   const rows: InfoRow[] = [
     { icon: MapPinIcon, label: tx("ที่อยู่"), value: <AddressValue note={family.addressNote} address={addr} location={family.location} /> },
-    { icon: PhoneIcon, label: tx("โทร"), value: <PhoneValue numbers={[main?.phone, ...(main?.altPhones ?? [])]} /> },
-    { icon: MailIcon, label: tx("อีเมล"), value: main?.email || <NotSet what="อีเมล" /> },
     { icon: UserRoundPlusIcon, label: tx("เป็น Lead วันแรก"), value: lc.leadSince ? <>{tx("เป็น Lead")} {fmtDate(lc.leadSince, { year: true })}</> : <NotSet what="เป็น Lead วันแรก" /> },
     { icon: TimerIcon, label: tx("จาก Lead เป็นลูกค้า"), value: lc.days !== null && lc.customerSince ? <>{tx("เป็นลูกค้า")} {fmtDate(lc.customerSince, { year: true })}<span className="text-muted-foreground"> · {tx("ใช้เวลา {0} วัน", [lc.days])}</span></> : lc.leadSince ? <span className="text-muted-foreground">{tx("ยังไม่เป็นลูกค้า · เป็น Lead มา {0} วัน", [Math.max(0, daysBetween(lc.leadSince, today))])}</span> : <NotSet what="จาก Lead เป็นลูกค้า" /> },
     { icon: MegaphoneIcon, label: tx("รู้จักเราจาก"), value: sources.length ? sources.join(", ") : <NotSet what="รู้จักเราจาก" /> },

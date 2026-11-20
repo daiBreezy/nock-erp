@@ -2,6 +2,7 @@
 
 // Parent app v1 (owner 2026-10-09): the ERP keeps what each LINE-linked family may see published on the server, so the
 // parent's phone (outside this browser's data) can read it. Prototype stand-in for Dev's database.
+import { lineAccountsOf } from "@/domain/rules/people"
 import { useEffect } from "react"
 import { parentView, type ParentView } from "@/domain/rules/parent-view"
 import type { Family } from "@/domain/types"
@@ -19,7 +20,7 @@ export function buildParentView(family: Family): ParentView {
 
 let last = ""
 async function publish() {
-  const views = useStore.getState().families.filter((f) => f.lineUserId).map(buildParentView)
+  const views = useStore.getState().families.filter((f) => lineAccountsOf(f).length > 0).map(buildParentView)
   // compare without the timestamp — only real changes are sent
   const key = JSON.stringify(views.map((v) => ({ ...v, generatedAt: "" })))
   if (key === last) return

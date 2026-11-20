@@ -11,6 +11,7 @@ import { MathGate } from "@/components/app/math-gate"
 import { ReasonDialog } from "@/components/app/reason-dialog"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { startFamilySet } from "@/lib/family-set"
 import { Tabs } from "@/components/app/page-layout"
@@ -23,7 +24,7 @@ import { FamilyForm } from "./family-form"
 import { FamilyForms } from "@/components/forms/family-forms"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { studentState } from "@/domain/rules/attendance"
-import { birthdaysToday } from "@/domain/rules/people"
+import { birthdaysToday, mainLineAccount, parentHasLine, parentIndexOfAccount } from "@/domain/rules/people"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import type { Family, ID } from "@/domain/types"
@@ -47,9 +48,12 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const f = useStore((s) => s.families.find((x) => x.id === id))
   const kids = useStore((s) => s.students).filter((s) => s.familyId === id)
   const lineConvs = useStore((s) => s.conversations)
-  const conv = lineConvs.find((c) => c.familyId && c.familyId === id)
+  // owner 2026-11-20: Inbox talks to ONE person — the chat button opens the main contact's chat (else any chat of the family)
+  const mainAccount = f ? mainLineAccount(f) : undefined
+  const conv = lineConvs.find((c) => c.familyId === id && !!mainAccount && c.id === `line_${mainAccount}`) ?? lineConvs.find((c) => c.familyId && c.familyId === id)
   const me = useStore((s) => s.me())
   const archive = useStore((s) => s.archiveFamily)
+  const saveFamily = useStore((s) => s.saveFamily)
   const restore = useStore((s) => s.restoreFamily)
   const del = useStore((s) => s.deleteFamily)
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
@@ -68,14 +72,13 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const today = toDateStr(useNow())
   const anyActive = kids.some((k) => studentState(k, ents.filter((e) => e.studentId === k.id), leaves.filter((l) => l.studentId === k.id), today, renewalDays).status === "active")
   const bdayNames = f ? birthdaysToday(f, kids, today) : []
-  // owner 2026-11-20: LINE shows by itself — the ID the guardian typed, else the name they show in LINE (the API never gives the @ID); linked with neither = "linked"
-  const lineConv = f?.lineUserId ? lineConvs.find((c) => c.id === `line_${f.lineUserId}`) : undefined
+  // owner 2026-11-20: LINE shows by itself, per person — the ID the guardian typed, else the name they show in LINE (the API never gives the @ID); linked with neither = "linked"
   const lineOf = (p: Family["parents"][number], i: number): React.ReactNode => {
-    const mine = p.lineUserId ? p.lineUserId === f?.lineUserId : p.primary || i === 0
-    const name = mine && p.lineLinked ? lineConv?.lineName : undefined
+    const account = p.lineUserId ?? (f && f.lineUserId && parentIndexOfAccount(f, f.lineUserId) === i ? f.lineUserId : undefined)
+    const name = account ? lineConvs.find((c) => c.id === `line_${account}`)?.lineName : undefined
     if (p.lineId) return <>{p.lineId}{name && <span className="text-muted-foreground"> · {name}</span>}</>
     if (name) return name
-    return p.lineLinked ? <span className="text-success-ink">{tx("เชื่อม LINE แล้ว")}</span> : <NotSet what="LINE" />
+    return p.lineLinked || account ? <span className="text-success-ink">{tx("เชื่อม LINE แล้ว")}</span> : <NotSet what="LINE" />
   }
 
   return (
@@ -98,7 +101,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                     <div className="flex items-center gap-2">
                       <SheetTitle className="truncate text-lg">{f.name}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>
                       {f.archived ? <Pill tone="gray">เก็บเข้าคลัง</Pill> : anyActive && <Pill tone={STATUS_PILL.active.tone}>{STATUS_PILL.active.label}</Pill>}
-                      {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className="inline-flex shrink-0 text-pink-500"><CakeIcon className="size-4" aria-label={tx("วันเกิดวันนี้")} /></span>}
+                      {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className="inline-flex shrink-0 text-pink-300"><CakeIcon className="size-4" aria-label={tx("วันเกิดวันนี้")} /></span>}
                     </div>
                     <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs">
                       <span className="inline-flex items-center gap-1"><UsersIcon className="size-3" /> Family</span>
@@ -135,10 +138,20 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                           { icon: UsersIcon, label: tx("ความสัมพันธ์"), value: p.relationship || <NotSet what="ความสัมพันธ์" /> },
                           { icon: PhoneIcon, label: tx("โทร"), value: <PhoneValue numbers={[p.phone, ...(p.altPhones ?? [])]} /> },
                           { icon: MessageCircleIcon, label: "LINE", value: lineOf(p, i) },
-
                           { icon: MailIcon, label: tx("อีเมล"), value: p.email || <NotSet what="อีเมล" /> },
                           { icon: CakeIcon, label: tx("วันเกิด"), value: p.birthDate ? fmtDate(p.birthDate, { year: true }) : <NotSet what="วันเกิด" /> },
                         ]} />
+                        {/* owner 2026-11-20: who gets the Summaries on LINE — only a guardian with a LINE account can be ticked */}
+                        {(() => {
+                          const has = parentHasLine(f, i)
+                          return (
+                            <label className={cn("flex w-fit items-center gap-2 text-xs", has && manage ? "cursor-pointer" : "cursor-not-allowed text-muted-foreground")} title={has ? undefined : tx("ผูก LINE ก่อนถึงเลือกได้")}>
+                              <Checkbox checked={has && p.summaryViaLine !== false} disabled={!has || !manage}
+                                onCheckedChange={(v) => report(saveFamily({ ...f, parents: f.parents.map((x, k) => (k === i ? { ...x, summaryViaLine: !!v } : x)) }), v ? `${p.name} ${tx("รับ Summary ผ่าน LINE")}` : `${p.name} ${tx("ไม่รับ Summary ผ่าน LINE")}`)} />
+                              {tx("รับ Summary ผ่าน LINE")}
+                            </label>
+                          )
+                        })()}
                       </div>
                     ))}
                   </div>

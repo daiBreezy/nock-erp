@@ -3804,3 +3804,43 @@ describe("leadToCustomer (owner 2026-11-20)", () => {
     expect(People.leadToCustomer(fam, [{ id: "s1" }], [lead("2026-10-01T00:00:00Z", { lineUserId: "U1" })], [], []).customerSince).toBeNull()
   })
 })
+
+describe("one family, several LINE accounts (owner 2026-11-20)", () => {
+  const fam = { lineUserId: "U1", parents: [
+    { name: "พ่อ", phone: "", lineLinked: true, primary: true },
+    { name: "แม่", phone: "", lineLinked: true, primary: false, lineUserId: "U2" },
+    { name: "ป้า", phone: "", lineLinked: false, primary: false },
+  ] }
+  it("lists every account once", () => expect(People.lineAccountsOf({ ...fam, parents: [...fam.parents, { name: "ลุง", phone: "", lineLinked: true, primary: false, lineUserId: "U1" }] })).toEqual(["U1", "U2"]))
+  it("finds the guardian an account belongs to — the first-linked account is the main guardian", () => {
+    expect(People.parentIndexOfAccount(fam, "U1")).toBe(0)
+    expect(People.parentIndexOfAccount(fam, "U2")).toBe(1)
+    expect(People.parentIndexOfAccount(fam, "U9")).toBe(-1)
+  })
+})
+
+describe("main LINE contact (owner 2026-11-20)", () => {
+  const P = (name: string, extra: object = {}) => ({ name, phone: "", lineLinked: true, primary: false, ...extra })
+  it("is the primary guardian's own account", () => {
+    expect(People.mainLineAccount({ lineUserId: "U3", parents: [P("พ่อ", { primary: true, lineUserId: "U1" }), P("แม่", { lineUserId: "U2" }), P("ป้า", { lineUserId: "U3" })] })).toBe("U1")
+  })
+  it("falls back to the account the family was linked through", () => {
+    expect(People.mainLineAccount({ lineUserId: "U9", parents: [P("พ่อ", { primary: true, lineLinked: false }), P("แม่", { lineUserId: "U2" })] })).toBe("U9")
+    expect(People.mainLineAccount({ parents: [P("พ่อ", { primary: true, lineLinked: false })] })).toBeUndefined()
+  })
+  it("the account the family was linked through is the main guardian's when no guardian carries it", () => {
+    expect(People.mainLineAccount({ lineUserId: "U1", parents: [P("พ่อ", { primary: true }), P("แม่", { lineUserId: "U2" })] })).toBe("U1")
+  })
+})
+
+
+describe("Summary recipients (owner 2026-11-20)", () => {
+  const P = (name: string, extra: object = {}) => ({ name, phone: "", lineLinked: false, primary: false, ...extra })
+  const fam = { lineUserId: "U1", parents: [P("พ่อ", { primary: true, lineLinked: true }), P("แม่", { lineLinked: true, lineUserId: "U2" }), P("ป้า")] }
+  it("every guardian with a LINE account receives it by default", () => expect(People.summaryAccountsOf(fam)).toEqual(["U1", "U2"]))
+  it("an un-ticked guardian is left out; one without LINE can never receive", () => {
+    expect(People.summaryAccountsOf({ ...fam, parents: fam.parents.map((p) => (p.name === "แม่" ? { ...p, summaryViaLine: false } : p)) })).toEqual(["U1"])
+    expect(People.parentHasLine(fam, 2)).toBe(false)
+    expect(People.parentHasLine(fam, 1)).toBe(true)
+  })
+})

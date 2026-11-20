@@ -4,6 +4,7 @@
 import type { Attendance, Brand, Branch, BusAddOn, HomePin, Course, CourseSummary, DateStr, Entitlement, Family, ID, Invoice, Klass, LessonSummary, Session, Staff, Student, TimeStr } from "../types"
 import { addDays, endTime, toDateStr } from "../dates"
 import { branchHasBus } from "./settings"
+import { lineAccountsOf } from "./people"
 import { balance, leaveQuota, leavesUsed, packageCovers } from "./attendance"
 import { sessionState, subjectsOf, teachersOf } from "./scheduling"
 import { courseProgressRows, entitlementRounds, type ProgressRow } from "./summaries"
@@ -228,7 +229,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
   return {
     familyId: family.id, familyName: family.name, familyNameEn: family.nameEn,
     home: family.location ? { ...family.location, addressNote: family.addressNote, address: family.address, addressParts: family.addressParts, province: family.province, postcode: family.postcode } : undefined,
-    lineUserIds: family.lineUserId ? [family.lineUserId] : [],
+    lineUserIds: lineAccountsOf(family),
     paid: ctx.invoices.some((i) => kids.some((k) => k.id === i.studentId) && i.status !== "void" && (i.status === "paid" || i.payments.some((x) => x.confirmedBy))),
     catalogToken: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.catalogLink?.token,
     brand: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.brand,
