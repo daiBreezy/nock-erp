@@ -7,6 +7,7 @@ import { CoursePicker } from "@/components/billing/course-picker"
 import { LeadDialog } from "./lead-dialog"
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { SchoolPicker } from "@/components/app/school-picker"
 import { BookOpenIcon, CheckIcon, CalendarPlusIcon, ChevronDownIcon, EyeIcon, ClipboardListIcon, PlusIcon, TargetIcon, XIcon, ArchiveIcon, CalendarIcon, GraduationCapIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, UsersRoundIcon, PencilIcon, UserPlusIcon } from "lucide-react"
 import { AssessmentNote } from "@/components/app/assessment-note"
 import { Pill } from "@/components/app/badges"
@@ -37,7 +38,7 @@ import { startFamilySet } from "@/lib/family-set"
 import { flatFromKids, interestCourseIdsFor, leadKids, BOARD_GROUPS, daysAgoLabel, groupOf, LEAD_SOURCE_LABEL, scheduleInfo, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
 import { can } from "@/domain/rules/permissions"
 import { catalogInterests } from "@/domain/rules/catalog"
-import type { Assessment, FormSubmission, FormType, ID, Lead, LeadKid, LeadStage } from "@/domain/types"
+import type { Assessment, FormSubmission, FormType, ID, Lead, LeadKid, LeadStage, TargetSchool } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -617,10 +618,30 @@ function catalogRowsOf(kids: LeadKid[], interests: ReturnType<typeof catalogInte
  * owner 2026-11-20: every child has their own block — name · grade · subjects / courses of interest · note. Each field saves as soon as it is changed. With more than one
  * child, what the parent tapped in the catalog waits in its own list until it is given to a child.
  */
+/** schools the family hopes to enter — chips (rank · name · ×) + one picker to add (owner 2026-11-23) */
+function TargetSchools({ targets, canManage, province, onChange }: { targets: TargetSchool[]; canManage: boolean; province?: string; onChange: (t: TargetSchool[]) => void }) {
+  if (!targets.length && !canManage) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pl-6">
+      <TargetIcon className="size-3.5 shrink-0 text-muted-foreground" aria-label={tx("โรงเรียนที่อยากสอบเข้า")} />
+      {targets.map((t, i) => (
+        <span key={`${t.school}-${i}`} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted pl-2 pr-1 text-xs">
+          <span className="tabular-nums text-muted-foreground">{i + 1}</span><span className="max-w-40 truncate" title={t.school}>{t.school}</span>
+          {canManage && <Button size="icon-xs" variant="ghost" type="button" className="size-4" aria-label={tx("เอาโรงเรียนนี้ออก")} onClick={() => onChange(targets.filter((_, j) => j !== i))}><XIcon className="size-3" /></Button>}
+        </span>
+      ))}
+      {canManage && targets.length < 3 && (
+        <SchoolPicker key={targets.length} className="h-7 w-52" province={province} onChange={(v) => v.school && onChange([...targets, { school: v.school, schoolId: v.schoolId }])} />
+      )}
+    </div>
+  )
+}
+
 function LeadKids({ lead, canManage, kids, interests }: { lead: Lead; canManage: boolean; kids: LeadKid[]; interests: ReturnType<typeof catalogInterests> }) {
   const branch = useStore((s) => s.branches.find((b) => b.id === lead.branchId))
   const courses = useStore((s) => s.courses)
   const saveLead = useStore((s) => s.saveLead)
+  const allStudents = useStore((s) => s.students)
   const now = useNow()
   const [pickingFor, setPickingFor] = useState<string | null>(null)
   if (!branch) return null
@@ -670,6 +691,9 @@ function LeadKids({ lead, canManage, kids, interests }: { lead: Lead; canManage:
               </ul>
             )
           })()}
+          {/* owner 2026-11-23: the schools the family hopes to enter (max 3, best first) */}
+          <TargetSchools targets={k.targetSchools ?? (k.studentId ? allStudents.find((x) => x.id === k.studentId)?.targetSchools : undefined) ?? []} canManage={canManage} province={branch.province}
+            onChange={(t) => patch(k.id, { targetSchools: t.length ? t : undefined })} />
           <Textarea key={`${k.id}-${k.note}`} rows={1} className="ml-6 min-h-8 w-[calc(100%-1.5rem)] py-1.5" defaultValue={k.note} disabled={!canManage} placeholder="โน้ตเรื่องลูกคนนี้" aria-label={tx("โน้ตลูกคนที่ {0}", [i + 1])}
             onBlur={(e) => { const v = e.target.value.trim(); if (v !== k.note) patch(k.id, { note: v }) }} />
         </section>

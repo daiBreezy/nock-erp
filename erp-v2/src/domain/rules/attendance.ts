@@ -4,7 +4,7 @@ import { minutesCharged, seatOf, seatTotal } from "./seats"
 import { addDays, daysBetween, fmtDate, weekdayOf } from "../dates"
 import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, Holiday, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
 import { can } from "./permissions"
-import { isHoliday, sessionState, subjectsOf } from "./scheduling"
+import { branchHasLeaveQuota, isHoliday, sessionState, subjectsOf } from "./scheduling"
 
 /** Attendance can be prepared any time before the session closes, even before it starts (owner 2026-09-29 —
  *  replaces staging's C2 "leave only in advance"). Closed/cancelled sessions stay locked. */
@@ -81,6 +81,13 @@ export function leaveQuota(e: Entitlement) {
   return e.leaveQuota ?? Math.floor(e.sessionsTotal / 4)
 }
 
+/** owner 2026-11-23 (Shibasan): Liclass has no leave quota — a student may take any number of leaves. An hour pack
+ *  still runs one class longer for each leave; a week / month pack does not stretch. */
+export function leaveUnlimited(e: Pick<Entitlement, "classIds">, classes: Pick<Klass, "id" | "branchId">[]) {
+  const k = classes.find((c) => e.classIds.includes(c.id))
+  return !!k && !branchHasLeaveQuota(k.branchId)
+}
+
 /** Leave marks whose session date falls inside an active no-quota leave range don't count toward the quota. */
 export function leavesUsed(e: Entitlement, sessions: Session[], attendance: Attendance[], leaves: StudentLeave[] = []) {
   const byId = new Map(sessions.map((s) => [s.id, s]))
@@ -121,6 +128,7 @@ export interface MakeUpCtx {
 export function leaveLedger(e: Entitlement, ctx: MakeUpCtx, leaves: StudentLeave[] = []): { sessionId: ID; date: DateStr; quota: boolean; noQuota?: boolean }[] {
   const byId = new Map(ctx.sessions.map((s) => [s.id, s]))
   const q = leaveQuota(e)
+  const unlimited = leaveUnlimited(e, ctx.classes)
   const marks = new Map(ctx.attendance.filter((a) => a.studentId === e.studentId && a.status === "leave").map((a) => [a.sessionId, a]))
   let used = 0
   return [...marks.keys()]
@@ -128,7 +136,7 @@ export function leaveLedger(e: Entitlement, ctx: MakeUpCtx, leaves: StudentLeave
     .filter((s): s is Session => !!s && packageCovers(e, s) && !activeLeave(e.studentId, s.date, leaves))
     .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
     // leave "ไม่หักโควตา" never uses the quota but still extends the package (owner 2026-09-30)
-    .map((s) => (marks.get(s.id)?.noQuota ? { sessionId: s.id, date: s.date, quota: false, noQuota: true } : { sessionId: s.id, date: s.date, quota: used++ < q }))
+    .map((s) => (marks.get(s.id)?.noQuota ? { sessionId: s.id, date: s.date, quota: false, noQuota: true } : { sessionId: s.id, date: s.date, quota: unlimited ? e.kind === "sessions" : used++ < q }))
 }
 
 /** A leave for several sessions ("ลา 3 คาบ", owner 2026-09-30): this session and the student's next ones in the same

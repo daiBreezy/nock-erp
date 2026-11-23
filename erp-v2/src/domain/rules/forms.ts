@@ -18,7 +18,7 @@ export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบว�
 export function buildFormPrefill(input: {
   lead: Pick<Lead, "name" | "phone" | "lineId" | "childGrade" | "subject" | "source">
   family?: Family
-  students: Pick<Student, "id" | "name" | "nickname" | "grade" | "birthDate" | "note" | "school" | "schoolId" | "nameEn" | "nicknameEn" | "gender">[]
+  students: Pick<Student, "id" | "name" | "nickname" | "grade" | "birthDate" | "note" | "school" | "schoolId" | "nameEn" | "nicknameEn" | "gender" | "targetSchools">[]
   assessments: Pick<Assessment, "studentId" | "subject">[]
 }): FormPrefill {
   const f = input.family
@@ -32,7 +32,7 @@ export function buildFormPrefill(input: {
     acquisitions: f?.sources?.length ? f.sources : [input.lead.source], taxInfo: f?.taxInfo,
     students: input.students.map((s) => ({
       name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note,
-      nameEn: s.nameEn, nicknameEn: s.nicknameEn, gender: s.gender, schoolId: s.schoolId,
+      nameEn: s.nameEn, nicknameEn: s.nicknameEn, gender: s.gender, schoolId: s.schoolId, targetSchools: s.targetSchools,
       interests: [...new Set(input.assessments.filter((a) => a.studentId === s.id).map((a) => a.subject))],
     })),
   }

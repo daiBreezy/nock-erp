@@ -51,6 +51,15 @@ export function setBranchBrands(branches: { id: ID; brand: Brand }[]) {
   BRAND_OF = Object.fromEntries(branches.map((b) => [b.id, b.brand]))
 }
 
+// Brand switches (owner 2026-11-23, Shibasan): Liclass has no lesson summaries, no leave quota and no reschedule week-lock.
+export const brandUsesSummary = (brand?: Brand) => brand !== "liclass"
+export const brandHasLeaveQuota = (brand?: Brand) => brand !== "liclass"
+export const brandLocksRescheduleWeek = (brand?: Brand) => brand !== "liclass"
+/** by branch id — for rules that only have a session/class in hand (an unknown branch counts as Nock Academy) */
+export const branchUsesSummary = (branchId: ID) => brandUsesSummary(BRAND_OF[branchId])
+export const branchHasLeaveQuota = (branchId: ID) => brandHasLeaveQuota(BRAND_OF[branchId])
+export const branchLocksRescheduleWeek = (branchId: ID) => brandLocksRescheduleWeek(BRAND_OF[branchId])
+
 /** does this holiday concern the brand? (company-wide holidays can be for one brand only; branch ones always do) */
 export function holidayForBrand(h: Pick<Holiday, "branchId" | "brand">, brand: Brand | undefined) {
   return h.branchId !== null || !h.brand || !brand || h.brand === brand
@@ -477,7 +486,7 @@ export function workState(s: Session, now: Date, attendance: Attendance[], summa
   if (t === "live") return { state: "live", ...base, progress: (now.getTime() - start) / (s.minutes * 60000) }
   const overdue = t === "closed"
   if (att.length < s.studentIds.length) return { state: "needs_attendance", ...base, overdue }
-  if (summariesDone < present.length) return { state: "needs_summary", ...base, overdue }
+  if (branchUsesSummary(s.branchId) && summariesDone < present.length) return { state: "needs_summary", ...base, overdue }
   return { state: "done", ...base }
 }
 
@@ -564,7 +573,8 @@ export function canRescheduleStudent(from: Session, to: Session, studentId: ID, 
   if (from.cancelled) return { ok: false, error: "คาบเดิมยกเลิกแล้ว" }
   if (to.cancelled || sessionState(to, now) !== "upcoming") return { ok: false, error: "ย้ายไปได้เฉพาะคาบที่ยังไม่เริ่ม" }
   const w0 = mondayOf(from.date), w = mondayOf(to.date)
-  if (w < w0 || w > addDays(w0, 7 * (RESCHEDULE_WEEKS - 1))) return { ok: false, error: "ย้ายได้ภายในสัปดาห์นี้และสัปดาห์หน้าเท่านั้น — ไกลกว่านั้นให้บันทึกเป็นการลา" }
+  // owner 2026-11-23: Liclass has no reschedule week-lock — any upcoming session will do
+  if (branchLocksRescheduleWeek(from.branchId) && (w < w0 || w > addDays(w0, 7 * (RESCHEDULE_WEEKS - 1)))) return { ok: false, error: "ย้ายได้ภายในสัปดาห์นี้และสัปดาห์หน้าเท่านั้น — ไกลกว่านั้นให้บันทึกเป็นการลา" }
   if (to.studentIds.includes(studentId)) return { ok: false, error: "นักเรียนอยู่ในคาบนั้นแล้ว" }
   // capacity is a soft limit — moving in is allowed, the admin just gets told (owner 2026-09-30)
   return to.studentIds.length >= capacity ? { ok: true, value: undefined, warnings: [`คาบนั้นมี ${to.studentIds.length} คนแล้ว (แนะนำไม่เกิน ${capacity})`] } : { ok: true, value: undefined }
@@ -720,7 +730,8 @@ export function periodPause(s: Pick<Session, "date">, klass: Pick<Klass, "period
     const p = branch.specialPeriods.find((x) => x.id === klass.periodId)
     return !p || !p.active || s.date < p.from || s.date > p.to ? klass.periodId : null
   }
-  return periodsOn(branch, s.date).find((p) => p.pauseRegular)?.id ?? null
+  // owner 2026-11-23: an active special period always replaces the normal calendar — regular classes never show inside it
+  return periodsOn(branch, s.date)[0]?.id ?? null
 }
 
 /**

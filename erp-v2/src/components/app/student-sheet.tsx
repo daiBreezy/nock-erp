@@ -632,7 +632,7 @@ function SessionList({ kids, ents }: { kids: Student[]; ents: Entitlement[] }) {
                   sub={`${fmtDate(e.from)} → ${fmtDate(e.to, { year: true })}`}>
                   <div className="flex flex-wrap gap-1.5 text-xs">
                     <Pill tone="green">{`มา ${n("present")}`}</Pill>
-                    <Pill tone="amber">{`ลา ${Att.leavesUsed(e, sessions, attendance, leaves)}/${Att.leaveQuota(e)}`}</Pill>
+                    <Pill tone="amber">{Att.leaveUnlimited(e, classes) ? `ลา ${Att.leavesUsed(e, sessions, attendance, leaves)}` : `ลา ${Att.leavesUsed(e, sessions, attendance, leaves)}/${Att.leaveQuota(e)}`}</Pill>
                     {unmarked > 0 && <Pill tone="gray">{`รอเช็ค ${unmarked}`}</Pill>}
                   </div>
                 </Kpi>

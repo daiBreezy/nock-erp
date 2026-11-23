@@ -250,7 +250,7 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
           <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
             <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || tx("(ไม่มีชื่อ)")}</span>
-            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{p.pauseRegular ? (p.pauseCause === "other" ? tx(" · คลาสปกติหยุด (ไม่ยืดแพ็กเกจ)") : tx(" · คลาสปกติหยุด (ยืดแพ็กเกจ)")) : ""}</span>
+            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{p.pauseCause === "other" ? tx(" · คลาสปกติหยุด (ไม่ยืดแพ็กเกจ)") : tx(" · คลาสปกติหยุด (ยืดแพ็กเกจ)")}</span>
           </span>
         </Button>
         <Pill tone={status.tone}>{status.label}</Pill>
@@ -266,26 +266,14 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
             <Field label={tx("ชื่อช่วง")} className="min-w-40 flex-1"><Input value={p.name} onChange={(e) => onChange({ name: e.target.value })} placeholder={tx("เช่น Summer")} /></Field>
             <Field label={tx("ตั้งแต่")}><Input type="date" value={p.from} onChange={(e) => onChange({ from: e.target.value })} /></Field>
             <Field label={tx("ถึง")}><Input type="date" value={p.to} onChange={(e) => onChange({ to: e.target.value })} /></Field>
-            <Field label={tx("Priority (ช่วงทับกัน → สูงกว่าชนะ)")}>
-              <NativeSelect value={p.priority} onChange={(e) => onChange({ priority: e.target.value as PeriodPriority })} options={(["high", "medium", "low"] as PeriodPriority[]).map((x) => ({ value: x, label: tx(PRIORITY_LABEL[x]) }))} />
-            </Field>
           </div>
           <Field label={tx("Memo ใบแจ้งหนี้ + ใบเสร็จ ของช่วงนี้")}>
             <Textarea rows={2} value={p.invoiceMemo ?? ""} onChange={(e) => onChange({ invoiceMemo: e.target.value })} placeholder={tx("เช่น ค่าเรียน Summer ชำระครั้งเดียว ไม่คืนเงินหลังเริ่มเรียน")} />
             <p className="mt-0.5 text-xs text-muted-foreground">{tx("พิมพ์แทน Memo ของแบรนด์ เฉพาะใบที่มีคอร์สของช่วงนี้ (คอร์สที่ผูกกับช่วงนี้ หรือคลาสพิเศษของช่วงนี้) — ออกใบก่อนช่วงเริ่มก็ใช้ Memo นี้ · เว้นว่าง = ใช้ Memo ของแบรนด์")}</p>
           </Field>
           <div className="space-y-1.5">
-            <p className="text-sm font-medium">{tx("คลาสปกติระหว่างช่วงนี้")}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {([[false, tx("เรียนต่อตามปกติ"), tx("คลาสพิเศษเพิ่มเข้ามาด้วย")], [true, tx("หยุดทั้งหมด"), tx("เหลือแต่คลาสพิเศษของช่วงนี้ · ปิดช่วงแล้วกลับมาเอง")]] as const).map(([v, t, d]) => (
-                <Button variant="ghost" size="inline" key={t} type="button" aria-pressed={!!p.pauseRegular === v} onClick={() => onChange({ pauseRegular: v })}
-                  className={cn("rounded-xl border px-3 py-1.5 text-left text-sm", !!p.pauseRegular === v ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
-                  {t}<span className="block text-xs font-normal text-muted-foreground">{d}</span>
-                </Button>
-              ))}
-            </div>
-            {p.pauseRegular && (
-              <div className="space-y-1 rounded-xl bg-muted/40 p-2">
+            <p className="text-sm font-medium">{tx("คลาสปกติระหว่างช่วงนี้ = หยุดทั้งหมด (ปฏิทินสลับเป็นช่วงนี้ · ไม่ซ้อนกับช่วงอื่น)")}</p>
+            <div className="space-y-1 rounded-xl bg-muted/40 p-2">
                 <p className="text-xs font-medium">{tx("สาเหตุที่หยุด")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {([["school", tx("เหตุจากโรงเรียน"), tx("โรงเรียนปิดเอง → ยืดแพ็กเกจให้นักเรียนทุกคนในคาบที่หยุด")], ["other", tx("เหตุอื่น"), tx("ไม่ยืดแพ็กเกจ")]] as const).map(([v, t, d]) => (
@@ -296,7 +284,6 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
                   ))}
                 </div>
               </div>
-            )}
             <p className="text-xs text-muted-foreground">{tx("คลาสพิเศษ: สร้างคลาสแล้วเลือก \"ช่วงเวลาพิเศษ\" =")} {p.name || tx("ช่วงนี้")}  {tx("· ช่วงคลาสของช่วงนี้ตั้งจากตารางครู (ปุ่ม ตั้งช่วงเวลา ที่หัววันในช่วง)")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-2 text-sm">

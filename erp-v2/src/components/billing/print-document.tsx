@@ -2,6 +2,7 @@
 /* eslint-disable no-restricted-syntax -- ds-exception: printed paper — fixed black/white, never themed */
 
 import { useSyncExternalStore } from "react"
+import type { Invoice } from "@/domain/types"
 import { PrinterIcon } from "lucide-react"
 import qrcode from "qrcode-generator"
 import { invoiceTotals, invoicesOnReceipt } from "@/domain/rules/billing"
@@ -25,13 +26,13 @@ const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 
  * The paper document (owner template "INV + REC.xlsx"): A4, issued by the parent company, same number on the invoice
  * and its receipt. "Print / Save as PDF" uses the browser — the file name defaults to "<number> <customer>".
  */
-export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: string; /** no toolbar / backdrop — pages of a longer PDF */ bare?: boolean }) {
+export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind; id: string; /** no toolbar / backdrop — pages of a longer PDF */ bare?: boolean; /** owner 2026-11-23: an invoice not saved yet — shown as the paper with no running number ("DRAFT"), nothing is stored */ preview?: Invoice }) {
   const s = useStore()
   // #embed = shown inside the invoice panel (thumbnail / viewer): no toolbar, no grey backdrop
   const hashEmbed = useSyncExternalStore(() => () => {}, () => location.hash === "#embed", () => false)
   const embed = bare || hashEmbed
   const cn = kind === "credit-note" ? s.creditNotes.find((x) => x.id === id) : undefined
-  const inv = s.invoices.find((x) => x.id === (cn ? cn.invoiceId : id))
+  const inv = preview ?? s.invoices.find((x) => x.id === (cn ? cn.invoiceId : id))
   const branch = s.branches.find((b) => b.id === inv?.branchId)
   const stu = s.students.find((x) => x.id === inv?.studentId)
   const fam = s.families.find((f) => f.id === stu?.familyId)
@@ -39,7 +40,7 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
 
   const ready = inv && branch && stu && (kind !== "receipt" || inv.receiptNumber) && (kind !== "credit-note" || cn)
   const baseCustomer = stu ? Doc.customerOf(stu, fam) : null
-  const number = kind === "credit-note" ? cn?.number : kind === "receipt" ? inv?.receiptNumber : inv?.number
+  const number = kind === "credit-note" ? cn?.number : kind === "receipt" ? inv?.receiptNumber : preview ? (inv?.number ?? "DRAFT") : inv?.number
 
   if (!ready || !baseCustomer) return <p className="p-10 text-center text-sm text-muted-foreground">ไม่พบเอกสาร หรือยังออกเอกสารนี้ไม่ได้</p>
 
@@ -56,7 +57,8 @@ export function PrintDocument({ kind, id, bare = false }: { kind: Kind; id: stri
   const L = Doc.DOC_LABELS[lang]
   const nick = (studentId: string) => s.students.find((x) => x.id === studentId)?.nickname ?? ""
   const items = cn ? Doc.creditNoteItems(cn, branch.brand)
-    : combined ? onReceipt.flatMap((x) => Doc.invoiceItems(x, invoiceTotals(x, ctx), branch).map((it) => ({ ...it, description: `${nick(x.studentId)} · ${it.description}` })))
+    : combined ? Doc.mergeReceiptItems(onReceipt.map((x) => ({ invoiceId: x.id, items: Doc.invoiceItems(x, invoiceTotals(x, ctx), branch).map((it) => ({ ...it, description: `${nick(x.studentId)} · ${it.description}` })) })), onReceipt[0]?.receiptMerges)
+    : kind === "receipt" ? Doc.mergeReceiptItems([{ invoiceId: inv.id, items: Doc.invoiceItems(inv, totals, branch) }], inv.receiptMerges)
     : Doc.invoiceItems(inv, totals, branch)
   const total = cn ? creditNoteTotal(cn) : combined ? onReceipt.reduce((a, x) => a + invoiceTotals(x, ctx).total, 0) : totals.total
   const { date: invDate, dueBy } = Doc.invoiceDates(inv)

@@ -468,4 +468,11 @@ export const SETTINGS: Record<string, Entry> = {
   "ประถม": { en: "Primary", ja: "小学校" },
   "มัธยม": { en: "Secondary", ja: "中学・高校" },
   "ชื่อภาษาอังกฤษ": { en: "English name", ja: "英語名" },
+  "คลาสปกติระหว่างช่วงนี้ = หยุดทั้งหมด (ปฏิทินสลับเป็นช่วงนี้ · ไม่ซ้อนกับช่วงอื่น)": { en: "Regular classes stop for the whole period (the calendar switches to this period · periods never overlap)", ja: "期間中は通常クラスはすべて休み（カレンダーがこの期間に切り替わります・期間は重複不可）" },
+  "ลาไม่จำกัด · ยืดให้อีก 1 คาบ → เรียนจบ {0}": { en: "Unlimited leave · package runs 1 class longer → ends {0}", ja: "休み無制限・パックを1回分延長 → 終了日 {0}" },
+  "ลาไม่จำกัด · ไม่ยืดแพ็กเกจ · เรียนจบ {0} เหมือนเดิม": { en: "Unlimited leave · package not extended · still ends {0}", ja: "休み無制限・パックは延長なし・終了日は {0} のまま" },
+  "ลาได้ไม่จำกัด · ยืดวันจบให้ทุกครั้ง": { en: "Unlimited leave · the end date is extended every time", ja: "休み無制限・毎回終了日を延長" },
+  "ลาได้ไม่จำกัด · แพ็กเกจรายสัปดาห์/เดือนไม่ยืดวันจบ": { en: "Unlimited leave · weekly / monthly packages are not extended", ja: "休み無制限・週/月パックは延長なし" },
+  "ย้ายเฉพาะคาบ {0} ไปคาบอื่นได้ทุกวันที่ยังไม่เริ่ม (ไม่ล็อกสัปดาห์)": { en: "Move only the {0} session to any other session that has not started (no week lock)", ja: "{0}の授業のみ、未開始のどの授業にも移動可（週ロックなし）" },
+  "{0} กับ {1} วันที่ทับกัน — ช่วงเวลาพิเศษทับกันไม่ได้ (เปลี่ยนวันที่ หรือปิดช่วงใดช่วงหนึ่ง)": { en: "{0} and {1} overlap — special periods cannot overlap (change the dates or switch one off)", ja: "{0}と{1}の日付が重複 — 特別期間は重複不可（日付を変更するか、どちらかを無効に）" },
 }

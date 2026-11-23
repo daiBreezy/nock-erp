@@ -1,5 +1,6 @@
 "use client"
 
+import { ExamProgress } from "@/components/reports/exam-progress"
 import { KpiRow, Page, PageHeader, Segmented, Tabs } from "@/components/app/page-layout"
 import { Kpi, KpiGroup, abbreviate } from "@/components/app/kpi"
 import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
@@ -846,6 +847,8 @@ function StudentsTab({ d, compare, cmp, onOpen }: { d: ReportData; compare: bool
   return (
     <div className="space-y-4">
       <StudentStats d={d} cmp={cmp} />
+      {/* owner 2026-11-23: school exam results — how much the students improved */}
+      <ExamProgress students={d.students} />
       {/* owner 2026-11-18: the in/out flow (Sankey) lives here now — moved off the Overview, which shows the numbers alone */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel fill title={tx("การไหลเข้า–ออก · นักเรียน")} hint={tx("แต่ละคนนับครั้งเดียว · ซ้าย = ต้นช่วง + เข้ามา · ขวา = ตอนนี้ · {0}", [periodLabelOf(d)])}>

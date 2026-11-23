@@ -1,5 +1,5 @@
 import {
-  BellIcon, BookOpenIcon, FileTextIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
+  AwardIcon, BellIcon, BookOpenIcon, FileTextIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
   HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, SparklesIcon, UsersIcon, GraduationCapIcon, type LucideIcon, BusIcon } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
 
@@ -44,6 +44,8 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/sessions", label: "คาบเรียน & เช็คชื่อ", icon: ClockIcon, perm: ["attendance.mark"] },
       { href: "/attendance", label: "รายงานเข้าเรียน", icon: ClipboardCheckIcon, perm: "session.manage" },
       { href: "/summaries", label: "สรุปการเรียน", icon: NotebookPenIcon, perm: ["summary.write", "summary.approve"] },
+      // owner 2026-11-23 (Shibasan): the marks each student got at their own school — 4 exams a year, per subject
+      { href: "/exams", label: "ผลสอบโรงเรียน", icon: AwardIcon, perm: "exam.record" },
       // owner 2026-10-19: Transport (from v1 Bus Route) — who rides which run is worked out; the admin sends the sheets
       { href: "/transport", label: "รถรับส่ง", icon: BusIcon, perm: "session.manage" },
     ],

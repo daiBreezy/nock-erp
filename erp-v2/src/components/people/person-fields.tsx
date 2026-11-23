@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { romanizeName } from "@/domain/rules/romanize"
 import { addressPartsOf, composeAddress } from "@/domain/rules/address"
 import { joinName, splitName } from "@/domain/rules/people"
-import type { AddressParts, BusUse, FormParentInput, Gender, LeadSource, PdpaChoice } from "@/domain/types"
+import type { AddressParts, TargetSchool, BusUse, FormParentInput, Gender, LeadSource, PdpaChoice } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 export type FieldsDict = (typeof DICT)["th"]
@@ -33,7 +33,7 @@ type Errors = Partial<Record<string, string | false | undefined>>
 // ---------- drafts: what the fields edit ----------
 
 export interface ParentDraft { /** surname first (Liclass, owner 2026-11-19) */ sf?: boolean; first: string; last: string; nameEn: string; phones: string[]; email: string; rel: RelKey | ""; birthDate: string }
-export interface StudentDraft { /** surname first + no nickname (Liclass, owner 2026-11-19) */ sf?: boolean; first: string; last: string; nameEn: string; nickname: string; nicknameEn: string; gender: Gender | ""; grade: string; birthDate: string; school: string; schoolId?: string; note: string }
+export interface StudentDraft { /** surname first + no nickname (Liclass, owner 2026-11-19) */ sf?: boolean; first: string; last: string; nameEn: string; nickname: string; nicknameEn: string; gender: Gender | ""; grade: string; birthDate: string; school: string; schoolId?: string; /** owner 2026-11-23: schools hoped for, best first (max 3) */ targets: TargetSchool[]; note: string }
 export interface FamilyDraft {
   name: string; nameEn: string; acquisitions: LeadSource[]
   address: string; parts: AddressParts; province: string; postcode: string; location?: { lat: number; lng: number }; addressNote: string
@@ -45,7 +45,7 @@ export interface FamilyDraft {
 }
 
 export const emptyParentDraft = (name = "", sf = false): ParentDraft => ({ sf, ...splitName(name, sf), nameEn: "", phones: [""], email: "", rel: "", birthDate: "" })
-export const emptyStudentDraft = (grade = "", sf = false): StudentDraft => ({ sf, first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", note: "" })
+export const emptyStudentDraft = (grade = "", sf = false): StudentDraft => ({ sf, first: "", last: "", nameEn: "", nickname: "", nicknameEn: "", gender: "", grade, birthDate: "", school: "", targets: [], note: "" })
 export { addressPartsOf }
 
 /** a branch's own channel names → the standard channel they stand for (same name as a standard one), else "other" — so Reports keep counting */
@@ -68,14 +68,14 @@ export function parentInputOf(d: ParentDraft, primary: boolean): FormParentInput
     email: d.email.trim() || undefined, relationship: d.rel ? relToStored(d.rel) : undefined, birthDate: d.birthDate || undefined, primary,
   }
 }
-export function studentDraftOf(s: { name: string; nameEn?: string; nickname?: string; nicknameEn?: string; gender?: Gender; grade: string; birthDate?: string; school?: string; schoolId?: string; note?: string }, sf = false): StudentDraft {
-  return { sf, ...splitName(s.name, sf), nameEn: s.nameEn ?? "", nickname: s.nickname ?? "", nicknameEn: s.nicknameEn ?? "", gender: s.gender ?? "", grade: s.grade, birthDate: s.birthDate ?? "", school: s.school ?? "", schoolId: s.schoolId, note: s.note ?? "" }
+export function studentDraftOf(s: { name: string; nameEn?: string; nickname?: string; nicknameEn?: string; gender?: Gender; grade: string; birthDate?: string; school?: string; schoolId?: string; targetSchools?: TargetSchool[]; note?: string }, sf = false): StudentDraft {
+  return { sf, ...splitName(s.name, sf), nameEn: s.nameEn ?? "", nickname: s.nickname ?? "", nicknameEn: s.nicknameEn ?? "", gender: s.gender ?? "", grade: s.grade, birthDate: s.birthDate ?? "", school: s.school ?? "", schoolId: s.schoolId, targets: s.targetSchools ?? [], note: s.note ?? "" }
 }
 /** the fields → a child as a form sends it / a student stores it (nickname empty = the first name) */
 export function studentInputOf(d: StudentDraft) {
   return {
     name: joinName(d), nickname: d.nickname.trim() || d.first.trim(), nameEn: d.nameEn.trim() || undefined, nicknameEn: d.nicknameEn.trim() || undefined,
-    gender: d.gender || undefined, grade: d.grade, birthDate: d.birthDate || undefined, school: d.school.trim() || undefined, schoolId: d.school.trim() ? d.schoolId : undefined, note: d.note.trim() || undefined,
+    gender: d.gender || undefined, grade: d.grade, birthDate: d.birthDate || undefined, school: d.school.trim() || undefined, schoolId: d.school.trim() ? d.schoolId : undefined, targetSchools: d.targets.length ? d.targets : undefined, note: d.note.trim() || undefined,
   }
 }
 
@@ -240,7 +240,9 @@ export function FamilyTax({ t, f, onChange, first }: PartProps & { first?: boole
   )
 }
 
-export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) => g, province, maxBirth, lastPh, errors = {}, bareName }: {
+export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) => g, province, maxBirth, lastPh, errors = {}, bareName, hideTargets }: {
+  /** no "target schools" group (a form that does not ask it) */
+  hideTargets?: boolean
   /** the parent form: the section card above already says who this is, so the first group carries no heading of its own */
   bareName?: boolean
   t: FieldsDict; value: StudentDraft; onChange: (patch: Partial<StudentDraft>) => void; grades: string[]; gradeLabel?: (g: string) => string
@@ -272,6 +274,18 @@ export function StudentFields({ t, value: s, onChange, grades, gradeLabel = (g) 
       <Group title={optional(t, t.school)}>
         <SchoolPicker value={s.school} schoolId={s.schoolId} province={province} onChange={(v) => onChange({ school: v.school ?? "", schoolId: v.schoolId })} />
       </Group>
+      {!hideTargets && (
+        <Group title={optional(t, t.targetSchool)}>
+          <p className="text-xs text-muted-foreground">{t.targetSchoolHint}</p>
+          {[...s.targets, ...(s.targets.length < 3 ? [null] : [])].map((tg, i) => (
+            <div key={`${i}-${tg?.school ?? ""}`} className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-xs text-muted-foreground">{t.targetRank(i + 1)}</span>
+              <SchoolPicker className="min-w-0 flex-1" value={tg?.school} schoolId={tg?.schoolId} province={province}
+                onChange={(v) => onChange({ targets: v.school ? (tg ? s.targets.map((x, j) => (j === i ? { school: v.school!, schoolId: v.schoolId } : x)) : [...s.targets, { school: v.school, schoolId: v.schoolId }]) : s.targets.filter((_, j) => j !== i) })} />
+            </div>
+          ))}
+        </Group>
+      )}
       <Group title={t.note}>
         <Textarea rows={2} maxLength={250} value={s.note} onChange={(e) => onChange({ note: e.target.value })} placeholder={t.notePh} />
       </Group>

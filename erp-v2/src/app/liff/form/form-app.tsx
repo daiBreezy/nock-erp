@@ -195,7 +195,7 @@ export function LiffForm() {
         applyPrefill({
           parents: sub.parents, address: sub.familyAddress, addressParts: sub.familyAddressParts, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote,
           acquisitions: sub.acquisitions, familyName: sub.familyName, familyNameEn: sub.familyNameEn, taxInfo: sub.taxInfo, referral: sub.referral, pdpa: sub.pdpa,
-          students: [{ name: sub.studentName, nickname: sub.studentNickname, nameEn: sub.studentNameEn, nicknameEn: sub.studentNicknameEn, gender: sub.studentGender, grade: sub.studentGrade, birthDate: sub.studentBirthDate, school: sub.studentSchool, schoolId: sub.studentSchoolId, note: sub.studentNote }],
+          students: [{ name: sub.studentName, nickname: sub.studentNickname, nameEn: sub.studentNameEn, nicknameEn: sub.studentNicknameEn, gender: sub.studentGender, grade: sub.studentGrade, birthDate: sub.studentBirthDate, school: sub.studentSchool, schoolId: sub.studentSchoolId, targetSchools: sub.studentTargetSchools, note: sub.studentNote }],
         } as FormPrefill, tk.grades ?? [], offersOf, "", brand === "liclass")
         setFam((x) => ({ ...x, sourceLabels: sub.acquisitionLabels ?? [], busUse: !!sub.familyBusLeg, busLeg: sub.familyBusLeg ?? "both" }))
         setStudents((ss) => ss.map((st) => ({ ...st, editing: true, activeSubjects: subjects, chosen: Object.fromEntries(sub.picks.map((p) => [p.chosenSubject, p.chosenSlot])) })))
@@ -304,7 +304,7 @@ export function LiffForm() {
       const nul = (v: unknown) => (v === undefined || v === "" ? null : v)
       const answers: Record<string, unknown> = {
         studentName: sd.name, studentNickname: nul(sd.nickname), studentNameEn: nul(sd.nameEn), studentNicknameEn: nul(sd.nicknameEn), studentGender: nul(sd.gender), studentGrade: sd.grade,
-        studentBirthDate: nul(sd.birthDate), studentSchool: nul(sd.school), studentSchoolId: nul(sd.schoolId), studentNote: nul(sd.note),
+        studentBirthDate: nul(sd.birthDate), studentSchool: nul(sd.school), studentSchoolId: nul(sd.schoolId), studentTargetSchools: nul(sd.targetSchools), studentNote: nul(sd.note),
         parents: parentsPayload().map((p, i) => ({ ...p, lineId: editSub.parents[i]?.lineId })),
       }
       for (const k of ["familyName", "familyNameEn", "familyAddress", "familyAddressParts", "familyPostcode", "familyProvince", "familyLocation", "familyAddressNote", "acquisitions", "acquisitionLabels", "taxInfo", "familyBusLeg", "referral", "pdpa"]) answers[k] = nul(fp[k])

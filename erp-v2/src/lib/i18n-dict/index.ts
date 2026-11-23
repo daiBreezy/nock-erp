@@ -11,9 +11,10 @@ import { BILLING_PROMO } from "./billing-promo"
 import { SHELL } from "./shell"
 import { COVERAGE } from "./coverage"
 import { TEACHING } from "./teaching"
+import { EXAMS } from "./exams"
 
 // one file per area, filled as each page is translated (owner 2026-10-07: Reports → Dashboard → Settings first)
-export const DICT_PAGES: Record<string, Entry> = { ...AUTO, ...BILLING_PROMO, ...KIT, ...COVERAGE, ...TEACHING, ...VOCAB, ...REPORTS, ...DASHBOARD, ...SETTINGS, ...TODAY }
+export const DICT_PAGES: Record<string, Entry> = { ...AUTO, ...EXAMS, ...BILLING_PROMO, ...KIT, ...COVERAGE, ...TEACHING, ...VOCAB, ...REPORTS, ...DASHBOARD, ...SETTINGS, ...TODAY }
 
 /** every phrase — pages + the shell (menu, top bar) */
 export const DICTIONARY: Record<string, Entry> = { ...DICT_PAGES, ...SHELL }

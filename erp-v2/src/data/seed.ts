@@ -9,7 +9,8 @@ import { generateSessions, isHoliday, sessionFromClass } from "@/domain/rules/sc
 import { entitlementRounds } from "@/domain/rules/summaries"
 import { packageCovers } from "@/domain/rules/attendance"
 import { SYSTEM_FORMS } from "@/domain/rules/form-builder"
-import type { CustomFormResponse, FormDef } from "@/domain/types"
+import { buildExamDemo } from "./exam-demo"
+import type { CustomFormResponse, ExamResult, FormDef } from "@/domain/types"
 import type {
   CalendarNote,
   Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
@@ -31,6 +32,8 @@ export interface DB {
   students: Student[]
   entitlements: Entitlement[]
   leaves: StudentLeave[]
+  /** owner 2026-11-23: school exam results (Exam Result page) */
+  examResults: ExamResult[]
   invoices: Invoice[]
   busAddOns: BusAddOn[]
   creditNotes: CreditNote[]
@@ -802,7 +805,7 @@ export function buildSeed(now = new Date()): DB {
   // owner 2026-10-21: the history leads' Test / Trial appointments — Reports split the funnel by the way leads went
   buildLeadAppointments({ today, leads, assessments })
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
+  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, examResults: buildExamDemo({ branches, students }, now), invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
 }
 
 /**

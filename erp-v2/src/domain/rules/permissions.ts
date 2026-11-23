@@ -35,9 +35,11 @@ export type Permission =
   /** ย้ายวัน (owner 2026-10-14: "ย้ายได้หมด แต่ทุกอย่างต้องเก็บเป็น LOG") — everyone who teaches or runs classes;
    *  a teacher only in their own sessions. Every move is logged (who · when · from · to). */
   | "student.move"
+  /** owner 2026-11-23: enter / view the students' school exam results — a teacher only for students in their own classes */
+  | "exam.record"
 
 const ALL: Permission[] = [
-  "calendar.view", "class.manage", "session.manage", "student.move", "attendance.mark", "attendance.leave_override", "summary.write", "summary.approve",
+  "calendar.view", "class.manage", "session.manage", "student.move", "exam.record", "attendance.mark", "attendance.leave_override", "summary.write", "summary.approve",
   "student.view", "student.manage", "student.export", "family.manage", "staff.view", "staff.manage",
   "course.manage", "billing.view", "billing.manage", "billing.approve", "billing.export", "settings.manage", "dashboard.view", "lead.manage", "inbox.manage", "holiday.manage", "reports.view",
 ]
@@ -55,9 +57,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   manager: MANAGER,
   // Admin sees the day-to-day CRM pipeline but not the executive Dashboard (matches Reports gate)
   // owner 2026-10-09 (G3): Admin and up may export students
-  admin: ["calendar.view", "class.manage", "session.manage", "student.move", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "student.export", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage", "holiday.manage"],
+  admin: ["calendar.view", "class.manage", "session.manage", "student.move", "exam.record", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "student.export", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage", "holiday.manage"],
   // G2/G3: no billing at all (owner 2026-09-26: teachers never create invoices), no export
-  teacher: ["calendar.view", "student.move", "attendance.mark", "summary.write", "student.view", "staff.view"],
+  teacher: ["calendar.view", "student.move", "exam.record", "attendance.mark", "summary.write", "student.view", "staff.view"],
   // owner 2026-10-19: drivers use the driver app (a link), not the ERP
   driver: [],
 }

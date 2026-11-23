@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     token, lineUserId, parents, familyAddress, familyAddressParts, familyPostcode, familyProvince, acquisitions, familyLocation, familyAddressNote, acquisitionLabels, familyBusLeg, referral: referral?.trim() || undefined, pdpa,
     familyName: familyName?.trim() || undefined, familyNameEn: familyNameEn?.trim() || undefined,
     taxInfo: taxInfo?.customerName?.trim() || taxInfo?.taxId?.trim() ? taxInfo : undefined,
-    students: students.map((s) => ({ name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note, nameEn: s.nameEn, nicknameEn: s.nicknameEn, gender: s.gender, schoolId: s.schoolId, picks: s.picks! })),
+    students: students.map((s) => ({ name: s.name, nickname: s.nickname, grade: s.grade, birthDate: s.birthDate, school: s.school, note: s.note, nameEn: s.nameEn, nicknameEn: s.nicknameEn, gender: s.gender, schoolId: s.schoolId, targetSchools: s.targetSchools, picks: s.picks! })),
   })
   return NextResponse.json(result)
 }

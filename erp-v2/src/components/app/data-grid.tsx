@@ -199,6 +199,37 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                 const SortIcon = !active ? ArrowUpDownIcon : sort!.desc ? ArrowDownIcon : ArrowUpIcon
                 const isLocked = L.locked.includes(c.id)
                 const isLast = cols.length > 1 && c.id === cols.at(-1)!.id
+                // owner 2026-11-23 (all tables): the pin / drag icons that slide in on hover sit on the side AWAY from the text —
+                // a right-aligned header (numbers) shows them on its left, a left-aligned header on its right. Mirrored order, drag handle outermost.
+                const toLeft = c.align === "right"
+                const pinBtn = (
+                      <Button variant="ghost" size="inline" type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked}
+                        title={isLocked ? "เลิกปักหมุด — กลับไปที่เดิม" : "ปักหมุดคอลัมน์ — ไว้ด้านหน้า ไม่เลื่อนตาม"} aria-label={isLocked ? `เลิกปักหมุด ${c.label}` : `ปักหมุด ${c.label}`}
+                        className={cn("flex items-center hover:text-foreground", isLocked ? "w-4.5 shrink-0 text-primary" : SLIDE)}>
+                        {!toLeft && <span className="w-1 shrink-0" />}{isLocked ? <PinIcon className="size-3.5 shrink-0" /> : <PinOffIcon className="size-3.5 shrink-0" />}{toLeft && <span className="w-1 shrink-0" />}
+                      </Button>
+                )
+                const gripBtn = (
+                      <span draggable title="ลากเพื่อย้ายคอลัมน์" aria-label={`ย้ายคอลัมน์ ${c.label}`}
+                        onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, c.id); e.dataTransfer.effectAllowed = "move" }}
+                        onDragEnd={() => setOver(null)}
+                        className={cn(SLIDE, "cursor-grab text-muted-foreground/60 hover:text-foreground active:cursor-grabbing")}>
+                        {!toLeft && <span className="w-1 shrink-0" />}<GripVerticalIcon className="size-3.5 shrink-0" />{toLeft && <span className="w-1 shrink-0" />}
+                      </span>
+                )
+                const sortNode = c.sort && onSort ? (
+                  <Button variant="ghost" size="inline" type="button" title={c.label} onClick={() => (onSort as (k: string) => void)(c.sort!)} className={cn("inline-flex min-w-0 items-center gap-1", active && "text-foreground")}>
+                    {toLeft && <SortIcon className={cn("size-3 shrink-0", !active && "opacity-40")} />}<span className="truncate">{c.label}</span>{!toLeft && <SortIcon className={cn("size-3 shrink-0", !active && "opacity-40")} />}
+                  </Button>
+                ) : <span className="truncate" title={c.label}>{c.label}</span>
+                const infoNode = c.info && (
+                        <HoverCard>
+                          <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className={cn(toLeft ? "mr-1" : "ml-1", "grid size-4 shrink-0 place-items-center rounded-full hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none")} />}>
+                            <InfoIcon className="size-3.5" />
+                          </HoverCardTrigger>
+                          <HoverCardContent side="bottom" align="start" className="leading-relaxed">{c.info}</HoverCardContent>
+                        </HoverCard>
+                      )
                 return (
                   <th key={c.id} ref={(el) => { if (el) heads.current.set(c.id, el); else heads.current.delete(c.id) }}
                     style={sticky(c) ? { left: left[c.id] ?? 0 } : undefined}
@@ -214,30 +245,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                       {c.label}{c.sort && onSort && <span className="size-3" />}{c.info && <span className="ml-1 size-4" />}{isLocked && <span className="w-4.5" />}
                     </span>
                     <span className={cn("flex min-w-0 items-center [contain:inline-size]", justify(c.align))}>
-                      {c.sort && onSort ? (
-                        <Button variant="ghost" size="inline" type="button" title={c.label} onClick={() => (onSort as (k: string) => void)(c.sort!)} className={cn("inline-flex min-w-0 items-center gap-1", active && "text-foreground")}>
-                          <span className="truncate">{c.label}</span><SortIcon className={cn("size-3 shrink-0", !active && "opacity-40")} />
-                        </Button>
-                      ) : <span className="truncate" title={c.label}>{c.label}</span>}
-                      {c.info && (
-                        <HoverCard>
-                          <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className="ml-1 grid size-4 shrink-0 place-items-center rounded-full hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none" />}>
-                            <InfoIcon className="size-3.5" />
-                          </HoverCardTrigger>
-                          <HoverCardContent side="bottom" align="start" className="leading-relaxed">{c.info}</HoverCardContent>
-                        </HoverCard>
-                      )}
-                      <Button variant="ghost" size="inline" type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked}
-                        title={isLocked ? "เลิกปักหมุด — กลับไปที่เดิม" : "ปักหมุดคอลัมน์ — ไว้ด้านหน้า ไม่เลื่อนตาม"} aria-label={isLocked ? `เลิกปักหมุด ${c.label}` : `ปักหมุด ${c.label}`}
-                        className={cn("flex items-center hover:text-foreground", isLocked ? "w-4.5 shrink-0 text-primary" : SLIDE)}>
-                        <span className="w-1 shrink-0" />{isLocked ? <PinIcon className="size-3.5 shrink-0" /> : <PinOffIcon className="size-3.5 shrink-0" />}
-                      </Button>
-                      <span draggable title="ลากเพื่อย้ายคอลัมน์" aria-label={`ย้ายคอลัมน์ ${c.label}`}
-                        onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, c.id); e.dataTransfer.effectAllowed = "move" }}
-                        onDragEnd={() => setOver(null)}
-                        className={cn(SLIDE, "cursor-grab text-muted-foreground/60 hover:text-foreground active:cursor-grabbing")}>
-                        <span className="w-1 shrink-0" /><GripVerticalIcon className="size-3.5 shrink-0" />
-                      </span>
+                      {toLeft ? <>{gripBtn}{pinBtn}{infoNode}{sortNode}</> : <>{sortNode}{infoNode}{pinBtn}{gripBtn}</>}
                     </span>
                     {/* resize: right edge — the last column from its left edge */}
                     <span role="separator" aria-orientation="vertical" aria-label={`ปรับความกว้าง ${c.label}`} title="ลากเพื่อปรับความกว้าง · ดับเบิลคลิก = พอดีเนื้อหา"

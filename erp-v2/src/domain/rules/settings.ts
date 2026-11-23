@@ -205,13 +205,12 @@ export function validateSpecialPeriods(list: SpecialPeriod[]): string | null {
     const bad = validateHours(p.hours)
     if (bad) return `${p.name}: ${bad}`
   }
-  // overlapping active periods are fine when priorities differ (the higher one wins that day); with the
-  // same priority it would be ambiguous which hours apply. Inactive periods never count.
+  // owner 2026-11-23: special periods never overlap — one period replaces the normal calendar. Inactive ones never count.
   const act = list.filter((p) => p.active)
   for (let i = 0; i < act.length; i++)
     for (let j = i + 1; j < act.length; j++)
-      if (act[i].priority === act[j].priority && act[i].from <= act[j].to && act[j].from <= act[i].to)
-        return `${act[i].name} กับ ${act[j].name} วันที่ทับกันและ Priority เท่ากัน — เปลี่ยน Priority หรือวันที่`
+      if (act[i].from <= act[j].to && act[j].from <= act[i].to)
+        return `${act[i].name} กับ ${act[j].name} วันที่ทับกัน — ช่วงเวลาพิเศษทับกันไม่ได้ (เปลี่ยนวันที่ หรือปิดช่วงใดช่วงหนึ่ง)`
   return null
 }
 
@@ -250,7 +249,7 @@ export const branchLabel = (b: { name: string; province?: string; brand?: Branch
 
 /** owner 2026-10-15: subject abbreviations — for tight spots (calendar headers). Keyed by the English name. */
 export const SUBJECT_ABBR: Record<string, string> = {
-  English: "En", Math: "Ma", Science: "Sc", Japanese: "Jp", "English Active": "EA", "English Grammar": "EG",
+  English: "En", Math: "Ma", "Math (Basic)": "MB", "Math (Advanced)": "MA", "Math (Additional)": "MA", "Science (Basic)": "SB", "Science (Additional)": "SA", "English (Basic)": "EB", "English (Fun Eng / Reading)": "EX", Science: "Sc", Japanese: "Jp", Thai: "Th", "Social Studies": "So", "English Active": "EA", "English Grammar": "EG",
 }
 /** the subject's short code: set in Settings › System › Subjects, else the standard list, else made from the English
  *  name (two words → initials "EA", one word → first two letters "Ch") */

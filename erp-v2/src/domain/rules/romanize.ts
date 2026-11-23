@@ -39,6 +39,11 @@ export const SUBJECTS: Record<string, { en: string; short: string; ja: string }>
   "ไทย": { en: "Thai", short: "Thai", ja: "タイ語" }, "ภาษาไทย": { en: "Thai", short: "Thai", ja: "タイ語" },
   "ฟิสิกส์": { en: "Physics", short: "Phys", ja: "物理" }, "เคมี": { en: "Chemistry", short: "Chem", ja: "化学" }, "ชีวะ": { en: "Biology", short: "Bio", ja: "生物" }, "ชีววิทยา": { en: "Biology", short: "Bio", ja: "生物" },
   "สังคม": { en: "Social Studies", short: "Soc", ja: "社会" },
+  "คณิตพื้นฐาน": { en: "Math (Basic)", short: "Math B", ja: "数学（基礎）" }, "คณิตเพิ่มเติม": { en: "Math (Additional)", short: "Math+", ja: "数学（発展）" },
+  "วิทย์พื้นฐาน": { en: "Science (Basic)", short: "Sci B", ja: "理科（基礎）" }, "วิทย์เพิ่มเติม": { en: "Science (Additional)", short: "Sci+", ja: "理科（発展）" },
+  "อังกฤษพื้นฐาน": { en: "English (Basic)", short: "Eng B", ja: "英語（基礎）" }, "อังกฤษเพิ่มเติม": { en: "English (Fun Eng / Reading)", short: "Eng+", ja: "英語（楽しい英語・読解）" },
+  "คณิต พื้นฐาน": { en: "Math (Basic)", short: "Math B", ja: "数学（基礎）" }, "คณิตศาสตร์พื้นฐาน": { en: "Math (Basic)", short: "Math B", ja: "数学（基礎）" },
+  "คณิต เสริม": { en: "Math (Advanced)", short: "Math A", ja: "数学（発展）" }, "คณิต เพิ่มเติม": { en: "Math (Advanced)", short: "Math A", ja: "数学（発展）" },
 }
 
 /** everyday words inside names (rooms, classes) */

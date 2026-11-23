@@ -1,7 +1,7 @@
 "use client"
 
 import { periodHours } from "./period-banner"
-import { periodOn } from "@/domain/rules/scheduling"
+import { periodOn, brandUsesSummary } from "@/domain/rules/scheduling"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { useBranch, useNow } from "@/lib/hooks"
 import Link from "next/link"
@@ -147,7 +147,7 @@ function Shell({ children }: { children: ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           {NAV.map((g, gi) => {
-            const items = g.items.filter((i) => canAny(me, i.perm) && (i.href !== "/transport" || branchHasBus(branch))) // G1: hide what the role can't use · no bus at this branch = no Bus menu (owner 2026-11-19)
+            const items = g.items.filter((i) => canAny(me, i.perm) && (i.href !== "/transport" || branchHasBus(branch)) && (i.href !== "/summaries" || brandUsesSummary(branch.brand))) // G1: hide what the role can't use · no bus at this branch = no Bus menu (owner 2026-11-19)
             if (!items.length) return null
             return (
               <Fragment key={g.group}>

@@ -4,7 +4,7 @@ import { Tabs } from "@/components/app/page-layout"
 import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, Loader2Icon, PencilIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -31,6 +31,7 @@ import { CreditNotes } from "./credit-notes"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
 import { PaySlipDialog } from "./pay-slip-dialog"
 import { IssueReceiptDialog } from "./issue-receipt-dialog"
+import { ReceiptLinesDialog } from "./receipt-lines-dialog"
 import { BundleOverview } from "./bundle-overview"
 import { InfoTip } from "@/components/app/info-tip"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -118,6 +119,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const [reason, setReason] = useState("")
   const [payOpen, setPayOpen] = useState(!!slipMediaId)
   const [receiptOpen, setReceiptOpen] = useState(false)
+  const [linesOpen, setLinesOpen] = useState(false) // owner 2026-11-23: receipt combine list
   // owner 2026-11-20: the PDF asks first when the parent has not confirmed the course summary
   const [gate, setGate] = useState(false)
   const [slip, setSlip] = useState<string | undefined>()
@@ -281,7 +283,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       docs: docsFor.receipt,
       onAdd: inv.status === "paid" && !inv.receiptNumber && manage ? () => setReceiptOpen(true) : undefined,
       addLabel: "ออกใบเสร็จ",
-      extra: groupNode,
+      extra: <>{groupNode}{inv.receiptNumber && manage && <Button size="xs" variant="outline" className="mt-1.5" onClick={() => setLinesOpen(true)}><LayersIcon /> รวมรายการในใบเสร็จ{inv.receiptMerges?.length ? ` (${inv.receiptMerges.length})` : ""}</Button>}</>,
       detail: !inv.receiptNumber ? (inv.status === "paid" ? "ยังไม่ออกใบเสร็จ — ออกภายหลังได้" : "—") : `${inv.receiptNumber}${inv.receiptNumber !== Bill.receiptNumberOf(inv.number) ? ` (รวม)` : ""} · ${inv.receiptDelivery === "delivered" ? "ส่งใบเสร็จทาง LINE แล้ว" : inv.receiptDelivery === "sending" ? "กำลังส่งใบเสร็จทาง LINE…" : inv.receiptDelivery === "failed" ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : inv.receiptDelivery === "no_line" ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"}`,
     },
   ]
@@ -461,7 +463,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
           </section>
         )}
       </PanelBody>
-      {receiptOpen && <IssueReceiptDialog invoices={group.filter((x) => x.status === "paid" && !x.receiptNumber)} onClose={() => setReceiptOpen(false)} />}
+      {receiptOpen && <IssueReceiptDialog invoices={group.filter((x) => x.status === "paid" && !x.receiptNumber)} more={invoices.filter((x) => x.status === "paid" && !x.receiptNumber && x.branchId === inv.branchId && !group.some((g) => g.id === x.id) && students.find((st) => st.id === x.studentId)?.familyId === students.find((st) => st.id === inv.studentId)?.familyId)} onClose={() => setReceiptOpen(false)} />}
+      {linesOpen && inv.receiptNumber && <ReceiptLinesDialog receiptNumber={inv.receiptNumber} onClose={() => setLinesOpen(false)} />}
       {payOpen && (
         <PaySlipDialog inv={inv} owed={owed(inv)} initialSlip={slip} onClose={() => setPayOpen(false)}
           siblings={siblingsPayable.map((x) => ({ id: x.id, number: x.number ?? "", nickname: nick(x.studentId), owed: owed(x) }))} />

@@ -2,7 +2,9 @@
 
 // Design System › FilterMenu (teaching menu tidy-up, 2026-11-13): every list page used to show 3–5 loose dropdowns.
 // Now they live behind ONE button — "ตัวกรอง" with the number picked — so the bar reads: search · period · view · filters · columns · branch.
-import { SlidersHorizontalIcon } from "lucide-react"
+import { useState } from "react"
+import { ChevronDownIcon, SlidersHorizontalIcon } from "lucide-react"
+import { SearchBox } from "@/components/app/page-layout"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,6 +22,35 @@ export interface FilterField {
   placeholder: string
   /** leave the field out (e.g. a teacher filter for someone who only sees their own sessions) */
   hidden?: boolean
+  /** a long list (schools…): the dropdown has a search box (owner 2026-11-23) */
+  searchable?: boolean
+}
+
+/** a dropdown with a search box on top — for lists too long to scroll (schools) */
+function SearchSelect({ f }: { f: FilterField }) {
+  const [q, setQ] = useState("")
+  const [open, setOpen] = useState(false)
+  const shown = f.options.filter((o) => !q || o.label.toLowerCase().includes(q.toLowerCase()))
+  const current = f.options.find((o) => o.value === f.value)
+  const pick = (v: string) => { f.onChange(v); setOpen(false); setQ("") }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={<Button variant="outline" type="button" aria-label={f.label} className="h-9 w-full justify-between gap-1.5 rounded-3xl border-transparent bg-input/50 px-3 text-sm font-normal" />}>
+        <span className={cn("min-w-0 truncate", !current && "text-muted-foreground")}>{current?.label ?? f.placeholder}</span>
+        <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 gap-2 p-2">
+        <SearchBox block autoFocus value={q} onChange={setQ} placeholder="ค้นหา" />
+        <ul className="max-h-60 overflow-y-auto" role="listbox">
+          <li><Button variant="ghost" size="inline" type="button" className={cn("w-full justify-start rounded-lg px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted", !f.value && "font-medium text-foreground")} onClick={() => pick("")}>{f.placeholder}</Button></li>
+          {shown.map((o) => (
+            <li key={o.value}><Button variant="ghost" size="inline" type="button" role="option" aria-selected={o.value === f.value} className={cn("w-full justify-start rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", o.value === f.value && "bg-primary/10 font-medium text-primary")} onClick={() => pick(o.value)}><span className="truncate">{o.label}</span></Button></li>
+          ))}
+          {shown.length === 0 && <li className="px-2 py-3 text-center text-xs text-muted-foreground">ไม่พบ</li>}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 export interface FilterCheck { key: string; label: string; on: boolean; count?: number; onChange: (v: boolean) => void }
@@ -50,7 +81,7 @@ export function FilterMenu({ fields, checks, extra }: {
         {list.map((f) => (
           <label key={f.id} className="grid gap-1">
             <span className="text-xs text-muted-foreground">{f.label}</span>
-            <NativeSelect className="h-9 w-full" value={f.value} onChange={(e) => f.onChange(e.target.value)} placeholder={f.placeholder} options={f.options} aria-label={f.label} />
+            {f.searchable ? <SearchSelect f={f} /> : <NativeSelect className="h-9 w-full" value={f.value} onChange={(e) => f.onChange(e.target.value)} placeholder={f.placeholder} options={f.options} aria-label={f.label} />}
           </label>
         ))}
         {checks && checks.length > 0 && (

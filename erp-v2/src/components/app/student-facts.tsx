@@ -1,6 +1,6 @@
 "use client"
 
-import { BusIcon, CakeIcon, CalendarCheckIcon, CalendarDaysIcon, CalendarXIcon, GraduationCapIcon, StickyNoteIcon, StoreIcon } from "lucide-react"
+import { BusIcon, CakeIcon, CalendarCheckIcon, CalendarDaysIcon, CalendarXIcon, GraduationCapIcon, StickyNoteIcon, StoreIcon, TargetIcon } from "lucide-react"
 import { InfoGrid, NotSet, type InfoRow } from "@/components/app/family-tabs"
 import { daysBetween, fmtDate, toDateStr } from "@/domain/dates"
 import { BUS_USE_LABEL, busUseOf } from "@/domain/rules/people"
@@ -33,6 +33,7 @@ export function StudentFacts({ student: k, className }: { student: Student; clas
     { icon: CalendarXIcon, label: tx("วันสิ้นสุด"), value: ends ? <>{fmtDate(ends, { year: true })} <span className={left !== null && left >= 0 ? daysLeftTone(left) : "text-muted-foreground"}>{left !== null && left >= 0 ? `(${left}d)` : `(${tx("หมดแล้ว")})`}</span></> : <NotSet what="วันสิ้นสุด" /> },
     { icon: CakeIcon, label: tx("วันเกิด"), value: k.birthDate ? <>{fmtDate(k.birthDate, { year: true })}<span className="text-muted-foreground"> · {tx("อายุ {0} ปี", [age ?? 0])}</span></> : <NotSet what="วันเกิด" /> },
     { icon: GraduationCapIcon, label: tx("โรงเรียน"), value: k.school || <NotSet what="โรงเรียน" /> },
+    ...(k.targetSchools?.length ? [{ icon: TargetIcon, label: tx("โรงเรียนที่อยากสอบเข้า"), value: k.targetSchools.map((t, i) => `${i + 1}. ${t.school}`).join(" · ") }] : []),
     { icon: StoreIcon, label: tx("สาขาที่สร้าง"), value: tx("สร้างที่สาขา{0}", [created?.name ?? "—"]) },
     { icon: CalendarDaysIcon, label: tx("วันที่สร้าง"), value: tx("สร้างเมื่อ {0}", [fmtDate(k.createdAt.slice(0, 10), { year: true })]) },
     ...(k.usesBus && branchHasBus(branches.find((b) => b.id === k.branchId)) ? [{ icon: BusIcon, label: tx("รถรับส่ง"), value: `${tx("รถรับส่ง")}: ${BUS_USE_LABEL[busUseOf(k)]}` }] : []),

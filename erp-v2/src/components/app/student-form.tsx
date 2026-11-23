@@ -81,7 +81,7 @@ export function StudentForm({ student, familyId, onClose, onSaved }: { student?:
   const mergeInto = (old: Student) => {
     if (old.archived && !report(restore(old.id), `${old.nickname} กลับมาเรียนแล้ว`)) return
     const merged: Student = {
-      ...old, archived: undefined, grade: f.grade || old.grade, birthDate: f.birthDate ?? old.birthDate, school: f.school ?? old.school, schoolId: f.schoolId ?? old.schoolId,
+      ...old, archived: undefined, grade: f.grade || old.grade, birthDate: f.birthDate ?? old.birthDate, school: f.school ?? old.school, schoolId: f.schoolId ?? old.schoolId, targetSchools: f.targetSchools ?? old.targetSchools,
       gender: f.gender ?? old.gender, familyId: old.familyId ?? f.familyId, usesBus: old.usesBus || f.usesBus, note: [old.note, f.note].filter(Boolean).join(" · ") || undefined,
     }
     const r = save(merged)

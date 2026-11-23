@@ -3,9 +3,9 @@ import { interestCourseIdsFor } from "./crm"
 import { describe, expect, it } from "vitest"
 import { agoLabel } from "../dates"
 import { catalogInterests } from "./catalog"
-import type { DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Conversation, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
+import type { ExamResult, ExamTerm, DevTicket, NockAnswer, NockQuestion, Role, Assessment, Attendance, Branch, BusAddOn, CreditNote, LessonSummary, Course, Entitlement, Conversation, Family, FormSubmission, Lead, Student, Seat, FormOfferSlot, Holiday, Invoice, Klass, Session, Staff, StudentLeave, Weekday } from "../types"
 import { applyClassEdit, applyToSessions, canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, movesOf, mondayOf, removedWithClass, canSave, closesBranch, holidayImpact, setBranchBrands, sameDayInYears, missingSeriesRows, holidayForBrand, hoursFor, isHoliday, overlappingRows, periodsIn, introducedConflicts, editSingleSession, findConflicts, generateSessions, moveSession, sessionState, validateClass, workState } from "./scheduling"
-import { activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
+import { leaveUnlimited, activeLeave, nextClassDates, teacherLeaveCancels, leaveRunSessions, balance, studentState, leaveLedger, packageCovers, canMark, canSaveLeave, coveringEntitlement, effectiveTo, leavesUsed, lowBalanceAlert, removeFromClass, renewalFollowUpDue, resolveEntitlements } from "./attendance"
 import { bestPromotion, duplicateBusDay, billedOn, busAddOnAmount, pendingBusAddOns, validateBusAddOn, carriedMinutes, weekKey, classOptionsFor, defaultAdvance, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, canApprove, canConfirmPayment, canForceApprove, canForceConfirmPayment, canSend, canVoid, isBackdated, defaultBusLegs, setAllBusLegs, usesNoBus, busTotal, nextInvoiceNumber, quoteCourse, roundUpTo, familyPromotion, receiptNumberOf, lastNoteFor, renumberDocuments, renewalCandidates, renewalDraft, bestBonusHours, FAMILY_PROMO_TIERS } from "./billing"
 import { can } from "./permissions"
 import { canDeleteCourse, chartPrice, defaultCourseName, filterCourses, validateCourse } from "./course"
@@ -26,6 +26,7 @@ import { invoiceMessage, invoiceBundleMessage, receiptMessage, voidMessage, fami
 import * as Refund from "./refunds"
 import * as Doc from "./documents"
 import * as Seats from "./seats"
+import * as ExamR from "./exams"
 import * as Les from "./lessons"
 import * as Sch from "./scheduling"
 import * as NockR from "./nock"
@@ -841,7 +842,9 @@ describe("special periods (e.g. summer 08:00–22:00 every day)", () => {
   })
   it("rejects overlapping ranges and bad hours", () => {
     expect(validateSpecialPeriods([summer, { ...summer, id: "sp2", name: "Exam", from: "2026-05-10", to: "2026-05-30" }])).toMatch(/ทับกัน/)
-    expect(validateSpecialPeriods([summer, { ...summer, id: "sp2", name: "Exam", from: "2026-05-10", to: "2026-05-30", priority: "high" }])).toBeNull()
+    // owner 2026-11-23: no overlap at all, whatever the priority
+    expect(validateSpecialPeriods([summer, { ...summer, id: "sp2", name: "Exam", from: "2026-05-10", to: "2026-05-30", priority: "high" }])).toMatch(/ทับกัน/)
+    expect(validateSpecialPeriods([summer, { ...summer, id: "sp2", name: "Exam", from: "2026-05-16", to: "2026-05-30" }])).toBeNull()
     expect(validateSpecialPeriods([{ ...summer, hours: everyDay({ open: "22:00", close: "08:00" }) }])).toMatch(/เวลาปิด/)
     expect(validateSpecialPeriods([summer])).toBeNull()
     expect(validateSpecialPeriods([summer, { ...summer, id: "old", active: false }])).toBeNull() // inactive copy may overlap
@@ -1109,6 +1112,10 @@ describe("leave quota and re-schedule", () => {
     const r = canRescheduleStudent(tue, in2Weeks, "a", now, 6)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toContain("การลา")
+    // owner 2026-11-23: Liclass has no week-lock — two weeks away is fine, capacity still only warns
+    setBranchBrands([{ id: tue.branchId, brand: "liclass" }])
+    expect(canRescheduleStudent(tue, in2Weeks, "a", now, 6).ok).toBe(true)
+    setBranchBrands([])
     // any subject (owner 2026-10-14: "ไม่สนว่าวิชาอะไร")
     expect(canRescheduleStudent(tue, { ...thu, subject: "English" }, "a", now, 6).ok).toBe(true)
     // a full session only warns (soft capacity, owner 2026-09-30)
@@ -1880,7 +1887,7 @@ describe("Special-period classes (owner 2026-10-01)", () => {
     const made = generateSessions(special, [], () => Math.random().toString(), 8, period.to)
     expect(made.map((x) => x.date)).toEqual(["2026-10-05", "2026-10-12", "2026-10-19"])
   })
-  it("pauses special sessions when the period is off, regular ones only when the period pauses them; both come back", () => {
+  it("pauses special sessions when the period is off; regular ones always stop inside an active period; both come back", () => {
     const ses = [
       { ...generateSessions(special, [], () => "a", 1)[0], id: "a", date: "2026-10-12" },
       { ...generateSessions(regular, [], () => "b", 1)[0], id: "b", date: "2026-10-12" },
@@ -1893,7 +1900,10 @@ describe("Special-period classes (owner 2026-10-01)", () => {
     expect(r.sessions.map((x) => x.cancelled)).toEqual([false, true])
     expect(r.restored).toBe(1)
     r = Sch.syncPeriodSessions(r.sessions, [special, regular], branch, "2026-10-01")
-    expect(r.sessions.map((x) => x.cancelled)).toEqual([false, false])
+    // owner 2026-11-23: an active period always replaces the normal calendar — regular classes sit out
+    expect(r.sessions.map((x) => x.cancelled)).toEqual([false, true])
+    r = Sch.syncPeriodSessions(r.sessions, [special, regular], off, "2026-10-01")
+    expect(r.sessions.map((x) => x.cancelled)).toEqual([true, false])
     // past sessions are never touched
     expect(Sch.syncPeriodSessions(ses, [special, regular], off, "2026-10-20").paused).toBe(0)
   })
@@ -3878,3 +3888,91 @@ describe("mergeSameCourse (owner 2026-11-20)", () => {
   })
 })
 
+
+describe("Liclass brand switches (owner 2026-11-23, Shibasan)", () => {
+  const ses = { id: "s1", branchId: "L", classId: "k", date: "2026-10-06", start: "09:00", minutes: 60, studentIds: ["a"], cancelled: false } as unknown as Session
+  const att = [{ id: "x", sessionId: "s1", studentId: "a", status: "present" }] as unknown as Attendance[]
+  it("no lesson summary → a past, marked Liclass session is done (Nock Academy waits for the summary)", () => {
+    const now = new Date("2026-10-07T12:00:00")
+    setBranchBrands([{ id: "L", brand: "liclass" }])
+    expect(workState(ses, now, att, []).state).toBe("done")
+    setBranchBrands([{ id: "L", brand: "nockacademy" }])
+    expect(workState(ses, now, att, []).state).toBe("needs_summary")
+    setBranchBrands([])
+  })
+  it("no leave quota: hour pack stretches for every leave, week / month pack never does", () => {
+    const k = [{ id: "k", branchId: "L" }] as unknown as Klass[]
+    const ent = { studentId: "a", classIds: ["k"], kind: "sessions", leaveQuota: 0, sessionsTotal: 8 } as unknown as Entitlement
+    expect(Sch.brandHasLeaveQuota("liclass")).toBe(false)
+    setBranchBrands([{ id: "L", brand: "liclass" }])
+    expect(leaveUnlimited(ent, k)).toBe(true)
+    setBranchBrands([{ id: "L", brand: "nockacademy" }])
+    expect(leaveUnlimited(ent, k)).toBe(false)
+    setBranchBrands([])
+  })
+})
+
+describe("Receipt combine list (owner 2026-11-23)", () => {
+  const items = (n: string) => [{ description: `${n} course`, qty: 1, unitPrice: 4500, amount: 4500 }, { description: `${n} bus`, qty: 6, unitPrice: 500, amount: 500 }, { description: `${n} book`, qty: 1, unitPrice: 300, amount: 300 }]
+  it("merges chosen lines into one renamed line at the first line's place — the total is unchanged", () => {
+    const parts = [{ invoiceId: "i1", items: items("A") }]
+    const out = Doc.mergeReceiptItems(parts, [{ label: "Course + Bus", keys: ["i1#0", "i1#1"] }])
+    expect(out.map((x) => [x.description, x.amount])).toEqual([["Course + Bus", 5000], ["A book", 300]])
+    expect(out.reduce((a, x) => a + x.amount, 0)).toBe(5300)
+  })
+  it("a combined multi-month receipt can merge lines across invoices; a stale merge is ignored", () => {
+    const parts = [{ invoiceId: "i1", items: items("A") }, { invoiceId: "i2", items: items("B") }]
+    const out = Doc.mergeReceiptItems(parts, [{ label: "Both courses", keys: ["i1#0", "i2#0"] }, { label: "gone", keys: ["i9#0", "i9#1"] }])
+    expect(out).toHaveLength(5)
+    expect(out[0]).toMatchObject({ description: "Both courses", amount: 9000 })
+    expect(out.reduce((a, x) => a + x.amount, 0)).toBe(10600)
+  })
+})
+
+describe("Manager / Area Manager cover Admin (owner 2026-11-23, Shibasan)", () => {
+  it("every permission an Admin has, a Manager and an Area Manager have too — they step in for the Admin", () => {
+    for (const role of ["manager", "area_manager"] as const)
+      expect(ROLE_PERMISSIONS.admin.filter((p) => !ROLE_PERMISSIONS[role].includes(p))).toEqual([])
+  })
+})
+
+describe("School exam results (owner 2026-11-23, Shibasan)", () => {
+  const res = (id: string, year: number, term: ExamTerm, scores: Record<string, { score: number; full: number }>) => ({ id, studentId: "s1", branchId: "b", year, term, scores, enteredBy: "u", updatedAt: "" }) as ExamResult
+  it("default subjects: Thai for Nock Academy, Japanese for Liclass; a branch list overrides", () => {
+    expect(ExamR.defaultExamSubjects("nockacademy")).toEqual(["คณิตพื้นฐาน", "คณิตเพิ่มเติม", "วิทย์พื้นฐาน", "วิทย์เพิ่มเติม", "อังกฤษพื้นฐาน", "อังกฤษเพิ่มเติม", "ภาษาไทย", "สังคม"])
+    expect(ExamR.defaultExamSubjects("liclass")).toEqual(["คณิต", "อังกฤษ", "วิทย์", "สังคม", "ญี่ปุ่น"])
+    expect(["คณิตเพิ่มเติม", "ภาษาไทย"].map(ExamR.isOptionalSubject)).toEqual([true, false])
+    expect(ExamR.defaultExamSubjects("liclass").at(-1)).toBe("ญี่ปุ่น")
+    expect(ExamR.examSubjectsOf({ brand: "liclass", examSubjects: ["คณิต", "ศิลปะ"] })).toEqual(["คณิต", "ศิลปะ"])
+  })
+  it("the Thai school year starts in May; a score is shown as a percentage", () => {
+    expect(ExamR.academicYear("2026-11-23")).toBe(2026)
+    expect(ExamR.academicYear("2027-02-10")).toBe(2026)
+    expect(ExamR.academicYear("2026-05-01")).toBe(2026)
+    expect(ExamR.pct({ score: 17, full: 20 })).toBe(85)
+    expect(ExamR.validateScore({ score: 21, full: 20 })).toMatch(/ไม่เกิน/)
+    expect(ExamR.validateScore({ score: 5, full: 0 })).toMatch(/มากกว่า 0/)
+    expect(ExamR.validateScore({ score: 10, full: 20 })).toBeNull()
+  })
+  it("change vs the previous exam, per subject and overall — a student with fewer subjects still compares what both have", () => {
+    const list = [
+      res("a", 2026, "mid1", { คณิต: { score: 60, full: 100 }, อังกฤษ: { score: 70, full: 100 }, วิทย์: { score: 50, full: 100 } }),
+      res("b", 2026, "final1", { คณิต: { score: 80, full: 100 }, อังกฤษ: { score: 70, full: 100 } }),
+    ]
+    expect(ExamR.examChange(list, "s1", "คณิต")).toBe(20)
+    expect(ExamR.examChange(list, "s1", "อังกฤษ")).toBe(0)
+    expect(ExamR.examChange(list, "s1", "วิทย์")).toBeNull() // newest exam has no science
+    expect(ExamR.examChange(list, "s1")).toBe(10) // (80+70)/2 − (60+70)/2
+    expect(ExamR.examChange([list[0]], "s1")).toBeNull()
+    expect(ExamR.latestExam(list, "s1")?.id).toBe("b")
+    expect(ExamR.examProgress(list, ["s1", "nobody"])).toMatchObject({ compared: 1, up: 1, avg: 10 })
+  })
+  it("a teacher records only for students in their own class; admin / manager for the whole branch", () => {
+    const teacher = staff("t1", ["teacher"])
+    const admin = staff("a1", ["admin"])
+    const klass = [{ branchId: "b", studentIds: ["s1"], teacherId: "t1", coTeacherIds: [] }]
+    expect(ExamR.canRecordExam(teacher, { id: "s1", branchId: "b" }, klass).ok).toBe(true)
+    expect(ExamR.canRecordExam(teacher, { id: "s2", branchId: "b" }, klass).ok).toBe(false)
+    expect(ExamR.canRecordExam(admin, { id: "s2", branchId: "b" }, klass).ok).toBe(true)
+  })
+})

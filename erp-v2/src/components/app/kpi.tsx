@@ -103,7 +103,7 @@ export function Kpi({
     <Tag type={onClick ? "button" : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
       className={cn("relative flex h-full w-full min-w-0 flex-col gap-1 rounded-xl px-3.5 text-left", size === "sm" ? "py-2" : "py-3", go && onClick && "pr-8",
         variant === "tonal" ? "justify-start bg-muted/50" : "justify-start bg-card shadow-sm ring-1 ring-foreground/5 sm:min-w-40",
-        onClick && (variant === "tonal" ? "transition hover:bg-muted" : "transition hover:ring-foreground/20"), active && "ring-2 ring-primary hover:ring-primary")}>
+        onClick && (variant === "tonal" ? "transition hover:bg-muted" : "transition hover:ring-foreground/20"), active && (variant === "tonal" ? "bg-foreground/10 hover:bg-foreground/10" : "ring-2 ring-primary hover:ring-primary"))}>
       <p title={typeof label === "string" ? label : undefined} className={cn("flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground", emphasis && KPI_INK[tone])}>
         {Icon && <Icon className="size-3.5 shrink-0" />}<span className="truncate text-muted-foreground">{label}</span>
         {info && <InfoTip text={info} className="ml-auto -my-0.5" />}

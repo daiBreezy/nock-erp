@@ -1,6 +1,6 @@
 import { promises as fs } from "fs"
 import path from "path"
-import type { AddressParts, Brand, BusUse, PdpaChoice, FormLang, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, Gender, ID, LeadSource } from "@/domain/types"
+import type { TargetSchool, AddressParts, Brand, BusUse, PdpaChoice, FormLang, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, Gender, ID, LeadSource } from "@/domain/types"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL } from "@/domain/rules/forms"
 import { recordInboundMessage } from "./line-store"
@@ -104,7 +104,7 @@ export async function submitForm(input: {
   familyName?: string
   familyNameEn?: string
   students: {
-    name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; nameEn?: string; nicknameEn?: string; gender?: Gender; schoolId?: string
+    name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; nameEn?: string; nicknameEn?: string; gender?: Gender; schoolId?: string; targetSchools?: TargetSchool[]
     picks: { chosenSubject: string; chosenSlotId: string }[]
   }[]
 }): Promise<{ ok: true; submissions: FormSubmission[] } | { ok: false; error: string }> {
@@ -113,7 +113,7 @@ export async function submitForm(input: {
   if (!input.parents.length) return { ok: false, error: "ใส่ข้อมูลผู้ปกครองอย่างน้อย 1 คน" }
   if (!input.students.length) return { ok: false, error: "เพิ่มนักเรียนอย่างน้อย 1 คน" }
   // never trust a client-supplied slot payload — look up each offered slot server-side, per student
-  const resolvedStudents: { name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; nameEn?: string; nicknameEn?: string; gender?: Gender; schoolId?: string; picks: FormPick[] }[] = []
+  const resolvedStudents: { name: string; nickname?: string; grade: string; birthDate?: string; school?: string; note?: string; nameEn?: string; nicknameEn?: string; gender?: Gender; schoolId?: string; targetSchools?: TargetSchool[]; picks: FormPick[] }[] = []
   for (const student of input.students) {
     if (!student.picks.length) return { ok: false, error: `เลือกวิชา/เวลาให้ ${student.name || "นักเรียน"} อย่างน้อย 1 วิชา` }
     const picks: FormPick[] = []
@@ -136,7 +136,7 @@ export async function submitForm(input: {
         lineUserId: input.lineUserId, parents: input.parents, familyAddress: input.familyAddress, familyAddressParts: input.familyAddressParts, familyPostcode: input.familyPostcode,
         familyProvince: input.familyProvince, familyLocation: input.familyLocation, familyAddressNote: input.familyAddressNote, acquisitions: input.acquisitions, acquisitionLabels: input.acquisitionLabels, taxInfo: input.taxInfo, familyBusLeg: input.familyBusLeg, referral: input.referral, pdpa: input.pdpa,
         studentName: student.name, studentNickname: student.nickname, studentGrade: student.grade, studentBirthDate: student.birthDate, studentSchool: student.school, studentNote: student.note,
-        studentNameEn: student.nameEn, studentNicknameEn: student.nicknameEn, studentGender: student.gender, studentSchoolId: student.schoolId, familyName: input.familyName, familyNameEn: input.familyNameEn,
+        studentNameEn: student.nameEn, studentNicknameEn: student.nicknameEn, studentGender: student.gender, studentSchoolId: student.schoolId, studentTargetSchools: student.targetSchools, familyName: input.familyName, familyNameEn: input.familyNameEn,
         picks: student.picks,
         status: "pending", submittedAt: new Date().toISOString(),
       }
@@ -179,7 +179,7 @@ export async function reviewSubmission(id: ID, status: "approved" | "rejected", 
 export const EDITABLE_ANSWERS = [
   "parents", "familyName", "familyNameEn", "familyAddress", "familyAddressParts", "familyPostcode", "familyProvince", "familyLocation", "familyAddressNote",
   "acquisitions", "acquisitionLabels", "familyBusLeg", "referral", "pdpa", "taxInfo",
-  "studentName", "studentNickname", "studentNameEn", "studentNicknameEn", "studentGender", "studentGrade", "studentBirthDate", "studentSchool", "studentSchoolId", "studentNote",
+  "studentName", "studentNickname", "studentNameEn", "studentNicknameEn", "studentGender", "studentGrade", "studentBirthDate", "studentSchool", "studentSchoolId", "studentTargetSchools", "studentNote",
 ] as const
 
 /** Staff correction of what the parent typed — only while the form is still waiting for approval. A field sent as null is cleared. */

@@ -461,7 +461,7 @@ export function mergeSubmission(family: Family | undefined, student: Student | u
   const st = student && {
     ...student, name: keep(student.name, sub.studentName), nickname: keep(student.nickname, sub.studentNickname), grade: keep(student.grade, sub.studentGrade),
     nameEn: keep(student.nameEn, sub.studentNameEn), nicknameEn: keep(student.nicknameEn, sub.studentNicknameEn), gender: sub.studentGender ?? student.gender,
-    birthDate: keep(student.birthDate, sub.studentBirthDate), school: keep(student.school, sub.studentSchool), schoolId: sub.studentSchool?.trim() ? sub.studentSchoolId : student.schoolId, note: keep(student.note, sub.studentNote),
+    birthDate: keep(student.birthDate, sub.studentBirthDate), school: keep(student.school, sub.studentSchool), schoolId: sub.studentSchool?.trim() ? sub.studentSchoolId : student.schoolId, targetSchools: sub.studentTargetSchools?.length ? sub.studentTargetSchools : student.targetSchools, note: keep(student.note, sub.studentNote),
   }
   return { family: f, student: st }
 }

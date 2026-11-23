@@ -35,7 +35,7 @@ import type { SummaryLesson } from "@/store/store"
 import { CatalogCombo, CatalogManager } from "./lesson-picker"
 import { assessmentIn, FORM_TYPE_LABEL, isAssessmentSession } from "@/domain/rules/forms"
 import { can } from "@/domain/rules/permissions"
-import { canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, findConflicts, hasEnded, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity, workState, WORK_LABEL } from "@/domain/rules/scheduling"
+import { canChangeTeachers, canMoveToClass, canUndoClassMove, canRescheduleStudent, findConflicts, hasEnded, mondayOf, movesOf, MOVE_UNDO_ACTION, RESCHEDULE_WEEKS, sessionState, subjectsOf, classCapacity, workState, WORK_LABEL, branchUsesSummary, branchLocksRescheduleWeek } from "@/domain/rules/scheduling"
 import * as Sum from "@/domain/rules/summaries"
 import { SUMMARY_STATUS_LABEL } from "@/domain/rules/summaries"
 import type { ID, LessonSummary, Seat, Session } from "@/domain/types"
@@ -154,7 +154,7 @@ function Body({ id, onClose, onOpenStudent }: { id: ID; onClose: () => void; onO
   // absent / on leave / already sent). The two bulk buttons count — and enable on — the ones that can act right now.
   // Test/Trial session: no lesson summary → no bulk-summary bar
   const assessmentOnly = isAssessmentSession(s.id, s.studentIds, assessments)
-  const selectable = present.filter((sid) => !viewOnly && !assessmentOnly && summaryOf(sid)?.status !== "sent")
+  const selectable = present.filter((sid) => !viewOnly && !assessmentOnly && branchUsesSummary(s.branchId) && summaryOf(sid)?.status !== "sent")
   const sel = [...picked].filter((x) => selectable.includes(x))
   const toggle = (sid: ID) => setPicked((p) => { const n = new Set(p); if (n.has(sid)) n.delete(sid); else n.add(sid); return n })
   // owner 2026-11-13: nothing ticked = the button works on everyone it can (a written summary shouldn't need a tick first);
@@ -446,6 +446,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
   const ctx = { sessions: allSessions, attendance, classes, holidays }
   const ledger = raw ? Att.leaveLedger({ ...raw, to: Att.effectiveTo(raw, leaves) }, ctx, leaves) : []
   const quota = raw ? Att.leaveQuota(raw) : 0
+  const unlimitedLeave = raw ? Att.leaveUnlimited(raw, classes) : false
   const thisLeave = ledger.find((l) => l.sessionId === s.id)
   const usedQuota = ledger.filter((l) => l.quota).length
 
@@ -558,11 +559,11 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
       {a?.status === "leave" && raw && (
         <p className={cn(indent, "text-xs", "text-muted-foreground")}>
           {a.leaveGroup && (() => { const n = attendance.filter((x) => x.studentId === sid && x.leaveGroup === a.leaveGroup).length; return n > 1 ? `ลาชุด ${n} คาบ · ` : "" })()}
-          {thisLeave?.noQuota ? `ลาไม่หักโควตา · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
+          {thisLeave?.noQuota ? `ลาไม่หักโควตา · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : unlimitedLeave ? (thisLeave?.quota ? `ลาไม่จำกัด · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `ลาไม่จำกัด · ไม่ยืดแพ็กเกจ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`) : thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
       )}
       {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} /></div>}
-      {a?.status === "present" && !isTest && (
+      {a?.status === "present" && !isTest && branchUsesSummary(s.branchId) && (
         <div className={cn(indent)}>
           {/* owner Row 48: past-summary history lives on the summary's CTA row (icon button) */}
           <SummaryInline key={lessonKey(summaries.find((x) => x.sessionId === s.id && x.studentId === sid))} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} historyCount={pastSummaries.length} onHistory={() => setHistoryOpen(true)} />
@@ -684,6 +685,7 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
   const attendance = useStore((st) => st.attendance)
   const sessions = useStore((st) => st.sessions)
   const rawEnts = useStore((st) => st.entitlements)
+  const allClassesForLeave = useStore((st) => st.classes)
   const markLeave = useStore((st) => st.markLeave)
   const saveLongLeave = useStore((st) => st.saveStudentLeave)
   const me = useStore((st) => st.me())
@@ -703,10 +705,12 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
   const classIds = ent?.classIds.length ? ent.classIds : start.classId ? [start.classId] : []
   const run = ok ? (start.classId ? Att.leaveRunSessions(studentId, start, sessions, classIds, count) : [start]) : []
   // quota left, not counting this leave's own sessions
+  const unlimited = ent ? Att.leaveUnlimited(ent, allClassesForLeave) : false
   const quota = ent ? Att.leaveQuota(ent) : 0
   const groupIds = new Set(group.map((a) => a.sessionId))
   const usedElsewhere = ent ? attendance.filter((a) => a.studentId === studentId && a.status === "leave" && !a.noQuota && !groupIds.has(a.sessionId) && byId.get(a.sessionId) && Att.packageCovers(ent, byId.get(a.sessionId)!)).length : 0
-  const left = Math.max(0, quota - usedElsewhere)
+  // Liclass: no quota — an hour pack stretches for every leave, a week / month pack never does
+  const left = unlimited ? (ent?.kind === "sessions" ? Infinity : 0) : Math.max(0, quota - usedElsewhere)
   // owner 2026-10-12: "ลาไม่หักโควตา" IS ลาพักยาว — one record on the student (date range, from this session to the last
   // one picked), the same as ⋯ › ลาพักยาว: shows on the student's card, status Inactive meanwhile, every package extended
   const longOk = Att.canSaveLeave(me, longFrom, longTo, reason)
@@ -728,7 +732,7 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
           <DialogDescription>เริ่ม {fmtDate(start.date, { weekday: true })} {start.start} · {group.length ? `ตอนนี้ลา ${group.length} คาบ — ลดจำนวน = กลับมาเรียนก่อน, เพิ่ม = ลาต่อ` : "ไม่มา = ลา เลือกแบบตามดุลพินิจ"}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-2">
-          {([[false, "ลา · หักโควตา", ent ? `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา` : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ลาพักยาว · ไม่หักโควตา", "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"]] as const).map(([k, label, hint]) => (
+          {([[false, "ลา · หักโควตา", ent ? (unlimited ? (ent.kind === "sessions" ? "ลาได้ไม่จำกัด · ยืดวันจบให้ทุกครั้ง" : "ลาได้ไม่จำกัด · แพ็กเกจรายสัปดาห์/เดือนไม่ยืดวันจบ") : `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา`) : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ลาพักยาว · ไม่หักโควตา", "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"]] as const).map(([k, label, hint]) => (
             <Button variant="ghost" size="inline" key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
               className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-warning bg-warning-soft/40" : "hover:bg-muted/50")}>
               <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
@@ -749,7 +753,7 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
             {run.map((x, i) => (
               <li key={x.id} className="flex justify-between">
                 <span>{fmtDate(x.date, { weekday: true })} {x.start} · {x.subject}</span>
-                <span className={noQuota || i < left ? "text-success" : "text-muted-foreground"}>{noQuota ? "ยืดวันจบ" : i < left ? "ใช้โควตา · ยืดวันจบ" : "เกินโควตา · ไม่ชดเชย"}</span>
+                <span className={noQuota || i < left ? "text-success" : "text-muted-foreground"}>{noQuota ? "ยืดวันจบ" : i < left ? (unlimited ? "ยืดวันจบ" : "ใช้โควตา · ยืดวันจบ") : unlimited ? "ไม่ยืดแพ็กเกจ" : "เกินโควตา · ไม่ชดเชย"}</span>
               </li>
             ))}
             {ok && run.length < count && <li className="text-muted-foreground">มีคาบให้ลาแค่ {run.length} คาบในตาราง</li>}
@@ -849,6 +853,8 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
   const L = useLookup()
   const monday = mondayOf(from.date)
   const lastDay = addDays(monday, 7 * RESCHEDULE_WEEKS - 1)
+  // owner 2026-11-23: Liclass has no week-lock — any upcoming day will do
+  const weekLock = branchLocksRescheduleWeek(from.branchId)
   // owner 2026-10-14: ย้ายวัน has two kinds — this session only, or from now on (another class)
   const [mode, setMode] = useState<"once" | "always">(initialMode)
   const [toClass, setToClass] = useState<ID | null>(null)
@@ -899,7 +905,7 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
               {m === "once" ? "ครั้งนี้ครั้งเดียว" : "ตั้งแต่ครั้งนี้เป็นต้นไป"}
             </Button>
           ))}
-          <InfoTip text={mode === "once" ? `ย้ายเฉพาะคาบ ${fmtDate(from.date, { weekday: true })} ไปคาบอื่นวิชาเดียวกัน ภายในสัปดาห์นี้และสัปดาห์หน้า (${fmtDate(monday)} – ${fmtDate(lastDay, { year: true })}) · ไกลกว่านั้นให้บันทึกเป็นการลา` : "ย้ายไปอยู่อีกคลาสถาวร ตั้งแต่คาบนี้ · แพ็กเกจจบวันเดิม คลาสใหม่ได้เท่าที่มีคาบก่อนวันจบ"} />
+          <InfoTip text={mode === "once" ? (!weekLock ? `ย้ายเฉพาะคาบ ${fmtDate(from.date, { weekday: true })} ไปคาบอื่นได้ทุกวันที่ยังไม่เริ่ม (ไม่ล็อกสัปดาห์)` : `ย้ายเฉพาะคาบ ${fmtDate(from.date, { weekday: true })} ไปคาบอื่นวิชาเดียวกัน ภายในสัปดาห์นี้และสัปดาห์หน้า (${fmtDate(monday)} – ${fmtDate(lastDay, { year: true })}) · ไกลกว่านั้นให้บันทึกเป็นการลา`) : "ย้ายไปอยู่อีกคลาสถาวร ตั้งแต่คาบนี้ · แพ็กเกจจบวันเดิม คลาสใหม่ได้เท่าที่มีคาบก่อนวันจบ"} />
           {history.length > 0 && (
             <details className="ml-auto text-xs">
               <summary className={cn("cursor-pointer rounded-full px-2.5 py-1 font-medium", history.length >= 3 ? "bg-warning-soft text-warning-ink" : "bg-muted text-muted-foreground")}>ย้ายมาแล้ว {history.filter((h) => h.action !== MOVE_UNDO_ACTION).length} ครั้ง</summary>
@@ -928,9 +934,9 @@ export function RescheduleDialog({ from, studentId, onClose, initialMode = "once
         <div className="flex flex-wrap items-center gap-2">
           <NativeSelect className="h-9 w-32" value={subject} onChange={(e) => { setSubject(e.target.value); setPick(null) }} placeholder="ทุกวิชา" options={branch.subjects.map((x) => ({ value: x, label: x }))} />
           <div className="ml-auto flex items-center gap-1 rounded-full bg-muted px-1 py-1">
-            <Button size="icon-sm" variant="ghost" aria-label="วันก่อน" disabled={day <= monday} onClick={() => { setDay(addDays(day, -1)); setPick(null) }}><ChevronLeftIcon /></Button>
+            <Button size="icon-sm" variant="ghost" aria-label="วันก่อน" disabled={weekLock ? day <= monday : day <= toDateStr(now)} onClick={() => { setDay(addDays(day, -1)); setPick(null) }}><ChevronLeftIcon /></Button>
             <span className="min-w-28 text-center text-sm font-medium">{fmtDate(day, { weekday: true })}{day === from.date && <span className="block text-2xs font-normal text-muted-foreground">วันเดิม</span>}</span>
-            <Button size="icon-sm" variant="ghost" aria-label="วันถัดไป" disabled={day >= lastDay} onClick={() => { setDay(addDays(day, 1)); setPick(null) }}><ChevronRightIcon /></Button>
+            <Button size="icon-sm" variant="ghost" aria-label="วันถัดไป" disabled={weekLock && day >= lastDay} onClick={() => { setDay(addDays(day, 1)); setPick(null) }}><ChevronRightIcon /></Button>
           </div>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-0.5 py-1">

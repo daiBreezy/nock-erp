@@ -1,5 +1,6 @@
 "use client"
 
+import { InvoicePreview } from "./invoice-preview"
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { COURSE_FORMAT_LABEL, packageLabel, priceUnitSuffix } from "@/domain/rules/course"
 import { CoursePicker } from "./course-picker"
@@ -7,7 +8,7 @@ import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
 import { branchHasBus, busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, EyeIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -90,6 +91,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
   // Family Promotion: switched on from the banner below (owner 2026-11-05); the % follows the tier the hours reach
   // sections work like an FAQ: opening one closes the others (owner 2026-11-05)
   const [openSec, setOpenSec] = useState(studentId ? 3 : 1)
+  const [previewing, setPreviewing] = useState(false) // owner 2026-11-23: paper preview before Create
   const [familyOn, setFamilyOn] = useState(invoice?.familyPromoPct != null)
   // how Family Promotion meets a branch promotion — the admin decides (owner 2026-11-17); the system starts on "best"
   const [familyMode, setFamilyMode] = useState<NonNullable<Invoice["familyMode"]>>(invoice?.familyMode ?? "best")
@@ -237,8 +239,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
       footer={<>
         {errors.length > 0 && <span className="mr-auto text-xs text-danger">{errors[0]}</span>}
         <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
+        <Button variant="outline" disabled={!studentId} onClick={() => setPreviewing(true)}><EyeIcon /> ดูตัวอย่าง</Button>
         <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
       </>}>
+        {previewing && <InvoicePreview draft={{ ...draft, familyPromoPct: familyPct || undefined, familyMode: familyPct ? familyMode : undefined }} onClose={() => setPreviewing(false)} />}
 
         <Section n={1} open={openSec === 1} onToggle={() => setOpenSec(openSec === 1 ? 0 : 1)} summary={student ? `${student.nickname} · ${student.grade}` : "ยังไม่ได้เลือก"} title="Student">
         <div className="space-y-1">

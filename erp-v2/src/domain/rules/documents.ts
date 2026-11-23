@@ -108,6 +108,32 @@ export function invoiceItems(inv: Invoice, totals: InvoiceTotals, branch: Branch
   return items
 }
 
+/** key of one printed line of an invoice, used to merge lines on the receipt */
+export const receiptItemKey = (invoiceId: string, index: number) => `${invoiceId}#${index}`
+
+/**
+ * Receipt "combine list" (owner 2026-11-23): each merge shows its lines as ONE line with a new name and the summed
+ * amount, placed where its first line was. A merge whose lines are not all on this receipt any more is ignored, and a
+ * line can only belong to one merge (the first wins) — so the receipt total never changes.
+ */
+export function mergeReceiptItems(parts: { invoiceId: string; items: DocItem[] }[], merges: { label: string; keys: string[] }[] = []): DocItem[] {
+  const flat = parts.flatMap((p) => p.items.map((it, i) => ({ key: receiptItemKey(p.invoiceId, i), it })))
+  const present = new Set(flat.map((x) => x.key))
+  const used = new Set<string>()
+  const valid = merges.filter((m) => m.keys.length >= 2 && m.label.trim() && m.keys.every((k) => present.has(k) && !used.has(k)) && m.keys.every((k) => !!used.add(k)))
+  const byFirst = new Map(valid.map((m) => [flat.find((x) => m.keys.includes(x.key))!.key, m]))
+  const hidden = new Set(valid.flatMap((m) => m.keys))
+  const out: DocItem[] = []
+  for (const { key, it } of flat) {
+    const m = byFirst.get(key)
+    if (m) {
+      const sum = m.keys.reduce((a, k) => a + flat.find((x) => x.key === k)!.it.amount, 0)
+      out.push({ description: m.label.trim(), qty: 1, unitPrice: sum, amount: sum })
+    } else if (!hidden.has(key)) out.push(it)
+  }
+  return out
+}
+
 export function creditNoteItems(cn: CreditNote, brand: Branch["brand"] = "nockacademy"): DocItem[] {
   const refund = docLang(brand) === "ja" ? "返金: " : "คืน"
   return cn.items.map((i) => ({ description: `${refund}${i.label}`, qty: 1, unitPrice: i.amount, amount: i.amount }))

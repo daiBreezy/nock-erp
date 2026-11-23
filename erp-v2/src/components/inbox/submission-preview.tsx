@@ -32,7 +32,7 @@ export function SubmissionPreviewDialog({ sub, onClose, editable = false, onSave
     ] },
     { title: "ข้อมูลทั่วไป", rows: [
       ["เพศ", sub.studentGender && GENDER_LABEL[sub.studentGender]], ["ชั้น", sub.studentGrade], ["วันเกิด", sub.studentBirthDate && fmtDate(sub.studentBirthDate, { year: true })],
-      ["โรงเรียน", sub.studentSchool], ["รหัสนักเรียน", sub.studentSchoolId], ["หมายเหตุ", sub.studentNote],
+      ["โรงเรียน", sub.studentSchool], ["โรงเรียนที่อยากสอบเข้า", sub.studentTargetSchools?.map((x, i) => `${i + 1}. ${x.school}`).join(" · ")], ["รหัสนักเรียน", sub.studentSchoolId], ["หมายเหตุ", sub.studentNote],
     ] },
     ...sub.parents.map((p, i) => ({
       title: p.primary ? tx("{0} (ติดต่อหลัก)", [parentTitle(sub.parents.length, i)]) : parentTitle(sub.parents.length, i),

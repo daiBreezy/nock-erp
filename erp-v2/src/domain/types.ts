@@ -35,7 +35,7 @@ export interface SpecialPeriod {
   blocks?: DayBlocks
   /** "this day only" changes made inside the period — gone with the period */
   blockDays?: Record<DateStr, ClassBlock[]>
-  /** regular classes stop during the period (owner 2026-10-01: default = they keep going) */
+  /** @deprecated owner 2026-11-23: regular classes ALWAYS stop while a period is active (the calendar switches to the period) — ignored */
   pauseRegular?: boolean
   /** why regular classes stop (owner 2026-10-09): "school" = NockAcademy / Liclass closes them itself → every
    *  student's package runs one class longer per paused session · "other" = no extension. Unset = "school". */
@@ -183,6 +183,8 @@ export interface Branch {
   /** English name (owner 2026-10-07) — shown when the UI is English / Japanese; empty = standard spelling of the place */
   nameEn?: string
   brand: Brand
+  /** owner 2026-11-23: the subjects the Exam Result page asks for at this branch (admin can add more). Unset = the brand's default five. */
+  examSubjects?: string[]
   /** 3-digit branch number in document numbers (690930-01-001-0001) */
   branchNo: string
   /** province code shown next to the branch name (owner 2026-09-30: "Sukhumvit · BKK") — BKK = Bangkok, CBR = Chonburi, more later */
@@ -703,6 +705,25 @@ export type BusUse = "pickup" | "dropoff" | "both"
 /** owner 2026-11-19 PDPA: may the school photograph the child and post / use the pictures? (asked once per family) */
 export type PdpaChoice = "allow" | "blur" | "deny"
 
+/** a school the family hopes to enter (owner 2026-11-23) — picked from the national list or typed by hand */
+export interface TargetSchool { school: string; schoolId?: string }
+
+/** owner 2026-11-23 (Shibasan): the four school exams of a year */
+export type ExamTerm = "mid1" | "final1" | "mid2" | "final2"
+export interface ExamScore { score: number; full: number }
+/** one student's school exam: scores per subject name (only the subjects entered) */
+export interface ExamResult {
+  id: ID
+  studentId: ID
+  branchId: ID
+  /** Thai school year, as the Gregorian year it starts in (starts May) */
+  year: number
+  term: ExamTerm
+  scores: Record<string, ExamScore>
+  enteredBy: ID
+  updatedAt: string
+}
+
 export interface Student {
   id: ID
   familyId: ID | null
@@ -728,6 +749,9 @@ export interface Student {
   graduatedAt?: DateStr
   birthDate?: DateStr
   school?: string
+  /** owner 2026-11-23 (Shibasan): up to 3 schools the family hopes to enter, best first — asked on the enrollment form, shown on the
+   *  student / lead / family panels and as a hidden-by-default column in the student table */
+  targetSchools?: TargetSchool[]
   /** the Ministry of Education school code when picked from the national list (owner 2026-10-07) — reports group
    *  by it, so spelling differences never split one school in two. Unset = typed by hand (not in the list). */
   schoolId?: string
@@ -1251,6 +1275,8 @@ export interface LeadKid {
   note: string
   /** owner 2026-11-20: the Student made / matched for this child — so an invoice made for them starts with their interested courses */
   studentId?: ID
+  /** owner 2026-11-23: schools the family hopes to enter (up to 3, best first) */
+  targetSchools?: TargetSchool[]
 }
 
 export interface Lead {
@@ -1567,9 +1593,15 @@ export interface Invoice {
   voidNotifiedAt?: string
   payments: Payment[]
   receiptNumber?: string
+  /** owner 2026-11-23: lines of the receipt shown as ONE renamed line (Course A 4,500 + Bus 500 = "Course + Bus" 5,000).
+   *  The invoice itself and the accounting export keep the original lines — only the printed receipt changes.
+   *  Same value on every invoice of one receipt; keys are `${invoiceId}#${itemIndex}` (see receiptItemKey). */
+  receiptMerges?: ReceiptMerge[]
   /** the receipt message to the parent, pushed automatically when the invoice becomes paid */
   receiptDelivery?: LineDelivery
 }
+
+export interface ReceiptMerge { label: string; keys: string[] }
 
 export type LineDelivery = "sending" | "delivered" | "failed" | "no_line"
 
@@ -1736,6 +1768,8 @@ export interface FormPrefill {
 
 /** owner 2026-10-15: the extra (optional) child fields the admin panel always had — the parent form asks them too */
 export interface FormStudentExtras {
+  /** owner 2026-11-23: schools the family hopes to enter (up to 3, best first) */
+  targetSchools?: TargetSchool[]
   /** Ministry school code when picked from the list (same picker on the form and in the ERP) */
   schoolId?: string
   nameEn?: string
@@ -1793,6 +1827,8 @@ export interface FormSubmission {
   studentSchool?: string
   studentNote?: string
   studentSchoolId?: string
+  /** owner 2026-11-23: schools the family hopes to enter (up to 3, best first) */
+  studentTargetSchools?: TargetSchool[]
   studentNameEn?: string
   studentNicknameEn?: string
   studentGender?: Gender
