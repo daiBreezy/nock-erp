@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Navigate, Link } from 'react-router-dom'
 import type { ComponentType } from 'react'
 import {
-  MapPin, Clock, ChevronRight, X, GraduationCap, CalendarDays,
+  MapPin, Clock, ChevronRight, X, GraduationCap, CalendarDays, Phone,
   Users, Image as ImageIcon, Navigation, ThumbsUp, MessageCircle,
   Calculator, Languages, FlaskConical, BookOpen, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp,
 } from 'lucide-react'
@@ -11,7 +11,7 @@ import DesktopNav from '@/web/components/DesktopNav'
 import MarketingFooter from '@/web/components/MarketingFooter'
 import ContactFab from '@/web/components/ContactFab'
 import { LineIcon, FacebookIcon } from '@/components/BrandIcons'
-import { getBranch, subjectChipClass, type Branch, type ClassRow, type Course } from '@/data/school'
+import { getBranch, subjectChipClass, type Branch, type ClassRow, type Course, type Teacher } from '@/data/school'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -273,14 +273,62 @@ function CoursesModal({ branch, onClose }: { branch: Branch; onClose: () => void
   )
 }
 
-function Section({ icon: Icon, title, action, children }: { icon: ComponentType<{ size?: number; className?: string }>; title: string; action?: React.ReactNode; children: React.ReactNode }) {
+/* Popup รายละเอียดครู — ซ้าย: รูป · ขวา: ข้อมูล (มือถือเรียงลง) */
+function TeacherDialog({ t, area, onClose }: { t: Teacher; area: string; onClose: () => void }) {
+  const initial = t.name.replace(/^ครู/, '').charAt(0) || t.name.charAt(0)
+  const subjects = t.subject.split('·').map((s) => s.trim()).filter(Boolean)
   return (
-    <section className="mx-auto max-w-[900px] border-t border-line px-5 py-8">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[18px] font-bold tracking-tight text-ink">
-          <Icon size={18} className="text-brand" />
-          {title}
-        </h2>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent aria-describedby={undefined} className="max-h-[90vh] w-full max-w-[760px] gap-0 overflow-y-auto p-0 sm:grid sm:grid-cols-[280px_1fr] sm:overflow-hidden">
+        <div className="relative h-72 bg-gradient-to-b from-brand-soft to-surface-2 sm:h-auto sm:min-h-[420px]">
+          {t.photo ? (
+            <img src={t.photo} alt={t.name} className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 grid place-items-center text-[88px] font-extrabold text-brand/30">{initial}</div>
+          )}
+        </div>
+        <div className="flex flex-col gap-5 p-6 sm:max-h-[90vh] sm:overflow-y-auto">
+          <DialogHeader className="space-y-2 text-left">
+            <Badge className="w-fit gap-1.5 rounded-pill border-transparent bg-brand-soft px-3 py-1 text-[12.5px] font-bold text-brand hover:bg-brand-soft">
+              <MapPin size={13} /> สาขา{area}
+            </Badge>
+            <DialogTitle className="text-[22px] font-extrabold leading-tight text-ink">{t.name}</DialogTitle>
+            {t.fullName && <p className="text-[13.5px] text-ink-mute">{t.fullName}</p>}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {subjects.map((s) => (
+                <span key={s} className="rounded-pill bg-surface-2 px-2.5 py-0.5 text-[12.5px] font-semibold text-ink-soft">{s}</span>
+              ))}
+            </div>
+          </DialogHeader>
+          {t.education && (
+            <div>
+              <h4 className="mb-1 flex items-center gap-1.5 text-[14px] font-bold text-ink"><GraduationCap size={16} className="text-brand" /> การศึกษา</h4>
+              <p className="text-[14px] leading-relaxed text-ink-soft">{t.education}</p>
+            </div>
+          )}
+          {t.bio && (
+            <div>
+              <h4 className="mb-1 text-[14px] font-bold text-ink">เกี่ยวกับครู</h4>
+              <p className="text-[14px] leading-relaxed text-ink-soft">{t.bio}</p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function Section({ icon: Icon, title, subtitle, action, children }: { icon: ComponentType<{ size?: number; className?: string }>; title: string; subtitle?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="mx-auto max-w-[1200px] border-t border-line px-5 py-8">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-[18px] font-bold tracking-tight text-ink">
+            <Icon size={18} className="text-brand" />
+            {title}
+          </h2>
+          {subtitle && <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{subtitle}</p>}
+        </div>
         {action}
       </div>
       {children}
@@ -309,6 +357,7 @@ export default function SchoolBranch() {
   const branch = getBranch(slug)
   const [coursesOpen, setCoursesOpen] = useState(false)
   const [photoAt, setPhotoAt] = useState<number | null>(null)
+  const [tutor, setTutor] = useState<Teacher | null>(null)
 
   useEffect(() => {
     if (branch) document.title = `${branch.titleKeyword} เรียนพิเศษ ป.–ม. | NockAcademy`
@@ -329,7 +378,7 @@ export default function SchoolBranch() {
         <HeroPhotos photos={branch.classroomPhotos.length ? branch.classroomPhotos : [branch.cover]} alt={`สาขา ${branch.area}`} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
         {/* ชั้นข้อความไม่รับการแตะ → ปัดรูปข้างหลังได้ (ปุ่มกลับรับการแตะเอง) */}
-        <div className="pointer-events-none relative mx-auto flex min-h-[360px] max-w-[900px] flex-col justify-end px-5 pb-8 pt-24 sm:min-h-[420px]">
+        <div className="pointer-events-none relative mx-auto flex min-h-[360px] max-w-[1200px] flex-col justify-end px-5 pb-8 pt-24 sm:min-h-[420px]">
           {/* ปุ่มกลับ — ทับบนรูป มุมซ้ายบน */}
           <Button
             asChild
@@ -347,29 +396,46 @@ export default function SchoolBranch() {
         </div>
       </section>
 
+      {/* แนะนำสาขา — บทนำ (สำคัญต่อ SEO) ฟอนต์ใหญ่ อ่านง่าย */}
+      <section className="mx-auto max-w-[1200px] px-5 pt-8 pb-10">
+        <p className="max-w-[900px] text-[17px] leading-loose text-ink sm:text-[18px]">{branch.intro}</p>
+      </section>
+
       {/* teachers */}
       <Section icon={Users} title="ติวเตอร์ประจำสาขา">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {branch.teachers.map((t) => {
             const initial = t.name.replace(/^ครู/, '').charAt(0) || t.name.charAt(0)
             return (
-              <div key={t.name} className="group relative aspect-[3/4] overflow-hidden rounded-card border border-line bg-gradient-to-b from-brand-soft to-surface-2">
+              <div
+                key={t.name}
+                role="button"
+                tabIndex={0}
+                aria-label={`ดูข้อมูล ${t.name}`}
+                onClick={() => setTutor(t)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTutor(t) } }}
+                className="group relative aspect-[3/4] cursor-pointer overflow-hidden rounded-card border border-line bg-gradient-to-b from-brand-soft to-surface-2 outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
                 {/* รูปครู: ถ้ามีรูป → แสดงรูป, ถ้าไม่มี → ตัวอักษร placeholder */}
                 {t.photo ? (
                   <img src={t.photo} alt={t.name} className="absolute inset-0 h-full w-full object-cover" />
                 ) : (
                   <div className="absolute inset-0 grid place-items-center text-[66px] font-extrabold text-brand/30">{initial}</div>
                 )}
-                {/* default: ชื่อเล่น + วิชา */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 transition-opacity group-hover:opacity-0">
-                  <p className="text-[15px] font-bold text-white">{t.name}</p>
-                  <p className="text-[12px] font-medium text-white/85">{t.subject}</p>
-                </div>
-                {/* hover: ชื่อจริง + วิชา */}
-                <div className="absolute inset-0 flex flex-col justify-end bg-black/55 p-3 opacity-0 transition-opacity group-hover:opacity-100">
-                  <p className="text-[15px] font-bold text-white">{t.name}</p>
-                  {t.fullName && <p className="text-[11.5px] text-white/75">{t.fullName}</p>}
-                  <p className="mt-1 text-[12.5px] font-semibold text-white/90">{t.subject}</p>
+                {/* overlay ชั้นเดียว: ปกติ = fade จากล่างขึ้น 72% · hover = ขยายคลุมทั้งการ์ดและเข้มขึ้น */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-[height] duration-300 group-hover:from-black/95 group-hover:via-black/80" />
+                {/* ข้อมูลบนการ์ด: ชื่อ · วิชา · detail 2 บรรทัด (จบการศึกษา 1 + อื่นๆ 1) → hover เพิ่มชื่อจริง + ปุ่ม "อ่านเพิ่มเติม" (กดการ์ดเปิด popup) */}
+                <div className="absolute inset-0 flex flex-col justify-end px-4 pb-4 pt-4">
+                  <p className="text-[16px] font-bold leading-tight text-white">{t.name}</p>
+                  {t.fullName && <p className="mt-0.5 hidden text-[12px] text-white/70 group-hover:block">{t.fullName}</p>}
+                  <p className="mt-1 text-[12.5px] font-semibold text-white">{t.subject}</p>
+                  <div className="mt-2 space-y-1 text-[12.5px] leading-snug text-white/90">
+                    {t.education && <p className="truncate">{t.education}</p>}
+                    {t.bio && <p className="line-clamp-1">{t.bio}</p>}
+                  </div>
+                  <span className="mt-3 hidden h-9 items-center justify-center rounded-pill border border-white/80 text-[13px] font-semibold text-white transition-colors group-hover:flex hover:bg-white/15">
+                    อ่านเพิ่มเติม
+                  </span>
                 </div>
               </div>
             )
@@ -395,55 +461,62 @@ export default function SchoolBranch() {
         </Section>
       )}
 
-      {/* แผนที่ (ซ้าย) + เวลาทำการ (ขวา) — หัวข้อร่วมกัน · จอแคบเรียงลง */}
-      <Section
-        icon={MapPin}
-        title="แผนที่และเวลาทำการ"
-        action={
-          <Button asChild variant="link" className="h-auto shrink-0 gap-1 p-0 text-[13px] font-bold text-brand hover:no-underline">
-            <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer">
-              <Navigation size={15} /> นำทาง
-            </a>
-          </Button>
-        }
-      >
-        <div className="grid gap-4 md:grid-cols-[1.5fr_1fr] md:items-stretch">
-          <div className="flex flex-col">
-            {branch.address && <p className="mb-3 text-[15px] leading-relaxed text-ink">{branch.address}</p>}
-            <div className="min-h-72 flex-1 overflow-hidden rounded-card border border-line shadow-sm">
-              <iframe title={`แผนที่สาขา ${branch.area}`} src={mapSrc} className="h-full min-h-72 w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+      {/* แผนที่ (ซ้าย) · ขวา = ที่ตั้ง / ติดต่อ / เวลาทำการ เรียงบน→ล่าง แบ่งด้วยเส้น · จอแคบเรียงลง */}
+      <Section icon={MapPin} title="ที่ตั้งและติดต่อสาขา">
+        <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
+          <div className="h-72 overflow-hidden rounded-card border border-line shadow-sm md:h-auto md:min-h-[420px]">
+            <iframe title={`แผนที่สาขา ${branch.area}`} src={mapSrc} className="h-full w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+          </div>
+          <div className="flex flex-col divide-y divide-line">
+            {/* ที่ตั้ง */}
+            <div className="pb-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="flex items-center gap-2 text-[14px] font-bold text-ink"><MapPin size={16} className="text-brand" /> ที่ตั้ง</p>
+                <Button asChild variant="link" className="h-auto shrink-0 gap-1 p-0 text-[13px] font-bold text-brand hover:no-underline">
+                  <a href={branch.mapUrl} target="_blank" rel="noopener noreferrer">
+                    <Navigation size={15} /> นำทาง
+                  </a>
+                </Button>
+              </div>
+              {branch.address && <p className="mt-2 text-[14.5px] leading-relaxed text-ink-soft">{branch.address}</p>}
+              {branch.directions.length > 0 && (
+                <ul className="mt-3 space-y-1.5 text-[14px] text-ink-soft">
+                  {branch.directions.map((d) => (
+                    <li key={d} className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" /> {d}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {/* ติดต่อ: โทร (outline) ซ้าย · LINE (fill) ขวา */}
+            <div className="py-5">
+              <p className="flex items-center gap-2 text-[14px] font-bold text-ink"><Phone size={16} className="text-brand" /> ติดต่อ</p>
+              <div className="mt-3 flex gap-2">
+                <Button asChild variant="outline" className="h-11 shrink-0 gap-2 rounded-pill border-line bg-transparent px-4 text-[14px] font-bold text-ink shadow-none hover:bg-surface-1">
+                  <a href={`tel:${branch.phone.replace(/[^0-9+]/g, '')}`}>
+                    <Phone size={18} /> {branch.phone}
+                  </a>
+                </Button>
+                <Button asChild className="h-11 min-w-0 flex-1 gap-2 rounded-pill bg-[#06C755] text-[14px] font-bold text-white shadow-none hover:bg-[#05b14c]">
+                  <a href={branch.lineUrl} target="_blank" rel="noopener noreferrer">
+                    <LineIcon size={20} /> <span className="truncate">LINE {branch.lineId}</span>
+                  </a>
+                </Button>
+              </div>
+            </div>
+            {/* เวลาทำการ */}
+            <div className="pt-5">
+              <p className="flex items-center gap-2 text-[14px] font-bold text-ink"><Clock size={16} className="text-brand" /> เวลาทำการ</p>
+              <ul className="mt-1 divide-y divide-line">
+                {branch.hours.map((h) => (
+                  <li key={h.day} className="flex items-center justify-between gap-3 py-2.5 text-[14.5px]">
+                    <span className="font-medium text-ink">{h.day}</span>
+                    <span className="text-right text-ink-soft">{h.time}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
-          {/* เวลาทำการ — list ไม่มีกรอบ · ใต้ list = ปุ่ม LINE (ติดต่อเรา มีช่องทางเดียว ไม่ต้องแยก section) */}
-          <div className="flex flex-col">
-            <p className="flex items-center gap-2 text-[14px] font-bold text-ink">
-              <Clock size={16} className="text-brand" /> เวลาทำการ
-            </p>
-            <ul className="mt-1 divide-y divide-line">
-              {branch.hours.map((h) => (
-                <li key={h.day} className="flex items-center justify-between gap-3 py-3 text-[14.5px]">
-                  <span className="font-medium text-ink">{h.day}</span>
-                  <span className="text-right text-ink-soft">{h.time}</span>
-                </li>
-              ))}
-            </ul>
-            <Button asChild className="mt-4 h-11 gap-2 rounded-pill bg-[#06C755] md:mt-auto text-[14px] font-bold text-white shadow-none hover:bg-[#05b14c]">
-              <a href={branch.lineUrl} target="_blank" rel="noopener noreferrer">
-                <LineIcon size={20} /> ติดต่อเราทาง LINE {branch.lineId}
-              </a>
-            </Button>
-          </div>
         </div>
-        {branch.directions.length > 0 && (
-          <div className="mt-4 rounded-card bg-surface-2 p-4">
-            <p className="mb-2 flex items-center gap-1.5 text-[14px] font-bold text-ink"><Navigation size={16} className="text-brand" /> จุดสังเกตใกล้เคียง</p>
-            <ul className="space-y-1.5 text-[14px] text-ink-soft">
-              {branch.directions.map((d) => (
-                <li key={d} className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" /> {d}</li>
-              ))}
-            </ul>
-          </div>
-        )}
       </Section>
 
       {/* classroom photos — คลิกเพื่อดูทั้งหมด */}
@@ -499,6 +572,7 @@ export default function SchoolBranch() {
       <MarketingFooter />
 
       {coursesOpen && <CoursesModal branch={branch} onClose={() => setCoursesOpen(false)} />}
+      {tutor && <TeacherDialog t={tutor} area={branch.area} onClose={() => setTutor(null)} />}
       {photoAt !== null && (
         <PhotoLightbox photos={branch.classroomPhotos} start={photoAt} alt={`ห้องเรียนสาขา ${branch.area}`} onClose={() => setPhotoAt(null)} />
       )}

@@ -11,7 +11,7 @@ import { CLASS_RAW } from './schoolClasses'
 
 export type Region = 'กรุงเทพฯ' | 'ชลบุรี'
 export type FbPost = { date: string; text: string; image?: string; likes: number; comments: number; url: string }
-export type Teacher = { name: string; subject: string; fullName?: string; photo?: string }
+export type Teacher = { name: string; subject: string; fullName?: string; photo?: string; education?: string; bio?: string }
 /** คลาสในตารางเรียนของสาขา (จริง จาก Sheet) — วัน · เวลา · วิชา (ชื่อสั้น) · ชั้น (ว่าง = ไม่ระบุ) */
 export type ClassRow = { day: string; start: string; end: string; subjects: string[]; grades: string[] }
 export type Course = { name: string; duration: string; subjects: string[]; grade: string; levels: string[]; price: number; fee?: number }
@@ -24,6 +24,7 @@ export type Branch = {
   tagline: string
   heading: string
   titleKeyword: string
+  intro: string
   cover: string
   lat: number
   lng: number
@@ -79,6 +80,26 @@ const TEACHER_FULLNAME: Record<string, string> = {
   'ครูอิง': 'Sasiprapa Yayod', 'ครูไซน์': 'Nattakarn Thariya', 'ครูพิน': 'Suthawan Thaemmai',
   'ครูแฟง': 'Linlada Suviyanand', 'ครูเพชร': 'Patcharawan Sornyotha', 'ครูแพร': 'Pimnara Sangkaew',
   'ครูปาล์มมี่': 'Jidapha Kulthanaphakdee', 'ครูกริก': 'Suphatta Sumingsalee',
+}
+
+// ประวัติการศึกษาครู (เพื่อความน่าเชื่อถือ) — key = ชื่อเล่น (ไทย) → "จบจาก..."
+// ⏳ รอข้อมูลจริงรายคน (จาก Sheet "NA WEB" หรือเจ้าของ) · ครูที่ยังไม่มี → ใช้ EDU_FALLBACK (ขึ้น "ข้อมูลตัวอย่าง")
+const TEACHER_EDU: Record<string, string> = {}
+const EDU_FALLBACK = 'จบการศึกษาตรงสาขาวิชาที่สอน (ข้อมูลตัวอย่าง)'
+// รายละเอียดอื่นๆ ของครู (ประสบการณ์/สไตล์การสอน) — ⏳ ตัวอย่าง รอข้อมูลจริงรายคน
+const TEACHER_BIO: Record<string, string> = {}
+const BIO_FALLBACK = 'มีประสบการณ์ติวเตอร์ดูแลนักเรียนระดับประถมและมัธยมมาหลายปี เชี่ยวชาญการปูพื้นฐานและตะลุยโจทย์ข้อสอบเข้าโรงเรียนดัง เน้นอธิบายให้เข้าใจง่าย ใจเย็น และติดตามผลเป็นรายคน (ข้อมูลตัวอย่าง — รอแทนด้วยประวัติจริงของครูแต่ละท่าน)'
+
+// ⚠️ ที่อยู่สาขา — ตอนนี้เป็น "ที่อยู่จำลอง (mock)" รอแทนด้วยที่อยู่จริงจาก Sheet "NA WEB"
+const ADDRESS_MOCK: Record<string, string> = {
+  bangna: 'เลขที่ 1/29 ถนนบางนา-ตราด กม.7 ตำบลบางแก้ว อำเภอบางพลี จังหวัดสมุทรปราการ 10540',
+  'paradise-park': 'ศูนย์การค้าพาราไดซ์ พาร์ค ชั้น 3 ถนนศรีนครินทร์ แขวงหนองบอน เขตประเวศ กรุงเทพมหานคร 10250',
+  'green-place': 'คอมมูนิตี้มอลล์ กรีนเพลส ถนนจรัญสนิทวงศ์ แขวงบางอ้อ เขตบางพลัด กรุงเทพมหานคร 10700',
+  ramkhamhaeng: 'ศูนย์การค้า Little Walk รามคำแหง ถนนรามคำแหง แขวงสะพานสูง เขตสะพานสูง กรุงเทพมหานคร 10240',
+  sriracha: 'เลขที่ 29/9 ถนนสุขุมวิท ตำบลศรีราชา อำเภอศรีราชา จังหวัดชลบุรี 20110',
+  bowin: 'เลขที่ 99/9 หมู่ 4 ตำบลบ่อวิน อำเภอศรีราชา จังหวัดชลบุรี 20230',
+  pattaya: 'เลขที่ 100/1 ถนนสุขุมวิท ตำบลหนองปรือ อำเภอบางละมุง จังหวัดชลบุรี 20150',
+  tuknam: 'เลขที่ 55/5 ตำบลเสม็ด อำเภอเมืองชลบุรี จังหวัดชลบุรี 20000',
 }
 
 /* ---- คอร์สจริง (Sheet: Data for Import) ---- */
@@ -274,11 +295,12 @@ export const branches: Branch[] = RAW.map(([slug, area, region, lat, lng, mapUrl
     tagline: `สถาบันกวดวิชา NockAcademy สาขา${area} ครบทุกวิชาหลัก สอนโดยติวเตอร์มืออาชีพ`,
     heading: `ที่เรียนพิเศษ ${area} สำหรับนักเรียนประถมและมัธยม`,
     titleKeyword: `กวดวิชา ${area}`,
+    intro: `NockAcademy สาขา${area} สถาบันกวดวิชาสำหรับนักเรียนประถมและมัธยม สอนครบทั้งคณิตศาสตร์ วิทยาศาสตร์ และภาษาอังกฤษ โดยทีมติวเตอร์ผู้มีประสบการณ์ตรงในแต่ละวิชา ดูแลนักเรียนอย่างใกล้ชิด เน้นปูพื้นฐานให้แน่น เข้าใจเนื้อหา ทำโจทย์เป็น และพัฒนาผลการเรียนได้จริง`,
     cover: imgs[0],
     lat,
     lng,
     mapUrl,
-    address: '',
+    address: ADDRESS_MOCK[slug] ?? '',
     directions: [],
     hours: COMMON_HOURS,
     phone,
@@ -297,6 +319,8 @@ export const branches: Branch[] = RAW.map(([slug, area, region, lat, lng, mapUrl
       ...t,
       fullName: TEACHER_FULLNAME[t.name],
       photo: TEACHER_PHOTO[`${slug}|${t.name}`],
+      education: TEACHER_EDU[t.name] ?? EDU_FALLBACK,
+      bio: TEACHER_BIO[t.name] ?? BIO_FALLBACK,
     })),
     classroomPhotos: imgs,
     testimonials: COMMON_TESTIMONIALS,
