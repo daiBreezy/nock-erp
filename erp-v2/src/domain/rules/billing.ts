@@ -547,7 +547,6 @@ export function renumberDocuments<T extends { invoices: Invoice[]; creditNotes: 
 /** BL-14: approver must be a different person with an approver role. */
 export function canApprove(inv: Invoice, user: Staff): Result {
   if (inv.status !== "pending_approval") return { ok: false, error: "ใบนี้ไม่ได้อยู่ในสถานะรออนุมัติ" }
-  if (inv.pdf !== "ready") return { ok: false, error: "PDF ยังไม่พร้อม" }
   if (inv.createdBy === user.id) return { ok: false, error: "คนสร้างใบอนุมัติใบของตัวเองไม่ได้ — ให้คนอื่นอนุมัติ" }
   if (!user.roles.some((r) => APPROVER_ROLES.includes(r))) return { ok: false, error: "บทบาทของคุณไม่มีสิทธิ์อนุมัติใบแจ้งหนี้" }
   if (!inBranch(user, inv.branchId)) return { ok: false, error: "อนุมัติได้เฉพาะใบแจ้งหนี้ของสาขาตัวเอง" }
@@ -565,8 +564,16 @@ export function canForceApprove(inv: Invoice, user: Staff, remark: string): Resu
   return miss ? { ok: false, error: miss } : { ok: true, value: undefined }
 }
 
+/** owner 2026-11-24: an approved invoice has no running number yet — the Admin issues it as the Official Invoice (number + PDF) */
+export function canIssue(inv: Pick<Invoice, "status" | "number">): Result {
+  if (inv.status !== "approved") return { ok: false, error: "ออกเลขได้เฉพาะใบที่อนุมัติแล้ว" }
+  if (inv.number) return { ok: false, error: "ใบนี้ออกเลขแล้ว" }
+  return { ok: true, value: undefined }
+}
+
 export function canSend(inv: Invoice): Result {
-  if (inv.status !== "approved" && inv.status !== "sent") return { ok: false, error: "ต้องอนุมัติ PDF ก่อนส่ง" }
+  if (inv.status !== "approved" && inv.status !== "sent") return { ok: false, error: "ต้องอนุมัติและออกเลข Official ก่อนส่ง" }
+  if (!inv.number) return { ok: false, error: "ต้องออกเลข Official ก่อนส่ง" }
   if (!inv.noteToParent.trim()) return { ok: false, error: "กรอกข้อความถึงผู้ปกครองก่อนส่ง" } // BL-16
   return { ok: true, value: undefined }
 }
@@ -653,12 +660,12 @@ export function canForceConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, 
 
 /** Where an invoice stands and what the office does next (owner 2026-11-19) — shown on the student's panel so the next step is
  *  obvious. null = nothing left to do (void, or paid with its receipt issued). */
-export function invoiceNextStep(inv: Pick<Invoice, "status" | "pdf" | "payments" | "delivery" | "receiptNumber">): { stage: string; todo: string; tone: "gray" | "blue" | "amber" | "green" | "red" } | null {
+export function invoiceNextStep(inv: Pick<Invoice, "status" | "pdf" | "payments" | "delivery" | "receiptNumber"> & { number?: string | null }): { stage: string; todo: string; tone: "gray" | "blue" | "amber" | "green" | "red" } | null {
   switch (inv.status) {
     case "void": return null
-    case "draft": return inv.pdf === "ready" ? { stage: "ใบร่าง", todo: "ส่งให้อนุมัติ", tone: "gray" } : { stage: "ใบร่าง", todo: "ตรวจใบ แล้วสร้าง PDF", tone: "gray" }
-    case "pending_approval": return { stage: "รออนุมัติ", todo: "ให้คนอื่นอนุมัติ PDF", tone: "amber" }
-    case "approved": return { stage: "อนุมัติแล้ว", todo: "ส่งใบให้ผู้ปกครอง", tone: "amber" }
+    case "draft": return { stage: "ใบร่าง", todo: "ตรวจใบ แล้วกดสร้างใบแจ้งหนี้", tone: "gray" }
+    case "pending_approval": return { stage: "รออนุมัติ", todo: "ให้คนอื่นอนุมัติ (ยังไม่มีเลข)", tone: "amber" }
+    case "approved": return inv.number === null ? { stage: "อนุมัติแล้ว", todo: "Admin ออกเลข Official", tone: "amber" } : { stage: "อนุมัติแล้ว", todo: "ส่งใบให้ผู้ปกครอง", tone: "amber" }
     case "sent":
       if (inv.payments.some((p) => !p.confirmedBy)) return { stage: "มีการรับเงิน", todo: "ยืนยันยอดเงิน (อีกคนที่ไม่ใช่คนบันทึก)", tone: "amber" }
       if (inv.delivery === "failed" || inv.delivery === "no_line") return { stage: "ยังไม่ถึงผู้ปกครอง", todo: "ส่งใบอีกครั้ง หรือแจ้งทางอื่น", tone: "red" }
@@ -668,7 +675,7 @@ export function invoiceNextStep(inv: Pick<Invoice, "status" | "pdf" | "payments"
 }
 
 export const INVOICE_STATUS_LABEL: Record<Invoice["status"], string> = {
-  draft: "รอสร้าง PDF",
+  draft: "ร่าง",
   pending_approval: "รออนุมัติ",
   approved: "อนุมัติแล้ว",
   sent: "ส่งแล้ว · รอชำระ",

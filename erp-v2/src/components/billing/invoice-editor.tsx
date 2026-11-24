@@ -1,6 +1,6 @@
 "use client"
 
-import { InvoicePreview } from "./invoice-preview"
+import { InvoicePaper, InvoicePreview } from "./invoice-preview"
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { COURSE_FORMAT_LABEL, packageLabel, priceUnitSuffix } from "@/domain/rules/course"
 import { CoursePicker } from "./course-picker"
@@ -228,21 +228,31 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
     ...validateInvoiceDraft(draft, totals, { today, lastAssessment: studentId ? lastAssessmentDate(studentId, assessments) : null }),
   ]
 
-  const submit = () => {
-    const r = save({ ...draft, familyPromoPct: familyPct || undefined, familyMode: familyPct ? familyMode : undefined })
-    if (report(r, (v) => `บันทึกแล้ว · เลขที่ ${v.number} (ใบจริง — มีปัญหาให้ยกเลิก ไม่ลบ)`)) onSaved(r.value)
+  // owner 2026-11-24: two different things — Draft (not created yet) vs Create Invoice (real data, pending approval, NO number until the Admin issues it)
+  const full = { ...draft, familyPromoPct: familyPct || undefined, familyMode: familyPct ? familyMode : undefined }
+  const submit = (create: boolean) => {
+    const r = save(full, { submit: create })
+    if (report(r, create ? "สร้างใบแจ้งหนี้แล้ว — ข้อมูลจริงครบ รอคนอื่นอนุมัติ แล้ว Admin ออกเลข Official" : "บันทึกร่างแล้ว")) onSaved(r.value)
   }
+  // editing a created invoice (pending / approved without a number) keeps it created — editing an approved one sends it back for approval
+  const wasCreated = !!invoice && invoice.status !== "draft"
 
   return (
-    <FormShell className="max-h-[92vh] sm:max-w-3xl" onClose={onClose} title={invoice ? `แก้ใบแจ้งหนี้ ${invoice.number ?? ""}` : "สร้างใบแจ้งหนี้"}
+    <FormShell className="max-h-[92vh] sm:max-w-3xl lg:max-w-6xl" onClose={onClose} title={invoice ? `แก้ใบแจ้งหนี้ ${invoice.number ?? ""}` : "สร้างใบแจ้งหนี้"}
       description="ราคาและจำนวนคาบคำนวณจากตารางเรียนจริง (ข้ามวันหยุด) — ตัวเลขชุดเดียวกับที่จะอยู่ใน PDF"
       footer={<>
-        {errors.length > 0 && <span className="mr-auto text-xs text-danger">{errors[0]}</span>}
+        {/* owner 2026-11-24: Cancel sits on the left; the preview button is an icon only (tonal) */}
         <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-        <Button variant="outline" disabled={!studentId} onClick={() => setPreviewing(true)}><EyeIcon /> ดูตัวอย่าง</Button>
-        <Button disabled={errors.length > 0} onClick={submit}>{invoice ? "บันทึก" : "สร้างใบแจ้งหนี้ (ออกเลขทันที)"}</Button>
+        {errors.length > 0 && <span className="mr-auto text-xs text-danger">{errors[0]}</span>}
+        <Button variant="tonal" size="icon" className={errors.length > 0 ? undefined : "ml-auto"} aria-label="ดูตัวอย่าง" title="ดูตัวอย่าง" disabled={!studentId} onClick={() => setPreviewing(true)}><EyeIcon /></Button>
+        {!wasCreated && <Button variant="outline" disabled={errors.length > 0} onClick={() => submit(false)}>บันทึกร่าง</Button>}
+        <Button disabled={errors.length > 0} onClick={() => submit(true)}>{wasCreated ? "บันทึก" : "สร้างใบแจ้งหนี้"}</Button>
       </>}>
-        {previewing && <InvoicePreview draft={{ ...draft, familyPromoPct: familyPct || undefined, familyMode: familyPct ? familyMode : undefined }} onClose={() => setPreviewing(false)} />}
+        {previewing && <InvoicePreview draft={full} onClose={() => setPreviewing(false)} />}
+        <div data-invoice-editor className="@container h-full">
+        {/* owner 2026-11-24: no button — drag the panel wider and the preview appears by itself; the form stops at 28rem and every extra pixel goes to the preview */}
+        <div className="@[48rem]:h-full @[48rem]:grid @[48rem]:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] @[48rem]:gap-4">
+        <div className="min-w-0 space-y-4 @[48rem]:border-l @[48rem]:pl-4">
 
         <Section n={1} open={openSec === 1} onToggle={() => setOpenSec(openSec === 1 ? 0 : 1)} summary={student ? `${student.nickname} · ${student.grade}` : "ยังไม่ได้เลือก"} title="Student">
         <div className="space-y-1">
@@ -538,8 +548,13 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-danger")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
         </div>
         </Section>
-
-
+        </div>
+        {/* owner 2026-11-24: the paper preview sits next to the form while filling it (wide screens); phones keep the "ดูตัวอย่าง" button */}
+        <aside className="hidden @[48rem]:order-first @[48rem]:sticky @[48rem]:top-0 @[48rem]:block @[48rem]:self-start" aria-label="ตัวอย่างใบแจ้งหนี้">
+          <p className="mb-1.5 text-xs text-muted-foreground">ตัวอย่างใบแจ้งหนี้ — ยังไม่มีเลข (Admin ออกเลขหลังอนุมัติ)</p>
+          {studentId ? <InvoicePaper draft={full} className="max-h-[calc(100dvh-16rem)] overflow-auto rounded-xl bg-muted" /> : <p className="grid h-48 place-items-center rounded-xl bg-muted/50 text-xs text-muted-foreground">เลือกนักเรียนเพื่อดูตัวอย่าง</p>}
+        </aside>
+        </div></div>
     </FormShell>
   )
 }

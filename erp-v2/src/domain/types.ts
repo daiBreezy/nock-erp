@@ -1545,7 +1545,7 @@ export interface Invoice {
   id: ID
   branchId: ID
   studentId: ID
-  /** assigned only when the PDF is generated — drafts never consume a number */
+  /** owner 2026-11-24: null until the Admin issues the Official Invoice (after approval) — drafts and created-but-unapproved invoices have no number */
   number: string | null
   /** courses bought on this invoice (empty = other fees only) */
   lines: CourseLine[]

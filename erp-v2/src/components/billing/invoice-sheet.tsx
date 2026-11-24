@@ -5,7 +5,7 @@ import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import Link from "next/link"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, Loader2Icon, PencilIcon, MessagesSquareIcon, PlusIcon, RefreshCwIcon, SendIcon, UploadIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, PencilIcon, MessagesSquareIcon, PlusIcon, SendIcon, UploadIcon, XCircleIcon, UnlinkIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -55,7 +55,7 @@ function Block({ title, hint, children }: { title: string; hint?: string; childr
  */
 export function InvoiceSheet({ id, slipMediaId, defaultStudentId, renewEntitlementId, defaultCourseIds, onClose }: { id: ID | "new" | null; slipMediaId?: string; defaultStudentId?: ID; renewEntitlementId?: ID; /** courses the family is interested in — start ticked on a new invoice */ defaultCourseIds?: ID[]; onClose: () => void }) {
   return (
-    <EntityPanel open={!!id} onClose={onClose} wide>
+    <EntityPanel open={!!id} onClose={onClose} wide resizeKey="invoice">
       {id && <Panel key={id} id={id} slipMediaId={slipMediaId} defaultStudentId={defaultStudentId} renewEntitlementId={renewEntitlementId} defaultCourseIds={defaultCourseIds} onClose={onClose} />}
     </EntityPanel>
   )
@@ -112,7 +112,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const brandMemos = useStore((s) => s.system.invoiceMemos)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
+  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const invoices = useStore((s) => s.invoices)
   // the message to the parent: this invoice's, else the one from this student's last invoice — editable until it is sent
   const prevNote = inv ? Bill.lastNoteFor(inv.studentId, invoices, inv.id) : ""
@@ -159,7 +159,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const manage = can(me, "billing.manage")
   // the invoice reached the parent: the next step is the slip — Upload becomes the main button, "send again" the secondary one
   const sentToParent = inv.status === "sent" && inv.delivery === "delivered"
-  const canAddPayment = (inv.status === "approved" || inv.status === "sent") && manage && paidAll < totals.total
+  const canAddPayment = ((inv.status === "approved" && !!inv.number) || inv.status === "sent") && manage && paidAll < totals.total
   const ctx = { branch, courses, classes, holidays }
   const owed = (x: typeof inv) => Bill.owedOn(x, Bill.invoiceTotals(x, ctx).total)
   const nick = (studentId: ID) => students.find((x) => x.id === studentId)?.nickname ?? "—"
@@ -172,7 +172,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   // owner 2026-11-20: course summary → parent confirms → PDF. A family set shares ONE summary (sent / confirmed for every child together)
   const setIds = (inv.bundleId ? invoices.filter((x) => x.bundleId === inv.bundleId && x.status !== "void") : [inv]).map((x) => x.id)
   const agState = Bill.agreementState(inv, totals)
-  const generate = () => (agState === "confirmed" ? report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) : setGate(true))
+  const generate = () => (agState === "confirmed" ? report(act.create(inv.id), "สร้างใบแจ้งหนี้แล้ว — รอคนอื่นอนุมัติ (ยังไม่มีเลข)") : setGate(true))
+  const issue = () => report(act.issue(inv.id), (v) => `ออกเลข Official แล้ว · ${v.number}`)
   const agreementStep = inv.status === "draft" || inv.agreement ? {
     label: "สรุปคอร์สให้ผู้ปกครองยืนยัน",
     state: (agState === "confirmed" ? "done" : agState === "stale" ? "warn" : "current") as "done" | "current" | "warn",
@@ -244,17 +245,9 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
     slip: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
     receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
   } satisfies Record<string, DocItem[]>
-  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; /** line 1: the date first, then who did it (owner 2026-11-05) · line 2: everything else */ meta?: string; detail: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
-    { label: "สร้างใบ", state: "done", meta: `${fmtDateTime(inv.createdAt)} · ${who(inv.createdBy)}`, detail: "" },
+  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; /** line 1: the date first, then who did it (owner 2026-11-05) · line 2: everything else */ meta?: string; detail: React.ReactNode; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
+    { label: "สร้างใบ", state: inv.status === "draft" ? "current" : "done", meta: inv.status === "draft" ? undefined : `${fmtDateTime(inv.createdAt)} · ${who(inv.createdBy)}`, detail: inv.status === "draft" ? "ร่าง — ยังไม่ได้สร้างใบแจ้งหนี้" : "ข้อมูลจริงครบ · ยังไม่มีเลข", onAdd: inv.status === "draft" && manage ? generate : undefined, addLabel: "สร้างใบแจ้งหนี้" },
     ...(agreementStep ? [agreementStep] : []),
-    {
-      label: "สร้าง PDF",
-      state: inv.pdf === "ready" ? "done" : inv.pdf === "failed" ? "warn" : inv.status === "void" ? "todo" : "current",
-      docs: docsFor.invoice,
-      onAdd: inv.status === "draft" && inv.pdf !== "ready" && inv.pdf !== "generating" && manage ? generate : undefined,
-      addLabel: "สร้าง PDF",
-      detail: inv.pdf === "ready" ? "พร้อม" : inv.pdf === "generating" ? "กำลังสร้าง…" : inv.pdf === "failed" ? "สร้างไม่สำเร็จ — กดลองใหม่" : "ยังไม่สร้าง PDF",
-    },
     {
       label: "อนุมัติ (คนอื่นที่ไม่ใช่คนสร้าง)",
       // Force Approve sits right under its own step (owner 2026-11-05)
@@ -269,13 +262,21 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       detail: inv.approvedBy ? (inv.forced ? `Force Approve · เหตุผล: ${inv.forced.remark}` : "") : inv.status === "pending_approval" ? "รออนุมัติ" : "—",
     },
     {
+      label: "ออกเลข Official + PDF (Admin)",
+      state: inv.number && inv.pdf === "ready" ? "done" : inv.status === "approved" ? "current" : "todo",
+      docs: docsFor.invoice,
+      onAdd: inv.status === "approved" && !inv.number && manage ? issue : undefined,
+      addLabel: "ออกเลข Official",
+      detail: inv.number ? inv.number : inv.status === "approved" ? "อนุมัติแล้ว — Admin กดออกเลขได้ทันที" : "—",
+    },
+    {
       label: "ส่งถึงผู้ปกครอง",
-      state: inv.delivery === "delivered" ? "done" : inv.delivery === "no_line" || inv.delivery === "failed" ? "warn" : inv.status === "approved" || inv.delivery === "sending" ? "current" : "todo",
+      state: inv.delivery === "delivered" ? "done" : inv.delivery === "no_line" || inv.delivery === "failed" ? "warn" : (inv.status === "approved" && !!inv.number) || inv.delivery === "sending" ? "current" : "todo",
       meta: inv.sentAt ? fmtDateTime(inv.sentAt) : undefined,
       detail: inv.delivery === "delivered" ? "ถึงผู้ปกครองทาง LINE"
         : inv.delivery === "sending" ? "กำลังส่งทาง LINE…"
         : inv.delivery === "failed" ? `ส่ง LINE ไม่สำเร็จ — ${inv.deliveryError ?? "ลองส่งอีกครั้ง"}`
-        : inv.delivery === "no_line" ? "ยังไม่ถึงผู้ปกครอง — ไม่มี LINE (ต้องส่งทางอื่น)" : "—",
+        : inv.delivery === "no_line" ? <span className="inline-flex items-center gap-1.5"><UnlinkIcon role="img" aria-label="ไม่มี LINE" className="size-3.5 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon>ยังไม่ถึงผู้ปกครอง — ไม่มี LINE (ต้องส่งทางอื่น)</span> : "—",
       extra: inv.sentAt && fam ? (
         <div className="mt-1 flex items-center gap-2 text-xs">
           <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{fam.name}</span>{fam.parents.find((p) => p.primary) ? ` · ${fam.parents.find((p) => p.primary)!.name}` : ""}</span>
@@ -306,17 +307,18 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   ]
 
   // the action box only when it has something to show (sending + recording money now live in the Note section / the payment step)
-  const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || inv.status === "void"
+  const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || (inv.status === "approved" && !inv.number && manage) || inv.status === "void"
   // owner 2026-11-19: the admin can always send again once it has been sent — the parent may not have seen it, for any reason
-  const canSendNote = (inv.status === "approved" || inv.status === "sent") && manage
+  const canSendNote = ((inv.status === "approved" && !!inv.number) || inv.status === "sent") && manage
   const noteEditable = manage && inv.status !== "paid" && inv.status !== "void"
   const noteSaved = (inv.noteToParent || "") === note.trim()
   return (
     <>
       <SheetHeader className="shrink-0 border-b pb-3">
         <div className="flex items-center gap-2 pr-8">
-          <SheetTitle className="min-w-0 flex-1 truncate text-lg">{inv.number ?? "—"}</SheetTitle>
-          {inv.delivery === "no_line" && <Pill tone="amber">ไม่มี LINE</Pill>}
+          <SheetTitle className="min-w-0 flex-1 truncate text-lg">{inv.number ?? "ใบแจ้งหนี้ (ยังไม่มีเลข)"}</SheetTitle>
+          {/* "no LINE" is an icon everywhere (owner 2026-10-12) — hover explains */}
+          {inv.delivery === "no_line" && <UnlinkIcon role="img" aria-label="ไม่มี LINE" className="size-4 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon>}
           {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
           <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
         </div>
@@ -452,8 +454,9 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         {/* ---------- next action for the current state ---------- */}
         {showAction && (
         <section className="space-y-2 rounded-lg border p-3">
-          {inv.status === "draft" && manage && <p className="text-sm text-muted-foreground">ร่าง — ตรวจรายการแล้วกด “สร้าง PDF” ด้านล่าง เพื่อส่งให้คนอื่นอนุมัติ</p>}
-          {inv.status === "pending_approval" && approveCheck.ok && <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจ PDF แล้วกด “อนุมัติ PDF” ด้านล่าง</p>}
+          {inv.status === "draft" && manage && <p className="text-sm text-muted-foreground">ร่าง — ตรวจรายการแล้วกด “สร้างใบแจ้งหนี้” ด้านล่าง ใบจะเกิดขึ้นจริง (ยังไม่มีเลข) แล้วรอคนอื่นอนุมัติ</p>}
+          {inv.status === "pending_approval" && approveCheck.ok && <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจใบแล้วกด “อนุมัติ” ด้านล่าง</p>}
+          {inv.status === "approved" && !inv.number && manage && <p className="text-sm text-muted-foreground">อนุมัติแล้ว — กด “ออกเลข Official” เพื่อรันเลขที่และสร้าง PDF</p>}
           {inv.status === "void" && (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-muted-foreground">ใบนี้ถูกยกเลิก — ระบบไม่ได้แจ้งผู้ปกครองให้อัตโนมัติ</p>
@@ -498,20 +501,16 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         <PanelFooter>
           {/* owner 2026-10-12: negative actions behind ⋯ */}
           <PanelMore items={[manage && !voiding && { label: "ยกเลิกใบแจ้งหนี้", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) }]} />
-          {manage && (inv.status === "draft" || inv.status === "pending_approval") && <Button className="ml-auto" variant="outline" onClick={onEdit}><PencilIcon /> {inv.status === "draft" ? "แก้ไข" : "แก้ (ต้องสร้าง PDF ใหม่)"}</Button>}
-          {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ PDF</Button>}
+          {manage && (inv.status === "draft" || inv.status === "pending_approval" || (inv.status === "approved" && !inv.number)) && <Button className="ml-auto" variant="outline" onClick={onEdit}><PencilIcon /> {inv.status === "draft" ? "แก้ไข" : inv.status === "approved" ? "แก้ (ต้องอนุมัติใหม่)" : "แก้"}</Button>}
+          {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — Admin ออกเลข Official ได้")}><CheckIcon /> อนุมัติ</Button>}
+          {inv.status === "approved" && !inv.number && manage && <Button onClick={issue}><FileTextIcon /> ออกเลข Official</Button>}
           {canSendNote && (
             <Button className="ml-auto" variant={sentToParent && canAddPayment ? "outline" : "default"} disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
               <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
             </Button>
           )}
           {sentToParent && canAddPayment && <Button onClick={() => setPayOpen(true)}><UploadIcon /> อัปโหลดสลิป</Button>}
-          {inv.status === "draft" && (
-            <Button disabled={inv.pdf === "generating"} onClick={generate}>
-              {inv.pdf === "generating" ? <Loader2Icon className="animate-spin" /> : inv.pdf === "failed" ? <RefreshCwIcon /> : <FileTextIcon />}
-              {inv.pdf === "generating" ? "กำลังสร้าง PDF…" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"}
-            </Button>
-          )}
+          {inv.status === "draft" && manage && <Button onClick={generate}><FileTextIcon /> สร้างใบแจ้งหนี้</Button>}
         </PanelFooter>
       )}
       <Dialog open={gate} onOpenChange={setGate}>
@@ -519,12 +518,12 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
           <DialogHeader>
             <DialogTitle>ผู้ปกครองยังไม่ได้ยืนยันสรุปคอร์ส</DialogTitle>
             <DialogDescription>
-              {agState === "none" ? "ยังไม่ได้ส่งสรุปคอร์สให้ผู้ปกครองดู" : agState === "stale" ? "แก้ใบหลังส่งสรุปไปแล้ว — สรุปที่ผู้ปกครองเห็นไม่ตรงกับใบนี้" : "ส่งสรุปแล้ว แต่ผู้ปกครองยังไม่ได้ยืนยัน"} · สร้าง PDF ต่อเลย หรือกลับไปส่ง/รอยืนยันก่อน
+              {agState === "none" ? "ยังไม่ได้ส่งสรุปคอร์สให้ผู้ปกครองดู" : agState === "stale" ? "แก้ใบหลังส่งสรุปไปแล้ว — สรุปที่ผู้ปกครองเห็นไม่ตรงกับใบนี้" : "ส่งสรุปแล้ว แต่ผู้ปกครองยังไม่ได้ยืนยัน"} · สร้างใบแจ้งหนี้ต่อเลย หรือกลับไปส่ง/รอยืนยันก่อน
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setGate(false)}>กลับไปส่งสรุป</Button>
-            <Button onClick={() => { setGate(false); report(act.gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) }}>ข้ามและสร้าง PDF</Button>
+            <Button onClick={() => { setGate(false); report(act.create(inv.id), "สร้างใบแจ้งหนี้แล้ว — รอคนอื่นอนุมัติ (ยังไม่มีเลข)") }}>ข้ามและสร้างใบแจ้งหนี้</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

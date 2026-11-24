@@ -737,7 +737,7 @@ describe("force approve & central notifications (owner 2026-09-26)", () => {
   it("Force never bypasses role, branch or status rules — and is not offered when normal approval works", () => {
     expect(canForceApprove(inv({ createdBy: "t1" }), teacher, "x").ok).toBe(false)
     expect(canForceApprove(inv({ createdBy: "adm", branchId: "b2" }), admin, "x").ok).toBe(false)
-    expect(canForceApprove(inv({ pdf: "generating" }), admin, "x").ok).toBe(false)
+    expect(canForceApprove(inv({ status: "draft" }), admin, "x").ok).toBe(false)
     expect(canForceApprove(inv(), director, "x").ok).toBe(false) // director can simply approve
   })
   it("payment recorder can Force confirm with a remark", () => {
@@ -4015,5 +4015,26 @@ describe("School exam results (owner 2026-11-23, Shibasan)", () => {
     expect(ExamR.canRecordExam(teacher, { id: "s1", branchId: "b" }, klass).ok).toBe(true)
     expect(ExamR.canRecordExam(teacher, { id: "s2", branchId: "b" }, klass).ok).toBe(false)
     expect(ExamR.canRecordExam(admin, { id: "s2", branchId: "b" }, klass).ok).toBe(true)
+  })
+})
+
+describe("invoice: create → approve → issue Official number (owner 2026-11-24)", () => {
+  const inv = (p: Partial<Invoice> = {}): Invoice => ({
+    id: "i", branchId: "b1", studentId: "a", number: null, lines: [], bus: [], bookFee: 0, advance: [],
+    concession: null, noteToParent: "x", status: "pending_approval", pdf: "none", createdBy: "adm", createdAt: "", payments: [], ...p,
+  })
+  it("a created invoice has no number and no PDF, yet can be approved by someone else", () => {
+    expect(canApprove(inv({ createdBy: "t0" }), admin).ok).toBe(true)
+    expect(canApprove(inv(), admin).ok).toBe(false) // creator: needs Force
+    expect(canForceApprove(inv(), admin, "อยู่สาขาคนเดียว").ok).toBe(true)
+  })
+  it("the Official number is issued only after approval, once", () => {
+    expect(Pay.canIssue(inv()).ok).toBe(false)
+    expect(Pay.canIssue(inv({ status: "approved" })).ok).toBe(true)
+    expect(Pay.canIssue(inv({ status: "approved", number: "INV-1" })).ok).toBe(false)
+  })
+  it("cannot be sent to the parent until it has a number", () => {
+    expect(canSend(inv({ status: "approved" })).ok).toBe(false)
+    expect(canSend(inv({ status: "approved", number: "INV-1" })).ok).toBe(true)
   })
 })

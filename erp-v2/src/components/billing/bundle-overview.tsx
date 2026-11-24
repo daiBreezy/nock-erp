@@ -37,7 +37,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
-  const act = useStore(useShallow((s) => ({ gen: s.generatePdf, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
+  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const manage = can(me, "billing.manage")
   const first = members[0]
   const stu = (id: ID) => students.find((x) => x.id === id)
@@ -60,8 +60,8 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   // what is next for the set: the earliest stage some member has not passed
   const drafts = members.filter((x) => x.status === "draft")
   const pending = members.filter((x) => x.status === "pending_approval")
-  const toSend = members.filter((x) => x.status === "approved" || (x.status === "sent" && (x.delivery === "no_line" || x.delivery === "failed")))
-  const payable = rows.filter((r) => (r.inv.status === "approved" || r.inv.status === "sent") && r.owed > 0)
+  const toSend = members.filter((x) => (x.status === "approved" && !!x.number) || (x.status === "sent" && (x.delivery === "no_line" || x.delivery === "failed")))
+  const payable = rows.filter((r) => ((r.inv.status === "approved" && !!r.inv.number) || r.inv.status === "sent") && r.owed > 0)
   const canApproveAll = pending.every((x) => Bill.canApprove(x, me).ok)
   const canForceAll = pending.every((x) => Bill.canApprove(x, me).ok || Bill.canForceApprove(x, me, "x").ok)
   const allPaid = members.every((x) => x.status === "paid")
@@ -86,12 +86,12 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
     ...(members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice" as const, label: `ใบแจ้งหนี้${famLabel} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []),
     ...members.filter((x) => x.pdf === "ready").map((x) => ({ key: x.id, kind: "invoice" as const, label: `ใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} ${x.number ?? ""}`.trim(), src: `/print/invoice/${x.id}` })),
   ]
-  const generating = members.some((x) => x.pdf === "generating")
   // owner 2026-11-20: ONE course summary for the whole set — sent and confirmed for every child together; the PDF asks first when it is not confirmed
   const agStates = members.map((m) => Bill.agreementState(m, Bill.invoiceTotals(m, ctxOf(m))))
   const agState: Bill.AgreementState = agStates.includes("stale") ? "stale" : agStates.includes("none") ? "none" : agStates.every((x) => x === "confirmed") ? "confirmed" : "sent"
   const memberIds = members.map((m) => m.id)
-  const runGen = () => each(drafts, (i) => act.gen(i.id)) && report({ ok: true, value: undefined }, `กำลังสร้าง PDF ${drafts.length} ใบ`)
+  const runGen = () => each(drafts, (i) => act.create(i.id)) && report({ ok: true, value: undefined }, `สร้างใบแจ้งหนี้ ${drafts.length} ใบแล้ว — รอคนอื่นอนุมัติ`)
+  const toIssue = members.filter((x) => x.status === "approved" && !x.number)
   const generateAll = () => (agState === "confirmed" ? runGen() : setGate(true))
   const blank = members.filter((m) => !m.lines.length && !m.advance.length && !m.bookFee)
   const steps: { label: string; done: number; detail?: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
@@ -103,11 +103,13 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
           {blank.length > 0 && <span className="text-xs text-muted-foreground">เติมคอร์สให้ {blank.map((m) => stu(m.studentId)?.nickname).join(", ")} ก่อน (เปิดแท็บของแต่ละคน → แก้ไข)</span>}
         </div>
       ) : undefined }] : []),
-    { label: "สร้าง PDF", done: members.filter((x) => x.pdf === "ready").length, docs: pdfDocs, addLabel: "สร้าง PDF ทั้งชุด",
-      onAdd: manage && drafts.length > 0 && !generating ? generateAll : undefined },
+    { label: "สร้างใบแจ้งหนี้", done: members.filter((x) => x.status !== "draft").length, addLabel: "สร้างใบแจ้งหนี้ทั้งชุด", detail: "ข้อมูลจริงครบ · ยังไม่มีเลข",
+      onAdd: manage && drafts.length > 0 ? generateAll : undefined },
     // Force Approve sits right under its own step (owner 2026-11-05)
     { label: "อนุมัติ", done: members.filter((x) => ["approved", "sent", "paid"].includes(x.status)).length,
       extra: pending.length > 0 && drafts.length === 0 && !canApproveAll && canForceAll ? <div className="mt-1.5"><ForceApprove label="Force Approve ทั้งชุด" onForce={(remark) => { for (const i of pending) { const r = act.approve(i.id, remark); if (!r.ok) return r } return { ok: true, value: undefined } }} success="Force Approve ทั้งชุดแล้ว — แจ้งทั้งสาขา + Director" /></div> : undefined },
+    { label: "ออกเลข Official + PDF (Admin)", done: members.filter((x) => !!x.number && x.pdf === "ready").length, docs: pdfDocs, addLabel: "ออกเลข Official ทั้งชุด",
+      onAdd: manage && toIssue.length > 0 && pending.length === 0 && drafts.length === 0 ? () => each(toIssue, (i) => act.issue(i.id)) && report({ ok: true, value: undefined }, `ออกเลข Official ${toIssue.length} ใบแล้ว`) : undefined },
     { label: "ส่งถึงผู้ปกครอง", done: members.filter((x) => x.delivery === "delivered" || x.status === "paid").length, detail: "ข้อความเดียว รวมใบของทุกคน" },
     { label: "รับเงิน (สลิปเดียวทั้งชุด)", done: members.filter((x) => x.status === "paid").length, docs: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
       addLabel: "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)", onAdd: manage && payable.length > 0 ? () => setPay(true) : undefined,

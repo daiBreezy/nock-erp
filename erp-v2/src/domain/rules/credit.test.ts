@@ -52,9 +52,10 @@ describe("invoice next step (student panel)", () => {
   const base = { status: "draft", pdf: "none", payments: [], delivery: undefined, receiptNumber: undefined } as unknown as Parameters<typeof invoiceNextStep>[0]
   const step = (p: Partial<Parameters<typeof invoiceNextStep>[0]>) => invoiceNextStep({ ...base, ...p })
   it("walks the invoice: draft → approve → send → wait → confirm → receipt, then nothing left", () => {
-    expect(step({})?.todo).toMatch(/PDF/)
+    expect(step({})?.todo).toMatch(/สร้างใบแจ้งหนี้/)
     expect(step({ status: "pending_approval" })?.stage).toBe("รออนุมัติ")
-    expect(step({ status: "approved" })?.todo).toMatch(/ส่งใบ/)
+    expect(step({ status: "approved", number: null })?.todo).toMatch(/ออกเลข/)
+    expect(step({ status: "approved", number: "INV-1" })?.todo).toMatch(/ส่งใบ/)
     expect(step({ status: "sent" })?.tone).toBe("blue")
     expect(step({ status: "sent", delivery: "failed" })?.tone).toBe("red")
     expect(step({ status: "sent", payments: [{ id: "p", amount: 1 }] as never })?.todo).toMatch(/ยืนยันยอด/)

@@ -15,7 +15,7 @@ import { CreditCardIcon } from "lucide-react"
 import { CreditOwedDialog, useCreditOwed } from "@/components/billing/credit-owed"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Loader2Icon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, FileSpreadsheetIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
+import { BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, FileSpreadsheetIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -94,7 +94,7 @@ function BillingPage() {
   const payDay = (p: Invoice["payments"][number]) => p.paidOn ?? p.recordedAt.slice(0, 10)
   const inPeriod = (d: string) => d >= period.from && d <= period.to
   const cards = [
-    { key: "pending_approval" as Filter, icon: FileClockIcon, tone: "amber" as const, label: "รออนุมัติ PDF", value: rows.filter((r) => r.inv.status === "pending_approval").length, unit: "ใบ" },
+    { key: "pending_approval" as Filter, icon: FileClockIcon, tone: "amber" as const, label: "รออนุมัติ", value: rows.filter((r) => r.inv.status === "pending_approval").length, unit: "ใบ" },
     { key: "awaiting_payment" as Filter, icon: HourglassIcon, tone: "sky" as const, label: "รอชำระ", value: kpiMoney(rows.filter((r) => ["approved", "sent"].includes(r.inv.status)).reduce((a, r) => a + r.total - r.paid, 0)), unit: "" },
     { key: "to_confirm" as Filter, icon: WalletIcon, tone: "special" as const, label: "รอยืนยันยอดเงิน", value: rows.filter((r) => r.toConfirm).length, unit: "รายการ" },
     { key: "paid" as Filter, icon: BadgeCheckIcon, tone: "emerald" as const, label: period.mode === "month" ? "รับเงินแล้วเดือนนี้" : "รับเงินแล้วในช่วงนี้", value: kpiMoney(rows.flatMap((r) => r.inv.payments).filter((p) => p.confirmedBy && inPeriod(payDay(p))).reduce((a, p) => a + p.amount, 0)), unit: "" },
@@ -263,15 +263,14 @@ function BillingPage() {
 // 1:1 — the thumbnail (top of the page) and the set's dropdown button share one size
 const THUMB = 40
 
-/** a Draft without its PDF yet: an "add" tile of the same size — click creates the PDF (owner 2026-11-05) */
+/** a Draft not created yet: an "add" tile of the same size — click creates the invoice (pending approval, no number yet) */
 function AddPdfTile({ inv }: { inv: Invoice }) {
-  const gen = useStore((s) => s.generatePdf)
-  const busy = inv.pdf === "generating"
+  const create = useStore((s) => s.createInvoice)
   return (
-    <Button variant="dashed" size="inline" type="button" disabled={busy} aria-label={busy ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "ลองสร้าง PDF อีกครั้ง" : "สร้าง PDF"} title={busy ? "กำลังสร้าง PDF…" : "สร้าง PDF"}
-      onClick={(e) => { e.stopPropagation(); report(gen(inv.id), (v) => `กำลังสร้าง PDF · เลขที่ ${v.number}`) }}
-      className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60" style={{ width: THUMB, height: THUMB }}>
-      {busy ? <Loader2Icon className="size-4 animate-spin" /> : <PlusIcon className="size-5" />}
+    <Button variant="dashed" size="inline" type="button" aria-label="สร้างใบแจ้งหนี้" title="สร้างใบแจ้งหนี้"
+      onClick={(e) => { e.stopPropagation(); report(create(inv.id), "สร้างใบแจ้งหนี้แล้ว — รอคนอื่นอนุมัติ (ยังไม่มีเลข)") }}
+      className="grid shrink-0 place-items-center rounded-md border border-dashed text-muted-foreground hover:bg-muted hover:text-foreground" style={{ width: THUMB, height: THUMB }}>
+      <PlusIcon className="size-5" />
     </Button>
   )
 }

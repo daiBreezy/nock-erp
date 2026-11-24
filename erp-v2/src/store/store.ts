@@ -241,7 +241,8 @@ type Store = DB & UIState & {
   sendCourseSummary: (id: ID) => Result<{ delivered: boolean }>
 
   /** opts.blank (owner 2026-11-20): an invoice with no course yet is allowed as a Draft — the family set is made first, the courses are filled in after; no number is issued until it has a line */
-  saveInvoice: (inv: Invoice, opts?: { blank?: boolean }) => Result<Invoice>
+  /** opts.submit (owner 2026-11-24): "Confirm Create" — the invoice becomes real (pending approval) but takes NO running number; without it, it is saved as a Draft */
+  saveInvoice: (inv: Invoice, opts?: { blank?: boolean; submit?: boolean }) => Result<Invoice>
   /** owner 2026-11-20: blank Drafts for these children (≥ 2, one family) linked as ONE set — new or old students alike; courses go in afterwards */
   createBlankFamilyBundle: (studentIds: ID[]) => Result<{ created: Invoice[] }>
   /** owner 2026-11-20: every child named on the Lead becomes a Student of one family (existing ones are matched, not duplicated) */
@@ -254,7 +255,10 @@ type Store = DB & UIState & {
   confirmAgreement: (ids: ID[]) => Result
   /** Credit Course (owner 2026-11-19): add a course straight to a student — they study now, the invoice comes later */
   addCreditCourse: (input: { studentId: ID; lines: Omit<CourseLine, "id" | "creditId">[]; reason: string }) => Result<{ entitlements: Entitlement[]; invoice: Invoice }>
-  generatePdf: (id: ID) => Result<{ number: string }>
+  /** owner 2026-11-24: Draft → Create Invoice (pending approval, still no number) */
+  createInvoice: (id: ID) => Result
+  /** owner 2026-11-24: Admin turns an approved invoice into the Official Invoice — running number + PDF at once */
+  issueInvoice: (id: ID) => Result<{ number: string }>
   approveInvoice: (id: ID, forceRemark?: string) => Result
   sendInvoice: (id: ID, note: string) => Result<{ delivered: boolean }>
   voidInvoice: (id: ID, reason: string) => Result
@@ -482,6 +486,10 @@ const closeDay = (s: DB & { userId: ID; now: () => Date }, affected: Session[], 
 }
 
 /** Force Approve always tells the whole branch + every Director who skipped the check and why. */
+/** owner 2026-11-24: a created invoice has no number yet — the approvers are told by student, not by number */
+const approvalNeededNotice = (inv: Invoice, nickname: string) =>
+  Notif.notify({ id: uid("no"), at: new Date(), kind: "approval_needed", title: "ใบแจ้งหนี้รออนุมัติ", body: `ใบของ ${nickname || "นักเรียน"} รอคนอนุมัติ (ไม่ใช่คนสร้าง) — ยังไม่มีเลข Official`, fromId: inv.createdBy, audience: { roles: Bill.APPROVER_ROLES, branchId: inv.branchId } })
+
 const forceNotice = (s: DB & { userId: ID; now: () => Date }, branchId: ID, what: string, detail: string, remark: string) => {
   const actor = s.staff.find((x) => x.id === s.userId)
   return Notif.notify({
@@ -2476,7 +2484,9 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         const blank = !!opts?.blank && inv.lines.length === 0
         const existing = s.invoices.find((x) => x.id === inv.id)
-        if (existing && existing.status !== "draft" && existing.status !== "pending_approval") return fail("แก้ได้เฉพาะใบที่ยังไม่อนุมัติ")
+        if (existing && existing.status !== "draft" && existing.status !== "pending_approval" && !(existing.status === "approved" && !existing.number)) return fail("แก้ได้เฉพาะใบที่ยังไม่ออกเลข Official")
+        const submit = !!opts?.submit
+        if (submit && (blank || (!inv.lines.length && !inv.advance.length && !inv.bookFee))) return fail("ใบนี้ยังไม่มีรายการ — เติมคอร์สก่อนสร้างใบแจ้งหนี้")
         const totals = Bill.invoiceTotals(inv, ctxOf(s, inv.branchId))
         const errs = blank ? [] : Bill.validateInvoiceDraft(inv, totals, { lastAssessment: Forms.lastAssessmentDate(inv.studentId, s.assessments) })
         if (errs.length) return fail(errs[0])
@@ -2495,13 +2505,18 @@ export const useStore = create<Store>()(
           const left = Refund.availableCredit(inv.studentId, u.courseId, s.creditNotes, s.invoices, inv.id).find((c) => c.creditNoteId === u.creditNoteId)?.amount ?? 0
           if (u.amount > left) return fail("เครดิตคอร์สถูกใช้ไปแล้วบางส่วน — เปิดใบใหม่อีกครั้ง")
         }
-        // the number is issued the moment the invoice is created — a real document from then on (void, never delete)
-        // a blank Draft (no course yet) takes no number — it is issued the first time the invoice has a line
-        const number = existing?.number ?? inv.number ?? (blank ? null : Bill.nextInvoiceNumber("INV", ctxOf(s, inv.branchId).branch, toDateStr(s.now()), s.invoices.map((x) => x.number)))
-        // editing a generated invoice sends it back (needs new PDF + approval)
-        const next: Invoice = existing && existing.status === "pending_approval" ? { ...inv, number, status: "draft", pdf: "none" } : { ...inv, number, status: "draft" }
-        set({ invoices: existing ? s.invoices.map((x) => (x.id === inv.id ? next : x)) : [next, ...s.invoices] })
-        log("billing", [inv.studentId], existing ? "แก้ใบแจ้งหนี้" : "สร้างใบแจ้งหนี้", `${number ?? "ใบเปล่า (ยังไม่มีคอร์ส)"} · ${fmtMoney(totals.total)}`)
+        // owner 2026-11-24: NO number at creation — the running number is issued by the Admin after approval (issueInvoice).
+        // Draft = not created yet · Create Invoice = real data, pending approval · editing an approved (un-numbered) invoice sends it back for approval
+        const number = existing?.number ?? inv.number ?? null
+        const created = submit || (!!existing && existing.status !== "draft")
+        const next: Invoice = { ...inv, number, status: created ? "pending_approval" : "draft" }
+        const stu = s.students.find((x) => x.id === inv.studentId)
+        const becamePending = created && existing?.status !== "pending_approval"
+        set({
+          invoices: existing ? s.invoices.map((x) => (x.id === inv.id ? next : x)) : [next, ...s.invoices],
+          notifications: becamePending ? [approvalNeededNotice(next, stu?.nickname ?? ""), ...s.notifications] : s.notifications,
+        })
+        log("billing", [inv.studentId], existing ? "แก้ใบแจ้งหนี้" : created ? "สร้างใบแจ้งหนี้" : "บันทึกร่างใบแจ้งหนี้", `${number ?? (created ? "รออนุมัติ (ยังไม่มีเลข)" : "ร่าง")} · ${fmtMoney(totals.total)}`)
         return { ok: true, value: next }
       },
 
@@ -2550,24 +2565,30 @@ export const useStore = create<Store>()(
         return { ok: true, value: { entitlements: made, invoice: saved.value } }
       },
 
-      generatePdf: (id) => {
+      createInvoice: (id) => {
         const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
         const inv = s.invoices.find((x) => x.id === id)!
-        if (inv.status !== "draft") return fail("สร้าง PDF ได้จากใบที่ยังไม่สร้าง PDF เท่านั้น")
-        if (!inv.lines.length && !inv.advance.length && !inv.bookFee) return fail("ใบนี้ยังไม่มีรายการ — เติมคอร์สก่อนสร้าง PDF")
+        if (inv.status !== "draft") return fail("สร้างใบแจ้งหนี้ได้จากใบร่างเท่านั้น")
+        if (!inv.lines.length && !inv.advance.length && !inv.bookFee) return fail("ใบนี้ยังไม่มีรายการ — เติมคอร์สก่อนสร้างใบแจ้งหนี้")
+        const next: Invoice = { ...inv, status: "pending_approval" }
+        set({ invoices: s.invoices.map((x) => (x.id === id ? next : x)), notifications: [approvalNeededNotice(next, s.students.find((x) => x.id === inv.studentId)?.nickname ?? ""), ...s.notifications] })
+        log("billing", [inv.studentId], "สร้างใบแจ้งหนี้", "รออนุมัติ (ยังไม่มีเลข)")
+        return OK
+      },
+
+      issueInvoice: (id) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === id)!
+        const r = Bill.canIssue(inv)
+        if (!r.ok) return r
         const branch = s.branches.find((b) => b.id === inv.branchId)!
-        const today = toDateStr(s.now())
-        const number = inv.number ?? Bill.nextInvoiceNumber("INV", branch, today, s.invoices.map((x) => x.number))
-        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, number, pdf: "generating" } : x)) })
-        setTimeout(() => {
-          const ok = Math.random() > 0.1
-          set((st) => ({
-            invoices: st.invoices.map((x) => (x.id === id ? { ...x, pdf: ok ? "ready" : "failed", status: ok ? "pending_approval" : "draft" } : x)),
-            notifications: ok
-              ? [Notif.notify({ id: uid("no"), at: new Date(), kind: "approval_needed", title: "ใบแจ้งหนี้รออนุมัติ", body: `${number} รอคนอนุมัติ (ไม่ใช่คนสร้าง)`, fromId: inv.createdBy, audience: { roles: Bill.APPROVER_ROLES, branchId: inv.branchId } }), ...st.notifications]
-              : st.notifications,
-          }))
-        }, 1800)
+        const number = Bill.nextInvoiceNumber("INV", branch, toDateStr(s.now()), s.invoices.map((x) => x.number))
+        set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, number, pdf: "ready" } : x)) })
+        log("billing", [inv.studentId], "ออกเลข Official Invoice", number)
         return { ok: true, value: { number } }
       },
 
@@ -2579,9 +2600,13 @@ export const useStore = create<Store>()(
         if (!r.ok) return r
         set({
           invoices: s.invoices.map((x) => (x.id === id ? { ...x, status: "approved", approvedBy: s.userId, approvedAt: s.now().toISOString(), forced: forced ? { by: s.userId, at: s.now().toISOString(), remark: forceRemark.trim() } : undefined } : x)),
-          notifications: forced ? [forceNotice(s, inv.branchId, "ใบแจ้งหนี้", inv.number ?? "", forceRemark), ...s.notifications] : s.notifications,
+          notifications: [
+            ...(forced ? [forceNotice(s, inv.branchId, "ใบแจ้งหนี้", inv.number ?? "", forceRemark)] : []),
+            ...(!inv.number ? [Notif.notify({ id: uid("no"), at: s.now(), kind: "approval_needed" as const, title: "ใบแจ้งหนี้อนุมัติแล้ว — รอออกเลข Official", body: `ใบของ ${s.students.find((x) => x.id === inv.studentId)?.nickname ?? "นักเรียน"} อนุมัติแล้ว Admin ออกเลขได้ทันที`, fromId: s.userId, audience: { roles: ["admin"], branchId: inv.branchId } })] : []),
+            ...s.notifications,
+          ],
         })
-        log("billing", [inv.studentId], forced ? "Force Approve ใบแจ้งหนี้" : "อนุมัติใบแจ้งหนี้", `${inv.number}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
+        log("billing", [inv.studentId], forced ? "Force Approve ใบแจ้งหนี้" : "อนุมัติใบแจ้งหนี้", `${inv.number ?? "ยังไม่มีเลข"}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
         return OK
       },
 
@@ -2597,7 +2622,7 @@ export const useStore = create<Store>()(
         const ctx = ctxOf(s, inv.branchId)
         // linked siblings' invoices go together in ONE message (owner 2026-11-05)
         const mates = inv.bundleId ? s.invoices.filter((x) => x.id !== id && x.bundleId === inv.bundleId && x.status !== "void" && x.status !== "paid") : []
-        const notReady = mates.find((x) => x.status !== "approved" && x.status !== "sent")
+        const notReady = mates.find((x) => (x.status !== "approved" && x.status !== "sent") || !x.number)
         if (notReady) return fail(`ใบ ${notReady.number ?? "ร่าง"} ที่เชื่อมไว้ยังไม่อนุมัติ — อนุมัติก่อน หรือยกเลิกการเชื่อมต่อ`)
         const sentIds = new Set([id, ...mates.map((x) => x.id)])
         const text = mates.length

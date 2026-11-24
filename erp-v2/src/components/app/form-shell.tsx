@@ -3,7 +3,7 @@
 // One form, two homes (owner 2026-10-09): every create / edit form renders as a popup by default, or — wrapped in
 // <PanelForm> — inside the record's side panel as Header · Body (scrolls) · Bottom (CTA). That gives each page the
 // same View → Edit → Create flow in one panel without writing every form twice.
-import { createContext, useContext, type ComponentType, type ReactNode } from "react"
+import { createContext, useContext, useState, type ComponentType, type ReactNode } from "react"
 import { EllipsisIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -55,17 +55,37 @@ export function FormShell({ title, description, onClose, footer, children, class
   )
 }
 
-/** The side panel itself — Header · Body · Bottom, only the body scrolls (owner 2026-10-09) */
-export function EntityPanel({ open, onClose, children, wide }: { open: boolean; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+/** The side panel itself — Header · Body · Bottom, only the body scrolls (owner 2026-10-09).
+ *  resizeKey (owner 2026-11-24): drag the left edge to widen / narrow the panel (double-click = back to normal); the width is remembered per browser. */
+export function EntityPanel({ open, onClose, children, wide, className, resizeKey }: { open: boolean; onClose: () => void; children: React.ReactNode; wide?: boolean; className?: string; resizeKey?: string }) {
   // phones + tablet-portrait: a bottom sheet; only a wide landscape screen gets the right-hand panel (owner 2026-11-02)
   const sidePanel = useSidePanel()
+  const store = resizeKey ? `panel-width:${resizeKey}` : ""
+  const [width, setWidth] = useState<number | null>(() => { try { const v = store ? Number(localStorage.getItem(store)) : 0; return v > 0 ? v : null } catch { return null } })
+  const clamp = (w: number) => Math.round(Math.min(window.innerWidth - 32, Math.max(480, w)))
+  const save = (w: number | null) => { try { if (!store) return; if (w) localStorage.setItem(store, String(w)); else localStorage.removeItem(store) } catch { /* private window */ } }
+  const drag = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    let last = width
+    const move = (ev: PointerEvent) => { last = clamp(window.innerWidth - ev.clientX); setWidth(last) }
+    const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); save(last) }
+    el.addEventListener("pointermove", move)
+    el.addEventListener("pointerup", up)
+  }
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side={sidePanel ? "right" : "bottom"}
-        style={sidePanel ? undefined : { height: "92dvh" }}
+        style={sidePanel ? (resizeKey && width ? { width: clamp(width), maxWidth: "calc(100vw - 2rem)" } : undefined) : { height: "92dvh" }}
         className={cn("flex w-full flex-col gap-0 overflow-hidden p-0",
-          sidePanel ? cn("h-full", wide ? "data-[side=right]:sm:max-w-2xl" : "data-[side=right]:sm:max-w-xl") : "rounded-t-2xl")}>
+          sidePanel ? cn("h-full", wide ? "data-[side=right]:sm:max-w-2xl" : "data-[side=right]:sm:max-w-xl", className) : "rounded-t-2xl")}>
         {!sidePanel && <div className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-muted" />}
+        {sidePanel && resizeKey && (
+          <div role="separator" aria-orientation="vertical" aria-label="ลากเพื่อปรับความกว้างแผง (ดับเบิลคลิก = ขนาดเดิม)" title="ลากเพื่อปรับความกว้าง · ดับเบิลคลิก = ขนาดเดิม"
+            onPointerDown={drag} onDoubleClick={() => { setWidth(null); save(null) }}
+            className="absolute inset-y-0 left-0 z-20 hidden w-2 cursor-col-resize touch-none transition-colors hover:bg-primary/30 active:bg-primary/40 sm:block" />
+        )}
         {children}
       </SheetContent>
     </Sheet>
