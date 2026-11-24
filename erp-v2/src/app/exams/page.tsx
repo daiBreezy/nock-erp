@@ -41,6 +41,8 @@ export default function ExamsPage() {
   const results = useStore((s) => s.examResults)
   const branches = useStore((s) => s.branches)
   const [q, setQ] = useState("")
+  // owner 2026-11-24: All / Pending (status slot, like Billing) — Pending = students whose result for this exam is not entered yet
+  const [status, setStatus] = useState<"all" | "pending">("all")
   const [grade, setGrade] = useQueryState<string>("grade", "")
   const [school, setSchool] = useQueryState<string>("school", "")
   const [subject, setSubject] = useQueryState<string>("subject", "")
@@ -71,6 +73,7 @@ export default function ExamsPage() {
   const shown = rows
     .filter((r) => !grade || r.s.grade === grade)
     .filter((r) => !school || r.s.school === school)
+    .filter((r) => status === "all" || !r.done)
     .filter((r) => !q || `${r.s.name} ${r.s.nickname}`.includes(q))
     .sort((a, b) => {
       const v = sort.key === "nickname" ? a.s.nickname.localeCompare(b.s.nickname, "th")
@@ -93,7 +96,7 @@ export default function ExamsPage() {
     { id: "branch", label: "สาขา", width: "72px", cell: ({ s }) => <BranchCode code={scope.code(s.branchId)} /> },
     { id: "name", label: "ชื่อ-นามสกุล", width: "170px", defaultHidden: true, className: "text-muted-foreground", cell: ({ s }) => s.name },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ s }) => <GradeCell grade={s.grade} tone={gradeTone(s.grade)} /> },
-    { id: "school", label: "โรงเรียน", width: "120px", className: "text-muted-foreground", cell: ({ s }) => (s.school ? <span className="block truncate" title={s.school}>{s.school}</span> : "—") },
+    { id: "school", label: "โรงเรียน", width: "120px", className: "text-muted-foreground", cell: ({ s }) => (s.school ? <span className="block max-w-32 truncate" title={s.school}>{s.school}</span> : "—") },
     { id: "status", label: "สถานะ", width: "96px", cell: ({ done }) => <Pill tone={done ? "green" : "amber"}>{done ? "Done" : "Waiting"}</Pill> },
     ...(subject
       ? periods.map((p): Column<Row> => ({ id: `p-${p.year}-${p.term}`, label: label(p), width: edit ? "176px" : "132px", align: "right",
@@ -120,7 +123,9 @@ export default function ExamsPage() {
         <Kpi icon={TrendingUpIcon} label="ดีขึ้นจากครั้งก่อน" value={compared.filter((r) => (r.change ?? 0) > 0).length} sub={compared.length ? `จาก ${compared.length} คนที่เทียบได้` : "ยังเทียบไม่ได้"} tone="emerald" />
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น" />}
-      period={<RangeStepper label={`ปีการศึกษา ${year + 543}`} current={year === newestYear} onPrev={() => setYear(year - 1)} onNext={() => setYear(Math.min(newestYear, year + 1))} onToday={() => setYear(newestYear)} />}
+      period={<><Segmented label="สถานะ" value={status} onChange={setStatus}
+        options={[{ value: "all" as const, label: "All" }, { value: "pending" as const, label: <>Pending{rows.length > doneRows.length && <span className="rounded-full bg-warning-soft px-1.5 text-xs text-warning-ink tabular-nums">{rows.length - doneRows.length}</span>}</> }]} />
+        <RangeStepper label={`ปีการศึกษา ${year + 543}`} current={year === newestYear} onPrev={() => setYear(year - 1)} onNext={() => setYear(Math.min(newestYear, year + 1))} onToday={() => setYear(newestYear)} /></>}
       view={<Segmented value={term} onChange={setTerm} options={Exam.EXAM_TERMS.map((t) => ({ value: t.id, label: t.label }))} label="การสอบ" />}
       filters={<>
         <FilterMenu fields={[

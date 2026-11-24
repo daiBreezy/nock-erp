@@ -45,14 +45,13 @@ export function ScoreCell({ score, change }: { score?: ExamScore; change?: numbe
   if (!score) return <span className="text-muted-foreground">—</span>
   return (
     <span className="relative inline-flex h-10 w-full items-center justify-end tabular-nums">
-      {/* the arrow stays centred in the row — only the numbers slide up on hover */}
-      <Arrow change={change} />
-      <span className="inline-flex items-center transition-transform duration-150 group-hover/row:-translate-y-2">
-        <span className="w-8 text-right font-medium">{Exam.fmtScore(score.score)}</span>
-        <span className="px-0.5 text-muted-foreground">/</span>
-        <span className="w-6 text-right font-medium">{Exam.fmtScore(score.full)}</span>
+      {/* owner 2026-11-24: no fixed-width boxes — score / full right-aligned to the cell edge; the arrow shows with the percentage on hover */}
+      <span className="inline-flex items-center gap-0.5 transition-transform duration-150 group-hover/row:-translate-y-2">
+        <span className="font-medium">{Exam.fmtScore(score.score)}</span>
+        <span className="text-muted-foreground">/</span>
+        <span className="font-medium">{Exam.fmtScore(score.full)}</span>
       </span>
-      <span className="pointer-events-none absolute top-1/2 right-0 translate-y-0.5 text-right text-xs text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/row:opacity-100">{Exam.pct(score).toFixed(1)}%</span>
+      <span className="pointer-events-none absolute top-1/2 right-0 inline-flex translate-y-0.5 items-center gap-0.5 text-right text-xs text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/row:opacity-100"><Arrow change={change} />{Exam.pct(score).toFixed(1)}%</span>
     </span>
   )
 }

@@ -177,7 +177,6 @@ function BillingPage() {
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ student, group }) => !group && student && <GradeCell grade={student.grade} tone={gradeTone(student.grade)} /> },
     { id: "lines", label: "รายการ", width: "200px", className: "text-muted-foreground", cell: ({ inv, group }) => (group ? group.map((g) => courseNames(g.inv)).join(" · ") : courseNames(inv)) },
     { id: "total", label: "ยอด", width: "110px", sort: "total", align: "right", className: "font-medium tabular-nums", cell: ({ total, group }) => fmtMoney(group ? group.reduce((a, g) => a + g.total, 0) : total) },
-    { id: "paid", label: "จ่ายแล้ว", width: "110px", align: "right", className: "text-muted-foreground tabular-nums", cell: ({ paid, group }) => { const p = group ? group.reduce((a, g) => a + g.paid, 0) : paid; return p > 0 ? fmtMoney(p) : "—" } },
     // owner 2026-10-07: the old "การส่ง / เงิน" column folded in — a small icon after the status, hover = what's wrong
     { id: "status", label: "สถานะ", width: "150px", sort: "status", align: "right", cell: ({ inv: own, toConfirm, group }) => {
       // a set shows its least-advanced member's status (+ how many are at it)
