@@ -263,7 +263,8 @@ export function enrollInvoiceSnapshot(invoiceId: ID): EnrollInvoiceSnap | null {
   if (gap) items.push({ name: "อื่นๆ", amount: gap, kind: "other" as const })
   const stu = s.students.find((x) => x.id === inv.studentId)
   return { invoiceId, number: inv.number ?? "", status: inv.status === "paid" ? "paid" : inv.status === "void" ? "void" : "open", studentNickname: stu?.nickname ?? "", items, total: t.total, owed: Bill.owedOn(inv, t.total),
-    bank: { bank: branch.bankAccount.bank, name: branch.bankAccount.name, number: branch.bankAccount.number }, promptPayId: branch.bankAccount.promptPayId }
+    bank: { bank: (inv.bankSnapshot ?? branch.bankAccount).bank, name: (inv.bankSnapshot ?? branch.bankAccount).name, number: (inv.bankSnapshot ?? branch.bankAccount).number },
+    promptPayId: (inv.bankSnapshot ?? branch.bankAccount).promptPayId, qrImage: (inv.bankSnapshot ?? branch.bankAccount).qrImage }
 }
 
 /** the invoice was voided / paid → the enroll links carrying it say so (the parent can't pay a dead invoice) */

@@ -3,7 +3,7 @@
 // to every targeted branch at once: the account becomes that branch's `bankAccount`, which every document / message
 // already reads. A branch no account targets keeps what it has. Pure functions — the store and the UI both use these.
 
-import type { BankAccountEntry, Brand, Branch } from "../types"
+import type { BankAccountEntry, Brand, Branch, Invoice } from "../types"
 import { promptPayKind } from "./documents"
 
 export const BRAND_LABEL: Record<Brand, string> = { nockacademy: "Nockacademy", liclass: "Liclass" }
@@ -27,16 +27,62 @@ export function bankAccountFor(branch: Pick<Branch, "id" | "brand">, entries: Ba
   return entries.find((e) => e.scope.kind === "branch" && targets(e, branch)) ?? entries.find((e) => e.scope.kind === "brand" && targets(e, branch))
 }
 
-/** Save = Global: every branch takes the account that targets it (branches no account targets stay as they are). Returns the new list + how many branches changed. */
-export function applyBankAccounts(branches: Branch[], entries: BankAccountEntry[]): { branches: Branch[]; changed: number } {
+export const EMPTY_BANK: Branch["bankAccount"] = { bank: "", branchName: "", name: "", number: "" }
+
+/** a branch can bill only while it has an account to print (owner 2026-11-24) */
+export const hasBankAccount = (b: Pick<Branch, "bankAccount">) => !!b.bankAccount.number.trim()
+export function billingBlockReason(b: Pick<Branch, "bankAccount" | "name">): string | null {
+  return hasBankAccount(b) ? null : `สาขา ${b.name} ยังไม่มีบัญชีรับเงิน — สร้างใบแจ้งหนี้ / ออกเลข / ส่งไม่ได้ จนกว่า Director ส่งบัญชีจาก Settings › System › การเงิน`
+}
+
+/** Save = Global: every targeted branch takes the account. A branch that USED one of `prev` and now has none (the account was deleted, or its target changed)
+ *  is cleared — it has no account until Global sends one; a branch no account ever targeted keeps what it has. */
+export function applyBankAccounts(branches: Branch[], entries: BankAccountEntry[], prev?: BankAccountEntry[]): { branches: Branch[]; changed: number; cleared: Branch[] } {
   let changed = 0
+  const cleared: Branch[] = []
   const next = branches.map((b) => {
     const e = bankAccountFor(b, entries)
-    if (!e || JSON.stringify(e.account) === JSON.stringify(b.bankAccount)) return b
-    changed++
-    return { ...b, bankAccount: { ...e.account } }
+    if (e) {
+      if (JSON.stringify(e.account) === JSON.stringify(b.bankAccount)) return b
+      changed++
+      return { ...b, bankAccount: { ...e.account } }
+    }
+    if (prev && bankAccountFor(b, prev) && hasBankAccount(b)) { changed++; cleared.push(b); return { ...b, bankAccount: { ...EMPTY_BANK } } }
+    return b
   })
-  return { branches: next, changed }
+  return { branches: next, changed, cleared }
+}
+
+/** where an invoice stands for the bank account (owner 2026-11-24):
+ *  draft = not created · pending = created / approved, no number yet · issued = numbered but not yet with the parent · frozen = sent or paid (keeps its snapshot) · null = void */
+export type BankStage = "draft" | "pending" | "issued" | "frozen"
+export function invoiceBankStage(inv: Pick<Invoice, "status" | "number" | "bankSnapshot" | "payments">): BankStage | null {
+  if (inv.status === "void") return null
+  if (inv.bankSnapshot || inv.status === "sent" || inv.status === "paid" || inv.payments.length > 0) return "frozen"
+  if (inv.status === "draft") return "draft"
+  if (inv.status === "pending_approval" || !inv.number) return "pending"
+  return "issued"
+}
+
+export interface BankImpact { branch: BranchLite; replacement?: BankAccountEntry; lost: boolean; draft: number; pending: number; issued: number; frozen: number }
+/** what deleting this account does, branch by branch — shown BEFORE the Director confirms */
+export function bankDeleteImpact(entry: BankAccountEntry, entries: BankAccountEntry[], branches: BranchLite[], invoices: Pick<Invoice, "branchId" | "status" | "number" | "bankSnapshot" | "payments">[]): BankImpact[] {
+  const rest = entries.filter((e) => e.id !== entry.id)
+  return branches
+    .filter((b) => bankAccountFor(b, entries)?.id === entry.id)
+    .map((b) => {
+      const replacement = bankAccountFor(b, rest)
+      const mine = invoices.filter((i) => i.branchId === b.id)
+      const count = (st: BankStage) => mine.filter((i) => invoiceBankStage(i) === st).length
+      return { branch: b, replacement, lost: !replacement, draft: count("draft"), pending: count("pending"), issued: count("issued"), frozen: count("frozen") }
+    })
+}
+
+/** an invoice leaves the office (sent / first payment): it keeps the account it carried — saved data from before this got the branch's account as it is */
+export function withBankSnapshots<T extends { invoices: Invoice[]; branches: Branch[] }>(s: T): T {
+  const need = (i: Invoice) => !i.bankSnapshot && !!i.number && invoiceBankStage(i) === "frozen"
+  if (!s.invoices.some(need)) return s
+  return { ...s, invoices: s.invoices.map((i) => (need(i) ? { ...i, bankSnapshot: { ...(s.branches.find((b) => b.id === i.branchId)?.bankAccount ?? EMPTY_BANK) } } : i)) }
 }
 
 /** the first branch two accounts both claim at the same level (two by business type, or two by branch) — one branch cannot print two accounts */

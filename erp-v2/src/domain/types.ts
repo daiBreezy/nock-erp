@@ -815,6 +815,17 @@ export interface CalendarNote {
 
 export type LogCategory = "profile" | "class" | "attendance" | "billing" | "note"
 
+/** owner 2026-11-24: audit trail for SYSTEM changes (not tied to a student) — who changed which setting, when. The Log page comes later; it is recorded from now on. */
+export interface SystemLogEntry {
+  id: ID
+  at: string
+  by: ID | null
+  /** which area of the system, e.g. "bank_account" */
+  category: "bank_account"
+  action: string
+  detail: string
+}
+
 /** Audit trail — every change that touches a student (owner 2026-09-28: every edit belongs in the log). */
 export interface ActivityLog {
   id: ID
@@ -1010,6 +1021,8 @@ export interface EnrollInvoiceSnap {
   owed: number
   bank: { bank: string; name: string; number: string }
   promptPayId?: string
+  /** owner 2026-11-24: the uploaded QR image of the account (System › Bank Account) — shown instead of a generated QR */
+  qrImage?: string
 }
 
 /** The link: a reusable one per branch (LINE Rich Menu) or a one-time one an admin sends to a lead. */
@@ -1604,6 +1617,8 @@ export interface Invoice {
   /** set only when staff pressed "notify the parent" after voiding — voiding itself never messages anyone */
   voidNotifiedAt?: string
   payments: Payment[]
+  /** owner 2026-11-24: the bank account this invoice carried when it LEFT the office (first send / first payment) — frozen from then on, so a later change or deletion of the branch's account never rewrites what the parent was given. Before that the invoice follows the branch's current account. */
+  bankSnapshot?: Branch["bankAccount"]
   /** owner 2026-11-24: payments the approver rejected (wrong amount / wrong slip) — kept as history, they no longer count toward the invoice */
   rejectedPayments?: RejectedPayment[]
   receiptNumber?: string

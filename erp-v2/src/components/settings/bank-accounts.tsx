@@ -4,13 +4,14 @@ import { useRef, useState } from "react"
 import { ImagePlusIcon, PencilIcon, PlusIcon, QrCodeIcon, Trash2Icon } from "lucide-react"
 import { Field } from "@/components/app/student-form"
 import { FormShell } from "@/components/app/form-shell"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Segmented } from "@/components/app/page-layout"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { uid } from "@/data/seed"
-import { BRAND_LABEL, NA_MAIN_ID, bankScopeLabel, validateBankEntry } from "@/domain/rules/bank-accounts"
+import { BRAND_LABEL, NA_MAIN_ID, NA_QR, bankDeleteImpact, bankScopeLabel, validateBankEntry } from "@/domain/rules/bank-accounts"
 import { promptPayKind } from "@/domain/rules/documents"
 import type { BankAccountEntry, Brand } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -37,7 +38,7 @@ export function BankAccounts() {
   const save = useStore((s) => s.saveBankAccount)
   const remove = useStore((s) => s.deleteBankAccount)
   const [editing, setEditing] = useState<BankAccountEntry | null>(null)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<BankAccountEntry | null>(null)
 
   return (
     <SettingsCard title="Bank Account" hint={tx("บัญชีรับเงินบนใบแจ้งหนี้ — สร้างที่นี่ที่เดียว เลือกว่าใช้กับธุรกิจหรือสาขาไหน · กดบันทึก = ส่งไปทุกสาขาที่เลือกทันที")}
@@ -57,22 +58,14 @@ export function BankAccounts() {
                   {e.account.qrImage ? <span className="text-muted-foreground">{tx("QR ที่อัปโหลด")}</span> : e.account.promptPayId ? <span className="text-muted-foreground">{tx("QR จาก PromptPay ID")}</span> : <span className="text-muted-foreground">{tx("ไม่มี QR บนใบแจ้งหนี้")}</span>}
                 </p>
               </div>
-              {deleting === e.id ? (
-                <span className="flex items-center gap-1.5 text-xs">
-                  <span className="text-danger">{tx("ลบบัญชีนี้?")}</span>
-                  <Button size="xs" variant="ghost" onClick={() => setDeleting(null)}>{tx("ไม่ลบ")}</Button>
-                  <Button size="xs" variant="destructive" onClick={() => { if (report(remove(e.id), tx("ลบบัญชีแล้ว — สาขายังใช้บัญชีที่มีอยู่ต่อ"))) setDeleting(null) }}>{tx("ยืนยันลบ")}</Button>
-                </span>
-              ) : (
-                <>
-                  <Button size="icon-sm" variant="ghost" aria-label={tx("แก้บัญชี")} title={tx("แก้บัญชี")} onClick={() => setEditing(e)}><PencilIcon /></Button>
-                  {e.id !== NA_MAIN_ID && <Button size="icon-sm" variant="ghost" aria-label={tx("ลบบัญชี")} title={tx("ลบบัญชี")} onClick={() => setDeleting(e.id)}><Trash2Icon /></Button>}
-                </>
-              )}
+              <Button size="icon-sm" variant="ghost" aria-label={tx("แก้บัญชี")} title={tx("แก้บัญชี")} onClick={() => setEditing(e)}><PencilIcon /></Button>
+              <Button size="icon-sm" variant="ghost" aria-label={tx("ลบบัญชี")} title={tx("ลบบัญชี")} onClick={() => setDeleting(e)}><Trash2Icon /></Button>
             </li>
           ))}
         </ul>
       )}
+      {deleting && <DeleteBankDialog entry={deleting} entries={entries} onClose={() => setDeleting(null)}
+        onConfirm={() => { if (report(remove(deleting.id), tx("ลบบัญชีแล้ว"))) setDeleting(null) }} />}
       {editing && (
         <BankForm entry={editing} others={entries} onClose={() => setEditing(null)}
           onSave={(x) => { const r = save(x); if (report(r, (v) => tx("บันทึกแล้ว — ส่งไป {0} สาขา", [v.branches]))) setEditing(null); return r.ok }} />
@@ -136,6 +129,7 @@ function BankForm({ entry, others, onClose, onSave }: { entry: BankAccountEntry;
               <p className="max-w-64 text-xs text-muted-foreground">{tx("QR ประจำบัญชีหลัก Nockacademy — ล็อกไว้ ใช้บนใบแจ้งหนี้ตลอด (เปลี่ยน/ลบไม่ได้)")}</p>
             ) : (
               <>
+                {a.qrImage !== NA_QR && <Button size="sm" variant="tonal" onClick={() => setA({ qrImage: NA_QR })}><QrCodeIcon /> {tx("ใช้ QR ประจำ Nockacademy")}</Button>}
                 <Button size="sm" variant="outline" onClick={() => file.current?.click()}><ImagePlusIcon /> {a.qrImage ? tx("เปลี่ยนรูป QR") : tx("อัปโหลด QR")}</Button>
                 {a.qrImage && <Button size="sm" variant="ghost" className="text-danger" onClick={() => setA({ qrImage: undefined })}>{tx("เอา QR ออก")}</Button>}
                 <p className="max-w-64 text-xs text-muted-foreground">{tx("ใช้รูป QR ที่อัปโหลดบนใบแจ้งหนี้ — ถ้าไม่อัปโหลด ระบบสร้าง QR จาก PromptPay ID (พร้อมยอดเงิน) ให้")}</p>
@@ -182,5 +176,53 @@ function BankForm({ entry, others, onClose, onSave }: { entry: BankAccountEntry;
         )}
       </div>
     </FormShell>
+  )
+}
+
+/**
+ * owner 2026-11-24: deleting an account is cleared BEFORE it happens — the Director sees, per branch, what changes: who takes over, which invoices follow the new
+ * account by themselves, which are paused, and which keep what the parent already got.
+ */
+function DeleteBankDialog({ entry, entries, onClose, onConfirm }: { entry: BankAccountEntry; entries: BankAccountEntry[]; onClose: () => void; onConfirm: () => void }) {
+  const branches = useStore((s) => s.branches)
+  const invoices = useStore((s) => s.invoices)
+  const impact = bankDeleteImpact(entry, entries, branches, invoices)
+  const lost = impact.filter((i) => i.lost)
+  const sum = (k: "draft" | "pending" | "issued" | "frozen") => impact.reduce((a, i) => a + i[k], 0)
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Trash2Icon className="size-4 text-danger" /> {tx("ลบบัญชี")} {entry.label}</DialogTitle>
+          <DialogDescription>{impact.length ? tx("ผลที่จะเกิดขึ้นกับ {0} สาขาที่ใช้บัญชีนี้", [impact.length]) : tx("ไม่มีสาขาไหนใช้บัญชีนี้อยู่ — ลบได้เลย")}</DialogDescription>
+        </DialogHeader>
+        {impact.length > 0 && (
+          <div className="space-y-3 text-sm">
+            <ul className="space-y-1.5">
+              {impact.map((i) => (
+                <li key={i.branch.id} className="rounded-xl border p-2.5">
+                  <p className="flex items-center gap-2 font-medium">{i.branch.name}
+                    {i.lost ? <Pill tone="red">{tx("ไม่มีบัญชีรับเงิน")}</Pill> : <Pill tone="blue">{tx("ใช้ต่อ: {0}", [i.replacement!.label])}</Pill>}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {tx("ร่าง {0} · รอออกเลข {1} · ออกเลขแล้วยังไม่ส่ง {2} · ส่ง/ชำระแล้ว {3}", [i.draft, i.pending, i.issued, i.frozen])}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+              <li>{tx("ใบแจ้งหนี้ที่ส่งหรือชำระแล้ว ({0} ใบ) ไม่เปลี่ยน — ยังพิมพ์บัญชีที่ผู้ปกครองได้รับไป", [sum("frozen")])}</li>
+              <li>{tx("ใบร่าง ({0} ใบ) เปลี่ยนเป็นบัญชีใหม่อัตโนมัติเมื่อ Global ส่งบัญชีใหม่มา", [sum("draft")])}</li>
+              <li>{tx("ใบที่รออนุมัติ/รอออกเลข ({0} ใบ) และออกเลขแล้วยังไม่ส่ง ({1} ใบ) ถูกหยุดไว้ (ออกเลข/ส่งไม่ได้) ถ้าสาขาไม่มีบัญชีใหม่ — กลับมาทำต่อได้เมื่อบัญชีใหม่มาถึง", [sum("pending"), sum("issued")])}</li>
+              {lost.length > 0 && <li className="text-danger">{tx("สาขา {0} จะสร้างใบแจ้งหนี้ใหม่ไม่ได้ จนกว่า Director ส่งบัญชีใหม่จากหน้านี้", [lost.map((i) => i.branch.name).join(", ")])}</li>}
+            </ul>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>{tx("ไม่ลบ")}</Button>
+          <Button variant="destructive" onClick={onConfirm}>{lost.length > 0 ? tx("ลบและหยุดการออกใบของสาขาเหล่านี้") : tx("ยืนยันลบ")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

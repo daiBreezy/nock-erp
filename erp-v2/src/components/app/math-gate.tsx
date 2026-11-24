@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { makeMathProblem, mathAnswerOk } from "@/domain/rules/negative"
 
-export function MathGate({ open, title, warning, confirmLabel = "ลบถาวร", onConfirm, onClose }: {
+export function MathGate({ open, title, target, warning, confirmLabel = "ลบถาวร", onConfirm, onClose }: {
   open: boolean
   title: string
+  /** owner 2026-11-24: every delete popup says WHAT is being deleted — a name / numbers box right under the title */
+  target?: React.ReactNode
   /** why this is permanent / what is lost — shown in a red note */
   warning: string
   confirmLabel?: string
@@ -38,6 +40,12 @@ export function MathGate({ open, title, warning, confirmLabel = "ลบถาว
             <span>{warning}</span>
           </DialogDescription>
         </DialogHeader>
+        {target && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-2.5 text-sm">
+            <p className="text-xs text-muted-foreground">กำลังลบ</p>
+            <div className="font-medium">{target}</div>
+          </div>
+        )}
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">ตอบโจทย์เพื่อยืนยันว่าตั้งใจลบ</p>
           <div className="flex items-center gap-2">

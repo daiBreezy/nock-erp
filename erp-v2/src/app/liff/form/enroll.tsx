@@ -7,6 +7,8 @@
 import { CheckIcon, ImageIcon, XIcon } from "lucide-react"
 import { slipDataUrl } from "@/lib/image"
 import type { EnrollInvoiceSnap } from "@/domain/types"
+import qrcode from "qrcode-generator"
+import { promptPayPayload } from "@/domain/rules/documents"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import type { EnrollClassOffer, EnrollCourseOption, EnrollPackage, EnrollPlan, FormLang } from "@/domain/types"
@@ -219,6 +221,7 @@ export function InvoicePay({ t, inv, slip, onSlip }: { t: EnrollT; inv: EnrollIn
             <p className="text-xs text-muted-foreground">{t.payTo}</p>
             <p className="font-medium">{inv.bank.bank} · {inv.bank.number}</p>
             <p className="text-xs text-muted-foreground">{inv.bank.name}{inv.promptPayId ? ` · ${t.promptPay} ${inv.promptPayId}` : ""}</p>
+            <PayQr inv={inv} />
           </div>
           <div className="space-y-1.5">
             <p className="text-sm font-semibold">{t.attachSlip}</p>
@@ -237,5 +240,26 @@ export function InvoicePay({ t, inv, slip, onSlip }: { t: EnrollT; inv: EnrollIn
         </>
       )}
     </section>
+  )
+}
+
+/** owner 2026-11-24: the payment QR comes from the system — the account's uploaded QR image, else one made from its PromptPay ID with the amount still owed (same as on the invoice) */
+function PayQr({ inv }: { inv: EnrollInvoiceSnap }) {
+  if (inv.qrImage) {
+    // eslint-disable-next-line @next/next/no-img-element -- data URL / app file
+    return <img src={inv.qrImage} alt="QR" className="mt-2 size-36 rounded-xl border bg-white object-contain p-1" />
+  }
+  const data = inv.promptPayId ? promptPayPayload(inv.promptPayId, inv.owed) : null
+  if (!data) return null
+  const q = qrcode(0, "M")
+  q.addData(data)
+  q.make()
+  const n = q.getModuleCount()
+  const cells = Array.from({ length: n * n }, (_, i) => [i % n, Math.floor(i / n)] as const).filter(([x, y]) => q.isDark(y, x))
+  return (
+    <svg viewBox={`0 0 ${n + 2} ${n + 2}`} className="mt-2 size-36 rounded-xl border bg-white p-1" shapeRendering="crispEdges" aria-label="PromptPay">
+      <rect width="100%" height="100%" fill="#fff" />
+      {cells.map(([x, y]) => <rect key={`${x}-${y}`} x={x + 1} y={y + 1} width="1" height="1" fill="#000" />)}
+    </svg>
   )
 }

@@ -1,15 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { CheckIcon, FileTextIcon, PlusIcon, ReceiptIcon, SendIcon, UnlinkIcon, WalletIcon, XCircleIcon } from "lucide-react"
+import { CheckIcon, FileTextIcon, PlusIcon, ReceiptIcon, SendIcon, Trash2Icon, UnlinkIcon, WalletIcon, XCircleIcon } from "lucide-react"
 import { ForceApprove } from "@/components/app/force-approve"
 import { PaymentRefInput } from "./payment-ref"
+import { MathGate } from "@/components/app/math-gate"
 import { PaymentMenu } from "./payment-actions"
 import { PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtMoney } from "@/domain/dates"
@@ -30,7 +30,7 @@ import { invoiceTone } from "./status"
  * The family set as ONE thing (owner 2026-11-05): the children's invoices linked from the start, worked on together —
  * one PDF, one message, one approval, one slip, one choice of receipts. The children's own tabs sit next to this one.
  */
-export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members: Invoice[]; onOpen: (id: ID) => void; onAddChild: (studentId: ID) => void; tabs?: React.ReactNode }) {
+export function BundleOverview({ members, onOpen, onAddChild, onDeleted, tabs }: { members: Invoice[]; onOpen: (id: ID) => void; onAddChild: (studentId: ID) => void; /** the whole set was deleted */ onDeleted: () => void; tabs?: React.ReactNode }) {
   const me = useStore((s) => s.me())
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
@@ -39,7 +39,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
-  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
+  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, delSet: s.deleteInvoiceSet, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const manage = can(me, "billing.manage")
   const first = members[0]
   const stu = (id: ID) => students.find((x) => x.id === id)
@@ -56,8 +56,8 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   const [pay, setPay] = useState(false)
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [voiding, setVoiding] = useState(false)
+  const [deletingSet, setDeletingSet] = useState(false)
   const [reason, setReason] = useState("")
-  const [gate, setGate] = useState(false)
 
   // what is next for the set: the earliest stage some member has not passed
   const drafts = members.filter((x) => x.status === "draft")
@@ -95,18 +95,24 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   const memberIds = members.map((m) => m.id)
   const runGen = () => each(drafts, (i) => act.create(i.id)) && report({ ok: true, value: undefined }, `สร้างใบแจ้งหนี้ ${drafts.length} ใบแล้ว — รอคนอื่นอนุมัติ`)
   const toIssue = members.filter((x) => x.status === "approved" && !x.number)
-  const generateAll = () => (agState === "confirmed" ? runGen() : setGate(true))
+  const generateAll = () => runGen()
   const blank = members.filter((m) => !m.lines.length && !m.advance.length && !m.bookFee)
-  const steps: { label: string; done: number; detail?: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
-    ...(drafts.length > 0 || members.some((m) => m.agreement) ? [{ label: "สรุปคอร์สให้ผู้ปกครองยืนยัน", done: agStates.filter((x) => x === "confirmed").length, detail: Bill.AGREEMENT_LABEL[agState],
-      extra: allDraft && manage ? (
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          <Button size="xs" variant="outline" disabled={blank.length > 0} onClick={() => report(act.sendAgreement(first.id), agState === "none" ? "ส่งสรุปคอร์สให้ผู้ปกครองแล้ว" : "ส่งสรุปคอร์สอีกครั้งแล้ว")}><SendIcon /> {agState === "none" ? "ส่งสรุปคอร์ส" : "ส่งสรุปอีกครั้ง"}</Button>
+  // owner 2026-11-24: the course summary (the old LINE text) is OPTIONAL and lives in the first step — creating the set never waits for it
+  const agreementBlock = Bill.agreementBlockReason(members.map((x) => ({ inv: x, totals: Bill.invoiceTotals(x, ctxOf(x)), student: stu(x.studentId), family: fam })))
+  const agreementNode = drafts.length > 0 || members.some((m) => m.agreement) ? (
+    <div className="mt-1.5 space-y-1.5 text-xs">
+      <p className="text-muted-foreground">สรุปคอร์สให้ผู้ปกครอง (ไม่บังคับ) · {Bill.AGREEMENT_LABEL[agState]}</p>
+      {allDraft && manage && (
+        <div className="flex flex-wrap gap-1.5">
+          <Button size="xs" variant="outline" disabled={!!agreementBlock} title={agreementBlock ?? undefined} onClick={() => report(act.sendAgreement(first.id), agState === "none" ? "ส่งสรุปคอร์สให้ผู้ปกครองแล้ว" : "ส่งสรุปคอร์สอีกครั้งแล้ว")}><SendIcon /> {agState === "none" ? "ส่งสรุปคอร์ส (ข้อความ LINE)" : "ส่งสรุปอีกครั้ง"}</Button>
           {agState === "sent" && <Button size="xs" onClick={() => report(act.confirmAgreement(memberIds), "บันทึกแล้ว — ผู้ปกครองยืนยันสรุปคอร์ส")}><CheckIcon /> ผู้ปกครองยืนยันแล้ว</Button>}
-          {blank.length > 0 && <span className="text-xs text-muted-foreground">เติมคอร์สให้ {blank.map((m) => stu(m.studentId)?.nickname).join(", ")} ก่อน (เปิดแท็บของแต่ละคน → แก้ไข)</span>}
+          {agreementBlock && <span className="basis-full text-warning-ink">ส่งไม่ได้ตอนนี้: {agreementBlock}{blank.length > 0 ? " · เปิดแท็บของแต่ละคน → แก้ไข" : ""}</span>}
         </div>
-      ) : undefined }] : []),
-    { label: "สร้างใบแจ้งหนี้", done: members.filter((x) => x.status !== "draft").length, addLabel: "สร้างใบแจ้งหนี้ทั้งชุด", detail: "ข้อมูลจริงครบ · ยังไม่มีเลข",
+      )}
+    </div>
+  ) : undefined
+  const steps: { label: string; done: number; detail?: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
+    { label: "สร้างใบแจ้งหนี้", done: members.filter((x) => x.status !== "draft").length, addLabel: "สร้างใบแจ้งหนี้ทั้งชุด", detail: "ข้อมูลจริงครบ · ยังไม่มีเลข", extra: agreementNode,
       onAdd: manage && drafts.length > 0 ? generateAll : undefined },
     // Force Approve sits right under its own step (owner 2026-11-05)
     { label: "อนุมัติ", done: members.filter((x) => ["approved", "sent", "paid"].includes(x.status)).length,
@@ -252,7 +258,11 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
 
       {manage && (!allPaid || needReceipt.length > 0) && (
         <PanelFooter>
-          <PanelMore items={[!voiding && members.every((x) => x.payments.length === 0) && { label: "ยกเลิกทั้งชุด", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) }]} />
+          <PanelMore items={[
+            // owner 2026-11-24: no running number anywhere = not real documents yet → delete the whole set for good · with numbers → void the set with a reason
+            manage && members.every((x) => Bill.hasNoRunNo(x)) && { label: `ลบใบแจ้งหนี้ทั้งชุด (${members.length} ใบ)`, icon: Trash2Icon, destructive: true, onClick: () => setDeletingSet(true) },
+            !voiding && !members.every((x) => Bill.hasNoRunNo(x)) && members.every((x) => x.payments.length === 0) && { label: "ยกเลิกทั้งชุด", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) },
+          ]} />
           {drafts.length > 0 && (
             <Button className="ml-auto" onClick={generateAll}><FileTextIcon /> สร้างใบแจ้งหนี้ทั้งชุด</Button>
           )}
@@ -278,20 +288,10 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
         <PaySlipDialog inv={payable[0].inv} owed={payable[0].owed} allTicked onClose={() => setPay(false)}
           siblings={payable.slice(1).map((r) => ({ id: r.inv.id, number: r.inv.number ?? "", nickname: stu(r.inv.studentId)?.nickname ?? "", owed: r.owed }))} />
       )}
-      <Dialog open={gate} onOpenChange={setGate}>
-        <DialogContent className="lg:max-w-md">
-          <DialogHeader>
-            <DialogTitle>ผู้ปกครองยังไม่ได้ยืนยันสรุปคอร์ส</DialogTitle>
-            <DialogDescription>
-              {agState === "none" ? "ยังไม่ได้ส่งสรุปคอร์สให้ผู้ปกครองดู" : agState === "stale" ? "แก้ใบหลังส่งสรุปไปแล้ว — สรุปที่ผู้ปกครองเห็นไม่ตรงกับใบนี้" : "ส่งสรุปแล้ว แต่ผู้ปกครองยังไม่ได้ยืนยัน"} · สร้าง PDF ต่อเลย หรือกลับไปส่ง/รอยืนยันก่อน
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setGate(false)}>กลับไปส่งสรุป</Button>
-            <Button onClick={() => { setGate(false); runGen() }}>ข้ามและสร้าง PDF</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MathGate open={deletingSet} onClose={() => setDeletingSet(false)} title="ลบใบแจ้งหนี้ทั้งชุด" confirmLabel="ลบถาวร"
+        target={<>ใบชุดของ {famLabel} · {members.length} ใบ: {members.map((x) => stu(x.studentId)?.nickname ?? "—").join(", ")} · รวม {fmtMoney(grand)}</>}
+        warning="ใบทุกใบในชุดนี้ยังไม่มีเลขรัน (ยังไม่ใช่เอกสารจริง) — ลบทั้งชุดแล้วกู้คืนไม่ได้"
+        onConfirm={() => { setDeletingSet(false); if (report(act.delSet(members[0].id), "ลบใบแจ้งหนี้ทั้งชุดแล้ว")) onDeleted() }} />
     </>
   )
 }

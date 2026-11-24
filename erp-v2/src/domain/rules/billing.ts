@@ -578,6 +578,24 @@ export function canSend(inv: Invoice): Result {
   return { ok: true, value: undefined }
 }
 
+/** owner 2026-11-24: an invoice WITHOUT a running number is not a real document yet — it can be deleted for good (a numbered one is voided with a reason, never deleted) */
+export const hasNoRunNo = (inv: Pick<Invoice, "status" | "number" | "payments">) => !inv.number && inv.payments.length === 0 && ["draft", "pending_approval", "approved"].includes(inv.status)
+export function canDeleteInvoice(inv: Pick<Invoice, "status" | "number" | "payments">): Result {
+  if (inv.status === "void") return { ok: false, error: "ใบนี้ถูกยกเลิกไปแล้ว" }
+  if (!hasNoRunNo(inv)) return { ok: false, error: "ใบที่มีเลขรัน (Run no.) แล้วลบไม่ได้ — ยกเลิก (Void) พร้อมเหตุผลแทน" }
+  return { ok: true, value: undefined }
+}
+
+/** merging invoices into one family set (and taking one out of a set) is only for invoices without a running number, in one family and one branch */
+export function canMergeInvoices(list: Pick<Invoice, "status" | "number" | "payments" | "branchId">[], touchedByBundle: Pick<Invoice, "status" | "number" | "payments">[], familyIds: (string | null | undefined)[]): Result {
+  if (list.length < 2) return { ok: false, error: "เลือกใบแจ้งหนี้อย่างน้อย 2 ใบ" }
+  if ([...list, ...touchedByBundle].some((x) => !hasNoRunNo(x))) return { ok: false, error: "รวมเป็นชุด / ถอดออกจากชุดได้เฉพาะใบที่ยังไม่มีเลขรัน (Run no.)" }
+  const fam = new Set(familyIds.map((f, i) => f || `solo-${i}`))
+  if (fam.size > 1 || [...fam][0]?.startsWith("solo-")) return { ok: false, error: "รวมได้เฉพาะใบของคนในครอบครัวเดียวกัน" }
+  if (new Set(list.map((x) => x.branchId)).size > 1) return { ok: false, error: "รวมได้เฉพาะใบของสาขาเดียวกัน" }
+  return { ok: true, value: undefined }
+}
+
 export function canVoid(inv: Invoice, reason: string): Result {
   if (inv.status === "void") return { ok: false, error: "ใบนี้ถูกยกเลิกแล้ว" }
   if (inv.payments.length) return { ok: false, error: "มีการชำระเงินแล้ว ยกเลิกไม่ได้ — ใช้การคืนเงิน/ลดหนี้แทน" }
@@ -693,7 +711,8 @@ export function invoiceNextStep(inv: Pick<Invoice, "status" | "pdf" | "payments"
     case "approved": return inv.number === null ? { stage: "อนุมัติแล้ว", todo: "Admin ออกเลข Official", tone: "amber" } : { stage: "อนุมัติแล้ว", todo: "ส่งใบให้ผู้ปกครอง", tone: "amber" }
     case "sent":
       if (inv.payments.some((p) => !p.confirmedBy)) return { stage: "มีการรับเงิน", todo: "ยืนยันยอดเงิน (อีกคนที่ไม่ใช่คนบันทึก)", tone: "amber" }
-      if (inv.delivery === "failed" || inv.delivery === "no_line") return { stage: "ยังไม่ถึงผู้ปกครอง", todo: "ส่งใบอีกครั้ง หรือแจ้งทางอื่น", tone: "red" }
+      if (inv.delivery === "no_line") return { stage: "ส่งทางอื่น (ผู้ปกครองไม่มี LINE)", todo: "ดาวน์โหลด/พิมพ์ใบให้ผู้ปกครอง แล้วรอชำระ", tone: "amber" }
+      if (inv.delivery === "failed") return { stage: "ยังไม่ถึงผู้ปกครอง", todo: "ส่งใบอีกครั้ง หรือแจ้งทางอื่น", tone: "red" }
       return { stage: "ส่งแล้ว", todo: "รอผู้ปกครองชำระ — ส่งซ้ำได้ถ้าเขายังไม่เห็น", tone: "blue" }
     case "paid": return inv.receiptNumber ? null : { stage: "ชำระครบ", todo: "ออกใบเสร็จ", tone: "green" }
   }
@@ -721,6 +740,21 @@ export function agreementHash(inv: Invoice, totals: InvoiceTotals): string {
     inv.lines.map((l) => [l.courseId, [...l.classIds].sort(), l.startDate, l.periods, l.leftover ?? null]).sort(),
     inv.bus.length, totals.total, inv.advance.map((a) => [a.name, a.amount]),
   ])
+}
+
+/** owner 2026-11-24: why the course summary cannot be sent right now (null = it can). It goes out only from a Draft — the invoice (or every invoice of the set) not created yet —
+ *  and only when every child has a course with a class, and the family has LINE (the summary is a LINE text). */
+export function agreementBlockReason(items: { inv: Pick<Invoice, "status" | "lines">; totals: Pick<InvoiceTotals, "lines">; student?: Pick<Student, "nickname">; family?: { parents: { lineLinked?: boolean }[] } | null }[]): string | null {
+  if (items.some((x) => x.inv.status !== "draft")) return "สร้างใบแจ้งหนี้แล้ว — ส่งสรุปได้เฉพาะตอนยังเป็นร่าง"
+  const nick = (x: (typeof items)[number]) => x.student?.nickname ?? "ลูก"
+  const empty = items.find((x) => !x.inv.lines.length)
+  if (empty) return `${nick(empty)} ยังไม่มีคอร์ส — เติมคอร์สให้ครบก่อน (ยังสร้างใบไม่เสร็จ)`
+  const noClass = items.find((x) => x.totals.lines.some((l) => !l.klasses.length))
+  if (noClass) return `${nick(noClass)} มีคอร์สที่ยังไม่เลือกคลาส — เลือกคลาสก่อน`
+  const fam = items[0]?.family
+  if (!fam) return "ยังไม่ผูกครอบครัว — ส่งสรุปทาง LINE ไม่ได้"
+  if (!fam.parents.some((p) => p.lineLinked)) return "ครอบครัวนี้ยังไม่เชื่อม LINE — ส่งสรุปทาง LINE ไม่ได้ (แจ้งผู้ปกครองทางอื่นแทน)"
+  return null
 }
 
 export type AgreementState = "none" | "sent" | "confirmed" | "stale"

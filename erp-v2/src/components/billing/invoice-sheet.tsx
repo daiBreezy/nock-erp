@@ -5,11 +5,10 @@ import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import Link from "next/link"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, PencilIcon, MessagesSquareIcon, PlusIcon, SendIcon, UploadIcon, XCircleIcon, UnlinkIcon, Undo2Icon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, PencilIcon, MessagesSquareIcon, PlusIcon, SendIcon, UploadIcon, XCircleIcon, Trash2Icon, UnlinkIcon, Undo2Icon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/components/app/form-shell"
 import { InvoiceEditor } from "./invoice-editor"
@@ -17,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, fmtMonth } from "@/domain/dates"
 import { mainLineAccount } from "@/domain/rules/people"
 import * as Bill from "@/domain/rules/billing"
+import * as Bank from "@/domain/rules/bank-accounts"
 import { invoiceMemo } from "@/domain/rules/documents"
 import { packageLabel } from "@/domain/rules/course"
 import { can } from "@/domain/rules/permissions"
@@ -33,6 +33,8 @@ import { CreditNotes } from "./credit-notes"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
 import { PaySlipDialog } from "./pay-slip-dialog"
 import { PaymentRefInput } from "./payment-ref"
+import { MergeInvoicesDialog, useMergeCandidates } from "./merge-invoices-dialog"
+import { MathGate } from "@/components/app/math-gate"
 import { PaymentMenu, RejectedPayments } from "./payment-actions"
 import { IssueReceiptDialog } from "./issue-receipt-dialog"
 import { AddToReceiptDialog } from "./add-to-receipt-dialog"
@@ -99,13 +101,16 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, defaultC
     <Tabs className="shrink-0 px-3" value={tab} onChange={(v) => setTab(v as "all" | ID)}
       options={[{ value: "all", label: `รวม (${members.length})` }, ...members.map((m) => ({ value: m.id as string, label: students.find((x) => x.id === m.studentId)?.nickname ?? "—" }))]} />
   )
-  if (isBundle && tab === "all") return <BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} tabs={tabs} />
-  return shownId ? <Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} tabs={tabs} /> : null
+  if (isBundle && tab === "all") return <BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} onDeleted={onClose} tabs={tabs} />
+  // owner 2026-11-24: after a delete the panel moves on — to what is left of the set (a lone one is a single invoice now), or closes
+  const afterDelete = (remaining: ID[]) => { if (!remaining.length) onClose(); else { setDupId(remaining[0]); setTab("all") } }
+  return shownId ? <Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} onDeleted={afterDelete} tabs={tabs} /> : null
 }
 
-function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMediaId?: string; onEdit: () => void; onDuplicated: (id: ID) => void; /** the family set's tabs — they sit right under the header */ tabs?: React.ReactNode }) {
+function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: ID; slipMediaId?: string; onEdit: () => void; onDuplicated: (id: ID) => void; onDeleted: (remaining: ID[]) => void; /** the family set's tabs — they sit right under the header */ tabs?: React.ReactNode }) {
   const inv = useStore((s) => s.invoices.find((x) => x.id === id))
   const branch = useBranch()
+  const branches = useStore((s) => s.branches)
   const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
   const students = useStore((s) => s.students)
@@ -114,7 +119,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
   const brandMemos = useStore((s) => s.system.invoiceMemos)
-  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
+  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, del: s.deleteInvoice, delSet: s.deleteInvoiceSet, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const invoices = useStore((s) => s.invoices)
   // the message to the parent: this invoice's, else the one from this student's last invoice — editable until it is sent
   const prevNote = inv ? Bill.lastNoteFor(inv.studentId, invoices, inv.id) : ""
@@ -124,11 +129,17 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const [reason, setReason] = useState("")
   const [payOpen, setPayOpen] = useState(!!slipMediaId)
   const [receiptOpen, setReceiptOpen] = useState(false)
+  const [deleting, setDeleting] = useState<false | "one" | "set">(false)
+  const [merging, setMerging] = useState(false)
+  const mergeCandidates = useMergeCandidates(inv)
+  // owner 2026-11-24: every delete says WHAT it deletes — this child's invoice, or the whole set
+  const nickOf = (x: { studentId: ID }) => students.find((y) => y.id === x.studentId)?.nickname ?? "—"
+  const setMembers = inv?.bundleId ? invoices.filter((x) => x.bundleId === inv.bundleId && x.status !== "void") : []
+  const canDeleteSet = setMembers.length >= 2 && setMembers.every((x) => Bill.hasNoRunNo(x))
   const [refunding, setRefunding] = useState(false) // owner 2026-11-24: opened from the ⋯ menu
   const [addOpen, setAddOpen] = useState(false) // owner 2026-11-24: pull more invoices onto an issued receipt
   const [linesOpen, setLinesOpen] = useState(false) // owner 2026-11-23: receipt combine list
   // owner 2026-11-20: the PDF asks first when the parent has not confirmed the course summary
-  const [gate, setGate] = useState(false)
   const [slip, setSlip] = useState<string | undefined>()
   // one slip for siblings' invoices (owner 2026-10-29)
   const [receiptIds, setReceiptIds] = useState<ID[] | null>(null)
@@ -161,7 +172,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const canForce = Bill.canForceApprove(inv, me, "x").ok
   const manage = can(me, "billing.manage")
   // the invoice reached the parent: the next step is the slip — Upload becomes the main button, "send again" the secondary one
-  const sentToParent = inv.status === "sent" && inv.delivery === "delivered"
+  // owner 2026-11-24: a parent with no LINE counts as sent too — the admin gives the invoice another way (download / print / email), so the step is passed and the next one is the payment
+  const sentToParent = inv.status === "sent" && (inv.delivery === "delivered" || inv.delivery === "no_line")
   const canAddPayment = ((inv.status === "approved" && !!inv.number) || inv.status === "sent") && manage && paidAll < totals.total
   const ctx = { branch, courses, classes, holidays }
   const owed = (x: typeof inv) => Bill.owedOn(x, Bill.invoiceTotals(x, ctx).total)
@@ -175,20 +187,29 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   // owner 2026-11-20: course summary → parent confirms → PDF. A family set shares ONE summary (sent / confirmed for every child together)
   const setIds = (inv.bundleId ? invoices.filter((x) => x.bundleId === inv.bundleId && x.status !== "void") : [inv]).map((x) => x.id)
   const agState = Bill.agreementState(inv, totals)
-  const generate = () => (agState === "confirmed" ? report(act.create(inv.id), "สร้างใบแจ้งหนี้แล้ว — รอคนอื่นอนุมัติ (ยังไม่มีเลข)") : setGate(true))
+  // owner 2026-11-24: the course summary (the old LINE text) is OPTIONAL and lives in the first step — creating the invoice never waits for it
+  const generate = () => report(act.create(inv.id), "สร้างใบแจ้งหนี้แล้ว — รอคนอื่นอนุมัติ (ยังไม่มีเลข)")
   const issue = () => report(act.issue(inv.id), (v) => `ออกเลข Official แล้ว · ${v.number}`)
-  const agreementStep = inv.status === "draft" || inv.agreement ? {
-    label: "สรุปคอร์สให้ผู้ปกครองยืนยัน",
-    state: (agState === "confirmed" ? "done" : agState === "stale" ? "warn" : "current") as "done" | "current" | "warn",
-    meta: inv.agreement ? `${fmtDateTime(inv.agreement.sentAt)} · ${who(inv.agreement.sentBy)}${inv.agreement.confirmedAt ? ` → ยืนยัน ${fmtDateTime(inv.agreement.confirmedAt)}` : ""}` : undefined,
-    detail: Bill.AGREEMENT_LABEL[agState] + (setIds.length > 1 ? ` · ทั้งชุด ${setIds.length} ใบ` : ""),
-    extra: inv.status === "draft" && manage ? (
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        <Button size="xs" variant="outline" onClick={() => report(act.sendAgreement(inv.id), agState === "none" ? "ส่งสรุปคอร์สให้ผู้ปกครองแล้ว" : "ส่งสรุปคอร์สอีกครั้งแล้ว")}><SendIcon /> {agState === "none" ? "ส่งสรุปคอร์ส" : "ส่งสรุปอีกครั้ง"}</Button>
-        {agState === "sent" && <Button size="xs" onClick={() => report(act.confirmAgreement(setIds), "บันทึกแล้ว — ผู้ปกครองยืนยันสรุปคอร์ส")}><CheckIcon /> ผู้ปกครองยืนยันแล้ว</Button>}
-      </div>
-    ) : undefined,
-  } : null
+  // owner 2026-11-24: a branch with no bank account cannot create / issue / send (an invoice already with the parent keeps its own account)
+  const invBranch = branches.find((b) => b.id === inv.branchId)
+  const noBank = !inv.bankSnapshot && invBranch ? Bank.billingBlockReason(invBranch) : null
+  const setInvs = inv.bundleId ? invoices.filter((x) => x.bundleId === inv.bundleId && x.status !== "void") : [inv]
+  const agreementBlock = Bill.agreementBlockReason(setInvs.map((x) => { const stu0 = students.find((y) => y.id === x.studentId); return { inv: x, totals: Bill.invoiceTotals(x, { branch, courses, classes, holidays }), student: stu0, family: families.find((f) => f.id === stu0?.familyId) } }))
+  const agreementNode = (inv.status === "draft" && manage) || inv.agreement ? (
+    <div className="mt-1.5 space-y-1.5 text-xs">
+      <p className="text-muted-foreground">
+        สรุปคอร์สให้ผู้ปกครอง (ไม่บังคับ) · {Bill.AGREEMENT_LABEL[agState]}{setIds.length > 1 ? ` · ทั้งชุด ${setIds.length} ใบ` : ""}
+        {inv.agreement && ` · ${fmtDateTime(inv.agreement.sentAt)} โดย ${who(inv.agreement.sentBy)}${inv.agreement.confirmedAt ? ` → ยืนยัน ${fmtDateTime(inv.agreement.confirmedAt)}` : ""}`}
+      </p>
+      {inv.status === "draft" && manage && (
+        <div className="flex flex-wrap gap-1.5">
+          <Button size="xs" variant="outline" disabled={!!agreementBlock} title={agreementBlock ?? undefined} onClick={() => report(act.sendAgreement(inv.id), agState === "none" ? "ส่งสรุปคอร์สให้ผู้ปกครองแล้ว" : "ส่งสรุปคอร์สอีกครั้งแล้ว")}><SendIcon /> {agState === "none" ? "ส่งสรุปคอร์ส (ข้อความ LINE)" : "ส่งสรุปอีกครั้ง"}</Button>
+          {agreementBlock && <span className="basis-full text-warning-ink">ส่งไม่ได้ตอนนี้: {agreementBlock}</span>}
+          {agState === "sent" && <Button size="xs" onClick={() => report(act.confirmAgreement(setIds), "บันทึกแล้ว — ผู้ปกครองยืนยันสรุปคอร์ส")}><CheckIcon /> ผู้ปกครองยืนยันแล้ว</Button>}
+        </div>
+      )}
+    </div>
+  ) : undefined
   // payments + shared-slip receipt grouping live under their own steps (owner 2026-11-05)
   const paymentsNode = inv.payments.length > 0 || inv.rejectedPayments?.length ? (
     <>
@@ -262,8 +283,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
     receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
   } satisfies Record<string, DocItem[]>
   const steps: { label: string; state: "done" | "current" | "todo" | "warn"; /** line 1: the date first, then who did it (owner 2026-11-05) · line 2: everything else */ meta?: string; detail: React.ReactNode; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
-    { label: "สร้างใบ", state: inv.status === "draft" ? "current" : "done", meta: inv.status === "draft" ? undefined : `${fmtDateTime(inv.createdAt)} · ${who(inv.createdBy)}`, detail: inv.status === "draft" ? "ร่าง — ยังไม่ได้สร้างใบแจ้งหนี้" : "ข้อมูลจริงครบ · ยังไม่มีเลข", onAdd: inv.status === "draft" && manage ? generate : undefined, addLabel: "สร้างใบแจ้งหนี้" },
-    ...(agreementStep ? [agreementStep] : []),
+    { label: "สร้างใบ", state: inv.status === "draft" ? "current" : "done", meta: inv.status === "draft" ? undefined : `${fmtDateTime(inv.createdAt)} · ${who(inv.createdBy)}`, detail: inv.status === "draft" ? "ร่าง — ยังไม่ได้สร้างใบแจ้งหนี้" : "ข้อมูลจริงครบ · ยังไม่มีเลข", extra: agreementNode, onAdd: inv.status === "draft" && manage ? generate : undefined, addLabel: "สร้างใบแจ้งหนี้" },
     {
       label: "อนุมัติ (คนอื่นที่ไม่ใช่คนสร้าง)",
       // Force Approve sits right under its own step (owner 2026-11-05)
@@ -285,13 +305,13 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
     },
     {
       label: "ส่งถึงผู้ปกครอง",
-      state: inv.delivery === "delivered" ? "done" : inv.delivery === "no_line" || inv.delivery === "failed" ? "warn" : (inv.status === "approved" && !!inv.number) || inv.delivery === "sending" ? "current" : "todo",
+      state: inv.delivery === "delivered" || inv.delivery === "no_line" ? "done" : inv.delivery === "failed" ? "warn" : (inv.status === "approved" && !!inv.number) || inv.delivery === "sending" ? "current" : "todo",
       meta: inv.sentAt ? fmtDateTime(inv.sentAt) : undefined,
       detail: inv.delivery === "delivered" ? "ถึงผู้ปกครองทาง LINE"
         : inv.delivery === "sending" ? "กำลังส่งทาง LINE…"
         : inv.delivery === "failed" ? `ส่ง LINE ไม่สำเร็จ — ${inv.deliveryError ?? "ลองส่งอีกครั้ง"}`
-        : inv.delivery === "no_line" ? <span className="inline-flex items-center gap-1.5"><UnlinkIcon role="img" aria-label="ไม่มี LINE" className="size-3.5 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon>ยังไม่ถึงผู้ปกครอง — ไม่มี LINE (ต้องส่งทางอื่น)</span> : "—",
-      extra: inv.sentAt && fam ? (
+        : inv.delivery === "no_line" ? <span className="inline-flex items-start gap-1.5"><UnlinkIcon role="img" aria-label="ไม่มี LINE" className="mt-0.5 size-3.5 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon><span>ผู้ปกครองไม่มี LINE — ดาวน์โหลด / พิมพ์ใบ แล้วส่งทางอื่น (อีเมล หรือให้ด้วยตัวเอง) · รอรับเงินต่อได้เลย</span></span> : "—",
+      extra: inv.sentAt && fam && inv.delivery !== "no_line" ? (
         <div className="mt-1 flex items-center gap-2 text-xs">
           <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{fam.name}</span>{fam.parents.find((p) => p.primary) ? ` · ${fam.parents.find((p) => p.primary)!.name}` : ""}</span>
           <Button size="icon-sm" variant="outline" className="rounded-full" disabled={!conv} aria-label="เปิดแชท LINE ในหน้า Inbox" title={conv ? "เปิดแชท LINE กับผู้ปกครองใน Inbox" : "ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"} nativeButton={!conv} render={conv ? <Link href={`/inbox?conversation=${conv.id}`} /> : undefined}><MessagesSquareIcon /></Button>
@@ -367,6 +387,9 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       {tabs}
 
       <PanelBody>
+        {noBank && ["draft", "pending_approval", "approved"].includes(inv.status) && (
+          <p className="flex items-start gap-2 rounded-xl bg-danger-soft/50 p-2.5 text-xs text-danger-ink"><AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />{noBank} {inv.status === "draft" ? "· ใบร่างนี้จะใช้บัญชีใหม่โดยอัตโนมัติเมื่อบัญชีมาถึง" : "· ใบนี้ถูกหยุดไว้ — กลับมาทำต่อได้เมื่อบัญชีมาถึง"}</p>
+        )}
         {inv.status === "void" && <p className="rounded-lg bg-danger-soft/60 p-3 text-sm text-danger-ink">ยกเลิกแล้ว: {inv.voidReason}</p>}
         {/* Billing info as an accordion (owner 2026-11-05): Student · Promotion · Course · Advance · Bus · Summary */}
         {/* the message to the parent (owner 2026-11-05): remembered per student — the last one comes back on the next invoice, editable until it is sent */}
@@ -529,33 +552,40 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       {(manage || (inv.status === "pending_approval" && approveCheck.ok)) && inv.status !== "void" && inv.status !== "paid" && (
         <PanelFooter>
           {/* owner 2026-10-12: negative actions behind ⋯ */}
-          <PanelMore items={[manage && !voiding && { label: "ยกเลิกใบแจ้งหนี้", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) }]} />
+          <PanelMore items={[
+            // no running number yet = not a real document: merge into a set / delete for good · a numbered one is voided with a reason, never deleted
+            manage && Bill.hasNoRunNo(inv) && mergeCandidates.length > 0 && { label: "รวมเป็นชุดกับใบอื่น…", icon: LayersIcon, onClick: () => setMerging(true) },
+            manage && Bill.hasNoRunNo(inv) && { label: `ลบใบแจ้งหนี้ของ${nickOf(inv)}`, icon: Trash2Icon, destructive: true, onClick: () => setDeleting("one") },
+            manage && canDeleteSet && { label: `ลบใบแจ้งหนี้ทั้งชุด (${setMembers.length} ใบ)`, icon: Trash2Icon, destructive: true, onClick: () => setDeleting("set") },
+            manage && !voiding && !Bill.hasNoRunNo(inv) && { label: "ยกเลิกใบแจ้งหนี้", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) },
+          ]} />
           {manage && (inv.status === "draft" || inv.status === "pending_approval" || (inv.status === "approved" && !inv.number)) && <Button className="ml-auto" variant="outline" onClick={onEdit}><PencilIcon /> {inv.status === "draft" ? "แก้ไข" : inv.status === "approved" ? "แก้ (ต้องอนุมัติใหม่)" : "แก้"}</Button>}
           {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — Admin ออกเลข Official ได้")}><CheckIcon /> อนุมัติ</Button>}
-          {inv.status === "approved" && !inv.number && manage && <Button onClick={issue}><FileTextIcon /> ออกเลข Official</Button>}
+          {inv.status === "approved" && !inv.number && manage && <Button disabled={!!noBank} title={noBank ?? undefined} onClick={issue}><FileTextIcon /> ออกเลข Official</Button>}
           {canSendNote && (
-            <Button className="ml-auto" variant={sentToParent ? "outline" : "default"} disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
+            <Button className="ml-auto" variant={sentToParent ? "outline" : "default"} disabled={!note.trim() || !!noBank} title={noBank ?? undefined} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
               <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
             </Button>
           )}
           {sentToParent && canAddPayment && <Button onClick={() => setPayOpen(true)}><UploadIcon /> อัปโหลดสลิป</Button>}
-          {inv.status === "draft" && manage && <Button onClick={generate}><FileTextIcon /> สร้างใบแจ้งหนี้</Button>}
+          {inv.status === "draft" && manage && <Button disabled={!!noBank} title={noBank ?? undefined} onClick={generate}><FileTextIcon /> สร้างใบแจ้งหนี้</Button>}
         </PanelFooter>
       )}
-      <Dialog open={gate} onOpenChange={setGate}>
-        <DialogContent className="lg:max-w-md">
-          <DialogHeader>
-            <DialogTitle>ผู้ปกครองยังไม่ได้ยืนยันสรุปคอร์ส</DialogTitle>
-            <DialogDescription>
-              {agState === "none" ? "ยังไม่ได้ส่งสรุปคอร์สให้ผู้ปกครองดู" : agState === "stale" ? "แก้ใบหลังส่งสรุปไปแล้ว — สรุปที่ผู้ปกครองเห็นไม่ตรงกับใบนี้" : "ส่งสรุปแล้ว แต่ผู้ปกครองยังไม่ได้ยืนยัน"} · สร้างใบแจ้งหนี้ต่อเลย หรือกลับไปส่ง/รอยืนยันก่อน
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setGate(false)}>กลับไปส่งสรุป</Button>
-            <Button onClick={() => { setGate(false); report(act.create(inv.id), "สร้างใบแจ้งหนี้แล้ว — รอคนอื่นอนุมัติ (ยังไม่มีเลข)") }}>ข้ามและสร้างใบแจ้งหนี้</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {merging && <MergeInvoicesDialog inv={inv} onClose={() => setMerging(false)} />}
+      <MathGate open={deleting !== false} onClose={() => setDeleting(false)} confirmLabel="ลบถาวร"
+        title={deleting === "set" ? "ลบใบแจ้งหนี้ทั้งชุด" : `ลบใบแจ้งหนี้ของ${nickOf(inv)}`}
+        target={deleting === "set"
+          ? <>ใบชุดของ {fam?.name ?? "ครอบครัว"} · {setMembers.length} ใบ: {setMembers.map(nickOf).join(", ")} · รวม {fmtMoney(setMembers.reduce((a, x) => a + Bill.invoiceTotals(x, ctx).total, 0))}</>
+          : <>ใบแจ้งหนี้ของ {nickOf(inv)} · {Bill.invoiceStatusLabel(inv)} · {fmtMoney(totals.total)}{inv.bundleId ? ` · อยู่ในชุดของ ${fam?.name ?? "ครอบครัว"}` : ""}</>}
+        warning={deleting === "set"
+          ? "ใบทุกใบในชุดนี้ยังไม่มีเลขรัน (ยังไม่ใช่เอกสารจริง) — ลบทั้งชุดแล้วกู้คืนไม่ได้"
+          : `ใบนี้ยังไม่มีเลขรัน (ยังไม่ใช่เอกสารจริง) ลบแล้วกู้คืนไม่ได้${inv.bundleId ? " · ใบอื่นในชุดอยู่ต่อ — ถ้าเหลือใบเดียวจะกลายเป็นใบเดี่ยวทันที" : ""}`}
+        onConfirm={() => {
+          const mode = deleting
+          setDeleting(false)
+          if (mode === "set") { const r = act.delSet(inv.id); if (report(r, "ลบใบแจ้งหนี้ทั้งชุดแล้ว")) onDeleted([]) }
+          else { const r = act.del(inv.id); if (report(r, "ลบใบแจ้งหนี้แล้ว")) onDeleted(r.value.remaining) }
+        }} />
     </>
   )
 }

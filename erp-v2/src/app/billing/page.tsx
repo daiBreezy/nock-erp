@@ -15,7 +15,7 @@ import { CreditCardIcon } from "lucide-react"
 import { CreditOwedDialog, useCreditOwed } from "@/components/billing/credit-owed"
 import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, FileSpreadsheetIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
+import { AlertTriangleIcon, BadgeCheckIcon, ChevronDownIcon, CopyPlusIcon, FileSpreadsheetIcon, Link2Icon, UsersRoundIcon, FileClockIcon, HourglassIcon, PlusIcon, WalletIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Pill } from "@/components/app/badges"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -23,6 +23,7 @@ import { invoiceTone } from "@/components/billing/status"
 import { Button } from "@/components/ui/button"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
+import * as Bank from "@/domain/rules/bank-accounts"
 import { can } from "@/domain/rules/permissions"
 import { useBranch, useNow, useQueryState } from "@/lib/hooks"
 import { GradeCell, gradeCompare, MidText, Pager, usePage, useSort } from "@/components/app/data-table"
@@ -223,6 +224,10 @@ function BillingPage() {
             </DropdownMenu>
           )}
         </>} />
+      {/* owner 2026-11-24: a branch with no bank account (Global deleted it, none sent yet) cannot create / issue / send invoices */}
+      {Bank.billingBlockReason(branch) && (
+        <p className="flex items-start gap-2 rounded-2xl bg-danger-soft/50 px-3 py-2 text-sm text-danger-ink"><AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />{Bank.billingBlockReason(branch)}</p>
+      )}
       <KpiRow>
         {cards.map((c) => (
           <Kpi key={c.key} icon={c.icon} tone={c.tone} label={c.label} value={<>{c.value} {c.unit && <span className="text-xs font-normal text-muted-foreground">{c.unit}</span>}</>}

@@ -1,6 +1,7 @@
 "use client"
 
 import { InvoicePaper, InvoicePreview } from "./invoice-preview"
+import * as Bank from "@/domain/rules/bank-accounts"
 import { CustomerPicker } from "@/components/app/customer-picker"
 import { COURSE_FORMAT_LABEL, packageLabel, priceUnitSuffix } from "@/domain/rules/course"
 import { CoursePicker } from "./course-picker"
@@ -236,6 +237,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
   }
   // editing a created invoice (pending / approved without a number) keeps it created — editing an approved one sends it back for approval
   const wasCreated = !!invoice && invoice.status !== "draft"
+  // owner 2026-11-24: no bank account at the branch → a Draft can be saved, but the invoice cannot be created until Global sends one
+  const noBank = Bank.billingBlockReason(branch)
 
   return (
     <FormShell className="max-h-[92vh] sm:max-w-3xl lg:max-w-6xl" onClose={onClose} title={invoice ? `แก้ใบแจ้งหนี้ ${invoice.number ?? ""}` : "สร้างใบแจ้งหนี้"}
@@ -243,10 +246,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
       footer={<>
         {/* owner 2026-11-24: Cancel sits on the left; the preview button is an icon only (tonal) */}
         <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-        {errors.length > 0 && <span className="mr-auto text-xs text-danger">{errors[0]}</span>}
+        {(errors.length > 0 || (!wasCreated && noBank)) && <span className="mr-auto text-xs text-danger">{errors[0] ?? noBank}</span>}
         <Button variant="tonal" size="icon" className={errors.length > 0 ? undefined : "ml-auto"} aria-label="ดูตัวอย่าง" title="ดูตัวอย่าง" disabled={!studentId} onClick={() => setPreviewing(true)}><EyeIcon /></Button>
         {!wasCreated && <Button variant="outline" disabled={errors.length > 0} onClick={() => submit(false)}>บันทึกร่าง</Button>}
-        <Button disabled={errors.length > 0} onClick={() => submit(true)}>{wasCreated ? "บันทึก" : "สร้างใบแจ้งหนี้"}</Button>
+        <Button disabled={errors.length > 0 || (!wasCreated && !!noBank)} onClick={() => submit(true)}>{wasCreated ? "บันทึก" : "สร้างใบแจ้งหนี้"}</Button>
       </>}>
         {previewing && <InvoicePreview draft={full} onClose={() => setPreviewing(false)} />}
         <div data-invoice-editor className="@container h-full">

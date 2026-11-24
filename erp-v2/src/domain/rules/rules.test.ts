@@ -4061,3 +4061,44 @@ describe("pay slip Ref ID (owner 2026-11-24)", () => {
     expect(Pay.refInUse("", list)).toBe(false)
   })
 })
+
+describe("course summary — why it cannot be sent (owner 2026-11-24)", () => {
+  const it0 = (o: { status?: string; lines?: number; klasses?: number; line?: boolean }) => ({
+    inv: { status: o.status ?? "draft", lines: Array.from({ length: o.lines ?? 1 }) } as never,
+    totals: { lines: Array.from({ length: o.lines ?? 1 }, () => ({ klasses: Array.from({ length: o.klasses ?? 1 }) })) } as never,
+    student: { nickname: "ข้าวหอม" }, family: { parents: [{ lineLinked: o.line ?? true }] },
+  })
+  it("a ready draft with LINE can be sent; each missing piece gives its own reason", () => {
+    expect(Pay.agreementBlockReason([it0({})])).toBeNull()
+    expect(Pay.agreementBlockReason([it0({ status: "pending_approval" })])).toMatch(/ยังเป็นร่าง/)
+    expect(Pay.agreementBlockReason([it0({ lines: 0 })])).toMatch(/ข้าวหอม ยังไม่มีคอร์ส/)
+    expect(Pay.agreementBlockReason([it0({ klasses: 0 })])).toMatch(/ยังไม่เลือกคลาส/)
+    expect(Pay.agreementBlockReason([it0({ line: false })])).toMatch(/ยังไม่เชื่อม LINE/)
+    expect(Pay.agreementBlockReason([{ ...it0({}), family: null }])).toMatch(/ยังไม่ผูกครอบครัว/)
+    // a set: one child without a course holds the whole set
+    expect(Pay.agreementBlockReason([it0({}), it0({ lines: 0 })])).toMatch(/ยังไม่มีคอร์ส/)
+  })
+})
+
+describe("delete and merge invoices without a running number (owner 2026-11-24)", () => {
+  const inv = (status: string, number: string | null = null, payments: unknown[] = [], branchId = "b1") => ({ status, number, payments, branchId }) as never
+  it("only an invoice with no running number can be deleted", () => {
+    expect(Pay.canDeleteInvoice(inv("draft")).ok).toBe(true)
+    expect(Pay.canDeleteInvoice(inv("pending_approval")).ok).toBe(true)
+    expect(Pay.canDeleteInvoice(inv("approved")).ok).toBe(true) // approved, number not issued yet
+    expect(Pay.canDeleteInvoice(inv("approved", "INV-1")).ok).toBe(false)
+    expect(Pay.canDeleteInvoice(inv("sent", "INV-1")).ok).toBe(false)
+    expect(Pay.canDeleteInvoice(inv("paid", "INV-1", [{}])).ok).toBe(false)
+    expect(Pay.canDeleteInvoice(inv("void")).ok).toBe(false)
+  })
+  it("merge into a set: no running number anywhere, one family, one branch, at least two", () => {
+    const fam = ["f1", "f1"]
+    expect(Pay.canMergeInvoices([inv("draft"), inv("pending_approval")], [], fam).ok).toBe(true) // a draft and a created one can merge
+    expect(Pay.canMergeInvoices([inv("draft")], [], ["f1"]).ok).toBe(false)
+    expect(Pay.canMergeInvoices([inv("draft"), inv("approved", "INV-1")], [], fam).ok).toBe(false)
+    expect(Pay.canMergeInvoices([inv("draft"), inv("draft")], [inv("sent", "INV-2")], fam).ok).toBe(false) // a numbered one already in the set blocks it
+    expect(Pay.canMergeInvoices([inv("draft"), inv("draft")], [], ["f1", "f2"]).ok).toBe(false)
+    expect(Pay.canMergeInvoices([inv("draft"), inv("draft", null, [], "b2")], [], fam).ok).toBe(false)
+    expect(Pay.canMergeInvoices([inv("draft"), inv("draft")], [], ["f1", undefined]).ok).toBe(false) // a child with no family
+  })
+})

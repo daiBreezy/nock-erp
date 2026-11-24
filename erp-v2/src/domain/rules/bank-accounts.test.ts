@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { BankAccountEntry, Branch } from "../types"
-import { NA_MAIN_ID, NA_QR, applyBankAccounts, bankAccountFor, bankConflict, bankScopeLabel, defaultBankAccounts, validateBankEntry, withNaQr } from "./bank-accounts"
+import { NA_MAIN_ID, NA_QR, applyBankAccounts, bankDeleteImpact, billingBlockReason, invoiceBankStage, withBankSnapshots, bankAccountFor, bankConflict, bankScopeLabel, defaultBankAccounts, validateBankEntry, withNaQr } from "./bank-accounts"
 
 const acct = (bank: string, extra: Partial<Branch["bankAccount"]> = {}) => ({ bank, branchName: "", name: "บจก.", number: "123-4", ...extra })
 const br = (id: string, brand: Branch["brand"], bank = "เก่า") => ({ id, name: id, brand, bankAccount: acct(bank) }) as unknown as Branch
@@ -61,5 +61,46 @@ describe("central bank accounts (owner 2026-11-24)", () => {
     expect(bankScopeLabel(entry("e", { kind: "brand", brands: ["nockacademy", "liclass"] }), branches)).toMatch(/ทุกธุรกิจ/)
     expect(bankScopeLabel(entry("e", { kind: "branch", branchIds: ["a", "b", "c"] }), branches)).toBe("ทุกสาขา")
     expect(bankScopeLabel(entry("e", { kind: "branch", branchIds: ["a"] }), branches)).toBe("a")
+  })
+
+  describe("deleting an account (owner 2026-11-24)", () => {
+    const inv = (branchId: string, status: string, extra: Record<string, unknown> = {}) => ({ branchId, status, number: status === "draft" || status === "pending_approval" ? null : "INV-1", payments: [], ...extra }) as never
+    const brandNA = entry("na", { kind: "brand", brands: ["nockacademy"] }, "NA-bank")
+    const forB = entry("b-only", { kind: "branch", branchIds: ["b"] }, "B-bank")
+    it("a branch that loses its account is cleared and cannot bill; one with a replacement takes it", () => {
+      const withAcct = applyBankAccounts(branches, [brandNA, forB]).branches // a = NA-bank, b = B-bank (branch beats brand)
+      expect(withAcct.map((b) => b.bankAccount.bank)).toEqual(["NA-bank", "B-bank", "เก่า"])
+      const r = applyBankAccounts(withAcct, [forB], [brandNA, forB]) // delete the NA brand account
+      expect(r.branches[0].bankAccount.number).toBe("") // a: nothing else targets it → cleared
+      expect(billingBlockReason(r.branches[0])).toMatch(/ยังไม่มีบัญชีรับเงิน/)
+      expect(r.branches[1].bankAccount.bank).toBe("B-bank") // b still has its own
+      expect(r.branches[2].bankAccount.bank).toBe("เก่า") // c was never targeted: left alone
+      expect(r.cleared.map((b) => b.id)).toEqual(["a"])
+    })
+    it("each invoice stage: drafts follow, pending / issued wait, sent or paid are frozen, void ignored", () => {
+      expect(invoiceBankStage(inv("a", "draft"))).toBe("draft")
+      expect(invoiceBankStage(inv("a", "pending_approval"))).toBe("pending")
+      expect(invoiceBankStage(inv("a", "approved", { number: null }))).toBe("pending")
+      expect(invoiceBankStage(inv("a", "approved"))).toBe("issued")
+      expect(invoiceBankStage(inv("a", "approved", { payments: [{ id: "p" }] }))).toBe("frozen")
+      expect(invoiceBankStage(inv("a", "sent"))).toBe("frozen")
+      expect(invoiceBankStage(inv("a", "paid"))).toBe("frozen")
+      expect(invoiceBankStage(inv("a", "void"))).toBeNull()
+    })
+    it("the impact is shown before deleting: branches, replacement or none, invoice counts", () => {
+      const invoices = [inv("a", "draft"), inv("a", "draft"), inv("a", "pending_approval"), inv("a", "approved"), inv("a", "sent"), inv("a", "void")]
+      const imp = bankDeleteImpact(brandNA, [brandNA, forB], branches, invoices)
+      expect(imp.map((i) => i.branch.id)).toEqual(["a"]) // b uses its own branch-level account, c is Liclass
+      expect(imp[0]).toMatchObject({ lost: true, draft: 2, pending: 1, issued: 1, frozen: 1 })
+      const two = bankDeleteImpact(brandNA, [brandNA, entry("na2", { kind: "brand", brands: ["nockacademy"] })], branches, [])
+      expect(two.every((i) => i.lost === false || i.replacement)).toBe(true)
+    })
+    it("invoices already sent / paid keep the account they had (saved data gets the branch's account as it is)", () => {
+      const bs = [br("a", "nockacademy", "ธนาคาร-A")]
+      const r = withBankSnapshots({ branches: bs, invoices: [inv("a", "sent"), inv("a", "draft"), inv("a", "paid", { bankSnapshot: { bank: "เดิม" } })] as never })
+      expect((r.invoices[0] as never as { bankSnapshot: { bank: string } }).bankSnapshot.bank).toBe("ธนาคาร-A")
+      expect((r.invoices[1] as never as { bankSnapshot?: unknown }).bankSnapshot).toBeUndefined()
+      expect((r.invoices[2] as never as { bankSnapshot: { bank: string } }).bankSnapshot.bank).toBe("เดิม")
+    })
   })
 })

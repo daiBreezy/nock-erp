@@ -79,9 +79,11 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
     return { n, dark: Array.from({ length: n * n }, (_, i) => [i % n, Math.floor(i / n)] as const).filter(([x, y]) => q.isDark(y, x)) }
   }
   const qrCells = qrOf(branch.lineOa?.addFriendUrl)
+  // owner 2026-11-24: an invoice that has left the office prints the account it was sent with; before that, the branch's current account
+  const bank = (kind === "invoice" ? inv?.bankSnapshot : undefined) ?? branch.bankAccount
   // owner 2026-11-24: an uploaded QR image (System › การเงิน › Bank Account) is printed as it is; otherwise the PromptPay QR is generated with the amount
-  const qrImg = kind === "invoice" ? branch.bankAccount.qrImage : undefined
-  const payQr = kind === "invoice" && !qrImg ? qrOf(branch.bankAccount.promptPayId ? Doc.promptPayPayload(branch.bankAccount.promptPayId, total) : null) : null
+  const qrImg = kind === "invoice" ? bank.qrImage : undefined
+  const payQr = kind === "invoice" && !qrImg ? qrOf(bank.promptPayId ? Doc.promptPayPayload(bank.promptPayId, total) : null) : null
   const rows: (typeof items[number] | null)[] = [...items, ...Array.from({ length: 0 }, () => null)]
 
   return (
@@ -172,7 +174,7 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
         <section className="grid grid-cols-[1fr_15rem] border-x border-b border-neutral-700">
           <div className="p-2">
             {/* payment QR on the left, the bank account beside it on the same line */}
-            {kind === "invoice" && (payQr || qrImg || branch.bankAccount.number) && (
+            {kind === "invoice" && (payQr || qrImg || bank.number) && (
               <div className="flex items-start gap-3">
                 {qrImg && (
                   // eslint-disable-next-line @next/next/no-img-element -- data URL, printed as it is
@@ -186,9 +188,9 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
                 )}
                 {/* beside the QR, top to bottom: the bank account, then the scan-to-pay sub text */}
                 <div className="flex min-h-[26mm] flex-col justify-between">
-                  {branch.bankAccount.number && (
+                  {bank.number && (
                     <p className="whitespace-pre-line text-2xs">
-                      {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
+                      {L.bank}：{bank.bank}{"\n"}{bank.branchName ? `${bank.branchName}\n` : ""}{L.accountNo}：{bank.number}{"\n"}{L.accountName}：{bank.name}
                     </p>
                   )}
                   {(payQr || qrImg) && (
