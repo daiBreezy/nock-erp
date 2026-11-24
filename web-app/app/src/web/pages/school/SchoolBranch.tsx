@@ -553,8 +553,8 @@ export default function SchoolBranch() {
         <div className="grid gap-4 sm:grid-cols-2">
           {branch.facebookPosts.slice(0, 2).map((p, i) => (
             <Card key={i} asChild className="overflow-hidden rounded-card border-line shadow-none">
-              <article>
-                <div className="flex items-center gap-3 px-4 pt-4">
+              <article className="flex h-full flex-col">
+                <div className="flex shrink-0 items-center gap-3 px-4 pt-4">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1877F2] text-white">
                     <FacebookIcon size={22} />
                   </span>
@@ -563,9 +563,12 @@ export default function SchoolBranch() {
                     <p className="text-[12px] text-ink-mute">{p.date}</p>
                   </div>
                 </div>
-                <p className="whitespace-pre-line px-4 py-3 text-[14.5px] leading-relaxed text-ink">{p.text}</p>
-                {p.image && <img src={p.image} alt="" className="max-h-80 w-full object-cover" />}
-                <div className="flex items-center gap-4 border-t border-line px-4 py-2.5 text-[13px] text-ink-mute">
+                {/* กล่องข้อความยืดเต็มพื้นที่ที่เหลือ → รูปของทุกการ์ดเริ่มบรรทัดเดียวกันเสมอ · ข้อความสูงสุด 3 บรรทัด ยาวกว่านั้นตัดด้วย … (padding อยู่กล่องนอก ไม่งั้นบรรทัดถัดไปโผล่ใน padding) */}
+                <div className="flex-1 px-4 py-3">
+                  <p className="line-clamp-3 whitespace-pre-line text-[14.5px] leading-relaxed text-ink">{p.text}</p>
+                </div>
+                {p.image && <img src={p.image} alt="" className="aspect-video w-full shrink-0 object-cover" />}
+                <div className="flex shrink-0 items-center gap-4 border-t border-line px-4 py-2.5 text-[13px] text-ink-mute">
                   <span className="flex items-center gap-1.5"><ThumbsUp size={15} /> {p.likes}</span>
                   <span className="flex items-center gap-1.5"><MessageCircle size={15} /> {p.comments}</span>
                   <a href={p.url} target="_blank" rel="noopener noreferrer" className="ml-auto font-semibold text-brand hover:underline">ดูโพสต์</a>
