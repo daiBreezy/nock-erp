@@ -1,7 +1,7 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
 import { addMonths, endOfMonth, fmtDate, fmtMoney, fromMinutes, monthKey, nextWeekday, addDays, toMinutes, weekdayOf } from "../dates"
-import type { AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, PriceUnit, Result, Role, Staff } from "../types"
+import type { AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, Payment, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { seatTotal, seatWindows } from "./seats"
 import { requireForceRemark } from "./notifications"
@@ -639,11 +639,36 @@ export const invoicesOnReceipt = (receiptNumber: string, all: Invoice[]) =>
   all.filter((x) => x.status === "paid" && x.receiptNumber === receiptNumber).sort((a, b) => (a.number ?? "").localeCompare(b.number ?? ""))
 
 /** BL-18: the person who recorded a payment cannot confirm it. */
-export function canConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID }, user: Staff, branchId: ID): Result {
+/** owner 2026-11-24: every transfer carries the Ref ID printed on its pay slip — it ties the invoice to the slip (the real system reads it with OCR; staff can type it when needed).
+ *  Without it the amount cannot be confirmed. Cash has no slip, so no Ref ID. */
+export const PAYMENT_REF_MISSING = "ใส่เลขอ้างอิง (Ref ID) จากสลิปก่อน — ใช้ผูกสลิปกับใบแจ้งหนี้"
+export const normalizeRef = (r: string) => r.replace(/\s+/g, "").toUpperCase()
+export function paymentRefError(p: { method?: Payment["method"]; reference?: string }): string | null {
+  return p.method === "transfer" && !p.reference?.trim() ? PAYMENT_REF_MISSING : null
+}
+/** is this Ref ID already on another payment? (one slip = one Ref ID; payments of the same slip group share it) */
+export function refInUse(reference: string, invoices: Pick<Invoice, "status" | "payments">[], except?: { paymentId?: ID; groupId?: ID }): boolean {
+  const key = normalizeRef(reference)
+  if (!key) return false
+  return invoices.some((i) => i.status !== "void" && i.payments.some((p) => p.method === "transfer" && normalizeRef(p.reference ?? "") === key && p.id !== except?.paymentId && !(except?.groupId && p.groupId === except.groupId)))
+}
+
+export function canConfirmPayment(p: { recordedBy: ID; confirmedBy?: ID; method?: Payment["method"]; reference?: string }, user: Staff, branchId: ID): Result {
   if (p.confirmedBy) return { ok: false, error: "ยืนยันแล้ว" }
   if (p.recordedBy === user.id) return { ok: false, error: "คนบันทึกยืนยันยอดเงินของตัวเองไม่ได้" }
   if (!user.roles.some((r) => APPROVER_ROLES.includes(r))) return { ok: false, error: "บทบาทของคุณยืนยันยอดเงินไม่ได้" }
   if (!inBranch(user, branchId)) return { ok: false, error: "ยืนยันยอดเงินได้เฉพาะสาขาตัวเอง" }
+  const noRef = paymentRefError(p)
+  if (noRef) return { ok: false, error: noRef }
+  return { ok: true, value: undefined }
+}
+
+/** owner 2026-11-24: reject a recorded payment that is not confirmed yet (wrong amount, wrong or unreadable slip) — needs a reason; the recorder then records it again */
+export function canRejectPayment(p: { confirmedBy?: ID }, user: Staff, branchId: ID, reason: string): Result {
+  if (p.confirmedBy) return { ok: false, error: "ยืนยันยอดแล้ว — ปฏิเสธไม่ได้" }
+  if (!user.roles.some((r) => APPROVER_ROLES.includes(r))) return { ok: false, error: "บทบาทของคุณปฏิเสธรายการรับเงินไม่ได้" }
+  if (!inBranch(user, branchId)) return { ok: false, error: "ปฏิเสธได้เฉพาะรายการของสาขาตัวเอง" }
+  if (!reason.trim()) return { ok: false, error: "ใส่เหตุผลที่ปฏิเสธ" }
   return { ok: true, value: undefined }
 }
 

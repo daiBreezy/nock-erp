@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { uid } from "@/data/seed"
-import { BRAND_LABEL, bankScopeLabel, validateBankEntry } from "@/domain/rules/bank-accounts"
+import { BRAND_LABEL, NA_MAIN_ID, bankScopeLabel, validateBankEntry } from "@/domain/rules/bank-accounts"
 import { promptPayKind } from "@/domain/rules/documents"
 import type { BankAccountEntry, Brand } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -66,7 +66,7 @@ export function BankAccounts() {
               ) : (
                 <>
                   <Button size="icon-sm" variant="ghost" aria-label={tx("แก้บัญชี")} title={tx("แก้บัญชี")} onClick={() => setEditing(e)}><PencilIcon /></Button>
-                  <Button size="icon-sm" variant="ghost" aria-label={tx("ลบบัญชี")} title={tx("ลบบัญชี")} onClick={() => setDeleting(e.id)}><Trash2Icon /></Button>
+                  {e.id !== NA_MAIN_ID && <Button size="icon-sm" variant="ghost" aria-label={tx("ลบบัญชี")} title={tx("ลบบัญชี")} onClick={() => setDeleting(e.id)}><Trash2Icon /></Button>}
                 </>
               )}
             </li>
@@ -132,9 +132,15 @@ function BankForm({ entry, others, onClose, onSave }: { entry: BankAccountEntry;
             ? <img src={a.qrImage} alt="QR" className="size-24 rounded-xl border bg-white object-contain" />
             : <span className="grid size-24 place-items-center rounded-xl border border-dashed text-muted-foreground"><QrCodeIcon className="size-6" /></span>}
           <div className="space-y-1.5">
-            <Button size="sm" variant="outline" onClick={() => file.current?.click()}><ImagePlusIcon /> {a.qrImage ? tx("เปลี่ยนรูป QR") : tx("อัปโหลด QR")}</Button>
-            {a.qrImage && <Button size="sm" variant="ghost" className="text-danger" onClick={() => setA({ qrImage: undefined })}>{tx("เอา QR ออก")}</Button>}
-            <p className="max-w-64 text-xs text-muted-foreground">{tx("ใช้รูป QR ที่อัปโหลดบนใบแจ้งหนี้ — ถ้าไม่อัปโหลด ระบบสร้าง QR จาก PromptPay ID (พร้อมยอดเงิน) ให้")}</p>
+            {d.id === NA_MAIN_ID ? (
+              <p className="max-w-64 text-xs text-muted-foreground">{tx("QR ประจำบัญชีหลัก Nockacademy — ล็อกไว้ ใช้บนใบแจ้งหนี้ตลอด (เปลี่ยน/ลบไม่ได้)")}</p>
+            ) : (
+              <>
+                <Button size="sm" variant="outline" onClick={() => file.current?.click()}><ImagePlusIcon /> {a.qrImage ? tx("เปลี่ยนรูป QR") : tx("อัปโหลด QR")}</Button>
+                {a.qrImage && <Button size="sm" variant="ghost" className="text-danger" onClick={() => setA({ qrImage: undefined })}>{tx("เอา QR ออก")}</Button>}
+                <p className="max-w-64 text-xs text-muted-foreground">{tx("ใช้รูป QR ที่อัปโหลดบนใบแจ้งหนี้ — ถ้าไม่อัปโหลด ระบบสร้าง QR จาก PromptPay ID (พร้อมยอดเงิน) ให้")}</p>
+              </>
+            )}
           </div>
           <Input ref={file} type="file" accept="image/*" hidden onChange={async (e) => {
             const f = e.target.files?.[0]

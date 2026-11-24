@@ -39,7 +39,7 @@ const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIc
   // owner 2026-10-13: subjects and holidays are different topics — one tab each
   { id: "subjects", label: "วิชา", icon: BookOpenIcon, body: () => <SubjectCatalog /> },
   { id: "holidays", label: "วันหยุด", icon: CalendarDaysIcon, body: () => <GlobalHolidays /> },
-  { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <><CreditCourseToggle /><BankAccounts /><InvoiceMemos /></> },
+  { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <><BankAccounts /><InvoiceMemos /><CreditCourseToggle /></> },
   { id: "customers", label: "ลูกค้าและ CRM", icon: UsersIcon, body: () => <><LossReasons /><YearlySurvey /></> },
   // owner 2026-10-22: the form builder — the company makes its own forms and tunes the ERP's
   { id: "forms", label: "ฟอร์ม", icon: ClipboardListIcon, body: () => <FormsList /> },
@@ -103,9 +103,7 @@ function CreditCourseToggle() {
   const on = sys.settings.creditCourse === true
   return (
     <SettingsCard title={tx("Credit Course (เรียนก่อนจ่าย)")} hint={tx("เปิดให้ Admin เพิ่มคอร์สให้นักเรียนเรียนได้ทันทีโดยยังไม่ออกใบแจ้งหนี้ — ยอดค้างเป็น Credit และนักเรียนติดแท็ก Credit Course จนกว่าใบแจ้งหนี้จะชำระครบ · ปิดแล้วเพิ่ม Credit ใหม่ไม่ได้ (Credit ที่ค้างอยู่ยังออกใบและเก็บเงินได้ตามปกติ)")}
-      action={<Switch checked={on} onCheckedChange={(v) => report(saveSystem({ ...sys, settings: { ...sys.settings, creditCourse: v } }), v ? tx("เปิด Credit Course แล้ว") : tx("ปิด Credit Course แล้ว"))} aria-label={tx("เปิด/ปิด Credit Course")} />}>
-      <p className="text-sm text-muted-foreground">{on ? tx("เปิดอยู่ — Admin เพิ่มคอร์สแบบ Credit ได้จากหน้านักเรียน") : tx("ปิดอยู่ — ไม่มีปุ่มเพิ่มคอร์ส (Credit) และเพิ่มไม่ได้ทุกสาขา")}</p>
-    </SettingsCard>
+      action={<Switch checked={on} onCheckedChange={(v) => report(saveSystem({ ...sys, settings: { ...sys.settings, creditCourse: v } }), v ? tx("เปิด Credit Course แล้ว") : tx("ปิด Credit Course แล้ว"))} aria-label={tx("เปิด/ปิด Credit Course")} />} />
   )
 }
 

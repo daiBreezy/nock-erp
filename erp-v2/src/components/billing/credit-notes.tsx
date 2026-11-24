@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CheckIcon, ImageIcon, ReceiptIcon, Undo2Icon, UploadIcon, WalletIcon } from "lucide-react"
+import { CheckIcon, ImageIcon, ReceiptIcon, UploadIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { ForceApprove } from "@/components/app/force-approve"
 import { Button } from "@/components/ui/button"
@@ -24,26 +24,22 @@ import { useShallow } from "zustand/react/shallow"
 import { useStore } from "@/store/store"
 
 /** Credit Notes of one paid invoice: create (refund / keep as credit), approve (maker–checker), record the transfer back. */
-export function CreditNotes({ inv }: { inv: Invoice }) {
+/** owner 2026-11-24: the Refund button lives in the panel's ⋯ menu — this section only lists the credit notes already made (and hosts the create dialog the menu opens) */
+export function CreditNotes({ inv, creating, onCreatingChange }: { inv: Invoice; creating: boolean; onCreatingChange: (v: boolean) => void }) {
   const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
   const notes = useStore((s) => s.creditNotes).filter((n) => n.invoiceId === inv.id)
-  const [creating, setCreating] = useState(false)
   const manage = can(me, "billing.manage")
   const who = (id?: string) => staff.find((x) => x.id === id)?.nickname ?? "—"
-  if (inv.status !== "paid" && !notes.length) return null
+  if (!notes.length && !creating) return null
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold">คืนเงิน / ลดหนี้</h3>
-        {manage && inv.status === "paid" && <Button size="xs" variant="outline" className="ml-auto" onClick={() => setCreating(true)}><Undo2Icon /> คืนเงิน (Refund)</Button>}
-      </div>
-      {!notes.length && <p className="text-xs text-muted-foreground">ใบแจ้งหนี้และใบเสร็จที่จ่ายแล้วแก้ไม่ได้ — การคืนเงินหรือเก็บเป็นเครดิตทำเป็นใบลดหนี้ (Credit Note) อ้างถึงใบนี้</p>}
+    <section className="space-y-2 border-t pt-4">
+      <h3 className="text-sm font-semibold">คืนเงิน / ลดหนี้</h3>
       {notes.map((n) => (
         <NoteCard key={n.id} n={n} who={who} manage={manage} />
       ))}
-      {creating && <CreateCreditNote inv={inv} onClose={() => setCreating(false)} />}
+      {creating && <CreateCreditNote inv={inv} onClose={() => onCreatingChange(false)} />}
     </section>
   )
 }

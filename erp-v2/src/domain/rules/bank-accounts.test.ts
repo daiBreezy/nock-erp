@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { BankAccountEntry, Branch } from "../types"
-import { applyBankAccounts, bankAccountFor, bankConflict, bankScopeLabel, defaultBankAccounts, validateBankEntry } from "./bank-accounts"
+import { NA_MAIN_ID, NA_QR, applyBankAccounts, bankAccountFor, bankConflict, bankScopeLabel, defaultBankAccounts, validateBankEntry, withNaQr } from "./bank-accounts"
 
 const acct = (bank: string, extra: Partial<Branch["bankAccount"]> = {}) => ({ bank, branchName: "", name: "บจก.", number: "123-4", ...extra })
 const br = (id: string, brand: Branch["brand"], bank = "เก่า") => ({ id, name: id, brand, bankAccount: acct(bank) }) as unknown as Branch
@@ -44,6 +44,18 @@ describe("central bank accounts (owner 2026-11-24)", () => {
     expect(d.map((e) => e.id)).toEqual(["bk_nockacademy", "bk_liclass"])
     expect(d[0].account.promptPayId).toBe("0205557003965")
     expect(d[1].account.promptPayId).toBeUndefined()
+    // the Nockacademy main account always carries the saved QR file; Liclass has none
+    expect(d[0].account.qrImage).toBe(NA_QR)
+    expect(d[1].account.qrImage).toBeUndefined()
+  })
+  it("the Nockacademy main account is locked to its saved QR — old uploads are replaced", () => {
+    const main = defaultBankAccounts(branches.map((b) => ({ ...b, bankAccount: acct("N") })))[0]
+    expect(main.id).toBe(NA_MAIN_ID)
+    expect(validateBankEntry({ ...main, account: { ...main.account, qrImage: undefined } }, [], branches)).toMatch(/ใช้ QR ประจำบัญชี/)
+    expect(validateBankEntry({ ...main, account: { ...main.account, qrImage: "data:image/png;base64,AA" } }, [], branches)).toMatch(/ใช้ QR ประจำบัญชี/)
+    // an old upload (or none) is replaced by the saved QR file
+    expect(withNaQr([{ ...main, account: { ...main.account, qrImage: "data:image/jpeg;base64,AA" } }])[0].account.qrImage).toBe(NA_QR)
+    expect(withNaQr([{ ...main, account: { ...main.account, qrImage: undefined } }])[0].account.qrImage).toBe(NA_QR)
   })
   it("says where an account goes", () => {
     expect(bankScopeLabel(entry("e", { kind: "brand", brands: ["nockacademy", "liclass"] }), branches)).toMatch(/ทุกธุรกิจ/)

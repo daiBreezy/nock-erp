@@ -1604,6 +1604,8 @@ export interface Invoice {
   /** set only when staff pressed "notify the parent" after voiding — voiding itself never messages anyone */
   voidNotifiedAt?: string
   payments: Payment[]
+  /** owner 2026-11-24: payments the approver rejected (wrong amount / wrong slip) — kept as history, they no longer count toward the invoice */
+  rejectedPayments?: RejectedPayment[]
   receiptNumber?: string
   /** owner 2026-11-23: lines of the receipt shown as ONE renamed line (Course A 4,500 + Bus 500 = "Course + Bus" 5,000).
    *  The invoice itself and the accounting export keep the original lines — only the printed receipt changes.
@@ -1612,6 +1614,8 @@ export interface Invoice {
   /** the receipt message to the parent, pushed automatically when the invoice becomes paid */
   receiptDelivery?: LineDelivery
 }
+
+export interface RejectedPayment extends Payment { rejectedBy: ID; rejectedAt: string; reason: string }
 
 export interface ReceiptMerge { label: string; keys: string[] }
 

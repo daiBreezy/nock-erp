@@ -6,6 +6,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
+import { withDemoSlips } from "@/data/demo-slip"
 import { buildExamDemo } from "@/data/exam-demo"
 import { addDays, at, fmtDate, TH_DAYS_FULL, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
@@ -326,6 +327,12 @@ type Store = DB & UIState & {
   recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string; slip?: string; remark?: string }) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
   confirmPayment: (invoiceId: ID, paymentId: ID, forceRemark?: string) => Result<{ paid: boolean }>
+  /** owner 2026-11-24: type / fix the Ref ID of a pay slip that is not confirmed yet (the real system reads it with OCR) — a slip shared by siblings updates every invoice on it */
+  setPaymentReference: (invoiceId: ID, paymentId: ID, reference: string) => Result
+  /** owner 2026-11-24: fix a recorded payment that is not confirmed yet — method, date, amount, Ref ID, remark, or change / remove the slip image (a slip shared by siblings: only Ref ID / slip / date / remark, for all of them) */
+  editPayment: (invoiceId: ID, paymentId: ID, patch: { method?: "transfer" | "cash"; amount?: number; reference?: string; paidOn?: DateStr; remark?: string; slip?: string | null }) => Result
+  /** owner 2026-11-24: the approver rejects an unconfirmed payment (reason required) — it leaves the invoice and stays as history */
+  rejectPayment: (invoiceId: ID, paymentId: ID, reason: string) => Result
   /** owner 2026-11-19: Referral points already paid out (1 point per referred family, shared by the referrer's teachers) */
   referralAwards: Ref.RefAward[]
   /** owner 2026-11-19: yearly grade changes already done, per branch */
@@ -1467,11 +1474,14 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      saveBankAccount: (entry) => {
+      saveBankAccount: (entry0) => {
+        let entry = entry0
         const s = get()
         const perm = requirePerm(s.me(), "settings.manage")
         if (!perm.ok) return perm
         const list = s.system.bankAccounts ?? []
+        // the Nockacademy main account is locked to its saved QR
+        if (entry.id === Bank.NA_MAIN_ID) entry = { ...entry, account: { ...entry.account, qrImage: Bank.NA_QR } }
         const err = Bank.validateBankEntry(entry, list, s.branches)
         if (err) return fail(err)
         const next = list.some((x) => x.id === entry.id) ? list.map((x) => (x.id === entry.id ? entry : x)) : [...list, entry]
@@ -1487,6 +1497,7 @@ export const useStore = create<Store>()(
         const list = s.system.bankAccounts ?? []
         const gone = list.find((x) => x.id === id)
         if (!gone) return fail("ไม่พบบัญชีนี้")
+        if (gone.id === Bank.NA_MAIN_ID) return fail("บัญชีหลัก Nockacademy ลบไม่ได้ — แก้ไขได้")
         // the branches keep the account they already have (a branch nobody targets is left as it is); the others take the next account that targets them
         const next = list.filter((x) => x.id !== id)
         const applied = Bank.applyBankAccounts(s.branches, next)
@@ -3261,8 +3272,66 @@ export const useStore = create<Store>()(
         const total = Bill.invoiceTotals(inv, ctxOf(s, inv.branchId)).total
         const r = Bill.canRecordPayment(inv, p.amount, total)
         if (!r.ok) return r
-        const pay = { id: uid("pay"), ...p, recordedBy: s.userId, recordedAt: s.now().toISOString() }
+        // owner 2026-11-24: a transfer always carries its slip's Ref ID — and one Ref ID belongs to one slip
+        const refErr = Bill.paymentRefError(p)
+        if (refErr) return fail(refErr)
+        if (p.method === "transfer" && Bill.refInUse(p.reference, s.invoices)) return fail("เลขอ้างอิงนี้ถูกใช้กับสลิปอื่นแล้ว — ตรวจเลขจากสลิปอีกครั้ง")
+        const pay = { id: uid("pay"), ...p, reference: p.reference.trim(), recordedBy: s.userId, recordedAt: s.now().toISOString() }
         set({ invoices: s.invoices.map((x) => (x.id === id ? { ...x, payments: [...x.payments, pay] } : x)) })
+        return OK
+      },
+
+      setPaymentReference: (invoiceId, paymentId, reference) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const pay = s.invoices.find((x) => x.id === invoiceId)?.payments.find((p) => p.id === paymentId)
+        if (!pay) return fail("ไม่พบรายการรับเงิน")
+        if (pay.confirmedBy) return fail("ยืนยันยอดแล้ว — แก้เลขอ้างอิงไม่ได้")
+        const ref = reference.trim()
+        if (!ref) return fail(Bill.PAYMENT_REF_MISSING)
+        if (Bill.refInUse(ref, s.invoices, { paymentId, groupId: pay.groupId })) return fail("เลขอ้างอิงนี้ถูกใช้กับสลิปอื่นแล้ว — ตรวจเลขจากสลิปอีกครั้ง")
+        // a slip shared by siblings is one slip — every unconfirmed payment on it takes the same Ref ID
+        set({ invoices: s.invoices.map((i) => ({ ...i, payments: i.payments.map((p) => ((p.id === paymentId || (pay.groupId && p.groupId === pay.groupId && !p.confirmedBy)) ? { ...p, reference: ref } : p)) })) })
+        return OK
+      },
+
+      editPayment: (invoiceId, paymentId, patch) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === invoiceId)
+        const pay = inv?.payments.find((p) => p.id === paymentId)
+        if (!inv || !pay) return fail("ไม่พบรายการรับเงิน")
+        if (pay.confirmedBy) return fail("ยืนยันยอดแล้ว — แก้ไม่ได้")
+        if (pay.groupId && (patch.method !== undefined && patch.method !== pay.method || patch.amount !== undefined && patch.amount !== pay.amount)) return fail("สลิปเดียวหลายใบ — เปลี่ยนวิธีชำระ/ยอดไม่ได้ ให้ปฏิเสธรายการแล้วบันทึกใหม่")
+        const next = { ...pay, ...(patch.method ? { method: patch.method } : {}), ...(patch.amount !== undefined ? { amount: patch.amount } : {}), ...(patch.reference !== undefined ? { reference: patch.reference.trim() } : {}), ...(patch.paidOn ? { paidOn: patch.paidOn } : {}), ...(patch.remark !== undefined ? { remark: patch.remark.trim() || undefined } : {}), ...(patch.slip !== undefined ? { slip: patch.slip ?? undefined } : {}) }
+        if (!pay.groupId) {
+          const total = Bill.invoiceTotals(inv, ctxOf(s, inv.branchId)).total
+          const r = Bill.canRecordPayment({ ...inv, payments: inv.payments.filter((p) => p.id !== paymentId) }, next.amount, total)
+          if (!r.ok) return r
+        }
+        const refErr = Bill.paymentRefError(next)
+        if (refErr) return fail(refErr)
+        if (next.method === "transfer" && Bill.refInUse(next.reference, s.invoices, { paymentId, groupId: pay.groupId })) return fail("เลขอ้างอิงนี้ถูกใช้กับสลิปอื่นแล้ว — ตรวจเลขจากสลิปอีกครั้ง")
+        // a shared slip is one slip: Ref ID / image / date / remark go to every unconfirmed payment on it
+        const shared = { reference: next.reference, slip: next.slip, paidOn: next.paidOn, remark: next.remark }
+        set({ invoices: s.invoices.map((i) => ({ ...i, payments: i.payments.map((p) => (p.id === paymentId ? next : pay.groupId && p.groupId === pay.groupId && !p.confirmedBy ? { ...p, ...shared } : p)) })) })
+        return OK
+      },
+
+      rejectPayment: (invoiceId, paymentId, reason) => {
+        const s = get()
+        const inv = s.invoices.find((x) => x.id === invoiceId)
+        const pay = inv?.payments.find((p) => p.id === paymentId)
+        if (!inv || !pay) return fail("ไม่พบรายการรับเงิน")
+        const members = pay.groupId ? s.invoices.flatMap((i) => i.payments.filter((p) => p.groupId === pay.groupId).map((p) => ({ i, p }))) : [{ i: inv, p: pay }]
+        for (const { i, p } of members) { const r = Bill.canRejectPayment(p, s.me(), i.branchId, reason); if (!r.ok) return r }
+        const at = s.now().toISOString()
+        const ids = new Set(members.map((m) => m.p.id))
+        set({ invoices: s.invoices.map((i) => (members.some((m) => m.i.id === i.id)
+          ? { ...i, payments: i.payments.filter((p) => !ids.has(p.id)), rejectedPayments: [...(i.rejectedPayments ?? []), ...i.payments.filter((p) => ids.has(p.id)).map((p) => ({ ...p, rejectedBy: s.userId, rejectedAt: at, reason: reason.trim() }))] }
+          : i)) })
         return OK
       },
 
@@ -3329,10 +3398,13 @@ export const useStore = create<Store>()(
         const rows = invs.map((inv) => ({ inv, familyId: s.students.find((x) => x.id === inv.studentId)?.familyId, owed: Bill.owedOn(inv, Bill.invoiceTotals(inv, ctxOf(s, inv.branchId)).total) }))
         const r = Bill.canRecordGroupPayment(rows, p.amount)
         if (!r.ok) return r
+        const refErr = Bill.paymentRefError(p)
+        if (refErr) return fail(refErr)
+        if (p.method === "transfer" && Bill.refInUse(p.reference, s.invoices)) return fail("เลขอ้างอิงนี้ถูกใช้กับสลิปอื่นแล้ว — ตรวจเลขจากสลิปอีกครั้ง")
         const groupId = uid("pg")
         const at = s.now().toISOString()
         const share = new Map(rows.map((x) => [x.inv.id, x.owed]))
-        set({ invoices: s.invoices.map((x) => (share.has(x.id) ? { ...x, payments: [...x.payments, { id: uid("pay"), ...p, amount: share.get(x.id)!, groupId, recordedBy: s.userId, recordedAt: at }] } : x)) })
+        set({ invoices: s.invoices.map((x) => (share.has(x.id) ? { ...x, payments: [...x.payments, { id: uid("pay"), ...p, reference: p.reference.trim(), amount: share.get(x.id)!, groupId, recordedBy: s.userId, recordedAt: at }] } : x)) })
         log("billing", invs.map((x) => x.studentId), "บันทึกรับเงิน (สลิปเดียว)", `${invs.map((x) => x.number).join(" + ")} · ${fmtMoney(p.amount)}`)
         return OK
       },
@@ -4244,8 +4316,8 @@ export const useStore = create<Store>()(
       skipHydration: true,
       onRehydrateStorage: () => () => idb.enableWrites(),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 126, // 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
-      migrate: (old, from) => withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store)))),
+      version: 128, // 128: demo pay slips on every transfer (kept data, `slip` added) · 127: the Nockacademy main account carries its saved QR image · 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      migrate: (old, from) => withDemoSlips(withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store))))),
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },
@@ -4299,8 +4371,8 @@ function withExamDemo(s: Store): Store {
 /** owner 2026-11-24: saved data from before the central Bank Accounts — one account per business type is made from the branches as they are
  *  (the QR stays on the Nockacademy account only) and sent back to the branches */
 function withBankAccounts(s: Store): Store {
-  if (s.system.bankAccounts) return s
-  const entries = Bank.defaultBankAccounts(s.branches)
+  // owner 2026-11-24: the Nockacademy main account always carries its saved QR (public/brand/na-bank-qr.png)
+  const entries = Bank.withNaQr(s.system.bankAccounts ?? Bank.defaultBankAccounts(s.branches))
   return { ...s, system: { ...s.system, bankAccounts: entries }, branches: Bank.applyBankAccounts(s.branches, entries).branches }
 }
 

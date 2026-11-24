@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx } from "@/lib/i18n"
 
-export function SettingsCard({ title, hint, action, children, className }: { title: string; hint?: string; action?: ReactNode; children: ReactNode; className?: string }) {
+export function SettingsCard({ title, hint, action, children, className }: { title: string; hint?: string; action?: ReactNode; children?: ReactNode; className?: string }) {
   return (
     <section className={cn("rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5", className)}>
-      <div className="mb-3 flex items-start gap-2">
+      <div className={cn("flex items-start gap-2", children && "mb-3")}>
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold">{title}</h2>
           {hint && <p className="text-xs text-muted-foreground">{hint}</p>}

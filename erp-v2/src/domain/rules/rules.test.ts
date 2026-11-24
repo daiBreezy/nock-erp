@@ -4038,3 +4038,26 @@ describe("invoice: create → approve → issue Official number (owner 2026-11-2
     expect(canSend(inv({ status: "approved", number: "INV-1" })).ok).toBe(true)
   })
 })
+
+describe("pay slip Ref ID (owner 2026-11-24)", () => {
+  it("a transfer cannot be confirmed without the Ref ID from its slip; cash needs none", () => {
+    const t = { recordedBy: "x", method: "transfer" as const, reference: "" }
+    expect(Pay.paymentRefError(t)).toMatch(/Ref ID/)
+    expect(Pay.paymentRefError({ ...t, reference: "  " })).toMatch(/Ref ID/)
+    expect(Pay.paymentRefError({ ...t, reference: "014123456789" })).toBeNull()
+    expect(Pay.paymentRefError({ ...t, method: "cash" })).toBeNull()
+    expect(Pay.canConfirmPayment(t, director, "b1").ok).toBe(false)
+    expect(Pay.canConfirmPayment({ ...t, reference: "014123456789" }, director, "b1").ok).toBe(true)
+    // Force skips maker–checker, never the Ref ID
+    expect(Pay.canForceConfirmPayment({ ...t, recordedBy: director.id }, director, "b1", "เหตุผล").ok).toBe(false)
+  })
+  it("one Ref ID belongs to one slip (same slip group excepted)", () => {
+    const inv = (payments: { id: string; reference: string; groupId?: string }[], status: "paid" | "void" = "paid") => ({ status, payments: payments.map((p) => ({ method: "transfer" as const, ...p })) }) as never
+    const list = [inv([{ id: "p1", reference: "AB 123", groupId: "g1" }]), inv([{ id: "p2", reference: "AB 123", groupId: "g1" }]), inv([{ id: "p3", reference: "ZZ9" }], "void")]
+    expect(Pay.refInUse("ab123", list)).toBe(true) // spaces / case do not matter
+    expect(Pay.refInUse("AB123", list, { groupId: "g1" })).toBe(false) // the same slip shared by siblings
+    expect(Pay.refInUse("AB123", list, { paymentId: "p1" })).toBe(true) // p2 still holds it
+    expect(Pay.refInUse("ZZ9", list)).toBe(false) // void invoices do not count
+    expect(Pay.refInUse("", list)).toBe(false)
+  })
+})

@@ -5,7 +5,7 @@ import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import Link from "next/link"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, PencilIcon, MessagesSquareIcon, PlusIcon, SendIcon, UploadIcon, XCircleIcon, UnlinkIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, PencilIcon, MessagesSquareIcon, PlusIcon, SendIcon, UploadIcon, XCircleIcon, UnlinkIcon, Undo2Icon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -32,6 +32,8 @@ import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
 import { DocThumbs, type DocItem } from "./doc-thumbs"
 import { PaySlipDialog } from "./pay-slip-dialog"
+import { PaymentRefInput } from "./payment-ref"
+import { PaymentMenu, RejectedPayments } from "./payment-actions"
 import { IssueReceiptDialog } from "./issue-receipt-dialog"
 import { AddToReceiptDialog } from "./add-to-receipt-dialog"
 import { ReceiptLinesDialog } from "./receipt-lines-dialog"
@@ -122,6 +124,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const [reason, setReason] = useState("")
   const [payOpen, setPayOpen] = useState(!!slipMediaId)
   const [receiptOpen, setReceiptOpen] = useState(false)
+  const [refunding, setRefunding] = useState(false) // owner 2026-11-24: opened from the ⋯ menu
   const [addOpen, setAddOpen] = useState(false) // owner 2026-11-24: pull more invoices onto an issued receipt
   const [linesOpen, setLinesOpen] = useState(false) // owner 2026-11-23: receipt combine list
   // owner 2026-11-20: the PDF asks first when the parent has not confirmed the course summary
@@ -187,19 +190,26 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
     ) : undefined,
   } : null
   // payments + shared-slip receipt grouping live under their own steps (owner 2026-11-05)
-  const paymentsNode = inv.payments.length > 0 ? (
-    <ul className="divide-y rounded-lg border text-sm">
+  const paymentsNode = inv.payments.length > 0 || inv.rejectedPayments?.length ? (
+    <>
+    {inv.payments.length > 0 && <ul className="mt-2.5 divide-y rounded-xl border text-sm">
                   {inv.payments.map((p) => {
                     const c = Bill.canConfirmPayment(p, me, inv.branchId)
                     return (
-                      <li key={p.id} className="flex flex-wrap items-center gap-2 p-2.5">
-                        <span className="font-medium tabular-nums">{fmtMoney(p.amount)}</span>
-                        <span className="text-muted-foreground">{p.method === "cash" ? "เงินสด" : "โอน"} {p.reference && `· ${p.reference}`}</span>
-                        <span className="text-xs text-muted-foreground">บันทึกโดย {who(p.recordedBy)}</span>
-                        {p.groupId && group.length > 1 && <Pill tone="blue">สลิปเดียวกับ {group.filter((x) => x.id !== inv.id).map((x) => `${x.number} ${nick(x.studentId)}`).join(", ")}</Pill>}
-                        <span className="ml-auto">
+                      <li key={p.id} className="space-y-2 p-3">
+                      {/* owner 2026-11-24: amount on top, the details under it, the actions on the right — one clean block per payment */}
+                      <div className="flex items-start gap-3">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <p className="font-semibold tabular-nums">{fmtMoney(p.amount)}</p>
+                          <p className="break-words text-xs text-muted-foreground">{p.method === "cash" ? "เงินสด" : "โอน"}{p.reference && ` · Ref ${p.reference}`}</p>
+                          <p className="text-xs text-muted-foreground">บันทึกโดย {who(p.recordedBy)}</p>
+                          {p.groupId && group.length > 1 && <Pill tone="blue" className="mt-1 whitespace-normal">สลิปเดียวกับ {group.filter((x) => x.id !== inv.id).map((x) => `${x.number} ${nick(x.studentId)}`).join(", ")}</Pill>}
+                        </div>
+                        <span className="flex shrink-0 items-center gap-1">
                           {p.confirmedBy ? (
                             <Pill tone={p.forced ? "amber" : "green"} title={p.forced?.remark}>{p.forced ? "Force · " : ""}ยืนยันโดย {who(p.confirmedBy)}</Pill>
+                          ) : Bill.paymentRefError(p) ? (
+                            <Pill tone="amber" className="whitespace-normal">ต้องมี Ref ID ก่อนยืนยันยอด</Pill>
                           ) : c.ok ? (
                             <Button size="xs" onClick={() => report(act.confirm(inv.id, p.id), (v) => (v.paid ? "ยืนยันแล้ว · ชำระครบ ออกใบเสร็จ + เพิ่มเข้าคลาสแล้ว" : "ยืนยันยอดแล้ว"))}>ยืนยันยอด</Button>
                           ) : Bill.canForceConfirmPayment(p, me, inv.branchId, "x").ok ? (
@@ -207,11 +217,16 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
                           ) : (
                             <Pill tone="amber" className="whitespace-normal">รอคนอื่นยืนยัน</Pill>
                           )}
+                          {!p.confirmedBy && manage && <PaymentMenu invoiceId={inv.id} branchId={inv.branchId} payment={p} />}
                         </span>
+                      </div>
+                        {!p.confirmedBy && Bill.paymentRefError(p) && manage && <PaymentRefInput invoiceId={inv.id} paymentId={p.id} />}
                       </li>
                     )
                   })}
-                </ul>
+                </ul>}
+    <RejectedPayments list={inv.rejectedPayments ?? []} who={who} />
+    </>
   ) : null
   const groupNode = group.length > 1 && group.every((x) => x.status === "paid") && group.some((x) => x.receiptNumber) ? (
     <div className="mt-1.5 space-y-1.5 rounded-lg border p-2.5">
@@ -311,6 +326,30 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const canSendNote = ((inv.status === "approved" && !!inv.number) || inv.status === "sent") && manage
   const noteEditable = manage && inv.status !== "paid" && inv.status !== "void"
   const noteSaved = (inv.noteToParent || "") === note.trim()
+  // owner 2026-11-24: each concern has its own section — the invoice (create → send → receive the money) · the receipt · refund
+  const RECEIPT_STEPS = ["ใบเสร็จ (ออกภายหลังได้)"]
+  const invoiceSteps = steps.filter((x) => !RECEIPT_STEPS.includes(x.label))
+  const receiptSteps = steps.filter((x) => RECEIPT_STEPS.includes(x.label))
+  const stepList = (list: typeof steps) => (
+    <ol>
+      {list.map((s, i) => (
+        <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
+          {/* the line joining this status icon to the next one — it is a stepper */}
+          {i < list.length - 1 && <span aria-hidden className={cn("absolute left-2.5 top-6 -bottom-0.5 w-px -translate-x-1/2", s.state === "done" ? "bg-success" : "bg-border")} />}
+          <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-success text-white" : s.state === "current" ? "bg-info text-white" : s.state === "warn" ? "bg-warning text-white" : "border text-muted-foreground")}>
+            {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium">{s.label}</div>
+            {s.meta && <div className="text-xs text-muted-foreground">{s.meta}</div>}
+            {s.detail && <div className="text-xs text-muted-foreground">{s.detail}</div>}
+            {s.extra}
+          </div>
+          {s.docs && <DocThumbs docs={s.docs} onAdd={s.onAdd} addLabel={s.addLabel} />}
+        </li>
+      ))}
+    </ol>
+  )
   return (
     <>
       <SheetHeader className="shrink-0 border-b pb-3">
@@ -429,25 +468,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold">ขั้นตอน</h3>
-          <ol>
-            {steps.map((s, i) => (
-              <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
-                {/* the line joining this status icon to the next one — it is a stepper */}
-                {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-2.5 top-6 -bottom-0.5 w-px -translate-x-1/2", s.state === "done" ? "bg-success" : "bg-border")} />}
-                <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-success text-white" : s.state === "current" ? "bg-info text-white" : s.state === "warn" ? "bg-warning text-white" : "border text-muted-foreground")}>
-                  {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium">{s.label}</div>
-                  {s.meta && <div className="text-xs text-muted-foreground">{s.meta}</div>}
-                  {s.detail && <div className="text-xs text-muted-foreground">{s.detail}</div>}
-                  {s.extra}
-                </div>
-                {s.docs && <DocThumbs docs={s.docs} onAdd={s.onAdd} addLabel={s.addLabel} />}
-              </li>
-            ))}
-          </ol>
+          <h3 className="mb-2 text-sm font-semibold">ใบแจ้งหนี้ & รับเงิน</h3>
+          {stepList(invoiceSteps)}
         </section>
 
         {/* ---------- next action for the current state ---------- */}
@@ -466,8 +488,13 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         </section>
         )}
 
+        <section className="border-t pt-4">
+          <h3 className="mb-2 text-sm font-semibold">ใบเสร็จ</h3>
+          {stepList(receiptSteps)}
+        </section>
 
-        <CreditNotes inv={inv} />
+
+        <CreditNotes inv={inv} creating={refunding} onCreatingChange={setRefunding} />
 
         {voiding && (
           <section className="space-y-2 rounded-lg border border-danger/30 p-3">
@@ -491,7 +518,11 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       {/* a finished invoice can be duplicated into a new Draft (owner 2026-11-05) */}
       {inv.status === "paid" && manage && (
         <PanelFooter>
-          <Button className="ml-auto" variant="outline" onClick={() => { const r = act.duplicate(inv.id); if (report(r, (v) => `สร้าง Draft ใหม่จากใบนี้แล้ว · ${v.number}`)) onDuplicated(r.value.id) }}><CopyIcon /> ทำซ้ำเป็น Draft ใหม่</Button>
+          {/* owner 2026-11-24: a paid invoice has no main action — Duplicate and Refund sit behind ⋯ */}
+          <PanelMore items={[
+            { label: "ทำซ้ำเป็น Draft ใหม่", icon: CopyIcon, onClick: () => { const r = act.duplicate(inv.id); if (report(r, (v) => `สร้าง Draft ใหม่จากใบนี้แล้ว · ${v.number}`)) onDuplicated(r.value.id) } },
+            { label: "คืนเงิน / ลดหนี้", icon: Undo2Icon, onClick: () => setRefunding(true) },
+          ]} />
         </PanelFooter>
       )}
       {/* Header · Body · Bottom — destructive left, edit right (owner 2026-10-09) */}
@@ -503,7 +534,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
           {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — Admin ออกเลข Official ได้")}><CheckIcon /> อนุมัติ</Button>}
           {inv.status === "approved" && !inv.number && manage && <Button onClick={issue}><FileTextIcon /> ออกเลข Official</Button>}
           {canSendNote && (
-            <Button className="ml-auto" variant={sentToParent && canAddPayment ? "outline" : "default"} disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
+            <Button className="ml-auto" variant={sentToParent ? "outline" : "default"} disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
               <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
             </Button>
           )}

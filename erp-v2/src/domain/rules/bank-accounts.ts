@@ -8,6 +8,10 @@ import { promptPayKind } from "./documents"
 
 export const BRAND_LABEL: Record<Brand, string> = { nockacademy: "Nockacademy", liclass: "Liclass" }
 
+/** owner 2026-11-24: the Nockacademy main account's QR — saved with the app (public/brand), always used for it; it is locked: it cannot be removed, replaced or lost */
+export const NA_MAIN_ID = "bk_nockacademy"
+export const NA_QR = "/brand/na-bank-qr.png"
+
 /** an uploaded QR image is kept in the browser's storage, so it has to stay small */
 export const MAX_QR_IMAGE_CHARS = 700_000
 
@@ -48,7 +52,8 @@ export function validateBankEntry(entry: BankAccountEntry, others: BankAccountEn
   if (!a.number.trim()) return "กรอกเลขบัญชี"
   if (!a.name.trim()) return "กรอกชื่อบัญชี"
   if (a.promptPayId?.trim() && !promptPayKind(a.promptPayId)) return "PromptPay ID ไม่ถูกต้อง — เบอร์โทร 10 หลัก · เลขผู้เสียภาษี 13 หลัก · e-Wallet 15 หลัก"
-  if (a.qrImage && !a.qrImage.startsWith("data:image/")) return "ไฟล์ QR ต้องเป็นรูปภาพ"
+  if (entry.id === NA_MAIN_ID && a.qrImage !== NA_QR) return "บัญชีหลัก Nockacademy ใช้ QR ประจำบัญชีเท่านั้น (ล็อกไว้)"
+  if (a.qrImage && !a.qrImage.startsWith("data:image/") && a.qrImage !== NA_QR) return "ไฟล์ QR ต้องเป็นรูปภาพ"
   if (a.qrImage && a.qrImage.length > MAX_QR_IMAGE_CHARS) return "รูป QR ใหญ่เกินไป — ใช้รูปที่เล็กลง"
   if (entry.scope.kind === "brand" ? entry.scope.brands.length === 0 : entry.scope.branchIds.length === 0) return "เลือกว่าจะใช้กับธุรกิจหรือสาขาไหน"
   const clash = bankConflict(entry, others, branches)
@@ -64,6 +69,11 @@ export function bankScopeLabel(entry: BankAccountEntry, branches: BranchLite[]):
   return names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ") || "—"
 }
 
+/** the Nockacademy main account always uses the saved QR file, whatever was uploaded before (owner 2026-11-24: "use this one, always") */
+export function withNaQr(entries: BankAccountEntry[]): BankAccountEntry[] {
+  return entries.map((e) => (e.id === NA_MAIN_ID && e.account.qrImage !== NA_QR ? { ...e, account: { ...e.account, qrImage: NA_QR } } : e))
+}
+
 /** first start (and old browsers): one account per business type, taken from the branches as they are.
  *  QR on the invoice is Nockacademy-only for now (owner 2026-11-24) — Liclass's account carries no QR until Dai adds one. */
 export function defaultBankAccounts(branches: Branch[]): BankAccountEntry[] {
@@ -74,7 +84,7 @@ export function defaultBankAccounts(branches: Branch[]): BankAccountEntry[] {
     const { promptPayId, qrImage, ...rest } = src.bankAccount
     out.push({
       id: `bk_${brand}`, label: `บัญชีหลัก ${BRAND_LABEL[brand]}`,
-      account: brand === "nockacademy" ? { ...rest, promptPayId, qrImage } : { ...rest },
+      account: brand === "nockacademy" ? { ...rest, promptPayId, qrImage: qrImage ?? NA_QR } : { ...rest },
       scope: { kind: "brand", brands: [brand] },
     })
   }

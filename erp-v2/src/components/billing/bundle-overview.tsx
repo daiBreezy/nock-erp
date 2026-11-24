@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { CheckIcon, FileTextIcon, PlusIcon, ReceiptIcon, SendIcon, UnlinkIcon, WalletIcon, XCircleIcon } from "lucide-react"
 import { ForceApprove } from "@/components/app/force-approve"
+import { PaymentRefInput } from "./payment-ref"
+import { PaymentMenu } from "./payment-actions"
 import { PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
@@ -115,22 +117,29 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
       addLabel: "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)", onAdd: manage && payable.length > 0 ? () => setPay(true) : undefined,
       detail: "ยืนยันยอดแล้ว นักเรียนเข้าคลาสทันที — ใบเสร็จออกทีหลังได้",
       extra: slots.length > 0 ? (
-        <div className="mt-1.5 divide-y rounded-lg border text-sm">
+        <div className="mt-2.5 divide-y rounded-xl border text-sm">
           {slots.map((slot) => {
             const { inv: fi, p: fp } = slot[0]
             const amount = slot.reduce((a, x) => a + x.p.amount, 0)
             const done = slot.every((x) => x.p.confirmedBy)
             const c = Bill.canConfirmPayment(fp, me, fi.branchId)
             return (
-              <div key={fp.groupId ?? fp.id} className="flex flex-wrap items-center gap-2 p-2.5">
-                <span className="font-medium tabular-nums">{fmtMoney(amount)}</span>
-                <span className="text-xs text-muted-foreground">{fp.method === "cash" ? "เงินสด" : "โอน"} · {slot.map((x) => stu(x.inv.studentId)?.nickname).join(" + ")}{slot.length > 1 ? " (สลิปเดียว)" : ""}</span>
-                <span className="ml-auto">
+              <div key={fp.groupId ?? fp.id} className="space-y-2 p-3">
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="font-semibold tabular-nums">{fmtMoney(amount)}</p>
+                    <p className="break-words text-xs text-muted-foreground">{fp.method === "cash" ? "เงินสด" : "โอน"}{fp.reference && ` · Ref ${fp.reference}`} · {slot.map((x) => stu(x.inv.studentId)?.nickname).join(" + ")}{slot.length > 1 ? " (สลิปเดียว)" : ""}</p>
+                  </div>
+                  <span className="flex shrink-0 items-center gap-1">
                   {done ? <Pill tone={fp.forced ? "amber" : "green"} title={fp.forced?.remark}>{fp.forced ? "Force · " : ""}ยืนยันแล้ว</Pill>
+                    : Bill.paymentRefError(fp) ? <Pill tone="amber">ต้องมี Ref ID ก่อนยืนยันยอด</Pill>
                     : c.ok ? <Button size="xs" onClick={() => report(act.confirm(fi.id, fp.id), (v) => (v.paid ? "ยืนยันแล้ว · ชำระครบ นักเรียนเข้าคลาสแล้ว" : "ยืนยันยอดแล้ว"))}>ยืนยันยอด</Button>
                       : Bill.canForceConfirmPayment(fp, me, fi.branchId, "x").ok ? <ForceApprove label="Force ยืนยันยอด" onForce={(remark) => act.confirm(fi.id, fp.id, remark)} success="Force ยืนยันยอดแล้ว — แจ้งทั้งสาขา + Director" />
                         : <Pill tone="amber">รอคนอื่นยืนยัน</Pill>}
+                  {!done && manage && <PaymentMenu invoiceId={fi.id} branchId={fi.branchId} payment={fp} />}
                 </span>
+                </div>
+                {!done && Bill.paymentRefError(fp) && manage && <PaymentRefInput invoiceId={fi.id} paymentId={fp.id} />}
               </div>
             )
           })}

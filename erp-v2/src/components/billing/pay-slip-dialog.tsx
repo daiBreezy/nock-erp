@@ -14,6 +14,7 @@ import { slipDataUrl } from "@/lib/image"
 import { useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { Checkbox } from "@/components/ui/checkbox"
+import { InfoTip } from "@/components/app/info-tip"
 
 export interface PayableSibling { id: ID; number: string; nickname: string; owed: number }
 
@@ -85,12 +86,18 @@ export function PaySlipDialog({ inv, owed, siblings, initialSlip, allTicked, onC
               <Input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setSlip(await slipDataUrl(f)) }} />
             </label>
           </div>
-          <div className="space-y-1"><Label className="text-xs">เลขอ้างอิงการโอน</Label><Input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="เลขอ้างอิง / เลขที่รายการ" /></div>
+          {/* owner 2026-11-24: every transfer carries the Ref ID printed on its slip — it ties the invoice to the slip; without it the amount cannot be confirmed */}
+          {method === "transfer" && (
+            <div className="space-y-1">
+              <Label className="flex items-center gap-1 text-xs">เลขอ้างอิงในสลิป (Ref ID) * <InfoTip text="เลขอ้างอิง / เลขที่รายการที่พิมพ์บนสลิป — ผูกสลิปกับใบแจ้งหนี้นี้ · ในระบบจริงมี OCR อ่านเลขจากรูปสลิปให้อัตโนมัติ — ช่องนี้ยังกรอกเองได้เมื่อจำเป็น · ไม่มีเลขนี้ ยืนยันยอดเงินไม่ได้" /></Label>
+              <Input value={ref} onChange={(e) => setRef(e.target.value)} aria-invalid={!ref.trim()} placeholder="เลขอ้างอิง / เลขที่รายการ จากสลิป" />
+            </div>
+          )}
         </div>
         <div className="space-y-1"><Label className="text-xs">หมายเหตุ</Label><Input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="หมายเหตุ (ไม่บังคับ)" /></div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={!(Number(amount) > 0)} onClick={submit}><CheckIcon /> บันทึกรับเงิน</Button>
+          <Button disabled={!(Number(amount) > 0) || (method === "transfer" && !ref.trim())} onClick={submit}><CheckIcon /> บันทึกรับเงิน</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
