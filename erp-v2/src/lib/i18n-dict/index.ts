@@ -12,9 +12,10 @@ import { SHELL } from "./shell"
 import { COVERAGE } from "./coverage"
 import { TEACHING } from "./teaching"
 import { EXAMS } from "./exams"
+import { CHECKLIST_DICT } from "./checklist"
 
 // one file per area, filled as each page is translated (owner 2026-10-07: Reports → Dashboard → Settings first)
-export const DICT_PAGES: Record<string, Entry> = { ...AUTO, ...EXAMS, ...BILLING_PROMO, ...KIT, ...COVERAGE, ...TEACHING, ...VOCAB, ...REPORTS, ...DASHBOARD, ...SETTINGS, ...TODAY }
+export const DICT_PAGES: Record<string, Entry> = { ...AUTO, ...EXAMS, ...CHECKLIST_DICT, ...BILLING_PROMO, ...KIT, ...COVERAGE, ...TEACHING, ...VOCAB, ...REPORTS, ...DASHBOARD, ...SETTINGS, ...TODAY }
 
 /** every phrase — pages + the shell (menu, top bar) */
 export const DICTIONARY: Record<string, Entry> = { ...DICT_PAGES, ...SHELL }

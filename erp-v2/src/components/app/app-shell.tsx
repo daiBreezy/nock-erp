@@ -26,6 +26,7 @@ import { navBadges } from "@/domain/rules/badges"
 import { branchHasBus } from "@/domain/rules/settings"
 import { GradeRolloverAuto } from "@/components/students/rollover-banner"
 import { EnrollInvoiceSync } from "@/components/forms/enroll-invoice-sync"
+import { checklistOpen } from "@/data/checklist"
 import { isUnread, visibleTo } from "@/domain/rules/notifications"
 import { can, inBranch, ROLE_LABEL, type Permission } from "@/domain/rules/permissions"
 import { useStore } from "@/store/store"
@@ -119,7 +120,8 @@ function Shell({ children }: { children: ReactNode }) {
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
   const invoices = useStore((s) => s.invoices)
-  const badges = navBadges({ conversations, leads, sessions, attendance, summaries, invoices }, me, branch.id, now)
+  // owner 2026-11-24: Checklist badge = how many items are still open (src/data/checklist.ts)
+  const badges: Record<string, number> = { ...navBadges({ conversations, leads, sessions, attendance, summaries, invoices }, me, branch.id, now), "/checklist": checklistOpen() }
   const t = useT()
   const lang = useUiLang((s) => s.lang)
   // Design System › ธีมและแบรนด์: the whole UI takes the colour of the business this branch belongs to
