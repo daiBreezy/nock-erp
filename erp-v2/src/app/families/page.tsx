@@ -1,7 +1,7 @@
 "use client"
 
 import { tx } from "@/lib/i18n"
-import { birthdaysToday, familyShortName, PARENT_RELATIONS } from "@/domain/rules/people"
+import { birthdaysToday, familyShortName, PARENT_RELATIONS, familyDisplay } from "@/domain/rules/people"
 import { toDateStr } from "@/domain/dates"
 import { useNow } from "@/lib/hooks"
 import { useMemo, useState } from "react"
@@ -102,7 +102,7 @@ export default function FamiliesPage() {
   const columns: Column<Family>[] = [
     { id: "name", label: "ครอบครัว", width: "150px", sort: "name", required: true, className: "font-medium", cell: (f) => (
       <div className="flex min-w-0 items-center gap-1">
-        <EditCell value={f.name} display={familyShortName(f.name)} disabled={!manage || !!f.archived} className="min-w-0 flex-1" onSave={(v) => edit(f, { name: v })} />
+        <EditCell value={f.name} display={familyDisplay(f.name)} disabled={!manage || !!f.archived} className="min-w-0 flex-1" onSave={(v) => edit(f, { name: v })} />
         {/* the status icons sit a little apart from the name (owner 2026-11-20) */}
         <span className="ml-2 flex shrink-0 items-center gap-1.5">
         {/* owner 2026-11-20: back after the LINE column went hidden (default) — the "not on LINE" icon sits beside the name again, in a fixed slot so names line up */}
@@ -149,7 +149,6 @@ export default function FamiliesPage() {
       )
     } },
     { id: "address", label: "ที่อยู่", width: "220px", sort: "address", className: "text-xs text-muted-foreground", cell: (f) => <EditCell value={f.address ?? ""} disabled={!manage} placeholder="ใส่ที่อยู่" onSave={(v) => edit(f, { address: v || undefined })} /> },
-    { id: "postcode", label: "รหัสไปรษณีย์", width: "100px", className: "text-xs text-muted-foreground tabular-nums", cell: (f) => <EditCell value={f.postcode ?? ""} disabled={!manage} placeholder="—" onSave={(v) => edit(f, { postcode: v || undefined })} /> },
   ]
 
   return (

@@ -1,5 +1,6 @@
 "use client"
 
+import { familyDisplay } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
 import { CheckIcon, UsersRoundIcon, UserRoundSearchIcon } from "lucide-react"
 import { GradeCell, Pager, usePage } from "@/components/app/data-table"
@@ -153,4 +154,4 @@ function FamilyPicker({ onConfirm, onClose }: { onConfirm: (firstKidId: ID) => v
 }
 
 /** family names are stored as "ครอบครัวXXX" already (seed) — add the word only when it is missing */
-const famLabel = (name: string) => (name.startsWith("ครอบครัว") ? name : `ครอบครัว${name}`)
+const famLabel = familyDisplay

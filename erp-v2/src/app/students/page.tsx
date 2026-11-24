@@ -2,7 +2,7 @@
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { RolloverBanner } from "@/components/students/rollover-banner"
-import { busUseOf, familyShortName } from "@/domain/rules/people"
+import { busUseOf, familyShortName, familyDisplay } from "@/domain/rules/people"
 import { branchHasBus } from "@/domain/rules/settings"
 import { BusUseChip } from "@/components/transport/labels"
 import { ListPage, SearchBox } from "@/components/app/page-layout"
@@ -160,7 +160,7 @@ export default function StudentsPage() {
     { id: "name", label: "ชื่อ-นามสกุล", width: "170px", sort: "name", defaultHidden: true, className: "text-muted-foreground", cell: ({ s }) => <EditCell value={s.name} disabled={!manage} onSave={(v) => edit(s, { name: v })} /> },
     { id: "grade", label: "ชั้น", width: "76px", sort: "grade", cell: ({ s }) => <EditCell kind="select" value={s.grade} disabled={!manage} display={s.graduatedAt ? <Pill tone="gray" title={`จบการศึกษา ${fmtDate(s.graduatedAt, { year: true })}`}>จบการศึกษา</Pill> : <GradeCell grade={s.grade} tone={gradeTone(s.grade)} />} options={branch.grades.map((g) => ({ value: g, label: g }))} onSave={(v) => edit(s, { grade: v })} /> },
     { id: "family", label: "ครอบครัว", width: "130px", sort: "family", className: "text-muted-foreground", cell: ({ fam }) => (
-      fam ? <>{familyShortName(fam.name)}{!fam.parents.some((p) => p.lineLinked) && <NoLine />}</> : <span className="text-warning">ยังไม่ผูกครอบครัว</span>
+      fam ? <>{familyDisplay(fam.name)}{!fam.parents.some((p) => p.lineLinked) && <NoLine />}</> : <span className="text-warning">ยังไม่ผูกครอบครัว</span>
     ) },
     { id: "course", label: "Course", width: "180px", sort: "course", cell: (r) => (
       r.mainCourse ? (

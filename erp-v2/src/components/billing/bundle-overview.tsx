@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDateTime, fmtMoney } from "@/domain/dates"
-import { mainLineAccount } from "@/domain/rules/people"
+import { mainLineAccount, familyDisplay } from "@/domain/rules/people"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Invoice, Result } from "@/domain/types"
@@ -52,7 +52,7 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
   const ctxOf = (i: Invoice) => ({ branch: branches.find((b) => b.id === i.branchId)!, courses, classes, holidays })
   const rows = members.map((inv) => ({ inv, total: Bill.invoiceTotals(inv, ctxOf(inv)).total, owed: Bill.owedOn(inv, Bill.invoiceTotals(inv, ctxOf(inv)).total) }))
   // family names already start with "ครอบครัว" ("ครอบครัวชัยมงคล")
-  const famLabel = fam ? (fam.name.startsWith("ครอบครัว") ? fam.name : `ครอบครัว${fam.name}`) : "ครอบครัว"
+  const famLabel = fam ? familyDisplay(fam.name) : "ครอบครัว"
   const grand = rows.reduce((a, r) => a + r.total, 0)
   const allDraft = members.every((x) => x.status === "draft")
   // each child keeps their own message (editable here or in their tab — both are the same data)
@@ -95,7 +95,7 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
   const slips = [...new Set(members.flatMap((m) => m.payments.map((p) => p.slip)).filter((x): x is string => !!x))]
   const receipts = [...new Map(members.filter((m) => m.receiptNumber).map((m) => [m.receiptNumber!, m])).values()]
   const pdfDocs: DocItem[] = [
-    ...(members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice" as const, label: `ใบแจ้งหนี้${famLabel} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []),
+    ...(members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice" as const, label: `ใบแจ้งหนี้ ${famLabel} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []),
     // not issued yet = the same paper preview (number "DRAFT") — owner 2026-11-24
     ...members.filter((x) => x.status !== "void").map((x) => ({ key: x.id, kind: "invoice" as const, label: x.pdf === "ready" ? `ใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} ${x.number ?? ""}`.trim() : `ตัวอย่างใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} (ยังไม่มีเลข)`.trim(), src: `/print/invoice/${x.id}` })),
   ]

@@ -18,7 +18,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { report } from "@/lib/feedback"
 import { daysBetween, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { studentState } from "@/domain/rules/attendance"
-import { leadToCustomer, PDPA_LABEL } from "@/domain/rules/people"
+import { leadToCustomer, PDPA_LABEL, familyDisplay } from "@/domain/rules/people"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import type { Family, ID, Student } from "@/domain/types"
 import { useEntitlements, useNow } from "@/lib/hooks"
@@ -225,7 +225,7 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
         <Kpi variant="tonal" label={tx("ยอดรวมทั้งหมด")} value={kpiMoney(received)} onClick={owed > 0 ? onGoBilling : undefined} go
           sub={owed > 0 ? <span className="text-warning-ink">{tx("ค้างชำระ")} {fmtMoney(owed)}{creditCount > 0 && ` · ${tx("Credit ค้าง {0} รายการ", [creditCount])}`}</span> : creditCount > 0 ? tx("Credit ค้าง {0} รายการ", [creditCount]) : tx("ชำระครบแล้ว {0} ใบ", [paidCount])} />
         <Kpi variant="tonal" label="Referral" value={referred.length > 0 ? `${referred.length} ${tx("ครอบครัว")}` : "-"}
-          sub={referrer ? `${tx("แนะนำโดย")} ${referrer.name}` : referred.length > 0 ? referred.slice(0, 2).map((f) => f.name).join(", ") : tx("ยังไม่มีผู้แนะนำ")} />
+          sub={referrer ? `${tx("แนะนำโดย")} ${familyDisplay(referrer.name)}` : referred.length > 0 ? referred.slice(0, 2).map((f) => familyDisplay(f.name)).join(", ") : tx("ยังไม่มีผู้แนะนำ")} />
       </KpiGroup>
       <div className="divide-y">
         {kids.map((k) => {

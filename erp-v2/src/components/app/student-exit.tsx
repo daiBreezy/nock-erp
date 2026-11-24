@@ -1,5 +1,6 @@
 "use client"
 
+import { familyDisplay } from "@/domain/rules/people"
 import { useEffect, useState } from "react"
 import { ChevronDownIcon, CopyIcon, DoorOpenIcon, ExternalLinkIcon, RefreshCwIcon, SendIcon, StarIcon, UndoIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -75,11 +76,11 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
                 ))}
               </div>
             )}
-            <p className="rounded-lg bg-muted/60 p-2 text-xs text-muted-foreground">{conv?.id.startsWith("line_") ? `ส่งในแชท LINE ของ${fam?.name ?? "ครอบครัว"}` : "ครอบครัวนี้ยังไม่มีแชท LINE — จะได้ลิงก์ไว้คัดลอกส่งเอง"}</p>
+            <p className="rounded-lg bg-muted/60 p-2 text-xs text-muted-foreground">{conv?.id.startsWith("line_") ? `ส่งในแชท LINE ของ${fam ? familyDisplay(fam.name) : "ครอบครัว"}` : "ครอบครัวนี้ยังไม่มีแชท LINE — จะได้ลิงก์ไว้คัดลอกส่งเอง"}</p>
           </>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm">ลิงก์ของ{fam?.name ?? stu.nickname} (ใช้ได้ 14 วัน ครั้งเดียว)</p>
+            <p className="text-sm">ลิงก์ของ{fam ? familyDisplay(fam.name) : stu.nickname} (ใช้ได้ 14 วัน ครั้งเดียว)</p>
             <div className="flex gap-1.5">
               <Input readOnly value={link.url} className="h-8 text-xs" onFocus={(e) => e.target.select()} />
               <Button size="sm" variant="outline" onClick={() => { navigator.clipboard?.writeText(link.url); report({ ok: true, value: undefined }, "คัดลอกลิงก์แล้ว") }}><CopyIcon /></Button>

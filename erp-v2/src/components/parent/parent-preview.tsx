@@ -1,6 +1,7 @@
 "use client"
 
 // Staff: see exactly what this family sees in the parent app (owner 2026-10-09), in a phone-sized frame.
+import { familyDisplay } from "@/domain/rules/people"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toDateStr } from "@/domain/dates"
 import type { Family } from "@/domain/types"
@@ -22,7 +23,7 @@ export function ParentPreview({ family, onClose }: { family: Family; onClose: ()
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="lg:max-w-md">
         <DialogHeader>
-          <DialogTitle>App ผู้ปกครอง · {family.name}</DialogTitle>
+          <DialogTitle>App ผู้ปกครอง · {familyDisplay(family.name)}</DialogTitle>
           <DialogDescription>
             {family.lineUserId
               ? "ผูก LINE แล้ว — ผู้ปกครองเปิดจาก Rich Menu ใน LINE ได้เลย (ข้อมูลอัปเดตอัตโนมัติ)"

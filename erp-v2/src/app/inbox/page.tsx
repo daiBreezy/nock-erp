@@ -1,5 +1,6 @@
 "use client"
 
+import { familyDisplay } from "@/domain/rules/people"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ListFilterIcon, FlagIcon, BookOpenIcon, CalendarSearchIcon, ContactRoundIcon, PlusIcon, RadioIcon, ArrowUpIcon, Loader2Icon, SparklesIcon, UserSearchIcon, UserCheckIcon, ChevronDownIcon, CheckIcon, ClipboardListIcon, FileTextIcon, GraduationCapIcon, HeartHandshakeIcon, ImageIcon, LogOutIcon, MegaphoneIcon, ReceiptIcon, SearchIcon, UserPlusIcon, XIcon, GripVerticalIcon, CheckCircle2Icon, UsersIcon, BadgeCheckIcon, TargetIcon, UserRoundIcon, UsersRoundIcon, UserXIcon } from "lucide-react"
@@ -389,7 +390,7 @@ export default function InboxPage() {
                   <span aria-hidden>·</span>
                   <span className="inline-flex shrink-0 items-center gap-1">{isLive(selected.id) && <RadioIcon className="size-3" aria-label="LIVE — LINE จริง" />}{CHANNEL_LABEL[selected.channel]}</span>
                   {selected.group && <><span aria-hidden>·</span><span className="inline-flex shrink-0 items-center gap-1"><UsersIcon className="size-3" /> แชทกลุ่ม</span></>}
-                  {selected.group && family && <><span aria-hidden>·</span><span className="min-w-0 truncate">{family.name}</span></>}
+                  {selected.group && family && <><span aria-hidden>·</span><span className="min-w-0 truncate">{familyDisplay(family.name)}</span></>}
                 </div>
               </div>
               {/* owner 2026-11-17: someone who just added the school's LINE (still a Visitor — no Customer/Lead) gets "Add Lead" right here */}

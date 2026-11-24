@@ -6,6 +6,7 @@
 // owner 2026-10-19 ("นักเรียนที่ต้องการใช้รถ จะต้องให้ Location แก่เรา … Analyze … หรือ Admin สามารถเลือก Zone ให้กับนักเรียน
 // เลยก็ได้"): the analysis on top (pins, dense spots, layouts compared), every bus home in a table to set its zone or
 // ask the parent for the pin.
+import { familyDisplay } from "@/domain/rules/people"
 import { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { MapPinCheckIcon, MapPinOffIcon, MessageCircleIcon, PinIcon, PlusIcon, TrashIcon, WandSparklesIcon } from "lucide-react"
@@ -163,7 +164,7 @@ function BusHomesTable({ homes, zones, onZone }: { homes: Home[]; zones: BusZone
   }
   const columns: Column<Home>[] = [
     { id: "kids", label: "นักเรียน", width: "180px", required: true, cell: (h) => <span className="block"><span className="block font-medium">{h.kids.map((k) => k.nickname).join(", ")}</span><span className="block text-xs text-muted-foreground">{h.kids.map((k) => k.grade).join(", ")}</span></span> },
-    { id: "family", label: "ครอบครัว", width: "140px", cell: (h) => h.fam.name },
+    { id: "family", label: "ครอบครัว", width: "140px", cell: (h) => familyDisplay(h.fam.name) },
     { id: "km", label: "ระยะทาง", width: "90px", align: "right", cell: (h) => <span className="tabular-nums">{h.km === null ? "—" : `${h.km} กม.`}</span> },
     { id: "pin", label: "หมุดบ้าน", width: "220px", cell: (h) => h.fam.location
       ? <span className="flex items-center gap-1 text-success"><MapPinCheckIcon className="size-4" />{h.fam.addressNote ? <span className="max-w-48 truncate text-xs text-muted-foreground">{h.fam.addressNote}</span> : "มีหมุดแล้ว"}</span>

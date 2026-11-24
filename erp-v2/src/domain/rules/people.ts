@@ -472,6 +472,12 @@ export function familyShortName(name: string) {
   return name.replace(/^ครอบครัว\s*/, "").trim() || name
 }
 
+/** Owner 2026-11-24: a family is ALWAYS shown as "[name] Family" — "ครอบครัวแก้วงาม" → "แก้วงาม Family" (every ERP screen; the stored name is unchanged). */
+export function familyDisplay(name: string) {
+  const short = familyShortName(name)
+  return /\sfamily$/i.test(short) ? short : `${short} Family`
+}
+
 /** Owner 2026-10-13: list-page search — every word must appear in one of the given texts (case-insensitive). */
 export function matchesQuery(q: string, parts: (string | null | undefined)[]): boolean {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)

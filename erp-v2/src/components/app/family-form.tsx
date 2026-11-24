@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { FormShell, useInPanel } from "./form-shell"
 import { DICT } from "@/app/liff/form/i18n"
 import { addressPartsOf, emptyFamilyDraft, emptyParentDraft, FamilyFields, ParentFields, parentDraftOf, parentInputOf, type FamilyDraft, type ParentDraft } from "@/components/people/person-fields"
-import { familyNameFor, familyShortName, findFamilyDuplicates, validateFamily, type DuplicateHit } from "@/domain/rules/people"
+import { familyNameFor, findFamilyDuplicates, validateFamily, type DuplicateHit, familyDisplay } from "@/domain/rules/people"
 import { DuplicateDialog } from "./duplicate-dialog"
 import type { Family, Parent } from "@/domain/types"
 import { uid } from "@/data/seed"
@@ -90,11 +90,11 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
       address: old.address ?? built.address, addressParts: old.addressParts ?? built.addressParts, postcode: old.postcode ?? built.postcode, province: old.province ?? built.province,
       location: old.location ?? built.location, addressNote: old.addressNote ?? built.addressNote, taxInfo: old.taxInfo ?? built.taxInfo,
       sources: old.sources ?? built.sources,
-    }), extra.length ? `ใช้ครอบครัวเดิม "${familyShortName(old.name)}" · เพิ่มผู้ปกครอง ${extra.length} คน — ไม่ได้สร้างซ้ำ` : `ใช้ครอบครัวเดิม "${familyShortName(old.name)}" — ไม่ได้สร้างซ้ำ`)
+    }), extra.length ? `ใช้ครอบครัวเดิม "${familyDisplay(old.name)}" · เพิ่มผู้ปกครอง ${extra.length} คน — ไม่ได้สร้างซ้ำ` : `ใช้ครอบครัวเดิม "${familyDisplay(old.name)}" — ไม่ได้สร้างซ้ำ`)
   }
 
   return (
-    <FormShell className="max-h-[92vh] sm:max-w-xl" onClose={onClose} title={family ? `แก้ไข ${family.name}` : "เพิ่มครอบครัว"}
+    <FormShell className="max-h-[92vh] sm:max-w-xl" onClose={onClose} title={family ? `แก้ไข ${familyDisplay(family.name)}` : "เพิ่มครอบครัว"}
       description="ช่องเดียวกับฟอร์มที่ผู้ปกครองกรอกใน LINE — ข้อมูลเก็บที่เดียวกัน"
       footer={<><Button variant="ghost" onClick={onClose}>ยกเลิก</Button><Button onClick={submit}>{family ? "บันทึก" : "เพิ่มครอบครัว"}</Button></>}>
       <section className="space-y-2">
@@ -131,7 +131,7 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
           onClose={() => setDupes(null)} onNew={() => { setDupes(null); finish(save(built), "บันทึกครอบครัวแล้ว") }} onMerge={(old) => { setDupes(null); mergeInto(old) }}
           render={(x) => (
             <span className="flex flex-col">
-              <span className="font-medium">{familyShortName(x.name)} <span className="font-normal text-muted-foreground">· {x.parents.map((p) => `${p.name} ${p.phone}`).join(", ")}</span></span>
+              <span className="font-medium">{familyDisplay(x.name)} <span className="font-normal text-muted-foreground">· {x.parents.map((p) => `${p.name} ${p.phone}`).join(", ")}</span></span>
               <span className="text-xs text-muted-foreground">ลูก: {students.filter((y) => y.familyId === x.id).map((y) => y.nickname).join(", ") || "—"}</span>
             </span>
           )} />

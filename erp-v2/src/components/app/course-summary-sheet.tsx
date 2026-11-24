@@ -3,6 +3,7 @@
 // Course Summary panel (owner 2026-10-14: "แสดงเป็น Side Panel … มี Info, Edit เหมือน Panel อื่นๆ"): one course round
 // per panel — Header (student · course · status) · Body (facts, the summary, progress charts, the session notes) ·
 // Bottom (แก้ไข / Approve / ส่งผู้ปกครอง; Recall + Force Approve in ⋯). แก้ไข swaps the same panel to the form.
+import { familyDisplay } from "@/domain/rules/people"
 import Link from "next/link"
 import { useState } from "react"
 import { CheckIcon, LayersIcon, PencilIcon, SaveIcon, SendIcon, ShieldAlertIcon, SparklesIcon, Undo2Icon } from "lucide-react"
@@ -149,7 +150,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
 
       <PanelBody>
         <MetaGrid rows={[
-          ["นักเรียน", <>{student.name}{family && <Link href="/families" className="text-xs text-primary underline">{family.name}</Link>}</>],
+          ["นักเรียน", <>{student.name}{family && <Link href="/families" className="text-xs text-primary underline">{familyDisplay(family.name)}</Link>}</>],
           ["คอร์ส", <>{course?.name}{bundle && <Pill tone="special"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-2xs", subjectColor(x).chip)}>{x}</span>)}</>],
           ["ช่วงเรียน", <>{fmtDate(round.from)} – {fmtDate(round.to, { year: true })}{round.entitlementIds.length > 1 && <span className="text-muted-foreground">({round.entitlementIds.length} รอบต่อเนื่อง)</span>}<span className="text-muted-foreground">· {branch?.name}</span></>],
           ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? `เลย ${-due.daysLeft} วัน` : `อีก ${due.daysLeft} วัน`}</span>] as [string, React.ReactNode]]),

@@ -25,7 +25,7 @@ import { FamilyForm } from "./family-form"
 import { FamilyForms } from "@/components/forms/family-forms"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { studentState } from "@/domain/rules/attendance"
-import { birthdaysToday, mainLineAccount, parentHasLine, parentIndexOfAccount } from "@/domain/rules/people"
+import { birthdaysToday, mainLineAccount, parentHasLine, parentIndexOfAccount, familyDisplay } from "@/domain/rules/people"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import type { Family, ID } from "@/domain/types"
@@ -88,7 +88,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
       <EntityPanel open={target !== null} onClose={onClose} wide={!!studentOpen}>
           {studentOpen ? (
             // owner 2026-11-20: a child opens IN PLACE — this same panel swaps to the student (Back returns here), no second sheet on top
-            <StudentPanelContent studentId={studentOpen} familyId={f?.id} onClose={() => setStudentOpen(null)} back={f ? { label: f.name, onBack: () => setStudentOpen(null) } : undefined} />
+            <StudentPanelContent studentId={studentOpen} familyId={f?.id} onClose={() => setStudentOpen(null)} back={f ? { label: familyDisplay(f.name), onBack: () => setStudentOpen(null) } : undefined} />
           ) : editing ? (
             <PanelForm>
               <FamilyForm key={f?.id ?? "new"} family={f} onClose={() => (f ? setEditing(false) : onClose())}
@@ -103,15 +103,13 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(f.id))}>{initial(f.name.replace(/^ครอบครัว/, "") || f.name)}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <SheetTitle className="truncate text-lg">{f.name}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>
+                      <SheetTitle className="truncate text-lg">{/* owner 2026-11-24: always "[name] Family" — no Thai "ครอบครัว" prefix */}{familyDisplay(f.name)}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>
                       {f.archived ? <Pill tone="gray">เก็บเข้าคลัง</Pill> : anyActive && <Pill tone={STATUS_PILL.active.tone}>{STATUS_PILL.active.label}</Pill>}
                       {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className={cn("inline-grid size-5 shrink-0 place-items-center opacity-70", tagInk("birthday", "today"))}><CakeIcon className="size-4" aria-label={tx("วันเกิดวันนี้")} /></span>}
                     </div>
                     {/* h-5 = the same line height as the student's (its status pills / ⓘ are 20px) — the two panel headers are the same height (owner 2026-11-20) */}
                     <SheetDescription className="mt-0.5 flex h-5 flex-wrap items-center gap-x-1.5 overflow-hidden text-xs">
-                      <span className="inline-flex items-center gap-1"><UsersIcon className="size-3" /> Family</span>
-                      <span aria-hidden>·</span>
-                      <span>{f.archived ? `เก็บเข้าคลัง · ${f.archived.reason}` : tx("ลูก {0} คน", [kids.length])}</span>
+                      <span className="inline-flex items-center gap-1"><UsersIcon className="size-3" /> {f.archived ? `เก็บเข้าคลัง · ${f.archived.reason}` : tx("ลูก {0} คน", [kids.length])}</span>
                     </SheetDescription>
                   </div>
                 </div>
@@ -201,8 +199,8 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   </DropdownMenu>
                 )}
               </PanelFooter>
-              <ReasonDialog open={archiving} title={`เก็บครอบครัว “${f.name}” เข้าคลัง`} description="ครอบครัวจะหายจากลิสต์ปกติแต่ประวัติยังอยู่ — เอากลับมาได้" onConfirm={(r) => report(archive(f.id, r), "เก็บครอบครัวเข้าคลังแล้ว")} onClose={() => setArchiving(false)} />
-              <MathGate open={deleting} title={`ลบครอบครัว “${f.name}”`} warning="การลบนี้ย้อนกลับไม่ได้ — ครอบครัวนี้ยังไม่มีนักเรียนผูกอยู่" onConfirm={() => { if (report(del(f.id), "ลบครอบครัวแล้ว")) onClose() }} onClose={() => setDeleting(false)} />
+              <ReasonDialog open={archiving} title={`เก็บครอบครัว “${familyDisplay(f.name)}” เข้าคลัง`} description="ครอบครัวจะหายจากลิสต์ปกติแต่ประวัติยังอยู่ — เอากลับมาได้" onConfirm={(r) => report(archive(f.id, r), "เก็บครอบครัวเข้าคลังแล้ว")} onClose={() => setArchiving(false)} />
+              <MathGate open={deleting} title={`ลบครอบครัว “${familyDisplay(f.name)}”`} warning="การลบนี้ย้อนกลับไม่ได้ — ครอบครัวนี้ยังไม่มีนักเรียนผูกอยู่" onConfirm={() => { if (report(del(f.id), "ลบครอบครัวแล้ว")) onClose() }} onClose={() => setDeleting(false)} />
             </>
           )}
       </EntityPanel>

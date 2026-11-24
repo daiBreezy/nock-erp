@@ -363,6 +363,13 @@ export const BILLING_PROMO: Record<string, Entry> = {
   " (ชุดนี้เหลือใบเดียว → ใบเดี่ยว)": { en: " (one invoice left → now a single invoice)", ja: "（1件だけ残り → 単独の請求書に）" },
   "(ชุดนี้เหลือใบเดียว → ใบเดี่ยว)": { en: "(one invoice left → now a single invoice)", ja: "（1件だけ残り → 単独の請求書に）" },
   "กำลังลบ": { en: "Deleting", ja: "削除対象" },
+  // owner 2026-11-24: set panel — delete menu list + the same stepper wording as a single invoice
+  "ลบทั้งชุด ({0} ใบ)": { en: "Delete the whole set ({0} invoices)", ja: "セット全体を削除（{0}件）" },
+  "ลบของ {0}": { en: "Delete {0}'s invoice", ja: "{0}の請求書を削除" },
+  "ลบทั้งชุด": { en: "Delete the whole set", ja: "セット全体を削除" },
+  "· อยู่ในชุดของ": { en: "· in the set of", ja: "・次のセットに含まれます：" },
+  "ร่าง {0}/{1} ใบ — ยังไม่ได้สร้างใบแจ้งหนี้": { en: "Draft {0}/{1} — invoices not created yet", ja: "下書き {0}/{1}件 — 請求書は未作成" },
+  "ยังไม่ออกใบเสร็จ — ออกภายหลังได้ (รวมหรือแยกรายนักเรียน)": { en: "Receipt not issued yet — can be issued later (combined or per student)", ja: "領収書は未発行 — 後から発行できます（まとめて／生徒別）" },
   "ลบใบแจ้งหนี้ทั้งชุด ({0} ใบ)": { en: "Delete the whole set ({0} invoices)", ja: "セット全体を削除（{0}件）" },
   "ลบใบแจ้งหนี้ทั้งชุด": { en: "Delete the whole invoice set", ja: "請求書セットを全体削除" },
   "ใบชุดของ": { en: "Family set of", ja: "家族セット：" },

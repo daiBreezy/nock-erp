@@ -1,5 +1,6 @@
 "use client"
 
+import { familyDisplay } from "@/domain/rules/people"
 import { tx } from "@/lib/i18n"
 import { catalogInterests } from "@/domain/rules/catalog"
 import { useMemo, useState } from "react"
@@ -249,7 +250,7 @@ export function SendFormDialog({
                   <div className="min-w-0 flex-1">
                     {family ? (<>
                       <p className="text-sm font-medium">ลูกค้าเดิม — นักเรียนคนใหม่ของครอบครัว</p>
-                      <p className="text-xs text-muted-foreground">{family.name} · สร้าง Lead ให้นักเรียนคนนี้ตอนส่ง · อนุมัติแล้วเข้าครอบครัวเดิม</p>
+                      <p className="text-xs text-muted-foreground">{familyDisplay(family.name)} · สร้าง Lead ให้นักเรียนคนนี้ตอนส่ง · อนุมัติแล้วเข้าครอบครัวเดิม</p>
                     </>) : (<>
                       <p className="text-sm font-medium">ยังไม่มี Lead — ส่งฟอร์มได้เลย</p>
                       <p className="text-xs text-muted-foreground">ผู้ปกครองกรอกกลับมาแล้ว ระบบสร้าง Lead จากข้อมูลในฟอร์มให้ตอนอนุมัติ</p>

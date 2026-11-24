@@ -14,7 +14,7 @@ import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/com
 import { InvoiceEditor } from "./invoice-editor"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, fmtMonth } from "@/domain/dates"
-import { mainLineAccount } from "@/domain/rules/people"
+import { mainLineAccount, familyDisplay } from "@/domain/rules/people"
 import * as Bill from "@/domain/rules/billing"
 import * as Bank from "@/domain/rules/bank-accounts"
 import { invoiceMemo } from "@/domain/rules/documents"
@@ -314,7 +314,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
         : inv.delivery === "no_line" ? <span className="inline-flex items-start gap-1.5"><UnlinkIcon role="img" aria-label="ไม่มี LINE" className="mt-0.5 size-3.5 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon><span>ผู้ปกครองไม่มี LINE — ดาวน์โหลด / พิมพ์ใบ แล้วส่งทางอื่น (อีเมล หรือให้ด้วยตัวเอง) · รอรับเงินต่อได้เลย</span></span> : "—",
       extra: inv.sentAt && fam && inv.delivery !== "no_line" ? (
         <div className="mt-1 flex items-center gap-2 text-xs">
-          <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{fam.name}</span>{fam.parents.find((p) => p.primary) ? ` · ${fam.parents.find((p) => p.primary)!.name}` : ""}</span>
+          <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{familyDisplay(fam.name)}</span>{fam.parents.find((p) => p.primary) ? ` · ${fam.parents.find((p) => p.primary)!.name}` : ""}</span>
           <Button size="icon-sm" variant="outline" className="rounded-full" disabled={!conv} aria-label="เปิดแชท LINE ในหน้า Inbox" title={conv ? "เปิดแชท LINE กับผู้ปกครองใน Inbox" : "ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"} nativeButton={!conv} render={conv ? <Link href={`/inbox?conversation=${conv.id}`} /> : undefined}><MessagesSquareIcon /></Button>
         </div>
       ) : undefined,
@@ -363,7 +363,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
           <Pill tone={invoiceTone(inv)}>{Bill.invoiceStatusLabel(inv)}</Pill>
         </div>
         <SheetDescription>
-          {stu?.nickname} ({stu?.grade}) · {fam?.name ?? "ยังไม่ผูกครอบครัว"}
+          {stu?.nickname} ({stu?.grade}) · {fam ? familyDisplay(fam.name) : "ยังไม่ผูกครอบครัว"}
         </SheetDescription>
       </SheetHeader>
       {tabs}
@@ -410,7 +410,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
               <div className="space-y-4 border-t pt-3">
           <Block title="Student">
             <p className="text-sm"><span className="font-medium">{stu?.nickname}</span> <span className="text-muted-foreground">{stu?.name} · {stu?.grade}</span></p>
-            <p className="text-xs text-muted-foreground">{fam ? `${fam.name} · ${fam.parents.find((p) => p.primary)?.name ?? ""}` : "ยังไม่ผูกครอบครัว"}</p>
+            <p className="text-xs text-muted-foreground">{fam ? `${familyDisplay(fam.name)} · ${fam.parents.find((p) => p.primary)?.name ?? ""}` : "ยังไม่ผูกครอบครัว"}</p>
             {memo.memo && (
               <p className="rounded-lg bg-muted/50 p-3 text-xs whitespace-pre-line text-muted-foreground">
                 <span className="font-medium text-foreground">Memo บนใบแจ้งหนี้ + ใบเสร็จ{memo.periods.length ? ` · จากช่วง ${memo.periods.map((p) => p.name).join(", ")}` : " · ของแบรนด์"}</span>{"\n"}{memo.memo}
@@ -557,8 +557,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
       <MathGate open={deleting !== false} onClose={() => setDeleting(false)} confirmLabel="ลบถาวร"
         title={deleting === "set" ? "ลบใบแจ้งหนี้ทั้งชุด" : `ลบใบแจ้งหนี้ของ${nickOf(inv)}`}
         target={deleting === "set"
-          ? <>ใบชุดของ {fam?.name ?? "ครอบครัว"} · {setMembers.length} ใบ: {setMembers.map(nickOf).join(", ")} · รวม {fmtMoney(setMembers.reduce((a, x) => a + Bill.invoiceTotals(x, ctx).total, 0))}</>
-          : <>ใบแจ้งหนี้ของ {nickOf(inv)} · {Bill.invoiceStatusLabel(inv)} · {fmtMoney(totals.total)}{inv.bundleId ? ` · อยู่ในชุดของ ${fam?.name ?? "ครอบครัว"}` : ""}</>}
+          ? <>ใบชุดของ {fam ? familyDisplay(fam.name) : "ครอบครัว"} · {setMembers.length} ใบ: {setMembers.map(nickOf).join(", ")} · รวม {fmtMoney(setMembers.reduce((a, x) => a + Bill.invoiceTotals(x, ctx).total, 0))}</>
+          : <>ใบแจ้งหนี้ของ {nickOf(inv)} · {Bill.invoiceStatusLabel(inv)} · {fmtMoney(totals.total)}{inv.bundleId ? ` · อยู่ในชุดของ ${fam ? familyDisplay(fam.name) : "ครอบครัว"}` : ""}</>}
         warning={deleting === "set"
           ? "ใบทุกใบในชุดนี้ยังไม่มีเลขรัน (ยังไม่ใช่เอกสารจริง) — ลบทั้งชุดแล้วกู้คืนไม่ได้"
           : `ใบนี้ยังไม่มีเลขรัน (ยังไม่ใช่เอกสารจริง) ลบแล้วกู้คืนไม่ได้${inv.bundleId ? " · ใบอื่นในชุดอยู่ต่อ — ถ้าเหลือใบเดียวจะกลายเป็นใบเดี่ยวทันที" : ""}`}

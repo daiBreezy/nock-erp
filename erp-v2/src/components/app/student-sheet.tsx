@@ -1,5 +1,6 @@
 "use client"
 
+import { familyDisplay } from "@/domain/rules/people"
 import * as People from "@/domain/rules/people"
 import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -420,7 +421,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground">
           <UsersIcon className="size-3.5 text-muted-foreground/60" />
-          {fam ? <Button variant="link" size="inline" type="button" onClick={onFamily} className="h-auto p-0 text-xs">{fam.name}</Button> : <span className="text-warning">ยังไม่ผูกครอบครัว</span>}
+          {fam ? <Button variant="link" size="inline" type="button" onClick={onFamily} className="h-auto p-0 text-xs">{familyDisplay(fam.name)}</Button> : <span className="text-warning">ยังไม่ผูกครอบครัว</span>}
           {siblings.length > 0 && <>
             <span aria-hidden>·</span>พี่น้อง
             {siblings.map((x) => (

@@ -3,6 +3,7 @@
 // owner 2026-11-19: "who told you about us" is free text on the parent form — the system suggests the family, the admin confirms
 // (or searches by hand). Shared by the Test/Trial review card and the enroll review dialog. 1 point is shared by that family's
 // teachers once the new family has paid — see domain/rules/referral.ts.
+import { familyDisplay } from "@/domain/rules/people"
 import { useState } from "react"
 import { CheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -27,7 +28,7 @@ export function ReferrerPicker({ text, exceptFamilyId, value, onChange }: { text
         <>
           <div className="flex flex-wrap gap-1.5">
             {suggestions.map((x) => (
-              <Button key={x.family.id} variant="chip" size="inline" type="button" className="px-2.5 py-1 text-xs" onClick={() => onChange(x.family.id)}>{x.family.name}<span className="ml-1 text-muted-foreground">· {x.why}</span></Button>
+              <Button key={x.family.id} variant="chip" size="inline" type="button" className="px-2.5 py-1 text-xs" onClick={() => onChange(x.family.id)}>{familyDisplay(x.family.name)}<span className="ml-1 text-muted-foreground">· {x.why}</span></Button>
             ))}
             {!suggestions.length && <span className="text-muted-foreground">ยังเดาไม่ได้ — ค้นหาเอง</span>}
           </div>

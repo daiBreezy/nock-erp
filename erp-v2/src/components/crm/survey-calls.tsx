@@ -1,5 +1,6 @@
 "use client"
 
+import { familyDisplay } from "@/domain/rules/people"
 import { useEffect, useState } from "react"
 import { PhoneIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -36,7 +37,7 @@ export function SurveyCalls({ branchId }: { branchId: ID }) {
           const parent = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
           return (
             <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-2xl bg-background px-3 py-2 text-sm">
-              <span className="font-medium">{fam?.name ?? "ครอบครัว"}</span>
+              <span className="font-medium">{fam ? familyDisplay(fam.name) : "ครอบครัว"}</span>
               {parent && <a href={`tel:${parent.phone.replace(/\D/g, "")}`} className="text-xs text-info hover:underline">{parent.name} · {parent.phone}</a>}
               <span className="text-xs text-danger">แนะนำเพื่อน {r.answers.nps ?? "—"}/10</span>
               {r.answers.improve && <span className="text-xs text-muted-foreground">อยากให้ปรับปรุง: {r.answers.improve === "other" ? r.answers.improveOther : Survey.IMPROVE_LABEL[r.answers.improve]}</span>}

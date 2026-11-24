@@ -2653,12 +2653,17 @@ describe("date period — วันนี้ / สัปดาห์นี้ / 
   })
 })
 
-import { familyShortName, matchesQuery } from "./people"
+import { familyDisplay, familyShortName, matchesQuery } from "./people"
 describe("family name in lists (owner 2026-10-09)", () => {
   it("drops the leading ครอบครัว so names sort by the family name", () => {
     expect(familyShortName("ครอบครัวแก้วงาม")).toBe("แก้วงาม")
     expect(familyShortName("ครอบครัว ใจดี")).toBe("ใจดี")
     expect(familyShortName("Somjai Family")).toBe("Somjai Family")
+  })
+  it("is always shown as [name] Family (owner 2026-11-24)", () => {
+    expect(familyDisplay("ครอบครัวแก้วงาม")).toBe("แก้วงาม Family")
+    expect(familyDisplay("แก้วงาม")).toBe("แก้วงาม Family")
+    expect(familyDisplay("Somjai Family")).toBe("Somjai Family") // never "Family Family"
   })
 })
 

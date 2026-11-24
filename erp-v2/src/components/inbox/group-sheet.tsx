@@ -4,6 +4,7 @@
 // ERP, and relatives (an uncle, an aunt) who only follow the news and must NOT become family members. So staff say, per
 // LINE member, who they are — the role is kept on the conversation, never forced onto the family.
 // Side panel like every other entity (Header · Body · Bottom — owner 2026-10-09), not a popup.
+import { familyDisplay } from "@/domain/rules/people"
 import { useMemo, useState } from "react"
 import { LinkIcon, UsersIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -62,7 +63,7 @@ export function GroupSheet({ conversationId, onClose }: { conversationId: string
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"><UsersIcon className="size-4" /></span>
             <SheetTitle className="truncate text-lg">{conv.name}</SheetTitle>
             <Pill tone="gray">แชทกลุ่ม</Pill>
-            {family && <Pill tone="green">{family.name}</Pill>}
+            {family && <Pill tone="green">{familyDisplay(family.name)}</Pill>}
           </div>
           <SheetDescription>{senders.length ? `มีคนพิมพ์ ${senders.length} คน` : "ยังไม่มีใครพิมพ์ในกลุ่ม"}</SheetDescription>
         </SheetHeader>
@@ -70,7 +71,7 @@ export function GroupSheet({ conversationId, onClose }: { conversationId: string
         <PanelBody>
           <section className="space-y-2">
             <h3 className="flex items-center gap-1 text-sm font-semibold">ครอบครัว <InfoTip text="กลุ่ม LINE หนึ่งกลุ่มผูกกับครอบครัวเดียว — ผูกแล้วถึงจะส่งฟอร์ม / Catalog เข้ากลุ่มได้" /></h3>
-            {family ? <Pill tone="green">{family.name}</Pill> : <p className="text-sm text-muted-foreground">ยังไม่ผูก</p>}
+            {family ? <Pill tone="green">{familyDisplay(family.name)}</Pill> : <p className="text-sm text-muted-foreground">ยังไม่ผูก</p>}
             {candidates.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">คนในกลุ่มมาจากหลายครอบครัว — เลือก:</span>
