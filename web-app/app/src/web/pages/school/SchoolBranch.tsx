@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Navigate, Link } from 'react-router-dom'
 import type { ComponentType } from 'react'
 import {
-  MapPin, Clock, ChevronRight, X, GraduationCap, CalendarDays, Phone,
+  MapPin, Clock, ChevronRight, X, GraduationCap, CalendarDays, Phone, UserCheck, ClipboardCheck,
   Users, Image as ImageIcon, Navigation, ThumbsUp, MessageCircle,
   Calculator, Languages, FlaskConical, BookOpen, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp,
 } from 'lucide-react'
@@ -399,6 +399,19 @@ export default function SchoolBranch() {
       {/* แนะนำสาขา — บทนำ (สำคัญต่อ SEO) ฟอนต์ใหญ่ อ่านง่าย */}
       <section className="mx-auto max-w-[1200px] px-5 pt-8 pb-10">
         <p className="max-w-[900px] text-[17px] leading-loose text-ink sm:text-[18px]">{branch.intro}</p>
+        <h2 className="mt-8 text-[18px] font-bold tracking-tight text-ink">จุดเด่น 3 ข้อของสาขานี้</h2>
+        <ul className="mt-4 grid gap-4 md:grid-cols-3">
+          {branch.highlights.map((h, i) => {
+            const HIcon = [Users, UserCheck, ClipboardCheck][i] ?? Users
+            return (
+              <li key={h.title} className="rounded-card border border-line bg-white p-5">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-soft text-brand"><HIcon size={20} /></span>
+                <p className="mt-3 text-[16px] font-bold leading-snug text-ink">{h.title}</p>
+                <p className="mt-1.5 text-[14.5px] leading-relaxed text-ink-soft">{h.text}</p>
+              </li>
+            )
+          })}
+        </ul>
       </section>
 
       {/* teachers */}

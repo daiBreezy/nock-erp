@@ -4,7 +4,7 @@ import { MapPin, Clock, ArrowRight, Navigation, MessageCircle, Phone } from 'luc
 import DesktopNav from '@/web/components/DesktopNav'
 import MarketingFooter from '@/web/components/MarketingFooter'
 import ContactFab from '@/web/components/ContactFab'
-import { LineIcon, FacebookIcon } from '@/components/BrandIcons'
+import { LineIcon } from '@/components/BrandIcons'
 import { branches, regions, type Branch } from '@/data/school'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -81,8 +81,8 @@ function BranchMap({ selected, onSelect }: { selected: string | null; onSelect: 
                <div style="font-weight:700;font-size:14px;color:#1A1C1E">NockAcademy ${b.area}</div>
                <div style="font-size:12px;color:#6B7280;margin-top:2px">${b.region} · ติวเตอร์มืออาชีพ ครบทุกวิชา</div>
                <div style="display:flex;gap:6px;margin-top:10px">
-                 <a href="#/school/${b.slug}" style="flex:1;text-align:center;background:#FF5A5E;color:#fff;font-weight:700;font-size:12px;border-radius:999px;padding:7px 8px;text-decoration:none">ดูรายละเอียด</a>
-                 <a href="${b.mapUrl}" target="_blank" rel="noopener noreferrer" style="flex:1;text-align:center;border:1px solid #E8EAED;color:#1A1C1E;font-weight:700;font-size:12px;border-radius:999px;padding:7px 8px;text-decoration:none">เปิดแผนที่</a>
+                 <a href="${b.mapUrl}" target="_blank" rel="noopener noreferrer" aria-label="เปิดแผนที่สาขา ${b.area}" class="na-pop-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></a>
+                 <a href="#/school/${b.slug}" class="na-pop-detail">ดูรายละเอียด <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
                </div>
              </div>
            </div>`,
@@ -138,7 +138,6 @@ function BranchMap({ selected, onSelect }: { selected: string | null; onSelect: 
 function CardContact({ b }: { b: Branch }) {
   const channels = [
     { label: `LINE OA ${b.lineId}`, href: b.lineUrl, bg: 'bg-[#06C755]', icon: LineIcon, ext: true },
-    { label: 'Facebook', href: b.facebookUrl, bg: 'bg-[#1877F2]', icon: FacebookIcon, ext: true },
     ...(b.phone ? [{ label: `โทร ${b.phone}`, href: `tel:${b.phone.replace(/[^0-9+]/g, '')}`, bg: 'bg-brand', icon: Phone, ext: false }] : []),
   ]
   return (
@@ -148,7 +147,7 @@ function CardContact({ b }: { b: Branch }) {
           variant="outline"
           size="icon"
           aria-label={`ติดต่อสาขา ${b.area}`}
-          className="h-10 w-10 shrink-0 rounded-full border-line text-ink-soft hover:border-brand hover:text-brand data-[state=open]:border-brand data-[state=open]:bg-brand data-[state=open]:text-white"
+          className="h-10 w-10 shrink-0 rounded-full border-line text-ink-soft hover:border-transparent hover:bg-brand-soft hover:text-brand data-[state=open]:border-transparent data-[state=open]:bg-brand-soft data-[state=open]:text-brand"
         >
           <MessageCircle size={18} />
         </Button>
@@ -173,12 +172,12 @@ function BranchCard({ b }: { b: Branch }) {
       <Link to={`/school/${b.slug}`} target="_blank" rel="noopener noreferrer" className="block">
         <div className="relative h-44 overflow-hidden bg-surface-2">
           <img src={b.cover} alt={`สาขา ${b.area}`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-          <Badge className="absolute left-3 top-3 gap-1 rounded-pill border-transparent bg-white/95 px-3 py-1 text-[13px] font-bold text-brand shadow-sm hover:bg-white">
-            <MapPin size={14} /> {b.area}
+          <Badge className="absolute left-2.5 top-2.5 gap-1 rounded-pill border-transparent bg-white/95 px-2 py-0.5 text-[11.5px] font-semibold text-ink shadow-sm hover:bg-white">
+            <MapPin size={11} className="text-brand" /> {b.area}
           </Badge>
         </div>
         <div className="p-5 pb-3">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-brand">NockAcademy School</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-ink-mute">NockAcademy School</p>
           <h3 className="mt-0.5 text-[19px] font-extrabold text-ink">{b.area}</h3>
           <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{b.tagline}</p>
           <p className="mt-3 flex items-center gap-1.5 text-[13px] text-ink-mute">
@@ -193,7 +192,7 @@ function BranchCard({ b }: { b: Branch }) {
           variant="outline"
           size="icon"
           aria-label={`แผนที่สาขา ${b.area}`}
-          className="h-10 w-10 shrink-0 rounded-full border-line text-ink-soft hover:border-brand hover:text-brand"
+          className="h-10 w-10 shrink-0 rounded-full border-line text-ink-soft hover:border-transparent hover:bg-brand-soft hover:text-brand"
         >
           <a href={b.mapUrl} target="_blank" rel="noopener noreferrer">
             <Navigation size={18} />
@@ -202,7 +201,7 @@ function BranchCard({ b }: { b: Branch }) {
         <Button
           asChild
           variant="outline"
-          className="h-auto flex-1 gap-1.5 rounded-pill border-brand py-2.5 text-[14px] font-bold text-brand hover:bg-brand-soft hover:text-brand"
+          className="h-auto flex-1 gap-1.5 rounded-pill border-line py-2.5 text-[14px] font-bold text-ink hover:border-brand hover:bg-white hover:text-brand"
         >
           <Link to={`/school/${b.slug}`} target="_blank" rel="noopener noreferrer">
             ดูรายละเอียด <ArrowRight size={16} />
@@ -290,6 +289,11 @@ export default function SchoolList() {
         <style>{`
           .leaflet-popup-content-wrapper{ padding:0; overflow:hidden; border-radius:14px }
           .leaflet-popup-content{ margin:0; width:220px !important }
+          /* ปุ่มในป๊อปอัปแผนที่ — สไตล์เดียวกับปุ่มบนการ์ดสาขา */
+          .leaflet-popup-content a.na-pop-icon{ display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:36px; height:36px; border-radius:999px; border:1px solid #E8EAED; color:#4B5563; text-decoration:none; transition:all .15s }
+          .leaflet-popup-content a.na-pop-icon:hover{ background:#FFE6E7; border-color:transparent; color:#FF5A5E }
+          .leaflet-popup-content a.na-pop-detail{ display:inline-flex; flex:1; align-items:center; justify-content:center; gap:6px; height:36px; border-radius:999px; border:1px solid #E8EAED; background:#fff; color:#1A1C1E; font-weight:700; font-size:13px; text-decoration:none; transition:all .15s }
+          .leaflet-popup-content a.na-pop-detail:hover{ border-color:#FF5A5E; color:#FF5A5E }
         `}</style>
         <div className="isolate overflow-hidden rounded-card border border-line shadow-sm">
           <BranchMap selected={selected} onSelect={setSelected} />
@@ -301,7 +305,7 @@ export default function SchoolList() {
         {selected ? (
           <>
             <h2 className="mb-5 flex items-center gap-2 text-[22px] font-bold tracking-tight">
-              <MapPin size={20} className="text-brand" /> สาขา{branches.find((b) => b.slug === selected)?.area}
+              <MapPin size={20} className="text-ink-mute" /> สาขา{branches.find((b) => b.slug === selected)?.area}
               <Button variant="link" onClick={() => setSelected(null)} className="h-auto shadow-none [&_svg]:size-auto p-0 ml-2 text-[14px] font-normal text-brand hover:underline">
                 ดูทุกสาขา
               </Button>
@@ -317,7 +321,7 @@ export default function SchoolList() {
             return (
               <div key={region} className="mb-10 last:mb-0">
                 <h2 className="mb-5 flex items-center gap-2 text-[22px] font-bold tracking-tight">
-                  <MapPin size={20} className="text-brand" /> {region}
+                  <MapPin size={20} className="text-ink-mute" /> {region}
                   <span className="text-[15px] font-normal text-ink-mute">({list.length} สาขา)</span>
                 </h2>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
