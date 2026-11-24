@@ -11,13 +11,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, toDateStr } from "@/domain/dates"
-import { invoiceTotals, paidAmount } from "@/domain/rules/billing"
+import { invoiceTotals, openDaysOf, paidAmount } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import * as Refund from "@/domain/rules/refunds"
 import type { CreditMode, CreditNote, Invoice } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { slipDataUrl } from "@/lib/image"
 import { useNow } from "@/lib/hooks"
+import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useShallow } from "zustand/react/shallow"
 import { useStore } from "@/store/store"
@@ -174,10 +175,15 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
   // refund by session: tuition ÷ all sessions × sessions not yet used (attendance rules), per course line
   const bySession = (key: string) => {
     const l = lineOf(key)
-    if (!l) return null
+    if (!l || l.course?.unit !== "hour") return null
     const ents = entitlements.filter((e) => e.invoiceId === inv.id && e.courseId === l.line.courseId)
     const used = ents.reduce((a, e) => a + Refund.consumedSessions(e, sessions, attendance, leaves), 0)
     return Refund.refundBySession(l, used)
+  }
+  // owner 2026-11-24: month / week packs → the weeks still ahead of the stop date (default today) × the monthly tiers
+  const byWeeks = (key: string) => {
+    const l = lineOf(key)
+    return l ? Refund.refundByWeeks(l, stopFrom || today, openDaysOf(branch)) : null
   }
   const lineOf = (key: string) => totals.lines.find((l) => `line:${l.line.id}` === key)
   const hasCourse = items.some((i) => i.key.startsWith("line:"))
@@ -233,14 +239,18 @@ function CreateCreditNote({ inv, onClose }: { inv: Invoice; onClose: () => void 
               const on = picked[i.key] !== undefined
               const l = lineOf(i.key)
               const ses = bySession(i.key)
+              const wk = byWeeks(i.key)
+              const suggest = ses?.amount ?? wk?.amount
               return (
                 <div key={i.key} className="flex flex-wrap items-center gap-2 p-2 text-sm">
                   <label className="flex min-w-0 flex-1 items-start gap-2">
-                    <Checkbox className="mt-0.5" checked={on} onCheckedChange={(v) => setPicked((p) => { const n = { ...p }; if (v) n[i.key] = String(ses ? Math.min(ses.amount, i.max) : i.max); else delete n[i.key]; return n })} />
+                    <Checkbox className="mt-0.5" checked={on} onCheckedChange={(v) => setPicked((p) => { const n = { ...p }; if (v) n[i.key] = String(suggest !== undefined ? Math.min(suggest, i.max) : i.max); else delete n[i.key]; return n })} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{i.label} <span className="text-xs font-normal text-muted-foreground">สูงสุด {fmtMoney(i.max)}</span></span>
                       {/* owner Row 50: per-course progress so the admin can judge how much of each course to give back */}
                       {l?.quote && <span className="block text-xs text-muted-foreground">{ses ? `ใช้ไปแล้ว ${ses.used}/${ses.total} คาบ (ตามเช็คชื่อ) · ค่าเรียนคาบละ ${fmtMoney(Math.round(ses.perSession))} · ถึง ${fmtDate(l.quote.to, { year: true })}` : `เรียนไปแล้ว ${l.quote.slots.filter((x) => x.date < today).length}/${l.quote.slots.length} คาบ · ถึง ${fmtDate(l.quote.to, { year: true })}`}</span>}
+                      {wk && <span className="block text-xs text-muted-foreground">{tx("นับตั้งแต่ {0} · เหลือ {1} สัปดาห์ที่มีเรียน", [fmtDate(stopFrom || today, { year: true }), wk.weeksLeft])} · {wk.parts.map((p) => `${p.label} ${Math.round(p.factor * 100)}%`).join(" · ")}</span>}
+                      {on && wk && <Button variant="link" size="inline" type="button" className="mt-0.5 block text-left text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(wk.amount, i.max)) }))}>{tx("แนะนำ {0} (สูตรสัปดาห์เหลือ: 3+ = 100% · 2 = 60% · 1 = 30%)", [fmtMoney(wk.amount)])}</Button>}
                       {on && ses && <Button variant="link" size="inline" type="button" className="mt-0.5 block text-left text-xs text-primary underline" onClick={() => setPicked((p) => ({ ...p, [i.key]: String(Math.min(ses.amount, i.max)) }))}>แนะนำ {fmtMoney(Math.round(ses.perSession))} × {ses.remaining} คาบที่เหลือ = {fmtMoney(ses.amount)}</Button>}
                     </span>
                   </label>

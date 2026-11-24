@@ -2,6 +2,11 @@
 // value = its English. A missing key shows the Thai text; features-en.test.ts fails when a Thai text has no English here.
 
 export const FEATURE_EN: Record<string, string> = {
+  "นักเรียนเดิม (ชื่อตรงกันในครอบครัว) ไม่ถูกเขียนทับ — แต่โรงเรียนเป้าหมายที่กรอกใหม่จะแทนของเดิม": "An existing student (same name in the family) is not overwritten — but the target schools entered now replace the ones on file",
+  "เพิ่มใบอื่นเข้าใบเสร็จที่ออกไปแล้ว — Admin เลือกกี่เดือนก็ได้ (ปุ่ม เพิ่มใบอื่นเข้าใบเสร็จ ในขั้นตอนใบเสร็จ)": "Add other invoices to a receipt already issued — the admin picks any months (button \"Add other invoices to this receipt\" in the receipt step)",
+  "Refund: Hourly ใช้ ÷ คาบ · Monthly/Weekly ใช้สัปดาห์ที่เหลือ (3+ = 100% · 2 = 60% · 1 = 30%) นับจากวันหยุดเรียน": "Refund: Hourly = ÷ sessions · Monthly/Weekly = weeks left (3+ = 100% · 2 = 60% · 1 = 30%) counted from the stop date",
+  "ฟอร์ม enroll ซ้ำของเด็กเดิม → โรงเรียนเป้าหมายอัปเดตตามที่กรอกใหม่ · อธิบายไว้ในหน้า ฟอร์มผู้ปกครอง": "Re-submitted enrol form of an existing child → target schools are updated · explained on the Parent forms page",
+  "ช่อง \"รู้จักเราจากไหน\" รายการของแต่ละสาขา — จัดการและ Preview ได้ในหน้า ฟอร์มผู้ปกครอง (เลือกสาขา + กล่องแก้รายการ)": "\"How did you hear about us\" list per branch — manage and preview it on the Parent forms page (pick a branch + the edit box)",
   "Checklist และทรีฟีเจอร์เป็นไทย + อังกฤษ (สลับตามปุ่มภาษา · ภาษาญี่ปุ่นแสดงอังกฤษ) พร้อมเทสต์กันลืมแปล": "The Checklist and the feature tree are in Thai + English (switch with the language button · Japanese shows English) with a test that guards against missing translations",
   "หน้าแรกของทุกคน — งานของวันนี้ ต้องทำอะไรก่อน และภาพรวมตัวเลขสำหรับผู้บริหาร": "Everyone's home page — today's work, what to do first, and an overview of the numbers for managers",
   "งานประจำวัน (3 กล่องตายตัว)": "Daily work (3 fixed boxes)",

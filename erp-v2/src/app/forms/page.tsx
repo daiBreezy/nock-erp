@@ -8,7 +8,11 @@ import { useState } from "react"
 import { ArrowRightIcon, FileTextIcon, MessageCircleIcon, ExternalLinkIcon, LayoutTemplateIcon, SendIcon, UserRoundIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
-import type { FormLang } from "@/domain/types"
+import { StringList } from "@/components/settings/branch-basic"
+import { SaveRow, useBranchDraft } from "@/components/settings/common"
+import type { Branch, FormLang } from "@/domain/types"
+import { tx } from "@/lib/i18n"
+import { useStore } from "@/store/store"
 
 // Every parent form in one place (owner 2026-10-05: "อยากเห็น Form ได้ทันที ไม่ต้องส่งก่อน") — open each one right
 // away in preview mode (nothing is sent), see what it asks and where the answers land in the ERP.
@@ -31,8 +35,8 @@ const FORMS: FormDoc[] = [
     url: (lang, brand) => `/liff/form?preview=test&lang=${lang}&brand=${brand}`, brandMatters: true,
     who: "ผู้ปกครองของ Lead", how: "Admin กด \"ส่งฟอร์ม\" ในหน้า Lead หรือ Inbox → เลือกวิชา + เวลาที่จะเสนอ → ส่งลิงก์ทาง LINE (ต้องผูก LINE ก่อน)",
     steps: [
-      { title: "1 · ผู้ปกครอง", fields: ["ชื่อ *, นามสกุล", "ความสัมพันธ์ · วันเกิด", "LINE (ผูกให้อัตโนมัติเมื่อเปิดใน LINE) · อีเมล", "เบอร์โทร * (เพิ่มได้หลายเบอร์ เลือกเบอร์หลัก)", "เพิ่มผู้ปกครองได้หลายคน + เลือกผู้ติดต่อหลัก", "รู้จักเราจากช่องทางไหน (เลือกได้หลายข้อ)", "ที่อยู่ + ปักหมุดบนแผนที่ + รายละเอียดที่อยู่", "ต้องการใบกำกับภาษี: ชื่อ / เลขผู้เสียภาษี / ที่อยู่ (ไม่บังคับ)"] },
-      { title: "2 · นักเรียน (เพิ่มได้หลายคน)", fields: ["ชื่อ *, นามสกุล, ชื่อเล่น", "ระดับชั้น * · วันเกิด · โรงเรียน · หมายเหตุ", "วิชาที่สนใจ * (หลายวิชาได้)", "วัน-เวลาสอบ * — จากเวลาที่ Admin เสนอ · หลายวิชาวันเดียวกัน = เวลาเดียวกัน 2 ชม."] },
+      { title: "1 · ผู้ปกครอง", fields: ["ชื่อ *, นามสกุล", "ความสัมพันธ์ · วันเกิด", "LINE (ผูกให้อัตโนมัติเมื่อเปิดใน LINE) · อีเมล", "เบอร์โทร * (เพิ่มได้หลายเบอร์ เลือกเบอร์หลัก)", "เพิ่มผู้ปกครองได้หลายคน + เลือกผู้ติดต่อหลัก", "รู้จักเราจากช่องทางไหน (เลือกได้หลายข้อ — รายการของสาขาที่เลือก ตั้งได้ในกล่องด้านล่าง)", "ที่อยู่ + ปักหมุดบนแผนที่ + รายละเอียดที่อยู่", "ต้องการใบกำกับภาษี: ชื่อ / เลขผู้เสียภาษี / ที่อยู่ (ไม่บังคับ)"] },
+      { title: "2 · นักเรียน (เพิ่มได้หลายคน)", fields: ["ชื่อ *, นามสกุล, ชื่อเล่น", "ระดับชั้น * · วันเกิด · โรงเรียน · โรงเรียนที่อยากสอบเข้า (สูงสุด 3) · หมายเหตุ", "วิชาที่สนใจ * (หลายวิชาได้)", "วัน-เวลาสอบ * — จากเวลาที่ Admin เสนอ · หลายวิชาวันเดียวกัน = เวลาเดียวกัน 2 ชม."] },
       { title: "3 · ตรวจสอบ", fields: ["ดูข้อมูลทั้งหมด กดแก้กลับไปขั้นไหนก็ได้ → ส่ง"] },
     ],
     lands: ["Inbox: การ์ดตรวจฟอร์ม (แก้เวลาได้) → อนุมัติ", "อนุมัติ = จองคาบสอบจริงในปฏิทิน + สร้าง/ผูกครอบครัวและนักเรียน", "Lead เลื่อนเป็น \"นัดสอบวัดระดับ\" → เช็คชื่อ \"มา\" แล้วเป็น \"สอบแล้ว\" เอง"],
@@ -55,7 +59,7 @@ const FORMS: FormDoc[] = [
     who: "ผู้ปกครองที่คุยกับแอดมินแล้ว — สมัครเลย หรือหลัง Test / Trial", how: "Inbox › + › ฟอร์ม › Enroll → แอดมินติ๊กคลาสจริงที่จะเสนอ (วิชา · วัน · เวลา · ที่ว่าง) → ส่งในแชท",
     steps: [
       { title: "1 · ผู้ปกครอง", fields: ["เหมือนฟอร์มสอบ (ชื่อ เบอร์ ที่อยู่ ใบกำกับภาษี ฯลฯ)"] },
-      { title: "2 · นักเรียน (เพิ่มได้หลายคน)", fields: ["ชื่อ *, ชื่อเล่น, ระดับชั้น *, วันเกิด, โรงเรียน, หมายเหตุ", "เลือกคลาสที่สะดวก * — จากคลาสที่แอดมินเสนอ (เลือกได้หลายวัน · คลาสเต็มเลือกไม่ได้)", "อยากเริ่มเรียนวันที่ *", "ต้องการรถรับส่ง (Liclass)", "ไม่ถามวิชา / คอร์ส / แพ็กเกจ — ตกลงกันในแชทแล้ว แอดมินใส่ตอนออกใบแจ้งหนี้"] },
+      { title: "2 · นักเรียน (เพิ่มได้หลายคน)", fields: ["ชื่อ *, ชื่อเล่น, ระดับชั้น *, วันเกิด, โรงเรียน, โรงเรียนที่อยากสอบเข้า (สูงสุด 3 — เด็กเดิมกรอกใหม่ = อัปเดตของเดิม), หมายเหตุ", "เลือกคลาสที่สะดวก * — จากคลาสที่แอดมินเสนอ (เลือกได้หลายวัน · คลาสเต็มเลือกไม่ได้)", "อยากเริ่มเรียนวันที่ *", "ต้องการรถรับส่ง (Liclass)", "ไม่ถามวิชา / คอร์ส / แพ็กเกจ — ตกลงกันในแชทแล้ว แอดมินใส่ตอนออกใบแจ้งหนี้"] },
       { title: "3 · ตรวจสอบ", fields: ["ยอมรับเงื่อนไขการเรียน การลา และการชำระเงิน * → ส่ง"] },
     ],
     lands: ["CRM: \"ใบสมัครเรียนรอจัดคลาส\" → คลาสที่ผู้ปกครองเลือกติ๊กไว้ให้แล้ว · Admin เลือกคอร์ส / แพ็กเกจที่ตกลงในแชท + วันเริ่ม", "สร้างครอบครัว + นักเรียน + Lead \"สมัครตรง\" (รอชำระ) + ร่างใบแจ้งหนี้ (รวมค่าแรกเข้า)", "ส่งใบ → จ่ายครบ = เข้าคลาส + เป็นนักเรียนอัตโนมัติ"],
@@ -90,8 +94,14 @@ export default function FormsPage() {
   const [lang, setLang] = useState<FormLang>("th")
   const [brand, setBrand] = useState<"nockacademy" | "liclass">("nockacademy")
   const [reload, setReload] = useState(0)
+  const [branchId, setBranchId] = useState("")
+  const branches = useStore((s) => s.branches)
+  const brandBranches = branches.filter((b) => b.brand === brand && b.active !== false)
+  const branch = brandBranches.find((b) => b.id === branchId) ?? brandBranches[0]
   const f = FORMS.find((x) => x.key === key)!
-  const url = f.url(lang, brand)
+  // owner 2026-11-24: the preview shows the chosen branch's own "how did you hear about us" list (saved list, so edits show after Save)
+  const branchQuery = f.brandMatters && branch ? `&branchName=${encodeURIComponent(branch.name)}${branch.sourceOptions?.length ? `&sources=${encodeURIComponent(branch.sourceOptions.join("|"))}` : ""}` : ""
+  const url = f.url(lang, brand) + branchQuery
   return (
     <Page>
       <title>ฟอร์มผู้ปกครอง · NockERP</title>
@@ -102,6 +112,7 @@ export default function FormsPage() {
           controls={<>
             <NativeSelect className="w-32" value={lang} onChange={(e) => setLang(e.target.value as FormLang)} options={[{ value: "th", label: "ไทย" }, { value: "en", label: "English" }, { value: "ja", label: "日本語" }]} />
             {f.brandMatters && <NativeSelect className="w-40" value={brand} onChange={(e) => setBrand(e.target.value as "nockacademy" | "liclass")} options={[{ value: "nockacademy", label: "NockAcademy" }, { value: "liclass", label: "Liclass" }]} />}
+            {f.brandMatters && brandBranches.length > 0 && <NativeSelect className="w-40" value={branch?.id ?? ""} onChange={(e) => setBranchId(e.target.value)} options={brandBranches.map((b) => ({ value: b.id, label: b.name }))} />}
             <Button size="icon" variant="ghost" aria-label="เปิดในแท็บใหม่" nativeButton={false} render={<a href={url} target="_blank" rel="noreferrer" />}><ExternalLinkIcon /></Button>
           </>}
           phone={<iframe key={`${url}-${reload}`} src={url} title={f.name} className="h-full w-full rounded-[1.9rem] bg-white" />}
@@ -121,6 +132,7 @@ export default function FormsPage() {
                 </div>
               ))}
             </div>
+            {f.brandMatters && branch && <SourceListCard key={branch.id} branch={branch} />}
             <div>
               <p className="mb-1.5 text-sm font-semibold">ส่งแล้วไปไหนในระบบ</p>
               <ol className="space-y-1.5">{f.lands.map((x, i) => (
@@ -131,6 +143,19 @@ export default function FormsPage() {
           </>} />
       )}
     </Page>
+  )
+}
+
+/** "How did you hear about us?" of ONE branch (owner 2026-11-24): each branch keeps its own list and edits it here, next to the preview. Empty = the 7 standard channels. */
+function SourceListCard({ branch }: { branch: Branch }) {
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["sourceOptions"])
+  return (
+    <div className="space-y-2 rounded-2xl border p-3">
+      <p className="text-sm font-medium">{tx("ช่องทางที่รู้จักเรา")} · {branch.name}</p>
+      <p className="text-xs text-muted-foreground">{tx("รายการให้ผู้ปกครองเลือกในช่อง \"รู้จักเราจากช่องทางไหน\" — แต่ละสาขามีของตัวเอง · ว่าง = ฟอร์มใช้ 7 ช่องทางมาตรฐาน · บันทึกแล้วกดเริ่มใหม่ที่ตัวอย่างเพื่อดู")}</p>
+      <StringList values={b.sourceOptions ?? []} onChange={(sourceOptions) => setB({ ...b, sourceOptions })} placeholder={tx("เช่น ป้ายหน้าโรงเรียน")} addLabel={tx("เพิ่มช่องทาง")} />
+      <SaveRow dirty={dirty} onSave={() => save()} onReset={reset} />
+    </div>
   )
 }
 

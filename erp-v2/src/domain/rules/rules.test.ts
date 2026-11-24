@@ -3235,6 +3235,47 @@ describe("promotions: Family Promotion + bonus hours (owner 2026-11-05)", () => 
   })
 })
 
+describe("refund by weeks — month / week packs (owner 2026-11-24)", () => {
+  // classes every Monday of Dec 2026 (7, 14, 21, 28); open Mon–Sun → one week = one class
+  const dates = ["2026-12-07", "2026-12-14", "2026-12-21", "2026-12-28"]
+  const open = [0, 1, 2, 3, 4, 5, 6] as Parameters<typeof Refund.refundByWeeks>[2]
+  const month = (amount: number, promotion = 0) => ({
+    amount, promotion, line: { periods: 1 }, course: { unit: "month", duration: 1, price: amount },
+    quote: { from: dates[0], slots: dates.map((date) => ({ date, classId: "k", start: "16:00", minutes: 60 })), periods: [{ month: "2026-12", sessions: dates, factor: 1, amount }] },
+  }) as unknown as Parameters<typeof Refund.refundByWeeks>[0]
+  it("3+ weeks left = 100% · 2 = 60% · 1 = 30% · 0 = nothing (same tiers as the monthly price)", () => {
+    expect(Refund.refundByWeeks(month(4000), "2026-12-01", open)!.amount).toBe(4000) // 4 weeks
+    expect(Refund.refundByWeeks(month(4000), "2026-12-08", open)!.amount).toBe(4000) // 3 weeks (14, 21, 28)
+  })
+  it("counts the weeks still ahead of the stop date", () => {
+    expect(Refund.refundByWeeks(month(4000), "2026-12-08", open)!.weeksLeft).toBe(3)
+    expect(Refund.refundByWeeks(month(4000), "2026-12-15", open)!.weeksLeft).toBe(2)
+    expect(Refund.refundByWeeks(month(4000), "2026-12-15", open)!.amount).toBe(2400)
+    expect(Refund.refundByWeeks(month(4000), "2026-12-22", open)!.amount).toBe(1200)
+    expect(Refund.refundByWeeks(month(4000), "2026-12-29", open)!.amount).toBe(0)
+  })
+  it("tuition is net of promotion", () => {
+    expect(Refund.refundByWeeks(month(4000, 400), "2026-12-15", open)!.amount).toBe(2160) // 60% of 3600
+  })
+  it("a month billed part-way never gives back more than it was billed", () => {
+    const l = month(4000)
+    ;(l.quote!.periods[0] as { amount: number }).amount = 1200 // paid 30% (joined late)
+    ;(l as { amount: number }).amount = 1200
+    expect(Refund.refundByWeeks(l, "2026-12-22", open)!.amount).toBe(1200) // 1 week left = 30% of 4000 = 1200
+  })
+  it("hour packs are not handled here (÷ sessions instead)", () => {
+    const l = month(4000)
+    ;(l.course as { unit: string }).unit = "hour"
+    expect(Refund.refundByWeeks(l, "2026-12-01", open)).toBeNull()
+  })
+  it("week pack: 4-week pack, 2 weeks left = 60%; whole pack left = 100%", () => {
+    const wk = { amount: 3000, promotion: 0, line: { periods: 1 }, course: { unit: "week", duration: 4, price: 3000 },
+      quote: { from: dates[0], slots: dates.map((date) => ({ date, classId: "k", start: "16:00", minutes: 60 })), periods: [] } } as unknown as Parameters<typeof Refund.refundByWeeks>[0]
+    expect(Refund.refundByWeeks(wk, "2026-12-01", open)!.amount).toBe(3000)
+    expect(Refund.refundByWeeks(wk, "2026-12-15", open)!.amount).toBe(1800)
+  })
+})
+
 describe("refund by session (owner 2026-11-05)", () => {
   const line = (amount: number, promotion: number, n: number) => ({ amount, promotion, quote: { slots: Array.from({ length: n }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, classId: "k", start: "16:00", minutes: 60 })) } }) as unknown as Parameters<typeof Refund.refundBySession>[0]
   it("price per session = tuition ÷ all sessions; refund = price × (all − used)", () => {

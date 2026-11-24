@@ -46,6 +46,12 @@ const visitOf = (s: Pick<StudentBlock, "chosen">) => {
 }
 const ageOf = (birth: string) => { if (!birth) return null; const b = new Date(birth), n = new Date(); return n.getFullYear() - b.getFullYear() - (n < new Date(n.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0) }
 
+/** owner 2026-11-24: the Parent forms page previews a branch's own "how did you hear about us" list — passed as ?sources=a|b|c (empty = the standard channels) */
+function previewSources(params: URLSearchParams): string[] | undefined {
+  const list = (params.get("sources") ?? "").split("|").map((x) => x.trim()).filter(Boolean)
+  return list.length ? list : undefined
+}
+
 /** Sample data so the owner/staff can open /liff/form?preview=test|trial without LINE (nothing is sent). */
 function previewData(type: FormType, fresh = false): { offers: FormSubjectOffer[]; grades: string[]; prefill: FormPrefill | null } {
   const days = [1, 2, 4].map((n) => addDays(toDateStr(new Date()), n))
@@ -146,7 +152,7 @@ export function LiffForm() {
       if (pf.startsWith("pe_") || previewEnroll) {
         let tk: EnrollToken
         if (previewEnroll) {
-          tk = { token: "preview", kind: "enroll", reusable: true, branchId: "", branchName: "ทองหล่อ", brand: (params.get("brand") as Brand) || "nockacademy", lang: "th", grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], subjects: ["คณิต", "อังกฤษ", "วิทย์"],
+          tk = { token: "preview", kind: "enroll", reusable: true, branchId: "", branchName: params.get("branchName") || "ทองหล่อ", sources: previewSources(params), brand: (params.get("brand") as Brand) || "nockacademy", lang: "th", grades: ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3"], subjects: ["คณิต", "อังกฤษ", "วิทย์"],
             subjectNames: { "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } }, conversationId: null, createdAt: "", used: false,
             courses: [{ id: "c1", name: "คณิต ป.5 รายเดือน", subjects: ["คณิต"], grades: ["ป.5"], unit: "month", duration: 1, price: 4400 }, { id: "c2", name: "อังกฤษ ป.6 24 ชม.", subjects: ["อังกฤษ"], grades: ["ป.6"], unit: "hour", duration: 24, price: 6300 }],
             // owner 2026-10-16: the admin picks course + classes on the invoice — the form only asks for details
@@ -208,7 +214,7 @@ export function LiffForm() {
         setFormType(preview); setOffers(d.offers); setGrades(d.grades); setDisplayName("ผู้ปกครอง"); setLineUserId("preview"); setSeparate(preview === "trial")
         setSubjectNames({ "คณิต": { en: "Math", ja: "数学" }, "อังกฤษ": { en: "English", ja: "英語" }, "วิทย์": { en: "Science", ja: "理科" } })
         const b = (params.get("brand") as Brand) || (preview === "trial" ? "liclass" : "nockacademy")
-        setBranchName(b === "liclass" ? "Liclass บางนา" : "ทองหล่อ"); setBrandId(b); setBusOffered(b === "liclass")
+        setBranchName(params.get("branchName") || (b === "liclass" ? "Liclass บางนา" : "ทองหล่อ")); setBrandId(b); setBusOffered(b === "liclass"); setSourceOptions(previewSources(params))
         if (!params.get("lang")) setLang(brandLang(b))
         applyPrefill(d.prefill, d.grades, d.offers, "", b === "liclass")
         // and a time already picked for each subject they're interested in

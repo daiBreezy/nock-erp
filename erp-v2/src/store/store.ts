@@ -334,6 +334,8 @@ type Store = DB & UIState & {
   setReceiptGrouping: (invoiceId: ID, combinedIds: ID[]) => Result
   /** owner 2026-11-05: confirming the slip enrols the student at once; the receipt(s) are issued LATER — together or one per student */
   issueReceipts: (invoiceIds: ID[], mode: "combined" | "separate") => Result
+  /** owner 2026-11-24: pull more paid invoices of the family (any months, picked by the admin) onto a receipt that is already out */
+  addInvoicesToReceipt: (receiptNumber: string, invoiceIds: ID[]) => Result
   /** receipt "combine list" (owner 2026-11-23): show some lines as one renamed line — applies to every invoice on the receipt */
   setReceiptMerges: (receiptNumber: string, merges: ReceiptMerge[]) => Result
 
@@ -3316,6 +3318,26 @@ export const useStore = create<Store>()(
         return OK
       },
 
+      addInvoicesToReceipt: (receiptNumber, invoiceIds) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const on = Bill.invoicesOnReceipt(receiptNumber, s.invoices)
+        if (!on.length) return fail("ไม่พบใบเสร็จนี้")
+        const add = invoiceIds.map((id) => s.invoices.find((x) => x.id === id)).filter((x): x is Invoice => !!x)
+        if (!add.length) return fail("เลือกใบที่จะเพิ่มเข้าใบเสร็จ")
+        if (add.some((x) => x.status !== "paid")) return fail("เพิ่มได้เฉพาะใบที่ยืนยันยอดเงินครบแล้ว")
+        if (add.some((x) => x.receiptNumber)) return fail("มีใบที่ออกใบเสร็จของตัวเองไปแล้ว — เพิ่มเข้าใบเสร็จอื่นไม่ได้")
+        if (add.some((x) => x.branchId !== on[0].branchId)) return fail("เพิ่มได้เฉพาะใบของสาขาเดียวกัน")
+        const family = (inv: Invoice) => s.students.find((y) => y.id === inv.studentId)?.familyId ?? `solo-${inv.id}`
+        if (add.some((x) => family(x) !== family(on[0]))) return fail("ใบเสร็จรวมได้เฉพาะใบของครอบครัวเดียวกัน")
+        const ids = new Set(add.map((x) => x.id))
+        // the renamed-line list applies to every invoice on the receipt, so the new ones take it too
+        set({ invoices: s.invoices.map((x) => (ids.has(x.id) ? { ...x, receiptNumber, receiptMerges: on[0].receiptMerges, receiptDelivery: on[0].receiptDelivery } : x)) })
+        log("billing", add.map((x) => x.studentId), "เพิ่มใบเข้าใบเสร็จ", `${receiptNumber} + ${add.map((x) => x.number).join(", ")}`)
+        return OK
+      },
+
       setReceiptMerges: (receiptNumber, merges) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
@@ -3648,6 +3670,7 @@ export const useStore = create<Store>()(
         const family = matched ?? People.familyFromSubmission(sub.children[0].name, sub.parents, { name: sub.familyName, nameEn: sub.familyNameEn, address: sub.familyAddress, addressParts: sub.familyAddressParts, postcode: sub.familyPostcode, province: sub.familyProvince, location: sub.familyLocation, addressNote: sub.familyAddressNote, sources: sub.acquisitions, taxInfo: sub.taxInfo, referralText: sub.referral, pdpa: sub.pdpa, sourceLabels: sub.acquisitionLabels }, sub.lineUserId, uid("fam"))
         const parent = sub.parents.find((p) => p.primary) ?? sub.parents[0]
         const students: Student[] = [], leads: Lead[] = [], invoices: Invoice[] = [], stuIds: ID[] = []
+        const retargeted = new Map<ID, NonNullable<Student["targetSchools"]>>()
         let leadsNow = s.leads
         for (const p of plan) {
           const child = sub.children[p.childIndex]
@@ -3664,6 +3687,9 @@ export const useStore = create<Store>()(
             const errs = People.validateStudent(stu, toDateStr(now))
             if (errs.length) return fail(`${child.nickname || child.name}: ${errs[0].message}`)
             students.push(stu)
+          } else if (child.targetSchools?.length) {
+            // owner 2026-11-24: a returning child filled the form again → the target schools they gave now replace what is on file
+            retargeted.set(known.id, child.targetSchools)
           }
           stuIds.push(stu.id)
           // the lead: the one the link was sent to (first child), otherwise a new "สมัครตรง" one — already at รอชำระ
@@ -3683,7 +3709,7 @@ export const useStore = create<Store>()(
             noteToParent: "", status: "draft", pdf: "none", createdBy: s.userId, createdAt: now.toISOString(), payments: [],
           })
         }
-        set({ families: matched ? s.families : [...s.families, family], students: [...s.students, ...students], leads: [...leadsNow, ...leads] })
+        set({ families: matched ? s.families : [...s.families, family], students: [...s.students.map((x) => (retargeted.has(x.id) ? { ...x, targetSchools: retargeted.get(x.id) } : x)), ...students], leads: [...leadsNow, ...leads] })
         // drafts go through the normal invoice rule (number, validation) — one per child
         const made: ID[] = []
         for (const inv of invoices) {

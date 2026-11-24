@@ -27,7 +27,7 @@ import { tx, nm } from "@/lib/i18n"
 const BRAND_LABEL: Record<Branch["brand"], string> = { nockacademy: "Nockacademy", liclass: "Liclass" }
 
 /** A small editable list of strings (phones, social links). */
-function StringList({ values, onChange, placeholder, addLabel }: { values: string[]; onChange: (v: string[]) => void; placeholder: string; addLabel: string }) {
+export function StringList({ values, onChange, placeholder, addLabel }: { values: string[]; onChange: (v: string[]) => void; placeholder: string; addLabel: string }) {
   return (
     <div className="space-y-1.5">
       {values.map((v, i) => (

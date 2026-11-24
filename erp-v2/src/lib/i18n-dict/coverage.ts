@@ -2,6 +2,22 @@ import type { Entry } from "./index"
 
 // owner 2026-10-16 ("เรื่องภาษา ทำต่อเลย"): phrases the coverage test (lib/i18n-coverage.test.ts) found without EN / JA
 export const COVERAGE: Record<string, Entry> = {
+  // owner 2026-11-24: add invoices to an issued receipt · week-based refund · per-branch "how did you hear" on the Parent forms page · target schools in the form docs
+  "รู้จักเราจากช่องทางไหน (เลือกได้หลายข้อ — รายการของสาขาที่เลือก ตั้งได้ในกล่องด้านล่าง)": { en: "How did you hear about us? (several allowed — the selected branch's own list, set in the box below)", ja: "どこで当社を知りましたか？（複数選択可 — 選択した校舎の専用リスト。下のボックスで設定）" },
+  "ระดับชั้น * · วันเกิด · โรงเรียน · โรงเรียนที่อยากสอบเข้า (สูงสุด 3) · หมายเหตุ": { en: "Grade * · date of birth · school · target schools (up to 3) · note", ja: "学年 * · 生年月日 · 在籍校 · 志望校（最大3校）· 備考" },
+  "ชื่อ *, ชื่อเล่น, ระดับชั้น *, วันเกิด, โรงเรียน, โรงเรียนที่อยากสอบเข้า (สูงสุด 3 — เด็กเดิมกรอกใหม่ = อัปเดตของเดิม), หมายเหตุ": { en: "Name *, nickname, grade *, date of birth, school, target schools (up to 3 — an existing child filling it again updates what is on file), note", ja: "氏名 *、ニックネーム、学年 *、生年月日、在籍校、志望校（最大3校 — 既存の生徒が再入力すると登録内容を更新）、備考" },
+  "รายการให้ผู้ปกครองเลือกในช่อง \"รู้จักเราจากช่องทางไหน\" — แต่ละสาขามีของตัวเอง · ว่าง = ฟอร์มใช้ 7 ช่องทางมาตรฐาน · บันทึกแล้วกดเริ่มใหม่ที่ตัวอย่างเพื่อดู": { en: "The choices parents see under \"How did you hear about us?\" — each branch has its own · empty = the 7 standard channels · after saving, press Start over on the preview to see it", ja: "保護者が「どこで当社を知りましたか？」で選ぶ項目 — 校舎ごとに専用 · 空欄 = 標準の7チャネル · 保存後、プレビューの「最初から」で確認" },
+  "เพิ่มใบเข้าใบเสร็จ": { en: "Add invoices to the receipt", ja: "領収書に請求書を追加" },
+  "เลือกใบที่ชำระแล้วของครอบครัวนี้ (เดือนไหนก็ได้ กี่ใบก็ได้) มารวมในใบเสร็จฉบับนี้ · ใบที่มีใบเสร็จของตัวเองแล้วไม่แสดง": { en: "Pick this family's paid invoices (any months, any number) to put on this receipt · invoices that already have their own receipt are not shown", ja: "このご家庭の支払済み請求書（月・枚数は自由）をこの領収書にまとめます · 独自の領収書がある請求書は表示されません" },
+  "ไม่มีใบอื่นที่ชำระแล้วและยังไม่ออกใบเสร็จ": { en: "No other paid invoice without a receipt", ja: "領収書未発行の支払済み請求書はありません" },
+  "{0} ใบ · {1}": { en: "{0} invoice(s) · {1}", ja: "{0} 枚 · {1}" },
+  "เพิ่มเข้าใบเสร็จ": { en: "Add to receipt", ja: "領収書に追加" },
+  "นับตั้งแต่ {0} · เหลือ {1} สัปดาห์ที่มีเรียน": { en: "From {0} · {1} week(s) with class left", ja: "{0} から · 授業のある残り {1} 週" },
+  "แนะนำ {0} (สูตรสัปดาห์เหลือ: 3+ = 100% · 2 = 60% · 1 = 30%)": { en: "Suggested {0} (weeks left: 3+ = 100% · 2 = 60% · 1 = 30%)", ja: "推奨 {0}（残り週数: 3週以上 = 100% · 2週 = 60% · 1週 = 30%）" },
+  "เพิ่มใบอื่นเข้าใบเสร็จ": { en: "Add other invoices to this receipt", ja: "他の請求書をこの領収書に追加" },
+  "เลือกใบที่จะเพิ่มเข้าใบเสร็จ": { en: "Pick the invoices to add to the receipt", ja: "領収書に追加する請求書を選んでください" },
+  "มีใบที่ออกใบเสร็จของตัวเองไปแล้ว — เพิ่มเข้าใบเสร็จอื่นไม่ได้": { en: "An invoice already has its own receipt — it cannot be added to another one", ja: "独自の領収書が発行済みの請求書は他の領収書に追加できません" },
+  "เพิ่มได้เฉพาะใบของสาขาเดียวกัน": { en: "Only invoices of the same branch can be added", ja: "同じ校舎の請求書のみ追加できます" },
   "ตั้งช่วงเวลาเรียน (Time blocks) ของวัน / ทั้งสัปดาห์": { en: "Set the time blocks for a day / the whole week", ja: "その日／週全体の時間枠を設定" },
   "· เป็นนักเรียนแล้ว": { en: "· now a student", ja: "· 生徒になりました" },
   "(ซ่อน)": { en: "(hidden)", ja: "（非表示）" },

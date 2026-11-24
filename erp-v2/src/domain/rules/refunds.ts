@@ -4,8 +4,9 @@
 // Maker–checker like invoices. The staff picks what to give back and how much, per item.
 
 import { leaveQuota, leavesUsed, packageCovers } from "./attendance"
-import type { Attendance, Entitlement, Session, StudentLeave, CreditNote, CreditNoteItem, DateStr, ID, Invoice, Result, Staff } from "../types"
-import { APPROVER_ROLES, paidAmount, type InvoiceTotals, type LineQuote } from "./billing"
+import { addDays, fmtDate } from "../dates"
+import type { Attendance, Entitlement, Session, StudentLeave, CreditNote, CreditNoteItem, DateStr, ID, Invoice, Result, Staff, Weekday } from "../types"
+import { APPROVER_ROLES, paidAmount, prorateFactor, weekKey, type InvoiceTotals, type LineQuote } from "./billing"
 import { requireForceRemark } from "./notifications"
 import { inBranch } from "./permissions"
 
@@ -140,6 +141,47 @@ export interface SessionRefund {
   perSession: number
   /** suggested money back — the admin can change it */
   amount: number
+}
+
+export interface WeekRefund {
+  unit: "month" | "week"
+  tuition: number
+  /** weeks with class still ahead of the stop date, summed over the packs */
+  weeksLeft: number
+  /** one row per month / pack: weeks left, the share of its price that goes back, and the money */
+  parts: { label: string; left: number; factor: number; amount: number }[]
+  amount: number
+}
+
+/** Refund for month / week packs (owner 2026-11-24): the same tiers the monthly price uses — 3+ weeks left = 100%,
+ *  2 = 60%, 1 = 30% (`prorateFactor`). Weeks are counted as the quote counts them (`weekKey`). Each month / pack gives
+ *  back at most what it was billed; the total is net of promotion. A week pack of more than 5 weeks has no tier → pro rata. */
+export function refundByWeeks(l: Pick<LineQuote, "amount" | "promotion" | "quote" | "course" | "line">, stopFrom: DateStr, openDays: Weekday[]): WeekRefund | null {
+  const q = l.quote, c = l.course
+  if (!q || !c || c.unit === "hour" || !q.slots.length) return null
+  const tuition = Math.max(0, l.amount - l.promotion)
+  const weeksLeft = (dates: DateStr[]) => new Set(dates.filter((d) => d >= stopFrom).map((d) => weekKey(d, openDays))).size
+  const raw: { label: string; left: number; factor: number; billed: number; back: number }[] = []
+  if (c.unit === "month") {
+    for (const p of q.periods) {
+      if (!p.sessions.length) continue
+      const left = weeksLeft(p.sessions), factor = prorateFactor(left)
+      raw.push({ label: p.month, left, factor, billed: p.amount, back: Math.min(p.amount, Math.round(c.price * factor)) })
+    }
+  } else {
+    const span = c.duration * 7
+    for (let i = 0; i < Math.max(1, l.line.periods); i++) {
+      const from = addDays(q.from, i * span), to = addDays(from, span - 1)
+      const left = weeksLeft(q.slots.map((x) => x.date).filter((d) => d >= from && d <= to))
+      const factor = left >= c.duration ? 1 : c.duration <= 5 ? prorateFactor(left) : left / c.duration
+      raw.push({ label: `${fmtDate(from)}`, left, factor, billed: c.price, back: Math.round(c.price * factor) })
+    }
+  }
+  const billed = raw.reduce((a, r) => a + r.billed, 0)
+  if (!billed) return null
+  const scale = tuition / billed
+  const parts = raw.map((r) => ({ label: r.label, left: r.left, factor: r.factor, amount: Math.round(r.back * scale) }))
+  return { unit: c.unit, tuition, weeksLeft: parts.reduce((a, r) => a + r.left, 0), parts, amount: parts.reduce((a, r) => a + r.amount, 0) }
 }
 
 /** Refund by session (owner 2026-11-05): price per session = tuition ÷ all sessions of the course; suggestion =
