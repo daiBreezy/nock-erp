@@ -189,7 +189,7 @@ function BillingPage() {
         : toConfirm ? { text: "รอยืนยันเงิน", tone: "special" as const, why: "บันทึกรับเงินแล้ว รออีกคนตรวจยืนยัน" }
           : inv.delivery === "no_line" ? { text: "ไม่ถึงผู้ปกครอง", tone: "amber" as const, why: "ครอบครัวยังไม่ผูก LINE ต้องส่งใบเอง" }
             : inv.delivery === "failed" ? { text: "ส่ง LINE ไม่สำเร็จ", tone: "red" as const, why: "เช่น ผู้ปกครอง block OA" } : null
-      const label = inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.INVOICE_STATUS_LABEL[inv.status]
+      const label = inv.pdf === "generating" ? "กำลังสร้าง PDF" : inv.pdf === "failed" ? "PDF ไม่สำเร็จ" : Bill.invoiceStatusLabel(inv)
       const pill = <Pill tone={issue?.tone ?? invoiceTone(inv)}>{issue ? issue.text : label}{group && same < group.length ? ` ${same}/${group.length}` : ""}</Pill>
       return (
         <span className="flex items-center justify-end">

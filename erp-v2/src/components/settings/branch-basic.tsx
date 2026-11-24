@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { ROLE_LABEL, staffInBranch } from "@/domain/rules/permissions"
-import { promptPayKind } from "@/domain/rules/documents"
 import { fmtDate, fmtMoney, TH_DAYS_FULL } from "@/domain/dates"
 import { branchHasBus, KNOWN_PROVINCES } from "@/domain/rules/settings"
 import type { Branch } from "@/domain/types"
@@ -178,24 +177,23 @@ export function BranchInfoTab({ branch, onJump }: { branch: Branch; onJump: (tab
 }
 
 export function BankTab({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["bankAccount"])
+  // owner 2026-11-24: bank accounts are managed in ONE place — Settings › System › การเงิน (Director). This tab only shows what this branch uses.
   const memo = useStore((s) => s.system.invoiceMemos[branch.brand])
-  const ba = b.bankAccount
-  const set = (patch: Partial<Branch["bankAccount"]>) => setB({ ...b, bankAccount: { ...ba, ...patch } })
+  const ba = branch.bankAccount
   return (
     <div className="space-y-4">
-      <SettingsCard title={tx("บัญชีธนาคาร")} hint={tx("พิมพ์บนใบแจ้งหนี้ของสาขานี้ — ตรวจให้ชื่อบัญชีตรงกับแบรนด์")}>
+      <SettingsCard title={tx("บัญชีธนาคาร")} hint={tx("บัญชีที่สาขานี้ใช้บนใบแจ้งหนี้ — จัดการที่ Settings → System → การเงิน (Bank Account) ที่เดียว")}
+        action={<Button size="xs" variant="outline" nativeButton={false} render={<Link href="/settings?view=system" />}>{tx("แก้ที่ Settings → System")}</Button>}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tx("ธนาคาร")}><Input value={ba.bank} onChange={(e) => set({ bank: e.target.value })} /></Field>
-          <Field label={tx("สาขาธนาคาร")}><Input value={ba.branchName} onChange={(e) => set({ branchName: e.target.value })} /></Field>
-          <Field label={tx("เลขบัญชี")}><Input value={ba.number} onChange={(e) => set({ number: e.target.value })} /></Field>
-          <Field label={tx("ชื่อบัญชี")}><Input value={ba.name} onChange={(e) => set({ name: e.target.value })} /></Field>
-          <Field label={tx("PromptPay ID (QR จ่ายเงินบนใบแจ้งหนี้)")} className="sm:col-span-2">
-            <Input value={ba.promptPayId ?? ""} onChange={(e) => set({ promptPayId: e.target.value })} placeholder={tx("เบอร์โทร 10 หลัก · เลขผู้เสียภาษี 13 หลัก · e-Wallet 15 หลัก")} aria-invalid={!!ba.promptPayId && !promptPayKind(ba.promptPayId)} />
-            <p className="mt-1 text-xs text-muted-foreground">{ba.promptPayId ? (promptPayKind(ba.promptPayId) ? tx("ใบแจ้งหนี้จะมี QR ให้ผู้ปกครองสแกนจ่ายพร้อมยอดเงินอัตโนมัติ") : tx("PromptPay ID ไม่ถูกต้อง — ต้องเป็นเบอร์โทร 10 หลัก เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก")) : tx("ไม่ใส่ = ไม่มี QR จ่ายเงินบนใบแจ้งหนี้")}</p>
-          </Field>
+          <InfoRow label={tx("ธนาคาร")}>{[ba.bank, ba.branchName].filter(Boolean).join(" · ") || "—"}</InfoRow>
+          <InfoRow label={tx("เลขบัญชี")}>{ba.number || "—"}</InfoRow>
+          <InfoRow label={tx("ชื่อบัญชี")}>{ba.name || "—"}</InfoRow>
+          <InfoRow label="QR">{ba.qrImage ? tx("QR ที่อัปโหลด") : ba.promptPayId ? tx("QR จาก PromptPay ID") : tx("ไม่มี QR บนใบแจ้งหนี้")}</InfoRow>
         </div>
-        <SaveRow dirty={dirty} onReset={reset} onSave={() => (!ba.promptPayId || promptPayKind(ba.promptPayId) ? save(tx("บันทึกบัญชีธนาคารแล้ว")) : report({ ok: false, error: tx("PromptPay ID ไม่ถูกต้อง") }, ""))} />
+        {ba.qrImage && (
+          // eslint-disable-next-line @next/next/no-img-element -- data URL
+          <img src={ba.qrImage} alt="QR" className="mt-3 size-28 rounded-xl border bg-white object-contain" />
+        )}
       </SettingsCard>
       <SettingsCard title="Invoice Memo" hint={tx("ใช้ร่วมกันทุกสาขาของแบรนด์ {0} — พิมพ์ในช่อง Memo ของใบแจ้งหนี้ใหม่ทุกใบ (แก้เฉพาะใบได้)", [tx(BRAND_LABEL[branch.brand])])}
         action={<Button size="xs" variant="outline" nativeButton={false} render={<Link href="/settings?view=system" />}>{tx("แก้ที่ Settings → System")}</Button>}>

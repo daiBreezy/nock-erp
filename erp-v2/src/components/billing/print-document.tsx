@@ -79,7 +79,9 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
     return { n, dark: Array.from({ length: n * n }, (_, i) => [i % n, Math.floor(i / n)] as const).filter(([x, y]) => q.isDark(y, x)) }
   }
   const qrCells = qrOf(branch.lineOa?.addFriendUrl)
-  const payQr = kind === "invoice" ? qrOf(branch.bankAccount.promptPayId ? Doc.promptPayPayload(branch.bankAccount.promptPayId, total) : null) : null
+  // owner 2026-11-24: an uploaded QR image (System › การเงิน › Bank Account) is printed as it is; otherwise the PromptPay QR is generated with the amount
+  const qrImg = kind === "invoice" ? branch.bankAccount.qrImage : undefined
+  const payQr = kind === "invoice" && !qrImg ? qrOf(branch.bankAccount.promptPayId ? Doc.promptPayPayload(branch.bankAccount.promptPayId, total) : null) : null
   const rows: (typeof items[number] | null)[] = [...items, ...Array.from({ length: 0 }, () => null)]
 
   return (
@@ -120,8 +122,8 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
             <p className="text-xs">{en}</p>
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-end gap-1"><span className="text-xs">NO.</span><span className="w-60 whitespace-nowrap border border-neutral-700 px-2 py-0.5 text-center text-xs font-mono">{number}</span></div>
-            <div className="flex items-center justify-end gap-1"><span className="text-xs">DATE</span><span className="w-60 border border-neutral-700 px-2 py-0.5 text-center text-xs">{d(date)}</span></div>
+            <div className="flex items-center justify-end gap-1"><span className="text-xs">NO.</span><span className="w-60 whitespace-nowrap border border-neutral-700 px-2 py-0.5 text-right text-xs font-mono">{number}</span></div>
+            <div className="flex items-center justify-end gap-1"><span className="text-xs">DATE</span><span className="w-60 border border-neutral-700 px-2 py-0.5 text-right text-xs">{d(date)}</span></div>
             {kind === "credit-note" && <p className="text-right text-2xs">REF. <span className="font-mono">{inv.number}</span></p>}
             {combined && <p className="text-right text-2xs">REF. <span className="font-mono">{onReceipt.map((x) => x.number).join(", ")}</span></p>}
           </div>
@@ -141,16 +143,16 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
           )}
         </section>
 
-        <table className="mt-2 w-full border border-neutral-700 [&_td]:px-2 [&_th]:border-b [&_th]:border-neutral-700 [&_th]:px-2 [&_th]:py-1 [&_th+th]:border-l [&_td+td]:border-l [&_td+td]:border-neutral-700">
+        <table className="mt-2 w-full table-fixed border border-neutral-700 [&_td]:px-2 [&_th]:border-b [&_th]:border-neutral-700 [&_th]:px-2 [&_th]:py-1 [&_th+th]:border-l [&_td+td]:border-l [&_td+td]:border-neutral-700">
           <thead className="text-center">
             <tr><th className="w-12">{L.item}<br /><span className="font-normal">Item</span></th><th>{L.description}<br /><span className="font-normal">Description</span></th><th className="w-16">{L.qty}<br /><span className="font-normal">Q&apos;ty</span></th><th className="w-28">{L.unitPrice}<br /><span className="font-normal">Unit Price</span></th><th className="w-32">{L.amount}<br /><span className="font-normal">Amount (Baht)</span></th></tr>
           </thead>
           <tbody>
             {rows.map((it, i) => (
               <tr key={i} className="align-top">
-                <td className="py-0.5 text-right">{it ? i + 1 : ""}</td>
+                <td className="py-0.5 text-center">{it ? i + 1 : ""}</td>
                 <td className="relative py-0.5 text-left">{it?.description}</td>
-                <td className="py-0.5 text-right tabular-nums">{it ? it.qty : ""}</td>
+                <td className="py-0.5 text-center tabular-nums">{it ? it.qty : ""}</td>
                 <td className="py-0.5">{it && <span className="flex justify-between tabular-nums"><span>฿</span><span>{money(it.unitPrice)}</span></span>}</td>
                 <td className="py-0.5">{it && <span className="flex justify-between tabular-nums"><span>฿</span><span>{money(it.amount)}</span></span>}</td>
               </tr>
@@ -166,11 +168,16 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
           </tbody>
         </table>
 
-        <section className="grid grid-cols-[1fr_62mm] border-x border-b border-neutral-700">
+        {/* the totals box is exactly as wide as the last two columns (unit price 7rem + amount 8rem), so its left line continues the column line above */}
+        <section className="grid grid-cols-[1fr_15rem] border-x border-b border-neutral-700">
           <div className="p-2">
             {/* payment QR on the left, the bank account beside it on the same line */}
-            {kind === "invoice" && (payQr || branch.bankAccount.number) && (
+            {kind === "invoice" && (payQr || qrImg || branch.bankAccount.number) && (
               <div className="flex items-start gap-3">
+                {qrImg && (
+                  // eslint-disable-next-line @next/next/no-img-element -- data URL, printed as it is
+                  <img src={qrImg} alt="QR" className="size-[26mm] shrink-0 object-contain" />
+                )}
                 {payQr && (
                   <svg viewBox={`0 0 ${payQr.n + 2} ${payQr.n + 2}`} className="size-[26mm] shrink-0" shapeRendering="crispEdges" aria-label="PromptPay">
                     <rect width="100%" height="100%" fill="#fff" />
@@ -184,7 +191,7 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
                       {L.bank}：{branch.bankAccount.bank}{"\n"}{branch.bankAccount.branchName ? `${branch.bankAccount.branchName}\n` : ""}{L.accountNo}：{branch.bankAccount.number}{"\n"}{L.accountName}：{branch.bankAccount.name}
                     </p>
                   )}
-                  {payQr && (
+                  {(payQr || qrImg) && (
                     <p className="text-2xs leading-snug text-neutral-700">{L.scanToPay}<br />Scan to pay · PromptPay</p>
                   )}
                 </div>
@@ -202,7 +209,8 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
         </section>
 
         <div className="mt-1 border border-neutral-700 px-2 py-1">
-          <p className="whitespace-pre-line"><b className="text-xs">Memo :</b> {memo}</p>
+          {/* owner 2026-11-24: the memo is small print — smaller than the rest of the page */}
+          <p className="whitespace-pre-line text-[9px] leading-snug"><b className="text-2xs">Memo :</b> {memo}</p>
         </div>
 
         {kind === "invoice" && <p className="mt-2 text-right"><b>*Total Due By</b>   <span className="ml-4 text-xs">{d(dueBy)}</span></p>}

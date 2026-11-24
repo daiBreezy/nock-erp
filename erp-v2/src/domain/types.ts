@@ -232,7 +232,7 @@ export interface Branch {
    *  (`defaultLeaveQuota`: 1 session = 2 hrs, 4 sessions = 1 leave). 0 = no leave allowed. */
   leaveQuotas?: Partial<Record<PriceUnit, Record<number, number>>>
   priceChart: PriceRow[]
-  bankAccount: { bank: string; branchName: string; name: string; number: string; /** PromptPay ID for the payment QR on the invoice: phone (10 digits) · tax ID (13) · e-wallet (15) — owner 2026-11-05 */ promptPayId?: string }
+  bankAccount: { bank: string; branchName: string; name: string; number: string; /** PromptPay ID for the payment QR on the invoice: phone (10 digits) · tax ID (13) · e-wallet (15) — owner 2026-11-05 */ promptPayId?: string; /** owner 2026-11-24: an uploaded QR image (data URL) — printed on the invoice instead of the generated PromptPay QR */ qrImage?: string }
   /** legacy simple flag — kept so existing "delivered via LINE" simulation logic still works; set from the server-side /api/line/status check */
   lineOaConnected: boolean
   /** owner 2026-10-15: this branch uses Nock (the AI helper) — unset = on; Settings › System can turn it off everywhere */
@@ -260,6 +260,15 @@ export type NotifyKey =
   | "student_added" | "starting_soon" | "invoice_sent" | "receipt_sent" | "summary_sent"
 
 /** Settings → System (brand-wide, Director only): global catalogs + preferences. */
+/** one bank account + who it is for: whole business types (Liclass / Nockacademy / both) or chosen branches (owner 2026-11-24) */
+export interface BankAccountEntry {
+  id: ID
+  /** the name staff see in the list, e.g. "บัญชีหลัก Nockacademy" */
+  label: string
+  account: Branch["bankAccount"]
+  scope: { kind: "brand"; brands: Brand[] } | { kind: "branch"; branchIds: ID[] }
+}
+
 export interface SystemConfig {
   /** global subject catalog — branches pick from it; renaming updates every record */
   subjects: string[]
@@ -282,6 +291,9 @@ export interface SystemConfig {
   survey?: { from: string; to: string }
   /** owner 2026-10-15: turn Nock (the AI helper bubble) on / off for everyone — unset = on */
   aiHelper?: boolean
+  /** owner 2026-11-24: bank accounts kept in ONE place (Settings › System › การเงิน, Director) — Save sends the account to every branch it targets
+   *  (it becomes that branch's `bankAccount`); a branch no entry targets keeps what it has. Replaces the per-branch Bank tab. */
+  bankAccounts?: BankAccountEntry[]
   /** owner 2026-11-19: the day every student moves up a grade, per business type — set by the Director, shared with all branches (unset = 1 April) */
   gradeRollover?: Partial<Record<Brand, { month: number; day: number }>>
 }

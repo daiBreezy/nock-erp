@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils"
 import { report } from "@/lib/feedback"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard } from "./common"
+import { BankAccounts } from "./bank-accounts"
 import { FormsList } from "@/components/forms/form-builder"
 import { HolidayPlanner } from "./holiday-planner"
 import { AiSettings } from "./ai-settings"
@@ -38,7 +39,7 @@ const SYSTEM_TABS: { id: string; label: string; icon: typeof SlidersHorizontalIc
   // owner 2026-10-13: subjects and holidays are different topics — one tab each
   { id: "subjects", label: "วิชา", icon: BookOpenIcon, body: () => <SubjectCatalog /> },
   { id: "holidays", label: "วันหยุด", icon: CalendarDaysIcon, body: () => <GlobalHolidays /> },
-  { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <><CreditCourseToggle /><InvoiceMemos /></> },
+  { id: "billing", label: "การเงิน", icon: ReceiptTextIcon, body: () => <><CreditCourseToggle /><BankAccounts /><InvoiceMemos /></> },
   { id: "customers", label: "ลูกค้าและ CRM", icon: UsersIcon, body: () => <><LossReasons /><YearlySurvey /></> },
   // owner 2026-10-22: the form builder — the company makes its own forms and tunes the ERP's
   { id: "forms", label: "ฟอร์ม", icon: ClipboardListIcon, body: () => <FormsList /> },

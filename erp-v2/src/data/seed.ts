@@ -1,5 +1,6 @@
 // Mock data generated relative to "today" so the prototype always looks current.
 
+import { applyBankAccounts, defaultBankAccounts } from "@/domain/rules/bank-accounts"
 import { addDays, fromMinutes, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { chartPrice } from "@/domain/rules/course"
 import { cleanParent, cleanStudent, formatPhone, splitParentTitle } from "@/domain/rules/people"
@@ -805,7 +806,11 @@ export function buildSeed(now = new Date()): DB {
   // owner 2026-10-21: the history leads' Test / Trial appointments — Reports split the funnel by the way leads went
   buildLeadAppointments({ today, leads, assessments })
 
-  return { branches, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, examResults: buildExamDemo({ branches, students }, now), invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
+  // owner 2026-11-24: bank accounts live in System › การเงิน — the first ones come from the branches as they are, then go back to them
+  const bankAccounts = defaultBankAccounts(branches)
+  system.bankAccounts = bankAccounts
+  const withBank = applyBankAccounts(branches, bankAccounts).branches
+  return { branches: withBank, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, examResults: buildExamDemo({ branches: withBank, students }, now), invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
 }
 
 /**

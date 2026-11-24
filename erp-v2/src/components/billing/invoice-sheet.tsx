@@ -266,8 +266,6 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       label: "ออกเลข Official + PDF (Admin)",
       state: inv.number && inv.pdf === "ready" ? "done" : inv.status === "approved" ? "current" : "todo",
       docs: docsFor.invoice,
-      onAdd: inv.status === "approved" && !inv.number && manage ? issue : undefined,
-      addLabel: "ออกเลข Official",
       detail: inv.number ? inv.number : inv.status === "approved" ? "อนุมัติแล้ว — Admin กดออกเลขได้ทันที" : "—",
     },
     {
@@ -308,7 +306,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   ]
 
   // the action box only when it has something to show (sending + recording money now live in the Note section / the payment step)
-  const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || (inv.status === "approved" && !inv.number && manage) || inv.status === "void"
+  const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || inv.status === "void"
   // owner 2026-11-19: the admin can always send again once it has been sent — the parent may not have seen it, for any reason
   const canSendNote = ((inv.status === "approved" && !!inv.number) || inv.status === "sent") && manage
   const noteEditable = manage && inv.status !== "paid" && inv.status !== "void"
@@ -320,8 +318,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
           <SheetTitle className="min-w-0 flex-1 truncate text-lg">{inv.number ?? "ใบแจ้งหนี้ (ยังไม่มีเลข)"}</SheetTitle>
           {/* "no LINE" is an icon everywhere (owner 2026-10-12) — hover explains */}
           {inv.delivery === "no_line" && <UnlinkIcon role="img" aria-label="ไม่มี LINE" className="size-4 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon>}
-          {inv.delivery === "failed" && <Pill tone="red">ส่ง LINE ไม่สำเร็จ</Pill>}
-          <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
+          {inv.delivery === "failed" && <UnlinkIcon role="img" aria-label="ส่ง LINE ไม่สำเร็จ" className="size-4 shrink-0 text-danger"><title>ส่ง LINE ไม่สำเร็จ</title></UnlinkIcon>}
+          <Pill tone={invoiceTone(inv)}>{Bill.invoiceStatusLabel(inv)}</Pill>
         </div>
         <SheetDescription>
           {stu?.nickname} ({stu?.grade}) · {fam?.name ?? "ยังไม่ผูกครอบครัว"}
@@ -457,7 +455,6 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         <section className="space-y-2 rounded-lg border p-3">
           {inv.status === "draft" && manage && <p className="text-sm text-muted-foreground">ร่าง — ตรวจรายการแล้วกด “สร้างใบแจ้งหนี้” ด้านล่าง ใบจะเกิดขึ้นจริง (ยังไม่มีเลข) แล้วรอคนอื่นอนุมัติ</p>}
           {inv.status === "pending_approval" && approveCheck.ok && <p className="text-sm text-muted-foreground">รออนุมัติ — ตรวจใบแล้วกด “อนุมัติ” ด้านล่าง</p>}
-          {inv.status === "approved" && !inv.number && manage && <p className="text-sm text-muted-foreground">อนุมัติแล้ว — กด “ออกเลข Official” เพื่อรันเลขที่และสร้าง PDF</p>}
           {inv.status === "void" && (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-muted-foreground">ใบนี้ถูกยกเลิก — ระบบไม่ได้แจ้งผู้ปกครองให้อัตโนมัติ</p>

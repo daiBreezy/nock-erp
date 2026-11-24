@@ -109,8 +109,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
     // Force Approve sits right under its own step (owner 2026-11-05)
     { label: "อนุมัติ", done: members.filter((x) => ["approved", "sent", "paid"].includes(x.status)).length,
       extra: pending.length > 0 && drafts.length === 0 && !canApproveAll && canForceAll ? <div className="mt-1.5"><ForceApprove label="Force Approve ทั้งชุด" onForce={(remark) => { for (const i of pending) { const r = act.approve(i.id, remark); if (!r.ok) return r } return { ok: true, value: undefined } }} success="Force Approve ทั้งชุดแล้ว — แจ้งทั้งสาขา + Director" /></div> : undefined },
-    { label: "ออกเลข Official + PDF (Admin)", done: members.filter((x) => !!x.number && x.pdf === "ready").length, docs: pdfDocs, addLabel: "ออกเลข Official ทั้งชุด",
-      onAdd: manage && toIssue.length > 0 && pending.length === 0 && drafts.length === 0 ? () => each(toIssue, (i) => act.issue(i.id)) && report({ ok: true, value: undefined }, `ออกเลข Official ${toIssue.length} ใบแล้ว`) : undefined },
+    { label: "ออกเลข Official + PDF (Admin)", done: members.filter((x) => !!x.number && x.pdf === "ready").length, docs: pdfDocs },
     { label: "ส่งถึงผู้ปกครอง", done: members.filter((x) => x.delivery === "delivered" || x.status === "paid").length, detail: "ข้อความเดียว รวมใบของทุกคน" },
     { label: "รับเงิน (สลิปเดียวทั้งชุด)", done: members.filter((x) => x.status === "paid").length, docs: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
       addLabel: "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)", onAdd: manage && payable.length > 0 ? () => setPay(true) : undefined,
@@ -179,7 +178,7 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
                 <span className="truncate font-mono text-xs text-muted-foreground">{inv.number ?? "ร่าง"}</span>
                 {!inv.lines.length && !inv.advance.length && !inv.bookFee && inv.status === "draft" && <span className="shrink-0 text-xs text-muted-foreground">· ยังไม่มีคอร์ส — กดเพื่อเติม</span>}
               </Button>
-              <Pill tone={invoiceTone(inv)}>{Bill.INVOICE_STATUS_LABEL[inv.status]}</Pill>
+              <Pill tone={invoiceTone(inv)}>{Bill.invoiceStatusLabel(inv)}</Pill>
               <span className="w-24 text-right tabular-nums">{fmtMoney(total)}</span>
               {allDraft && manage && members.length > 2 && <Button size="icon-xs" variant="ghost" aria-label="ถอดออกจากชุด" onClick={() => report(act.unlink(inv.id), "ถอดออกจากชุดแล้ว")}><UnlinkIcon /></Button>}
             </div>
@@ -246,10 +245,13 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
         <PanelFooter>
           <PanelMore items={[!voiding && members.every((x) => x.payments.length === 0) && { label: "ยกเลิกทั้งชุด", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) }]} />
           {drafts.length > 0 && (
-            <Button className="ml-auto" onClick={generateAll}><FileTextIcon /> สร้าง PDF ทั้งชุด</Button>
+            <Button className="ml-auto" onClick={generateAll}><FileTextIcon /> สร้างใบแจ้งหนี้ทั้งชุด</Button>
+          )}
+          {drafts.length === 0 && pending.length === 0 && toIssue.length > 0 && (
+            <Button className="ml-auto" onClick={() => each(toIssue, (i) => act.issue(i.id)) && report({ ok: true, value: undefined }, `ออกเลข Official ${toIssue.length} ใบแล้ว`)}><FileTextIcon /> ออกเลข Official ทั้งชุด</Button>
           )}
           {drafts.length === 0 && pending.length > 0 && canApproveAll && (
-            <Button className="ml-auto" onClick={() => each(pending, (i) => act.approve(i.id)) && report({ ok: true, value: undefined }, "อนุมัติทั้งชุดแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติทั้งชุด</Button>
+            <Button className="ml-auto" onClick={() => each(pending, (i) => act.approve(i.id)) && report({ ok: true, value: undefined }, "อนุมัติทั้งชุดแล้ว — Admin ออกเลข Official ได้")}><CheckIcon /> อนุมัติทั้งชุด</Button>
           )}
           {drafts.length === 0 && pending.length === 0 && toSend.length > 0 && (
             <Button className="ml-auto" disabled={!anyNote} onClick={() => report(act.send(toSend[0].id, notes[toSend[0].id] ?? toSend[0].noteToParent), (v) => (v.delivered ? "ส่งทั้งชุดทาง LINE แล้ว (ข้อความเดียว)" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}><SendIcon /> ส่งผู้ปกครอง (ข้อความเดียว)</Button>

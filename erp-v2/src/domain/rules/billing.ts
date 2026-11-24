@@ -683,6 +683,11 @@ export const INVOICE_STATUS_LABEL: Record<Invoice["status"], string> = {
   void: "ยกเลิก",
 }
 
+/** owner 2026-11-24: approved but no running number yet = "รอออกเลข" (the Admin still has to issue the Official number) */
+export function invoiceStatusLabel(inv: Pick<Invoice, "status" | "number">): string {
+  return inv.status === "approved" && !inv.number ? "รอออกเลข" : INVOICE_STATUS_LABEL[inv.status]
+}
+
 // ---------- course summary before the PDF (owner 2026-11-20) ----------
 
 /** what the parent is shown in the summary — course · classes · start · periods · money. A change to any of it makes the old summary stale. */
