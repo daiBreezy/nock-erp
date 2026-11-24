@@ -2,6 +2,7 @@ import type { Entry } from "./index"
 
 // owner 2026-10-16 ("เรื่องภาษา ทำต่อเลย"): phrases the coverage test (lib/i18n-coverage.test.ts) found without EN / JA
 export const COVERAGE: Record<string, Entry> = {
+  "อัปโหลดสลิป": { en: "Upload slip", ja: "スリップをアップロード" },
   // owner 2026-11-24: add invoices to an issued receipt · week-based refund · per-branch "how did you hear" on the Parent forms page · target schools in the form docs
   "รู้จักเราจากช่องทางไหน (เลือกได้หลายข้อ — รายการของสาขาที่เลือก ตั้งได้ในกล่องด้านล่าง)": { en: "How did you hear about us? (several allowed — the selected branch's own list, set in the box below)", ja: "どこで当社を知りましたか？（複数選択可 — 選択した校舎の専用リスト。下のボックスで設定）" },
   "ระดับชั้น * · วันเกิด · โรงเรียน · โรงเรียนที่อยากสอบเข้า (สูงสุด 3) · หมายเหตุ": { en: "Grade * · date of birth · school · target schools (up to 3) · note", ja: "学年 * · 生年月日 · 在籍校 · 志望校（最大3校）· 備考" },

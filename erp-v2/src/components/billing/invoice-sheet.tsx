@@ -4,7 +4,7 @@ import { Tabs } from "@/components/app/page-layout"
 import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, Loader2Icon, PencilIcon, PlusIcon, RefreshCwIcon, SendIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, Loader2Icon, PencilIcon, PlusIcon, RefreshCwIcon, SendIcon, UploadIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -151,6 +151,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   // "x" stands in for the remark — only asks whether Force is available at all
   const canForce = Bill.canForceApprove(inv, me, "x").ok
   const manage = can(me, "billing.manage")
+  // the invoice reached the parent: the next step is the slip — Upload becomes the main button, "send again" the secondary one
+  const sentToParent = inv.status === "sent" && inv.delivery === "delivered"
   const canAddPayment = (inv.status === "approved" || inv.status === "sent") && manage && paidAll < totals.total
   const ctx = { branch, courses, classes, holidays }
   const owed = (x: typeof inv) => Bill.owedOn(x, Bill.invoiceTotals(x, ctx).total)
@@ -271,13 +273,14 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
     },
     {
       label: "รับเงิน (บันทึก + ยืนยันโดยอีกคน)",
-      state: inv.status === "paid" ? "done" : paidAll > 0 ? "current" : "todo",
+      // owner 2026-11-24: once the invoice reached the parent this step is the pending one (waiting for the slip)
+      state: inv.status === "paid" ? "done" : paidAll > 0 || sentToParent ? "current" : "todo",
       docs: docsFor.slip,
       extra: paymentsNode,
       onAdd: canAddPayment ? () => setPayOpen(true) : undefined,
       addLabel: "อัปโหลดสลิปการชำระเงิน",
       meta: inv.payments.length ? `${fmtDateTime(inv.payments[inv.payments.length - 1].recordedAt)} · ${who(inv.payments[inv.payments.length - 1].recordedBy)}` : undefined,
-      detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}${inv.status === "paid" ? " · นักเรียนเข้าคลาสแล้ว" : " · ยืนยันยอดแล้วนักเรียนเข้าคลาสทันที"}` : "—",
+      detail: inv.payments.length ? `ยืนยันแล้ว ${fmtMoney(paidConfirmed)} / ${fmtMoney(totals.total)}${inv.status === "paid" ? " · นักเรียนเข้าคลาสแล้ว" : " · ยืนยันยอดแล้วนักเรียนเข้าคลาสทันที"}` : sentToParent ? "รอผู้ปกครองชำระเงิน" : "—",
     },
     {
       label: "ใบเสร็จ (ออกภายหลังได้)",
@@ -486,10 +489,11 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
           {manage && (inv.status === "draft" || inv.status === "pending_approval") && <Button className="ml-auto" variant="outline" onClick={onEdit}><PencilIcon /> {inv.status === "draft" ? "แก้ไข" : "แก้ (ต้องสร้าง PDF ใหม่)"}</Button>}
           {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — พร้อมส่งผู้ปกครอง")}><CheckIcon /> อนุมัติ PDF</Button>}
           {canSendNote && (
-            <Button className="ml-auto" disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
+            <Button className="ml-auto" variant={sentToParent && canAddPayment ? "outline" : "default"} disabled={!note.trim()} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
               <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
             </Button>
           )}
+          {sentToParent && canAddPayment && <Button onClick={() => setPayOpen(true)}><UploadIcon /> อัปโหลดสลิป</Button>}
           {inv.status === "draft" && (
             <Button disabled={inv.pdf === "generating"} onClick={generate}>
               {inv.pdf === "generating" ? <Loader2Icon className="animate-spin" /> : inv.pdf === "failed" ? <RefreshCwIcon /> : <FileTextIcon />}
