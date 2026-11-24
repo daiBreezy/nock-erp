@@ -3,8 +3,9 @@
 import { Tabs } from "@/components/app/page-layout"
 import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
+import Link from "next/link"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, Loader2Icon, PencilIcon, PlusIcon, RefreshCwIcon, SendIcon, UploadIcon, XCircleIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, Loader2Icon, PencilIcon, MessagesSquareIcon, PlusIcon, RefreshCwIcon, SendIcon, UploadIcon, XCircleIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -14,6 +15,7 @@ import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "@/com
 import { InvoiceEditor } from "./invoice-editor"
 import { Textarea } from "@/components/ui/textarea"
 import { fmtDate, fmtDateTime, fmtMoney, fmtMonth } from "@/domain/dates"
+import { mainLineAccount } from "@/domain/rules/people"
 import * as Bill from "@/domain/rules/billing"
 import { invoiceMemo } from "@/domain/rules/documents"
 import { packageLabel } from "@/domain/rules/course"
@@ -144,6 +146,10 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const memo = invoiceMemo(inv, { brandMemo: brandMemos[branch.brand], branch, courses, classes })
   const stu = students.find((s) => s.id === inv.studentId)
   const fam = families.find((f) => f.id === stu?.familyId)
+  // owner 2026-11-24: who the invoice went to + a chat button to that LINE conversation in Inbox (main LINE account first)
+  const convs = useStore((st) => st.conversations)
+  const mainAccount = fam ? mainLineAccount(fam) : undefined
+  const conv = fam ? convs.find((c) => c.familyId === fam.id && !!mainAccount && c.id === `line_${mainAccount}`) ?? convs.find((c) => c.familyId === fam.id) : undefined
   const who = (uid?: ID) => staff.find((s) => s.id === uid)?.nickname ?? "—"
   const paidConfirmed = Bill.paidAmount(inv)
   const paidAll = inv.payments.reduce((a, p) => a + p.amount, 0)
@@ -270,6 +276,12 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         : inv.delivery === "sending" ? "กำลังส่งทาง LINE…"
         : inv.delivery === "failed" ? `ส่ง LINE ไม่สำเร็จ — ${inv.deliveryError ?? "ลองส่งอีกครั้ง"}`
         : inv.delivery === "no_line" ? "ยังไม่ถึงผู้ปกครอง — ไม่มี LINE (ต้องส่งทางอื่น)" : "—",
+      extra: inv.sentAt && fam ? (
+        <div className="mt-1 flex items-center gap-2 text-xs">
+          <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{fam.name}</span>{fam.parents.find((p) => p.primary) ? ` · ${fam.parents.find((p) => p.primary)!.name}` : ""}</span>
+          <Button size="icon-sm" variant="outline" className="rounded-full" disabled={!conv} aria-label="เปิดแชท LINE ในหน้า Inbox" title={conv ? "เปิดแชท LINE กับผู้ปกครองใน Inbox" : "ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"} nativeButton={!conv} render={conv ? <Link href={`/inbox?conversation=${conv.id}`} /> : undefined}><MessagesSquareIcon /></Button>
+        </div>
+      ) : undefined,
     },
     {
       label: "รับเงิน (บันทึก + ยืนยันโดยอีกคน)",

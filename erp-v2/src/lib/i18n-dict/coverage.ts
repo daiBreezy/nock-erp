@@ -2,6 +2,10 @@ import type { Entry } from "./index"
 
 // owner 2026-10-16 ("เรื่องภาษา ทำต่อเลย"): phrases the coverage test (lib/i18n-coverage.test.ts) found without EN / JA
 export const COVERAGE: Record<string, Entry> = {
+  "ส่งให้": { en: "Sent to", ja: "送信先" },
+  "เปิดแชท LINE ในหน้า Inbox": { en: "Open the LINE chat in Inbox", ja: "InboxでLINEチャットを開く" },
+  "เปิดแชท LINE กับผู้ปกครองใน Inbox": { en: "Open the LINE chat with the parent in Inbox", ja: "InboxでLINEチャットを開く" },
+  "ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox": { en: "This family has no LINE chat in Inbox yet", ja: "このご家庭のLINEチャットはまだInboxにありません" },
   "อัปโหลดสลิป": { en: "Upload slip", ja: "スリップをアップロード" },
   // owner 2026-11-24: add invoices to an issued receipt · week-based refund · per-branch "how did you hear" on the Parent forms page · target schools in the form docs
   "รู้จักเราจากช่องทางไหน (เลือกได้หลายข้อ — รายการของสาขาที่เลือก ตั้งได้ในกล่องด้านล่าง)": { en: "How did you hear about us? (several allowed — the selected branch's own list, set in the box below)", ja: "どこで当社を知りましたか？（複数選択可 — 選択した校舎の専用リスト。下のボックスで設定）" },
