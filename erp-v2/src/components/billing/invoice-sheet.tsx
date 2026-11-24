@@ -101,9 +101,9 @@ function Panel({ id, slipMediaId, defaultStudentId, renewEntitlementId, defaultC
     <Tabs className="shrink-0 px-3" value={tab} onChange={(v) => setTab(v as "all" | ID)}
       options={[{ value: "all", label: `รวม (${members.length})` }, ...members.map((m) => ({ value: m.id as string, label: students.find((x) => x.id === m.studentId)?.nickname ?? "—" }))]} />
   )
-  if (isBundle && tab === "all") return <BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} onDeleted={onClose} tabs={tabs} />
   // owner 2026-11-24: after a delete the panel moves on — to what is left of the set (a lone one is a single invoice now), or closes
   const afterDelete = (remaining: ID[]) => { if (!remaining.length) onClose(); else { setDupId(remaining[0]); setTab("all") } }
+  if (isBundle && tab === "all") return <BundleOverview members={members} onOpen={setTab} onAddChild={setAddingFor} onDeleted={onClose} onDeletedOne={afterDelete} tabs={tabs} />
   return shownId ? <Body key={shownId} id={shownId} slipMediaId={slipMediaId} onEdit={() => setEditing(true)} onDuplicated={setDupId} onDeleted={afterDelete} tabs={tabs} /> : null
 }
 

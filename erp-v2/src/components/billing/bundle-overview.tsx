@@ -30,7 +30,7 @@ import { invoiceTone } from "./status"
  * The family set as ONE thing (owner 2026-11-05): the children's invoices linked from the start, worked on together —
  * one PDF, one message, one approval, one slip, one choice of receipts. The children's own tabs sit next to this one.
  */
-export function BundleOverview({ members, onOpen, onAddChild, onDeleted, tabs }: { members: Invoice[]; onOpen: (id: ID) => void; onAddChild: (studentId: ID) => void; /** the whole set was deleted */ onDeleted: () => void; tabs?: React.ReactNode }) {
+export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDeletedOne, tabs }: { members: Invoice[]; onOpen: (id: ID) => void; onAddChild: (studentId: ID) => void; /** the whole set was deleted */ onDeleted: () => void; /** one child's invoice was deleted — move on to what is left of the set */ onDeletedOne: (remaining: ID[]) => void; tabs?: React.ReactNode }) {
   const me = useStore((s) => s.me())
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
@@ -39,7 +39,7 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, tabs }:
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
-  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, delSet: s.deleteInvoiceSet, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
+  const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, delSet: s.deleteInvoiceSet, delOne: s.deleteInvoice, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const manage = can(me, "billing.manage")
   const first = members[0]
   const stu = (id: ID) => students.find((x) => x.id === id)
@@ -57,6 +57,8 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, tabs }:
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [voiding, setVoiding] = useState(false)
   const [deletingSet, setDeletingSet] = useState(false)
+  // owner 2026-11-24: the delete ⋯ is a menu list — ลบทั้งชุด or ลบของ[ชื่อ] for one child; this holds the child being deleted
+  const [deletingOne, setDeletingOne] = useState<ID | null>(null)
   const [reason, setReason] = useState("")
 
   // what is next for the set: the earliest stage some member has not passed
@@ -259,8 +261,10 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, tabs }:
       {manage && (!allPaid || needReceipt.length > 0) && (
         <PanelFooter>
           <PanelMore items={[
-            // owner 2026-11-24: no running number anywhere = not real documents yet → delete the whole set for good · with numbers → void the set with a reason
-            manage && members.every((x) => Bill.hasNoRunNo(x)) && { label: `ลบใบแจ้งหนี้ทั้งชุด (${members.length} ใบ)`, icon: Trash2Icon, destructive: true, onClick: () => setDeletingSet(true) },
+            // owner 2026-11-24: delete is a MENU LIST — ลบทั้งชุด, then ลบของ[ชื่อ] per child (only children with no running number can be deleted)
+            manage && members.length > 1 && members.every((x) => Bill.hasNoRunNo(x)) && { label: `ลบทั้งชุด (${members.length} ใบ)`, icon: Trash2Icon, destructive: true, onClick: () => setDeletingSet(true) },
+            ...(manage ? members.filter((x) => Bill.hasNoRunNo(x)).map((x) => ({ label: `ลบของ ${stu(x.studentId)?.nickname ?? "—"}`, icon: Trash2Icon, destructive: true, onClick: () => setDeletingOne(x.id) })) : []),
+            // with running numbers = real documents → void the set with a reason
             !voiding && !members.every((x) => Bill.hasNoRunNo(x)) && members.every((x) => x.payments.length === 0) && { label: "ยกเลิกทั้งชุด", icon: XCircleIcon, destructive: true, onClick: () => setVoiding(true) },
           ]} />
           {drafts.length > 0 && (
@@ -288,10 +292,20 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, tabs }:
         <PaySlipDialog inv={payable[0].inv} owed={payable[0].owed} allTicked onClose={() => setPay(false)}
           siblings={payable.slice(1).map((r) => ({ id: r.inv.id, number: r.inv.number ?? "", nickname: stu(r.inv.studentId)?.nickname ?? "", owed: r.owed }))} />
       )}
-      <MathGate open={deletingSet} onClose={() => setDeletingSet(false)} title="ลบใบแจ้งหนี้ทั้งชุด" confirmLabel="ลบถาวร"
+      <MathGate open={deletingSet} onClose={() => setDeletingSet(false)} title="ลบทั้งชุด" confirmLabel="ลบถาวร"
         target={<>ใบชุดของ {famLabel} · {members.length} ใบ: {members.map((x) => stu(x.studentId)?.nickname ?? "—").join(", ")} · รวม {fmtMoney(grand)}</>}
         warning="ใบทุกใบในชุดนี้ยังไม่มีเลขรัน (ยังไม่ใช่เอกสารจริง) — ลบทั้งชุดแล้วกู้คืนไม่ได้"
         onConfirm={() => { setDeletingSet(false); if (report(act.delSet(members[0].id), "ลบใบแจ้งหนี้ทั้งชุดแล้ว")) onDeleted() }} />
+      {(() => {
+        const one = deletingOne ? rows.find((r) => r.inv.id === deletingOne) : undefined
+        const nick = one ? stu(one.inv.studentId)?.nickname ?? "—" : ""
+        return (
+          <MathGate open={!!deletingOne} onClose={() => setDeletingOne(null)} title={`ลบใบแจ้งหนี้ของ ${nick}`} confirmLabel="ลบถาวร"
+            target={one ? <>ใบแจ้งหนี้ของ {nick} · {Bill.invoiceStatusLabel(one.inv)} · {fmtMoney(one.total)} · อยู่ในชุดของ {famLabel}</> : null}
+            warning="ใบนี้ยังไม่มีเลขรัน (ยังไม่ใช่เอกสารจริง) ลบแล้วกู้คืนไม่ได้ · ใบอื่นในชุดอยู่ต่อ — ถ้าเหลือใบเดียวจะกลายเป็นใบเดี่ยวทันที"
+            onConfirm={() => { const delId = deletingOne!; setDeletingOne(null); const r = act.delOne(delId); if (report(r, "ลบใบแจ้งหนี้แล้ว")) onDeletedOne(r.value.remaining) }} />
+        )
+      })()}
     </>
   )
 }
