@@ -84,7 +84,8 @@ export function BundleOverview({ members, onOpen, onAddChild, tabs }: { members:
   const receipts = [...new Map(members.filter((m) => m.receiptNumber).map((m) => [m.receiptNumber!, m])).values()]
   const pdfDocs: DocItem[] = [
     ...(members.every((x) => x.pdf === "ready") ? [{ key: "bundle", kind: "invoice" as const, label: `ใบแจ้งหนี้${famLabel} (${members.length} ใบ)`, src: `/print/bundle/${first.bundleId}` }] : []),
-    ...members.filter((x) => x.pdf === "ready").map((x) => ({ key: x.id, kind: "invoice" as const, label: `ใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} ${x.number ?? ""}`.trim(), src: `/print/invoice/${x.id}` })),
+    // not issued yet = the same paper preview (number "DRAFT") — owner 2026-11-24
+    ...members.filter((x) => x.status !== "void").map((x) => ({ key: x.id, kind: "invoice" as const, label: x.pdf === "ready" ? `ใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} ${x.number ?? ""}`.trim() : `ตัวอย่างใบแจ้งหนี้ ${stu(x.studentId)?.nickname ?? ""} (ยังไม่มีเลข)`.trim(), src: `/print/invoice/${x.id}` })),
   ]
   // owner 2026-11-20: ONE course summary for the whole set — sent and confirmed for every child together; the PDF asks first when it is not confirmed
   const agStates = members.map((m) => Bill.agreementState(m, Bill.invoiceTotals(m, ctxOf(m))))

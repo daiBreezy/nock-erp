@@ -220,4 +220,5 @@ export const BILLING_PROMO: Record<string, Entry> = {
   "ซูมออก": { en: "Zoom out", ja: "縮小" },
   "ซูมเข้า": { en: "Zoom in", ja: "拡大" },
   "พอดีกับความกว้าง": { en: "Fit to width", ja: "幅に合わせる" },
+  "ตัวอย่างใบแจ้งหนี้ {0} (ยังไม่มีเลข)": { en: "Invoice preview {0} (no number yet)", ja: "{0}の請求書プレビュー（番号未発行）" },
 }

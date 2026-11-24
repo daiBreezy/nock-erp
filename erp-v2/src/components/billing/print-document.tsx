@@ -40,7 +40,7 @@ export function PrintDocument({ kind, id, bare = false, preview }: { kind: Kind;
 
   const ready = inv && branch && stu && (kind !== "receipt" || inv.receiptNumber) && (kind !== "credit-note" || cn)
   const baseCustomer = stu ? Doc.customerOf(stu, fam) : null
-  const number = kind === "credit-note" ? cn?.number : kind === "receipt" ? inv?.receiptNumber : preview ? (inv?.number ?? "DRAFT") : inv?.number
+  const number = kind === "credit-note" ? cn?.number : kind === "receipt" ? inv?.receiptNumber : inv?.number ?? "DRAFT"
 
   if (!ready || !baseCustomer) return <p className="p-10 text-center text-sm text-muted-foreground">ไม่พบเอกสาร หรือยังออกเอกสารนี้ไม่ได้</p>
 

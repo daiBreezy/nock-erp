@@ -241,7 +241,8 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
   const slips = [...new Set(inv.payments.map((p) => p.slip).filter((x): x is string => !!x))]
   const receipts = [...new Map(group.filter((x) => x.receiptNumber).map((x) => [x.receiptNumber!, x])).values()]
   const docsFor = {
-    invoice: inv.pdf === "ready" ? [{ key: "inv", kind: "invoice" as const, label: `ใบแจ้งหนี้ ${inv.number ?? ""}`.trim(), src: `/print/invoice/${inv.id}` }] : [],
+    // before the Official number is issued the paper is the same preview as in the form (number "DRAFT") — owner 2026-11-24
+    invoice: inv.status === "void" ? [] : [{ key: "inv", kind: "invoice" as const, label: inv.pdf === "ready" ? `ใบแจ้งหนี้ ${inv.number ?? ""}`.trim() : "ตัวอย่างใบแจ้งหนี้ (ยังไม่มีเลข)", src: `/print/invoice/${inv.id}` }],
     slip: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
     receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
   } satisfies Record<string, DocItem[]>
@@ -254,7 +255,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
       extra: inv.status === "pending_approval" && !approveCheck.ok ? (
         <div className="mt-1.5 space-y-1.5">
           <p className="text-xs text-muted-foreground">{approveCheck.error}</p>
-          {canForce && <ForceApprove label="Force Approve PDF" onForce={(remark) => act.approve(inv.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
+          {canForce && <ForceApprove label="Force Approve" onForce={(remark) => act.approve(inv.id, remark)} success="Force Approve แล้ว — แจ้งทั้งสาขา + Director" />}
         </div>
       ) : undefined,
       state: inv.approvedBy ? "done" : inv.status === "pending_approval" ? "current" : "todo",
@@ -351,7 +352,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, tabs }: { id: ID; slipMed
         {/* Billing info (owner 2026-11-05): the summary always visible; one expander opens the whole invoice */}
         <section className="rounded-lg border px-3">
           <Button variant="row" size="inline" type="button" aria-expanded={showAll} onClick={() => setShowAll(!showAll)} className="flex w-full items-center gap-2 py-2 text-left text-sm">
-            <span className="font-mono text-xs text-muted-foreground">{inv.number ?? "ร่าง"}</span>
+            <span className="font-mono text-xs text-muted-foreground">{inv.number ?? (inv.status === "draft" ? "ร่าง" : "ยังไม่มีเลข")}</span>
             <span className="ml-auto text-xs text-muted-foreground">ยอดรวม</span>
             <span className="font-semibold tabular-nums">{fmtMoney(totals.total)}</span>
             <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", showAll && "rotate-180")} />
