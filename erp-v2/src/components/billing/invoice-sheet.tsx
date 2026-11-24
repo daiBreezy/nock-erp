@@ -5,7 +5,7 @@ import { syncEnrollInvoice } from "@/lib/forms"
 import { ForceApprove } from "@/components/app/force-approve"
 import Link from "next/link"
 import { Fragment, useEffect, useState } from "react"
-import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, CircleIcon, FileTextIcon, LayersIcon, PencilIcon, MessagesSquareIcon, PlusIcon, SendIcon, UploadIcon, XCircleIcon, Trash2Icon, UnlinkIcon, Undo2Icon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, CopyIcon, FileTextIcon, LayersIcon, PencilIcon, MessagesSquareIcon, PlusIcon, SendIcon, UploadIcon, XCircleIcon, Trash2Icon, UnlinkIcon, Undo2Icon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -30,7 +30,8 @@ import { useShallow } from "zustand/react/shallow"
 import { useStore } from "@/store/store"
 import { invoiceTone } from "./status"
 import { CreditNotes } from "./credit-notes"
-import { DocThumbs, type DocItem } from "./doc-thumbs"
+import { type DocItem } from "./doc-thumbs"
+import { StepList, type InvoiceStep } from "./step-list"
 import { PaySlipDialog } from "./pay-slip-dialog"
 import { PaymentRefInput } from "./payment-ref"
 import { MergeInvoicesDialog, useMergeCandidates } from "./merge-invoices-dialog"
@@ -282,7 +283,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
     slip: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
     receipt: receipts.map((x) => ({ key: `rc${x.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${x.receiptNumber}`, src: `/print/receipt/${x.id}` })),
   } satisfies Record<string, DocItem[]>
-  const steps: { label: string; state: "done" | "current" | "todo" | "warn"; /** line 1: the date first, then who did it (owner 2026-11-05) · line 2: everything else */ meta?: string; detail: React.ReactNode; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
+  const steps: InvoiceStep[] = [
     { label: "สร้างใบ", state: inv.status === "draft" ? "current" : "done", meta: inv.status === "draft" ? undefined : `${fmtDateTime(inv.createdAt)} · ${who(inv.createdBy)}`, detail: inv.status === "draft" ? "ร่าง — ยังไม่ได้สร้างใบแจ้งหนี้" : "ข้อมูลจริงครบ · ยังไม่มีเลข", extra: agreementNode, onAdd: inv.status === "draft" && manage ? generate : undefined, addLabel: "สร้างใบแจ้งหนี้" },
     {
       label: "อนุมัติ (คนอื่นที่ไม่ใช่คนสร้าง)",
@@ -350,26 +351,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
   const RECEIPT_STEPS = ["ใบเสร็จ (ออกภายหลังได้)"]
   const invoiceSteps = steps.filter((x) => !RECEIPT_STEPS.includes(x.label))
   const receiptSteps = steps.filter((x) => RECEIPT_STEPS.includes(x.label))
-  const stepList = (list: typeof steps) => (
-    <ol>
-      {list.map((s, i) => (
-        <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
-          {/* the line joining this status icon to the next one — it is a stepper */}
-          {i < list.length - 1 && <span aria-hidden className={cn("absolute left-2.5 top-6 -bottom-0.5 w-px -translate-x-1/2", s.state === "done" ? "bg-success" : "bg-border")} />}
-          <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", s.state === "done" ? "bg-success text-white" : s.state === "current" ? "bg-info text-white" : s.state === "warn" ? "bg-warning text-white" : "border text-muted-foreground")}>
-            {s.state === "done" ? <CheckIcon className="size-3" /> : s.state === "warn" ? <AlertTriangleIcon className="size-3" /> : <CircleIcon className="size-2" />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{s.label}</div>
-            {s.meta && <div className="text-xs text-muted-foreground">{s.meta}</div>}
-            {s.detail && <div className="text-xs text-muted-foreground">{s.detail}</div>}
-            {s.extra}
-          </div>
-          {s.docs && <DocThumbs docs={s.docs} onAdd={s.onAdd} addLabel={s.addLabel} />}
-        </li>
-      ))}
-    </ol>
-  )
+  const stepList = (list: typeof steps) => <StepList steps={list} />
   return (
     <>
       <SheetHeader className="shrink-0 border-b pb-3">

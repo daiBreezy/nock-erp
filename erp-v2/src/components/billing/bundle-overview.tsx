@@ -1,27 +1,30 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
-import { CheckIcon, FileTextIcon, PlusIcon, ReceiptIcon, SendIcon, Trash2Icon, UnlinkIcon, WalletIcon, XCircleIcon } from "lucide-react"
+import { CheckIcon, FileTextIcon, PlusIcon, ReceiptIcon, MessagesSquareIcon, SendIcon, Trash2Icon, UnlinkIcon, WalletIcon, XCircleIcon } from "lucide-react"
 import { ForceApprove } from "@/components/app/force-approve"
 import { PaymentRefInput } from "./payment-ref"
 import { MathGate } from "@/components/app/math-gate"
-import { PaymentMenu } from "./payment-actions"
+import { PaymentMenu, RejectedPayments } from "./payment-actions"
+import { StepList, type InvoiceStep } from "./step-list"
 import { PanelBody, PanelFooter, PanelMore } from "@/components/app/form-shell"
 import { Pill } from "@/components/app/badges"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { fmtMoney } from "@/domain/dates"
+import { fmtDateTime, fmtMoney } from "@/domain/dates"
+import { mainLineAccount } from "@/domain/rules/people"
 import * as Bill from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import type { ID, Invoice, Result } from "@/domain/types"
 import { InfoTip } from "@/components/app/info-tip"
 import { report } from "@/lib/feedback"
-import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { useShallow } from "zustand/react/shallow"
-import { DocThumbs, type DocItem } from "./doc-thumbs"
+import { type DocItem } from "./doc-thumbs"
 import { PaySlipDialog } from "./pay-slip-dialog"
 import { IssueReceiptDialog } from "./issue-receipt-dialog"
 import { invoiceTone } from "./status"
@@ -39,6 +42,8 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
+  const staff = useStore((s) => s.staff)
+  const convs = useStore((s) => s.conversations)
   const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, delSet: s.deleteInvoiceSet, delOne: s.deleteInvoice, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, setNote: s.setInvoiceNote, unlink: s.unlinkInvoice, regroup: s.setReceiptGrouping, confirm: s.confirmPayment, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const manage = can(me, "billing.manage")
   const first = members[0]
@@ -60,6 +65,7 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
   // owner 2026-11-24: the delete ⋯ is a menu list — ลบทั้งชุด or ลบของ[ชื่อ] for one child; this holds the child being deleted
   const [deletingOne, setDeletingOne] = useState<ID | null>(null)
   const [reason, setReason] = useState("")
+  const [receiptIds, setReceiptIds] = useState<ID[] | null>(null)
 
   // what is next for the set: the earliest stage some member has not passed
   const drafts = members.filter((x) => x.status === "draft")
@@ -70,7 +76,9 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
   const canForceAll = pending.every((x) => Bill.canApprove(x, me).ok || Bill.canForceApprove(x, me, "x").ok)
   const allPaid = members.every((x) => x.status === "paid")
   const group = allPaid ? Bill.paymentGroup(first, invoices) : []
-  const combinedCount = group.filter((x) => x.receiptNumber && group.filter((y) => y.receiptNumber === x.receiptNumber).length > 1).length
+  // receipts: which invoices of the slip share one receipt (the same logic as the single panel)
+  const combined = receiptIds ?? group.filter((x) => x.receiptNumber && group.filter((y) => y.receiptNumber === x.receiptNumber).length > 1).map((x) => x.id)
+  const toggle = (list: ID[], id: ID) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
   // pay slips (owner 2026-11-05): ONE slot per slip — a shared slip is one slot (one confirmation for everyone on it),
   // children who paid separately are one slot each. Confirming = paid + the student joins the class right away.
@@ -113,49 +121,118 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
       )}
     </div>
   ) : undefined
-  const steps: { label: string; done: number; detail?: string; docs?: DocItem[]; onAdd?: () => void; addLabel?: string; extra?: React.ReactNode }[] = [
-    { label: "สร้างใบแจ้งหนี้", done: members.filter((x) => x.status !== "draft").length, addLabel: "สร้างใบแจ้งหนี้ทั้งชุด", detail: "ข้อมูลจริงครบ · ยังไม่มีเลข", extra: agreementNode,
-      onAdd: manage && drafts.length > 0 ? generateAll : undefined },
-    // Force Approve sits right under its own step (owner 2026-11-05)
-    { label: "อนุมัติ", done: members.filter((x) => ["approved", "sent", "paid"].includes(x.status)).length,
-      extra: pending.length > 0 && drafts.length === 0 && !canApproveAll && canForceAll ? <div className="mt-1.5"><ForceApprove label="Force Approve ทั้งชุด" onForce={(remark) => { for (const i of pending) { const r = act.approve(i.id, remark); if (!r.ok) return r } return { ok: true, value: undefined } }} success="Force Approve ทั้งชุดแล้ว — แจ้งทั้งสาขา + Director" /></div> : undefined },
-    { label: "ออกเลข Official + PDF (Admin)", done: members.filter((x) => !!x.number && x.pdf === "ready").length, docs: pdfDocs },
-    { label: "ส่งถึงผู้ปกครอง", done: members.filter((x) => x.delivery === "delivered" || x.status === "paid").length, detail: "ข้อความเดียว รวมใบของทุกคน" },
-    { label: "รับเงิน (สลิปเดียวทั้งชุด)", done: members.filter((x) => x.status === "paid").length, docs: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
-      addLabel: "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)", onAdd: manage && payable.length > 0 ? () => setPay(true) : undefined,
-      detail: "ยืนยันยอดแล้ว นักเรียนเข้าคลาสทันที — ใบเสร็จออกทีหลังได้",
-      extra: slots.length > 0 ? (
-        <div className="mt-2.5 divide-y rounded-xl border text-sm">
-          {slots.map((slot) => {
-            const { inv: fi, p: fp } = slot[0]
-            const amount = slot.reduce((a, x) => a + x.p.amount, 0)
-            const done = slot.every((x) => x.p.confirmedBy)
-            const c = Bill.canConfirmPayment(fp, me, fi.branchId)
-            return (
-              <div key={fp.groupId ?? fp.id} className="space-y-2 p-3">
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <p className="font-semibold tabular-nums">{fmtMoney(amount)}</p>
-                    <p className="break-words text-xs text-muted-foreground">{fp.method === "cash" ? "เงินสด" : "โอน"}{fp.reference && ` · Ref ${fp.reference}`} · {slot.map((x) => stu(x.inv.studentId)?.nickname).join(" + ")}{slot.length > 1 ? " (สลิปเดียว)" : ""}</p>
-                  </div>
-                  <span className="flex shrink-0 items-center gap-1">
-                  {done ? <Pill tone={fp.forced ? "amber" : "green"} title={fp.forced?.remark}>{fp.forced ? "Force · " : ""}ยืนยันแล้ว</Pill>
-                    : Bill.paymentRefError(fp) ? <Pill tone="amber">ต้องมี Ref ID ก่อนยืนยันยอด</Pill>
+  // owner 2026-11-24: the set reads EXACTLY like a single invoice — the same stepper (StepList), the same wording; the data is the set's (every child together)
+  const who = (uid?: ID) => staff.find((x) => x.id === uid)?.nickname ?? "—"
+  const nick = (id: ID) => stu(id)?.nickname ?? "—"
+  const n = members.length
+  const approvedList = members.filter((x) => x.approvedBy).sort((x, y) => (x.approvedAt ?? "").localeCompare(y.approvedAt ?? ""))
+  const forcedOne = members.find((x) => x.forced)
+  const allNumbered = members.every((x) => !!x.number && x.pdf === "ready")
+  const numbered = members.filter((x) => x.number)
+  const dls = members.map((x) => x.delivery)
+  const dl = dls.includes("failed") ? "failed" : dls.includes("sending") ? "sending" : dls.every((d) => d === "delivered") ? "delivered" : dls.every((d) => d === "delivered" || d === "no_line") ? "no_line" : undefined
+  const sentAt = members.find((x) => x.sentAt)?.sentAt
+  const mainAcc = fam ? mainLineAccount(fam) : undefined
+  const conv = fam ? convs.find((c) => c.familyId === fam.id && !!mainAcc && c.id === `line_${mainAcc}`) ?? convs.find((c) => c.familyId === fam.id) : undefined
+  const allPays = members.flatMap((m) => m.payments).sort((x, y) => x.recordedAt.localeCompare(y.recordedAt))
+  const lastPay = allPays[allPays.length - 1]
+  const confirmedSum = allPays.filter((p) => p.confirmedBy).reduce((a, p) => a + p.amount, 0)
+  const waitingPay = drafts.length === 0 && pending.length === 0 && toSend.length === 0 && payable.length > 0
+  const rcDeliveries = members.filter((x) => x.receiptNumber).map((x) => x.receiptDelivery)
+  const rcBad = rcDeliveries.some((d) => d === "failed" || d === "no_line")
+  const rcText = rcDeliveries.length && rcDeliveries.every((d) => d === "delivered") ? "ส่งใบเสร็จทาง LINE แล้ว" : rcDeliveries.includes("failed") ? "ส่งใบเสร็จทาง LINE ไม่สำเร็จ" : rcDeliveries.includes("no_line") ? "ไม่มี LINE — ส่งใบเสร็จทางอื่น" : "ออกใบเสร็จแล้ว"
+
+  const paymentsNode = slots.length > 0 || members.some((m) => m.rejectedPayments?.length) ? (
+    <>
+      {slots.length > 0 && <div className="mt-2.5 divide-y rounded-xl border text-sm">
+        {slots.map((slot) => {
+          const { inv: fi, p: fp } = slot[0]
+          const amount = slot.reduce((a, x) => a + x.p.amount, 0)
+          const done = slot.every((x) => x.p.confirmedBy)
+          const c = Bill.canConfirmPayment(fp, me, fi.branchId)
+          return (
+            <div key={fp.groupId ?? fp.id} className="space-y-2 p-3">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="font-semibold tabular-nums">{fmtMoney(amount)}</p>
+                  <p className="break-words text-xs text-muted-foreground">{fp.method === "cash" ? "เงินสด" : "โอน"}{fp.reference && ` · Ref ${fp.reference}`}</p>
+                  <p className="text-xs text-muted-foreground">บันทึกโดย {who(fp.recordedBy)}</p>
+                  {slot.length > 1 && <Pill tone="blue" className="mt-1 whitespace-normal">สลิปเดียวกัน {slot.map((x) => `${x.inv.number ?? ""} ${nick(x.inv.studentId)}`.trim()).join(" + ")}</Pill>}
+                </div>
+                <span className="flex shrink-0 items-center gap-1">
+                  {done ? <Pill tone={fp.forced ? "amber" : "green"} title={fp.forced?.remark}>{fp.forced ? "Force · " : ""}ยืนยันโดย {who(fp.confirmedBy)}</Pill>
+                    : Bill.paymentRefError(fp) ? <Pill tone="amber" className="whitespace-normal">ต้องมี Ref ID ก่อนยืนยันยอด</Pill>
                     : c.ok ? <Button size="xs" onClick={() => report(act.confirm(fi.id, fp.id), (v) => (v.paid ? "ยืนยันแล้ว · ชำระครบ นักเรียนเข้าคลาสแล้ว" : "ยืนยันยอดแล้ว"))}>ยืนยันยอด</Button>
                       : Bill.canForceConfirmPayment(fp, me, fi.branchId, "x").ok ? <ForceApprove label="Force ยืนยันยอด" onForce={(remark) => act.confirm(fi.id, fp.id, remark)} success="Force ยืนยันยอดแล้ว — แจ้งทั้งสาขา + Director" />
-                        : <Pill tone="amber">รอคนอื่นยืนยัน</Pill>}
+                        : <Pill tone="amber" className="whitespace-normal">รอคนอื่นยืนยัน</Pill>}
                   {!done && manage && <PaymentMenu invoiceId={fi.id} branchId={fi.branchId} payment={fp} />}
                 </span>
-                </div>
-                {!done && Bill.paymentRefError(fp) && manage && <PaymentRefInput invoiceId={fi.id} paymentId={fp.id} />}
               </div>
-            )
-          })}
+              {!done && Bill.paymentRefError(fp) && manage && <PaymentRefInput invoiceId={fi.id} paymentId={fp.id} />}
+            </div>
+          )
+        })}
+      </div>}
+      {members.map((m) => <RejectedPayments key={m.id} list={m.rejectedPayments ?? []} who={who} />)}
+    </>
+  ) : null
+
+  const groupNode = allPaid && group.length > 1 && receipts.length > 0 ? (
+    <div className="mt-1.5 space-y-1.5 rounded-lg border p-2.5">
+      <p className="text-xs font-medium">ใบเสร็จของสลิปนี้</p>
+      <div className="flex gap-1.5">
+        {([["combined", "รวมทุกใบ", group.map((x) => x.id)], ["separate", "แยกรายนักเรียน", [] as ID[]]] as const).map(([k, label, ids]) => {
+          const on = k === "combined" ? combined.length === group.length : combined.length === 0
+          return <Button variant="chip" size="inline" key={k} type="button" disabled={!manage} aria-pressed={on} onClick={() => !on && report(act.regroup(first.id, [...ids]), k === "combined" ? "รวมเป็นใบเสร็จเดียวแล้ว" : "แยกใบเสร็จรายนักเรียนแล้ว")}
+            className="flex-1 px-3 py-1 text-xs disabled:opacity-60">{label}</Button>
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">หรือติ๊กเลือกเองว่าใบไหนรวมกัน (ไม่ติ๊ก = แยกใบ)</p>
+      {group.map((x) => (
+        <label key={x.id} className="flex items-center gap-2 text-xs">
+          <Checkbox disabled={!manage} checked={combined.includes(x.id)} onCheckedChange={() => setReceiptIds(toggle(combined, x.id))} />
+          <span className="font-mono">{x.number}</span>
+          <span>{nick(x.studentId)}</span>
+          <span className="ml-auto text-muted-foreground">ใบเสร็จ <span className="font-mono">{x.receiptNumber}</span></span>
+        </label>
+      ))}
+      {manage && receiptIds && <Button size="xs" variant="outline" onClick={() => report(act.regroup(first.id, receiptIds), "จัดใบเสร็จแล้ว") && setReceiptIds(null)}>บันทึกการจัดใบเสร็จ</Button>}
+    </div>
+  ) : null
+
+  const invoiceSteps: InvoiceStep[] = [
+    { label: "สร้างใบ", state: drafts.length > 0 ? "current" : "done", meta: allDraft ? undefined : `${fmtDateTime(first.createdAt)} · ${who(first.createdBy)}`,
+      detail: drafts.length === n ? "ร่าง — ยังไม่ได้สร้างใบแจ้งหนี้" : drafts.length > 0 ? `ร่าง ${drafts.length}/${n} ใบ — ยังไม่ได้สร้างใบแจ้งหนี้` : "ข้อมูลจริงครบ · ยังไม่มีเลข", extra: agreementNode,
+      onAdd: manage && drafts.length > 0 ? generateAll : undefined, addLabel: "สร้างใบแจ้งหนี้ทั้งชุด" },
+    { label: "อนุมัติ (คนอื่นที่ไม่ใช่คนสร้าง)",
+      // Force Approve sits right under its own step (owner 2026-11-05)
+      extra: pending.length > 0 && drafts.length === 0 && !canApproveAll && canForceAll ? <div className="mt-1.5"><ForceApprove label="Force Approve ทั้งชุด" onForce={(remark) => { for (const i of pending) { const r = act.approve(i.id, remark); if (!r.ok) return r } return { ok: true, value: undefined } }} success="Force Approve ทั้งชุดแล้ว — แจ้งทั้งสาขา + Director" /></div> : undefined,
+      state: approvedList.length === n ? "done" : pending.length > 0 ? "current" : "todo",
+      meta: approvedList.length ? `${approvedList[approvedList.length - 1].approvedAt ? `${fmtDateTime(approvedList[approvedList.length - 1].approvedAt!)} · ` : ""}${who(approvedList[approvedList.length - 1].approvedBy)}` : undefined,
+      detail: approvedList.length === n ? (forcedOne?.forced ? `Force Approve · เหตุผล: ${forcedOne.forced.remark}` : "") : pending.length > 0 ? `รออนุมัติ ${pending.length}/${n} ใบ` : "—" },
+    { label: "ออกเลข Official + PDF (Admin)", state: allNumbered ? "done" : toIssue.length > 0 ? "current" : "todo", docs: pdfDocs,
+      detail: numbered.length ? <>{numbered.map((x) => <div key={x.id}>{x.number} · {nick(x.studentId)}</div>)}</> : toIssue.length > 0 ? "อนุมัติแล้ว — Admin กดออกเลขได้ทันที" : "—" },
+    { label: "ส่งถึงผู้ปกครอง", state: dl === "delivered" || dl === "no_line" || allPaid ? "done" : dl === "failed" ? "warn" : toSend.length > 0 || dl === "sending" ? "current" : "todo",
+      meta: sentAt ? fmtDateTime(sentAt) : undefined,
+      detail: dl === "delivered" ? "ถึงผู้ปกครองทาง LINE (ข้อความเดียว รวมใบของทุกคน)" : dl === "sending" ? "กำลังส่งทาง LINE…" : dl === "failed" ? "ส่ง LINE ไม่สำเร็จ — ลองส่งอีกครั้ง"
+        : dl === "no_line" ? <span className="inline-flex items-start gap-1.5"><UnlinkIcon role="img" aria-label="ไม่มี LINE" className="mt-0.5 size-3.5 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon><span>ผู้ปกครองไม่มี LINE — ดาวน์โหลด / พิมพ์ใบ แล้วส่งทางอื่น (อีเมล หรือให้ด้วยตัวเอง) · รอรับเงินต่อได้เลย</span></span> : "ข้อความเดียว รวมใบของทุกคน",
+      extra: sentAt && fam && dl !== "no_line" ? (
+        <div className="mt-1 flex items-center gap-2 text-xs">
+          <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{fam.name}</span>{fam.parents.find((x) => x.primary) ? ` · ${fam.parents.find((x) => x.primary)!.name}` : ""}</span>
+          <Button size="icon-sm" variant="outline" className="rounded-full" disabled={!conv} aria-label="เปิดแชท LINE ในหน้า Inbox" title={conv ? "เปิดแชท LINE กับผู้ปกครองใน Inbox" : "ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"} nativeButton={!conv} render={conv ? <Link href={`/inbox?conversation=${conv.id}`} /> : undefined}><MessagesSquareIcon /></Button>
         </div>
       ) : undefined },
-    { label: "ใบเสร็จ (ออกภายหลังได้)", done: members.filter((x) => x.receiptNumber).length, detail: needReceipt.length ? "ยืนยันยอดแล้ว — ยังไม่ออกใบเสร็จ ออกภายหลังได้ (รวมหรือแยกรายนักเรียน)" : receipts.length ? undefined : "ออกได้หลังยืนยันยอดเงิน",
-      addLabel: "ออกใบเสร็จ", onAdd: manage && needReceipt.length > 0 ? () => setReceiptOpen(true) : undefined,
-      docs: receipts.map((m) => ({ key: `rc${m.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${m.receiptNumber}`, src: `/print/receipt/${m.id}` })) },
+    { label: "รับเงิน (บันทึก + ยืนยันโดยอีกคน)", state: allPaid ? "done" : allPays.length > 0 || waitingPay ? "current" : "todo",
+      docs: slips.map((src, i) => ({ key: `slip${i}`, kind: "slip" as const, label: `สลิป${slips.length > 1 ? ` ${i + 1}` : ""}`, src })),
+      addLabel: "อัปโหลดสลิปการชำระเงิน (ทั้งชุด)", onAdd: manage && payable.length > 0 ? () => setPay(true) : undefined, extra: paymentsNode,
+      meta: lastPay ? `${fmtDateTime(lastPay.recordedAt)} · ${who(lastPay.recordedBy)}` : undefined,
+      detail: allPays.length ? `ยืนยันแล้ว ${fmtMoney(confirmedSum)} / ${fmtMoney(grand)}${allPaid ? " · นักเรียนเข้าคลาสแล้ว" : " · ยืนยันยอดแล้วนักเรียนเข้าคลาสทันที"}` : waitingPay ? "รอผู้ปกครองชำระเงิน" : "—" },
+  ]
+  const receiptSteps: InvoiceStep[] = [
+    { label: "ใบเสร็จ (ออกภายหลังได้)", state: needReceipt.length > 0 ? "current" : receipts.length === 0 ? "todo" : rcBad ? "warn" : "done",
+      docs: receipts.map((m) => ({ key: `rc${m.id}`, kind: "receipt" as const, label: `ใบเสร็จ ${m.receiptNumber}`, src: `/print/receipt/${m.id}` })),
+      onAdd: manage && needReceipt.length > 0 ? () => setReceiptOpen(true) : undefined, addLabel: "ออกใบเสร็จ", extra: groupNode,
+      detail: needReceipt.length > 0 ? "ยังไม่ออกใบเสร็จ — ออกภายหลังได้ (รวมหรือแยกรายนักเรียน)" : receipts.length > 0 ? `${receipts.map((m) => m.receiptNumber).join(" · ")} · ${rcText}` : "ออกได้หลังยืนยันยอดเงิน" },
   ]
 
   return (
@@ -214,37 +291,14 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
         })()}
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold">ขั้นตอนของชุด</h3>
-          <ol>
-            {steps.map((s, i) => {
-              const state = s.done === members.length ? "done" : s.done > 0 ? "current" : "todo"
-              return (
-                <li key={s.label} className="relative flex items-start gap-2.5 pb-4 last:pb-0">
-                  {i < steps.length - 1 && <span aria-hidden className={cn("absolute left-2.5 top-6 -bottom-0.5 w-px -translate-x-1/2", state === "done" ? "bg-success" : "bg-border")} />}
-                  <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", state === "done" ? "bg-success text-white" : state === "current" ? "bg-info text-white" : "border text-muted-foreground")}>
-                    {state === "done" ? <CheckIcon className="size-3" /> : <span className="size-1.5 rounded-full bg-current" />}
-                  </span>
-                  <div className="min-w-0 flex-1"><div className="text-sm font-medium">{s.label}</div><div className="text-xs text-muted-foreground">{s.done}/{members.length} ใบ</div>{s.detail && <div className="text-xs text-muted-foreground">{s.detail}</div>}{s.extra}</div>
-                  {s.docs && <DocThumbs docs={s.docs} onAdd={s.onAdd} addLabel={s.addLabel} />}
-                </li>
-              )
-            })}
-          </ol>
+          <h3 className="mb-2 text-sm font-semibold">ใบแจ้งหนี้ & รับเงิน</h3>
+          <StepList steps={invoiceSteps} />
         </section>
 
-
-        {allPaid && group.length > 1 && receipts.length > 0 && (
-          <section className="space-y-1.5 rounded-lg border p-2.5">
-            <p className="text-xs font-medium">ใบเสร็จของชุดนี้</p>
-            <div className="flex gap-1.5">
-              {([["combined", "รวมทุกใบ", group.map((x) => x.id)], ["separate", "แยกรายนักเรียน", [] as ID[]]] as const).map(([k, label, ids]) => {
-                const on = k === "combined" ? combinedCount === group.length : combinedCount === 0
-                return <Button variant="chip" size="inline" key={k} type="button" disabled={!manage} aria-pressed={on} onClick={() => !on && report(act.regroup(first.id, [...ids]), k === "combined" ? "รวมเป็นใบเสร็จเดียวแล้ว" : "แยกใบเสร็จรายนักเรียนแล้ว")}
-                  className="flex-1 px-3 py-1 text-xs disabled:opacity-60">{label}</Button>
-              })}
-            </div>
-          </section>
-        )}
+        <section className="border-t pt-4">
+          <h3 className="mb-2 text-sm font-semibold">ใบเสร็จ</h3>
+          <StepList steps={receiptSteps} />
+        </section>
 
         {voiding && (
           <section className="space-y-2 rounded-lg border border-danger/30 p-3">
