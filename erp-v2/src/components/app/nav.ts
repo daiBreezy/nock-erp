@@ -1,6 +1,6 @@
 import {
   AwardIcon, BellIcon, BookOpenIcon, FileTextIcon, CalendarDaysIcon, ClipboardCheckIcon, ClockIcon, InboxIcon, LayoutDashboardIcon, NotebookPenIcon, ReceiptIcon,
-  HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, SparklesIcon, UsersIcon, GraduationCapIcon, type LucideIcon, BusIcon } from "lucide-react"
+  HistoryIcon, SettingsIcon, SquareLibraryIcon, ChartColumnIcon, ListTodoIcon, UserCogIcon, UserSearchIcon, SparklesIcon, UsersIcon, GraduationCapIcon, type LucideIcon, BusIcon, NetworkIcon } from "lucide-react"
 import type { Permission } from "@/domain/rules/permissions"
 
 export interface NavItem {
@@ -65,6 +65,8 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       // owner 2026-10-13: Nock's question bank — everyone sees their own questions, Manager+ answer the rest
       { href: "/nock", label: "คลังคำถาม Nock", icon: SparklesIcon, perm: "calendar.view" },
       { href: "/logs", label: "Logs & Timeline", icon: HistoryIcon, perm: "dashboard.view", soon: true },
+      // owner 2026-11-21: the map of the ERP — which pages exist and what each carries (src/data/architecture.ts)
+      { href: "/architecture", label: "ERP Architecture", icon: NetworkIcon, perm: "calendar.view" },
     ],
   },
 ]
