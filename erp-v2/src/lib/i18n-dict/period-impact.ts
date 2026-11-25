@@ -119,4 +119,9 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "ยังไม่มีแพ็กเกจครอบคลุมช่วงนี้": { en: "No package covers this period yet", ja: "この期間をカバーするパックはまだありません" },
   "แพ็กเกจเดิมจบก่อนช่วงนี้ (ยังไม่ได้ต่อ) หรือเป็นคอร์สเครดิต — ยังไม่มีเงินที่จ่ายสำหรับคาบเหล่านี้ ใบแจ้งหนี้รอบถัดไปต้องคิดโดยคำนึงถึงช่วงนี้ — ตรวจเป็นรายคน": { en: "The old package ends before this period (not renewed yet) or it is a credit course — nothing has been paid for these sessions; the next invoice must take this period into account — check one by one", ja: "現在のパックはこの期間の前に終了(未更新)またはクレジットコース — これらのコマの支払いはまだありません。次回請求はこの期間を考慮が必要 — 個別に確認" },
   "{0} คนจะขึ้นชั้นถัดไป · {1}": { en: "{0} students move up a grade · {1}", ja: "{0} 名が進級します · {1}" },
+  "กำลังอยู่ในช่วงนี้": { en: "happening now", ja: "実施中" },
+  "ยังไม่ส่งข้อความ {0} บ้าน": { en: "{0} families not messaged yet", ja: "{0} 家庭に未送信" },
+  "· คลาสปกติหยุด": { en: "· regular classes pause", ja: "· 通常クラス休止" },
+  "แก้ได้ · ส่งจากศูนย์ผลกระทบ": { en: "Editable · sent from the Impact Center", ja: "編集可 · 影響センターから送信" },
+  "ลบช่วงนี้": { en: "Delete this period", ja: "この期間を削除" },
 }

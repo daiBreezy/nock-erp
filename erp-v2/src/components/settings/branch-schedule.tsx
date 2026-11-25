@@ -2,7 +2,7 @@
 
 import { Segmented } from "@/components/app/page-layout"
 import { useState } from "react"
-import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PlusIcon, SunIcon, TrashIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, MessageSquareTextIcon, PlusIcon, SunIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,8 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { DateRangePicker } from "@/components/app/date-range-picker"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { PeriodMessageEditor } from "@/components/settings/period-message-editor"
 import { PeriodImpactPanel, usePeriodImpact } from "@/components/settings/period-impact-panel"
 import { periodHours } from "@/components/app/period-banner"
@@ -46,7 +48,7 @@ function HoursRow({ day, h, onChange }: { day: string; h: OpenHours | null; onCh
 }
 
 function OperatingHours({ branch }: { branch: Branch }) {
-  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["hours", "defaultSessionMinutes"])
+  const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["hours"])
   const holidays = useStore((s) => s.holidays)
   const today = toDateStr(useNow())
   const [preview, setPreview] = useState(today)
@@ -81,11 +83,6 @@ function OperatingHours({ branch }: { branch: Branch }) {
           {tx("ไปที่")}
           <Button size="xs" variant="outline" onClick={() => setB({ ...b, hours: copyHours(b.hours, copyFrom, "weekdays") })}>{tx("วันธรรมดา (จ.–ศ.)")}</Button>
           <Button size="xs" variant="outline" onClick={() => setB({ ...b, hours: copyHours(b.hours, copyFrom, "weekend") })}>{tx("เสาร์–อาทิตย์")}</Button>
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label={tx("ความยาวคาบมาตรฐาน (นาที)")}>
-            <Input type="number" min={15} step={15} value={b.defaultSessionMinutes} onChange={(e) => setB({ ...b, defaultSessionMinutes: Number(e.target.value) })} />
-          </Field>
         </div>
         <SaveRow dirty={dirty} onReset={reset} onSave={() => save(tx("บันทึกเวลาเปิด-ปิดแล้ว"))} />
       </SettingsCard>
@@ -147,7 +144,7 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
       hint={tx("ช่วงวันที่ที่โรงเรียนเปิด-ปิดไม่เหมือนปกติ เช่น Summer เปิด 08:00–22:00 ทุกวัน — ระหว่างช่วงนี้ระบบใช้เวลาของช่วงแทนเวลาปกติ (ตอนสร้างคลาส/ย้ายคาบ/ฟอร์ม Trial) · วันปิดทั้งวันใส่ที่แท็บวันหยุด")}
       action={<Button size="xs" variant="outline" onClick={add}><PlusIcon />  {tx("เพิ่มช่วง")}</Button>}>
       {list.length === 0 && <Empty>{tx("ยังไม่มีช่วงเวลาพิเศษ")}</Empty>}
-      <div className="space-y-3">
+      <div className="divide-y">
         {list.map((p) => (
           <SpecialPeriodEditor key={p.id} p={p} branchId={branch.id} saved={branch.specialPeriods.some((x) => x.id === p.id)} normal={b.hours} today={today} startOpen={!branch.specialPeriods.some((x) => x.id === p.id)}
             classCount={classes.filter((k) => k.periodId === p.id && k.active).length}
@@ -199,33 +196,29 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
   const fmt = (h: OpenHours | null) => (h ? `${h.open}–${h.close}` : tx("ปิด"))
   const summary = periodHours(p)
   const [impactOpen, setImpactOpen] = useState(false)
+  const [msgOpen, setMsgOpen] = useState(false)
   const impact = usePeriodImpact(p, branchId)
   return (
-    <div className={cn("rounded-2xl border", !p.active && "bg-muted/30")}>
-      <div className="flex flex-wrap items-center gap-2 p-3">
+    <div className={cn(!p.active && "bg-muted/30")}>
+      <div className="flex flex-wrap items-center gap-2 py-3">
         <Button variant="row" size="inline" onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
           <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
           <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
             <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || tx("(ไม่มีชื่อ)")}</span>
-            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{p.pauseCause === "other" ? tx(" · คลาสปกติหยุด (ไม่ยืดแพ็กเกจ)") : tx(" · คลาสปกติหยุด (รายชั่วโมงยืดวันจบ · รายสัปดาห์/เดือนได้ Credit)")}</span>
+            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{tx(" · คลาสปกติหยุด")}</span>
           </span>
         </Button>
         <Pill tone={status.tone}>{status.label}</Pill>
         {saved && p.to >= today && <Button size="xs" variant="outline" onClick={() => setImpactOpen(true)}><SunIcon /> {tx("ผลกระทบ")} ({impact.students.length})</Button>}
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Switch size="sm" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label={tx("เปิดใช้งานช่วงนี้")} />
-          {p.active ? "Active" : "Inactive"}
-        </label>
-        <Button size="icon-sm" variant="ghost" aria-label={tx("ลบช่วง")} onClick={onRemove}><TrashIcon /></Button>
+        <Switch size="sm" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label={tx("เปิดใช้งานช่วงนี้")} title={p.active ? "Active" : "Inactive"} />
       </div>
       {impactOpen && <PeriodImpactPanel period={p} branchId={branchId} open onClose={() => setImpactOpen(false)} />}
       {open && (
-        <div className="space-y-3 border-t p-3">
+        <div className="space-y-3 pb-3">
           <div className="flex flex-wrap items-end gap-2">
             <Field label={tx("ชื่อช่วง")} className="min-w-40 flex-1"><Input value={p.name} onChange={(e) => onChange({ name: e.target.value })} placeholder={tx("เช่น Summer")} /></Field>
-            <Field label={tx("ตั้งแต่")}><Input type="date" value={p.from} onChange={(e) => onChange({ from: e.target.value })} /></Field>
-            <Field label={tx("ถึง")}><Input type="date" value={p.to} onChange={(e) => onChange({ to: e.target.value })} /></Field>
+            <Field label={tx("ช่วงวันที่")}><DateRangePicker plain from={p.from} to={p.to} onChange={(r) => onChange({ from: r.from, to: r.to })} /></Field>
           </div>
           <Field label={tx("Memo ใบแจ้งหนี้ + ใบเสร็จ ของช่วงนี้")}>
             <Textarea rows={2} value={p.invoiceMemo ?? ""} onChange={(e) => onChange({ invoiceMemo: e.target.value })} placeholder={tx("เช่น ค่าเรียน Summer ชำระครั้งเดียว ไม่คืนเงินหลังเริ่มเรียน")} />
@@ -233,23 +226,21 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
           </Field>
           <div className="space-y-1.5">
             <p className="text-sm font-medium">{tx("คลาสปกติระหว่างช่วงนี้ = หยุดทั้งหมด (ปฏิทินสลับเป็นช่วงนี้ · ไม่ซ้อนกับช่วงอื่น)")}</p>
-            <div className="space-y-1 rounded-xl bg-muted/40 p-2">
-                <p className="text-xs font-medium">{tx("สาเหตุที่หยุด")}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {([["school", tx("เหตุจากโรงเรียน"), tx("โรงเรียนปิดเอง → รายชั่วโมงยืดวันจบให้ · รายสัปดาห์/เดือนได้ Credit คาบ")], ["other", tx("เหตุอื่น"), tx("ไม่ยืดแพ็กเกจ")]] as const).map(([v, t, d]) => (
-                    <Button variant="ghost" size="inline" key={v} type="button" aria-pressed={(p.pauseCause ?? "school") === v} onClick={() => onChange({ pauseCause: v })}
-                      className={cn("rounded-xl border bg-background px-3 py-1.5 text-left text-sm", (p.pauseCause ?? "school") === v ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
-                      {t}<span className="block text-xs font-normal text-muted-foreground">{d}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
             <p className="text-xs text-muted-foreground">{tx("คลาสพิเศษ: สร้างคลาสแล้วเลือก \"ช่วงเวลาพิเศษ\" =")} {p.name || tx("ช่วงนี้")}  {tx("· ช่วงคลาสของช่วงนี้ตั้งจากตารางครู (ปุ่ม ตั้งช่วงเวลา ที่หัววันในช่วง)")}</p>
           </div>
-          <details className="rounded-xl bg-muted/40 p-2">
-            <summary className="cursor-pointer text-sm font-medium">{tx("ข้อความถึงผู้ปกครอง (แก้ได้ · ส่งจากศูนย์ผลกระทบ)")}</summary>
-            <PeriodMessageEditor className="mt-2" period={p} onChange={(parentMsg) => onChange({ parentMsg })} />
-          </details>
+          <div>
+            <Button size="sm" variant="outline" onClick={() => setMsgOpen(true)}><MessageSquareTextIcon /> {tx("ข้อความถึงผู้ปกครอง")}</Button>
+            <Dialog open={msgOpen} onOpenChange={setMsgOpen}>
+              <DialogContent className="max-h-[88vh] overflow-y-auto lg:max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>{tx("ข้อความถึงผู้ปกครอง")} · {p.name || tx("(ไม่มีชื่อ)")}</DialogTitle>
+                  <DialogDescription>{tx("แก้ได้ · ส่งจากศูนย์ผลกระทบ")}</DialogDescription>
+                </DialogHeader>
+                <PeriodMessageEditor period={p} onChange={(parentMsg) => onChange({ parentMsg })} />
+                <DialogFooter><Button onClick={() => setMsgOpen(false)}>{tx("เสร็จ")}</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-2 text-sm">
             
             {tx("เปิดทุกวัน")}
@@ -266,6 +257,7 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
               </div>
             ))}
           </div>
+          <div className="flex justify-end border-t pt-2"><Button size="sm" variant="ghost" className="text-danger" onClick={onRemove}><TrashIcon /> {tx("ลบช่วงนี้")}</Button></div>
         </div>
       )}
     </div>

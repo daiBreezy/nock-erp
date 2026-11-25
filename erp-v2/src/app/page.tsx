@@ -50,7 +50,7 @@ export default function DashboardPage() {
   const scope = useBranchScope()
   const inScope = (branchId: string) => scope.ids.includes(branchId)
   const me = useStore((s) => s.me())
-  const countdown = usePeriodCountdown()
+  const countdown = usePeriodCountdown({ includeRunning: true })
   const rollover = useRolloverNotice(branch.id)
   const [rolloverOpen, setRolloverOpen] = useState(false)
   const sessions = useStore((s) => s.sessions)

@@ -108,3 +108,13 @@ describe("bus money back (owner 2026-11-25)", () => {
     expect(plans[0].items.map((i) => [i.key, i.legs, i.amount])).toEqual([["bus", 3, 300], ["busExtra", 1, 80]])
   })
 })
+
+describe("dashboard keeps a running period visible (owner 2026-11-25)", () => {
+  const run = { id: "r", name: "R", from: "2026-11-20", to: "2026-12-20", active: true } as never
+  it("only with includeRunning, and only while Active", () => {
+    expect(periodCountdown([run], "2026-11-25")).toHaveLength(0)
+    const [c] = periodCountdown([run], "2026-11-25", { includeRunning: true })
+    expect(c).toMatchObject({ running: true, tone: "gray", days: 0 })
+    expect(periodCountdown([{ ...(run as object), active: false } as never], "2026-11-25", { includeRunning: true })).toHaveLength(0)
+  })
+})

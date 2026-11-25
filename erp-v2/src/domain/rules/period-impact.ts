@@ -90,14 +90,15 @@ export const activePeriodOn = (periods: SpecialPeriod[] | undefined, date: DateS
  */
 export const COUNTDOWN_DAYS = 60
 export type CountdownTone = "gray" | "orange" | "red"
-export interface PeriodCountdown { period: SpecialPeriod; days: number; opened: boolean; tone: CountdownTone }
-export function periodCountdown(periods: SpecialPeriod[] | undefined, today: DateStr): PeriodCountdown[] {
+export interface PeriodCountdown { period: SpecialPeriod; days: number; opened: boolean; tone: CountdownTone; /** already running (Dashboard only — handling it takes a long time, so it stays visible) */ running?: boolean }
+export function periodCountdown(periods: SpecialPeriod[] | undefined, today: DateStr, opts?: { includeRunning?: boolean }): PeriodCountdown[] {
   return (periods ?? [])
-    .filter((p) => p.from > today && daysUntilPeriod(p, today) <= COUNTDOWN_DAYS)
+    .filter((p) => (p.from > today && daysUntilPeriod(p, today) <= COUNTDOWN_DAYS) || (!!opts?.includeRunning && p.active && p.from <= today && p.to >= today))
     .map((period): PeriodCountdown => {
-      const days = daysUntilPeriod(period, today)
+      const running = period.from <= today
+      const days = running ? 0 : daysUntilPeriod(period, today)
       const opened = period.active
-      return { period, days, opened, tone: opened || days >= PERIOD_NOTICE_DAYS ? "gray" : days < 30 ? "red" : "orange" }
+      return { period, days, opened, running: running || undefined, tone: running || opened || days >= PERIOD_NOTICE_DAYS ? "gray" : days < 30 ? "red" : "orange" }
     })
     .sort((a, b) => a.days - b.days)
 }
