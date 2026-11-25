@@ -4119,3 +4119,24 @@ describe("defaultExamPeriod (panels open on the newest exam)", () => {
   })
 })
 import { academicYear as Exam_year, currentTerm as Exam_term } from "./exams"
+
+import { nextClassDates as nextClassDatesP, resolveEntitlements as resolveEntsP } from "./attendance"
+describe("a package pushed out by a school pause never ends inside the special period", () => {
+  // Summer: Wed 25 Nov – Sun 6 Dec 2026 · regular Wednesday class · the package ended Tue 1 Dec · one session (Wed 25 Nov) was stopped by the school
+  const summer = { id: "p1", name: "Summer", from: "2026-11-25", to: "2026-12-06", active: true, priority: "mid", hours: {}, pauseCause: "school" }
+  const branches = [{ id: "b1", specialPeriods: [summer] }] as never
+  const klass = { id: "k1", weekday: 3 as const, branchId: "b1", periodId: undefined }
+  it("nextClassDates skips the dates a predicate rules out", () => {
+    expect(nextClassDatesP([klass], "2026-12-01", 1, [], () => false)).toEqual(["2026-12-02"])
+    expect(nextClassDatesP([klass], "2026-12-01", 1, [], (d) => d <= "2026-12-06")).toEqual(["2026-12-09"])
+  })
+  it("resolveEntitlements ends the package after the period, not on Wed 2 Dec (a paused day)", () => {
+    const e = { id: "e1", studentId: "s1", classIds: ["k1"], subjects: ["คณิต"], from: "2026-11-01", to: "2026-12-01" } as never
+    const paused = { id: "se1", classId: "k1", date: "2026-11-25", subject: "คณิต", cancelled: true, pausedBy: "p1", pausedSchool: true, studentIds: ["s1"] } as never
+    const [r] = resolveEntsP([e], [], { sessions: [paused], attendance: [], classes: [klass], holidays: [], branches })
+    expect(r.to).toBe("2026-12-09")
+    // without the branches (old behaviour) it would have landed on the paused Wed 2 Dec
+    const [old] = resolveEntsP([e], [], { sessions: [paused], attendance: [], classes: [klass], holidays: [] })
+    expect(old.to).toBe("2026-12-02")
+  })
+})

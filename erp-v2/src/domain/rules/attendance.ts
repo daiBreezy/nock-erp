@@ -2,9 +2,9 @@
 
 import { minutesCharged, seatOf, seatTotal } from "./seats"
 import { addDays, daysBetween, fmtDate, weekdayOf } from "../dates"
-import type { Attendance, AttendanceStatus, Course, DateStr, Entitlement, Holiday, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
+import type { Attendance, AttendanceStatus, Branch, Course, DateStr, Entitlement, Holiday, ID, Klass, Result, Session, Staff, Student, StudentLeave } from "../types"
 import { can } from "./permissions"
-import { branchHasLeaveQuota, isHoliday, sessionState, subjectsOf } from "./scheduling"
+import { branchHasLeaveQuota, isHoliday, periodsOn, sessionState, subjectsOf } from "./scheduling"
 
 /** Attendance can be prepared any time before the session closes, even before it starts (owner 2026-09-29 —
  *  replaces staging's C2 "leave only in advance"). Closed/cancelled sessions stay locked. */
@@ -116,8 +116,10 @@ export function effectiveTo(e: Entitlement, leaves: StudentLeave[]): DateStr {
 export interface MakeUpCtx {
   sessions: Session[]
   attendance: Attendance[]
-  classes: Pick<Klass, "id" | "weekday" | "branchId">[]
+  classes: Pick<Klass, "id" | "weekday" | "branchId" | "periodId">[]
   holidays: Holiday[]
+  /** owner 2026-11-25: the branches' special periods — a package that is pushed out never lands on a date the regular classes are stopped */
+  branches?: Pick<Branch, "id" | "specialPeriods">[]
 }
 
 /**
@@ -162,10 +164,10 @@ export function schoolPauseCancels(e: Entitlement, sessions: Session[]): Session
 }
 
 /** the next `n` class meetings after `after` across the package's classes (skipping the branch's holidays) */
-export function nextClassDates(klasses: Pick<Klass, "weekday" | "branchId">[], after: DateStr, n: number, holidays: Holiday[]): DateStr[] {
+export function nextClassDates<K extends Pick<Klass, "weekday" | "branchId">>(klasses: K[], after: DateStr, n: number, holidays: Holiday[], /** owner 2026-11-25: a date the class does not run (e.g. inside a special period) is skipped */ skip?: (d: DateStr, k: K) => boolean): DateStr[] {
   const out: DateStr[] = []
   for (let d = addDays(after, 1), guard = 0; out.length < n && guard < 3660; d = addDays(d, 1), guard++) {
-    for (const k of klasses) if (out.length < n && weekdayOf(d) === k.weekday && !isHoliday(d, k.branchId, holidays)) out.push(d)
+    for (const k of klasses) if (out.length < n && weekdayOf(d) === k.weekday && !isHoliday(d, k.branchId, holidays) && !skip?.(d, k)) out.push(d)
   }
   return out
 }
@@ -178,7 +180,10 @@ export function resolveEntitlements(ents: Entitlement[], leaves: StudentLeave[],
     const klasses = ctx ? ctx.classes.filter((k) => e.classIds.includes(k.id)) : []
     if (!ctx || !klasses.length) return base
     const n = leaveLedger(base, ctx, leaves).filter((l) => l.quota || l.noQuota).length + teacherLeaveCancels(base, ctx.sessions).length + schoolPauseCancels(base, ctx.sessions).length
-    return n ? { ...base, to: nextClassDates(klasses, base.to, n, ctx.holidays)[n - 1] } : base
+    // owner 2026-11-25: while a special period is active the regular classes are stopped — the extended last day must not land inside it (the paused
+    // class meetings would not count), so those dates are skipped and the package ends after the period
+    const stopped = (d: DateStr, k: (typeof klasses)[number]) => { if (k.periodId) return false; const b = ctx.branches?.find((x) => x.id === k.branchId); return !!b && periodsOn(b, d).length > 0 }
+    return n ? { ...base, to: nextClassDates(klasses, base.to, n, ctx.holidays, stopped)[n - 1] } : base
   })
 }
 

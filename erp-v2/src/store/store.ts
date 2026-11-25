@@ -620,7 +620,7 @@ export const useStore = create<Store>()(
       /** a student's packages with their real end date (long leave + one class per quota leave) */
       const resolvedFor = (studentId: ID) => {
         const st = get()
-        return Att.resolveEntitlements(st.entitlements.filter((e) => e.studentId === studentId), st.leaves, { sessions: st.sessions, attendance: st.attendance, classes: st.classes, holidays: st.holidays })
+        return Att.resolveEntitlements(st.entitlements.filter((e) => e.studentId === studentId), st.leaves, { sessions: st.sessions, attendance: st.attendance, classes: st.classes, holidays: st.holidays, branches: st.branches })
       }
       /** after a leave mark changes: put the student into the extra class(es) the quota bought, or take them back out */
       const syncMakeUp = (studentId: ID, before: Entitlement[]) => {
