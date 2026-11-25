@@ -6,7 +6,7 @@
 //  • ลีด / ขาย        = Sales follow-up
 // Housekeeping topics (no_family/no_line/…) are intentionally dropped here — they live as badges on their own pages.
 import Link from "next/link"
-import { AlertTriangleIcon, CheckIcon, ChevronRightIcon, ClipboardCheckIcon, SparklesIcon, UserSearchIcon } from "lucide-react"
+import { AlertTriangleIcon, CheckIcon, ChevronRightIcon, ClipboardCheckIcon, UserSearchIcon } from "lucide-react"
 import { focusHref, type Topic } from "@/domain/rules/today"
 import { Button } from "@/components/ui/button"
 import { DASH_BOX } from "./box"

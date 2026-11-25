@@ -19,10 +19,8 @@ import { tx, nm, sj } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-export function DaySessions({ todays, now, attendance, mineOnly, progress, onOpen }: {
+export function DaySessions({ todays, now, attendance, mineOnly, onOpen }: {
   todays: Session[]; now: Date; attendance: Attendance[]; mineOnly: boolean
-  /** honest completion bars (attendance / summaries) for the ended sessions — shown as a thin header strip */
-  progress?: { attDone: number; attTotal: number; sumDone: number; sumTotal: number }
   onOpen: (id: string) => void
 }) {
   const L = useLookup()
@@ -36,22 +34,18 @@ export function DaySessions({ todays, now, attendance, mineOnly, progress, onOpe
   return (
     <DashCard className="flex h-full flex-col">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold"><CalendarIcon className="size-4 text-muted-foreground" /> {mineOnly ? tx("คาบของฉันวันนี้") : tx("คาบเรียนวันนี้")}</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold"><CalendarIcon className="size-4 text-muted-foreground" /> {mineOnly ? tx("คาบของฉันวันนี้") : tx("คาบเรียนวันนี้")}</CardTitle>
+          {/* owner 2026-11-25: the status chips sit at the right of the header, on its line */}
+          {todays.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {live.length > 0 && <Stat tone="bg-danger-soft text-danger-ink" label={tx("กำลังเรียน")} n={live.length} />}
+              {upcoming.length > 0 && <Stat tone="bg-muted text-muted-foreground" label={tx("รอเริ่ม")} n={upcoming.length} />}
+              {past.length > 0 && <Stat tone="bg-success-soft text-success-ink" label={tx("จบแล้ว")} n={past.length} />}
+            </div>
+          )}
+        </div>
         <CardDescription>{todays.length} {tx("คาบ")} · {tx("สถานะเปลี่ยนตามเวลาจริงอัตโนมัติ")}</CardDescription>
-        {/* one-line status summary — grasp the whole day even when it is long */}
-        {todays.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {live.length > 0 && <Stat tone="bg-danger-soft text-danger-ink" label={tx("กำลังเรียน")} n={live.length} />}
-            {upcoming.length > 0 && <Stat tone="bg-muted text-muted-foreground" label={tx("รอเริ่ม")} n={upcoming.length} />}
-            {past.length > 0 && <Stat tone="bg-success-soft text-success-ink" label={tx("จบแล้ว")} n={past.length} />}
-          </div>
-        )}
-        {progress && progress.attTotal > 0 && (
-          <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
-            <Bar label={tx("เช็คชื่อวันนี้")} done={progress.attDone} total={progress.attTotal} />
-            <Bar label={tx("สรุปการเรียนวันนี้")} done={progress.sumDone} total={progress.sumTotal} />
-          </div>
-        )}
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col">
         {todays.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("วันนี้ไม่มีคาบเรียน")}</p>}
@@ -74,17 +68,6 @@ export function DaySessions({ todays, now, attendance, mineOnly, progress, onOpe
 
 function Stat({ label, n, tone }: { label: string; n: number; tone: string }) {
   return <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium tabular-nums", tone)}>{label} {n}</span>
-}
-
-function Bar({ label, done, total }: { label: string; done: number; total: number }) {
-  const pct = total ? Math.round((done / total) * 100) : 0
-  const full = total > 0 && done === total
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">{label}</span><span className={cn("font-semibold tabular-nums", full ? "text-success" : "text-muted-foreground")}>{done}/{total}</span></div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={cn("h-full rounded-full transition-all", full ? "bg-success" : "bg-primary")} style={{ width: `${pct}%` }} /></div>
-    </div>
-  )
 }
 
 /** a quiet agenda row — subject-colour accent, one line (owner 2026-10-06) */

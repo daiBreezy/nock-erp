@@ -86,16 +86,6 @@ export default function DashboardPage() {
   const branchSessions = sessions.filter((s) => inScope(s.branchId) && !s.cancelled)
   const todays = branchSessions.filter((s) => s.date === today && (!mineOnly || s.teacherId === me.id)).sort((a, b) => a.start.localeCompare(b.start))
 
-  // owner 2026-10-06: "ความคืบหน้าวันนี้" — two honestly-measurable completion bars (no fabricated totals), scoped
-  // the same as the sessions list above (a teacher's own sessions, or the whole branch for everyone else)
-  const endedToday = todays.filter((s) => ["ended", "closed"].includes(sessionState(s, now)))
-  const attendanceDone = endedToday.filter((s) => s.studentIds.every((sid) => attendance.some((a) => a.sessionId === s.id && a.studentId === sid))).length
-  const presentToday = endedToday.flatMap((s) => attendance.filter((a) => a.sessionId === s.id && a.status === "present").map((a) => ({ sessionId: s.id, studentId: a.studentId })))
-  const summaryDone = presentToday.filter(({ sessionId, studentId }) => {
-    const sm = summaries.find((x) => x.sessionId === sessionId && x.studentId === studentId)
-    return sm && sm.status !== "draft" && sm.status !== "changes_requested"
-  }).length
-
   // ---------- the work, as topics (owner 2026-10-07): one row per kind of work, the list itself lives on its page ----------
   const mine = (s: Session) => !mineOnly || s.teacherId === me.id
   const unmarked = branchSessions.filter((s) => s.date >= addDays(today, -29) && s.date <= today && mine(s) && workState(s, now, attendance, summaries).state === "needs_attendance").length
@@ -184,20 +174,12 @@ export default function DashboardPage() {
     ] : []),
     ...Today.attentionTopics(attentionItems),
   ]
-  const brief = Today.dailyBrief({
-    topics,
-    trend: attentionItems.filter((x) => x.group === "trend" && x.count > 0),
-    sessions: todays.map((s) => ({ start: s.start, minutes: s.minutes, state: sessionState(s, now) })),
-    nowTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
-  }, tx)
 
   // DASHBOARD.md §5: split the work into the hero (action), the alert box, and the sales box
   const heroTopics = pick(topics, HERO_KEYS)
   const alertTopics = pick(topics, ALERT_KEYS)
   const salesTopics = pick(topics, SALES_KEYS)
   const heroTitle = mineOnly ? tx("ต้องทำของฉัน") : range === "week" ? tx("ต้องทำสัปดาห์นี้") : tx("ต้องทำวันนี้")
-  // owner 2026-11-10: the AI line is a "start here" for THIS box — scoped to the hero's own work, so its number lines
-  // up with the box total (not the whole page). Highest-priority hero step first (dailyBrief already ranks them).
 
   // Week mode: the whole week's sessions as a 7-day board
   const weekSessions = branchSessions.filter((s) => R.inRange(s.date, weekRange) && (!mineOnly || s.teacherId === me.id))
@@ -262,7 +244,6 @@ export default function DashboardPage() {
           {range === "week"
             ? <WeekSessions sessions={weekSessions} weekStart={weekStart} today={today} markedCount={weekMarked} />
             : <DaySessions todays={todays} now={now} attendance={attendance} mineOnly={mineOnly}
-                progress={{ attDone: attendanceDone, attTotal: endedToday.length, sumDone: summaryDone, sumTotal: presentToday.length }}
                 onOpen={setOpenSessionId} />}
         </div>
         {branchView && <SalesBox topics={salesTopics} />}
