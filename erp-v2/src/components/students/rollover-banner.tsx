@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { fmtDate, toDateStr } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
 import { planRollover, rolloverState } from "@/domain/rules/rollover"
-import type { ID } from "@/domain/types"
+import type { Branch, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
@@ -21,27 +21,40 @@ import { SpanTip } from "@/components/app/span-tip"
 
 const MAX_LISTED = 200
 
-/** the notice itself (null = nothing to say) — the Students page shows it as a banner, the Dashboard as a row of ต้องรู้ไว้ (owner 2026-11-25: the banner was in the way) */
-export function useRolloverNotice(branchId: ID) {
-  const me = useStore((s) => s.me())
-  const branch = useStore((s) => s.branches.find((b) => b.id === branchId))
-  const cfg = useStore((s) => s.system.gradeRollover)
-  const done = useStore((s) => s.gradeRollovers)
-  const students = useStore((s) => s.students)
-  const today = toDateStr(useNow(60_000))
-  if (!branch || !can(me, "student.manage")) return null
-  const st = rolloverState(today, cfg, branch.brand, branchId, done)
+type Notice = { branchId: ID; due: boolean; auto: boolean; count: number; title: React.ReactNode; sub: string; action: string | null }
+
+/** the pure part: one branch's notice (null = nothing to say) */
+function noticeOf(branchId: ID, ctx: { me: ReturnType<typeof useStore.getState>["me"] extends () => infer R ? R : never; branch: Branch | undefined; cfg: ReturnType<typeof useStore.getState>["system"]["gradeRollover"]; done: ReturnType<typeof useStore.getState>["gradeRollovers"]; students: Student[]; today: string }): Notice | null {
+  const { branch } = ctx
+  if (!branch || !can(ctx.me, "student.manage")) return null
+  const st = rolloverState(ctx.today, ctx.cfg, branch.brand, branchId, ctx.done)
   if (st.kind === "none") return null
-  const count = planRollover(students, branchId).length
+  const count = planRollover(ctx.students, branchId).length
   if (!count) return null
   const auto = branch.gradeRolloverMode === "auto"
   const due = st.kind === "due"
   return {
-    due, auto, count,
+    branchId, due, auto, count,
     title: due ? `ถึงเวลาเลื่อนชั้นประจำปี ${st.year + 543} แล้ว` : <><SpanTip days={st.daysLeft} phrase="อีก {0}" date={st.date} /> ({fmtDate(st.date)}) จะเลื่อนชั้นประจำปี</>,
     sub: `${count} คนจะขึ้นชั้นถัดไป · ${auto ? "สาขานี้ตั้งเป็น Auto — ระบบจะเลื่อนให้เองในวันนั้น" : "ต้องให้ Admin กดอนุมัติ"}`,
     action: due ? (auto ? "เลื่อนเลย" : "ตรวจสอบและอนุมัติ") : null,
   }
+}
+
+/** the notice itself — the Dashboard shows it as a row of ต้องรู้ไว้, the Students page inside its ต้องตามเรื่อง card (owner 2026-11-25: the banner was in the way) */
+export function useRolloverNotice(branchId: ID) {
+  return useRolloverNotices([branchId])[0] ?? null
+}
+
+/** one notice per branch in view (the Students page can show several branches at once) */
+export function useRolloverNotices(branchIds: ID[]): Notice[] {
+  const me = useStore((s) => s.me())
+  const branches = useStore((s) => s.branches)
+  const cfg = useStore((s) => s.system.gradeRollover)
+  const done = useStore((s) => s.gradeRollovers)
+  const students = useStore((s) => s.students)
+  const today = toDateStr(useNow(60_000))
+  return branchIds.flatMap((id) => noticeOf(id, { me, branch: branches.find((b) => b.id === id), cfg, done, students, today }) ?? [])
 }
 
 export function RolloverBanner({ branchId }: { branchId: ID }) {

@@ -137,4 +137,9 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "{0} เดือน": { en: "{0} months", ja: "{0}か月" },
   "{0} วัน": { en: "{0} days", ja: "{0}日" },
   ") จะเลื่อนชั้นประจำปี": { en: ") the yearly grade change happens", ja: ")に進級を行います" },
+  "เลยนัด {0} ว": { en: "{0}d past the appointment", ja: "予約から{0}日経過" },
+  "อีก {0} ว": { en: "in {0}d", ja: "あと{0}日" },
+  "รอติดต่อมา {0} ว": { en: "waiting {0}d to be contacted", ja: "連絡待ち {0}日" },
+  "ติดต่อล่าสุด {0} ว ก่อน": { en: "last contact {0}d ago", ja: "最終連絡 {0}日前" },
+  "เลื่อนชั้น": { en: "Grade change", ja: "進級" },
 }

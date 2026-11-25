@@ -598,4 +598,8 @@ export const REPORTS: Record<string, Entry> = {
   "เข้าเรียน": { en: "Attendance", ja: "出席率" },
   "รายได้/คน": { en: "Revenue/student", ja: "1人あたり売上" },
   "{0} สาขา": { en: "{0} branches", ja: "{0}校舎" },
+  "ค้างเกิน {0} ว": { en: "waiting over {0}d", ja: "{0}日以上未処理" },
+  "ส่งไปเกิน {0} ว แล้วยังไม่จ่าย": { en: "sent over {0}d ago, still unpaid", ja: "送付から{0}日以上未払い" },
+  "หมดใน {0} ว": { en: "ends within {0}d", ja: "{0}日以内に終了" },
+  "เกิน {0} ว": { en: "over {0}d", ja: "{0}日超過" },
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { RolloverBanner } from "@/components/students/rollover-banner"
+import { RolloverDialog, useRolloverNotices } from "@/components/students/rollover-banner"
 import { busUseOf, familyShortName, familyDisplay } from "@/domain/rules/people"
 import { branchHasBus } from "@/domain/rules/settings"
 import { BusUseChip } from "@/components/transport/labels"
@@ -51,6 +51,10 @@ export default function StudentsPage() {
   const edit = (st: Student, patch: Partial<Student>) => report(saveStudent({ ...st, ...patch }), "บันทึกแล้ว")
   // owner 2026-10-09: Director / Area Manager can list several branches at once
   const scope = useBranchScope()
+  const rollovers = useRolloverNotices(scope.ids)
+  const branchList = useStore((s) => s.branches)
+  const rollCount = rollovers.reduce((a, n) => a + n.count, 0)
+  const [rolloverOpen, setRolloverOpen] = useState<string | null>(null)
   // owner 2026-11-25: this page lists CUSTOMERS only — a Lead (not paid yet) lives in the CRM
   const leadSet = useLeadSets()
   const students = useStore((s) => s.students).filter((s) => scope.ids.includes(s.branchId) && !leadSet.studentIds.has(s.id))
@@ -230,8 +234,7 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-4">
-      {/* owner 2026-11-19: yearly grade change — reminder from 7 days before, the Admin approves */}
-      {scope.ids.map((id) => <RolloverBanner key={id} branchId={id} />)}
+      {rolloverOpen && <RolloverDialog branchId={rolloverOpen} onClose={() => setRolloverOpen(null)} />}
     <ListPage branch={scope.select} title="นักเรียน" description="นักเรียนทั้งหมด คอร์สที่เรียนอยู่ และวันจบแพ็กเกจ"
         actions={(can(me, "student.export") || can(me, "student.manage")) && (
           // owner 2026-11-13: the two header buttons folded into one dropdown, like the other pages
@@ -239,6 +242,7 @@ export default function StudentsPage() {
             <DropdownMenuTrigger render={<Button />}><PlusIcon /> เพิ่ม / ส่งออก <ChevronDownIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-auto min-w-48">
               {can(me, "student.manage") && <DropdownMenuItem onClick={() => setOpenId("new")}><PlusIcon /> เพิ่มนักเรียน</DropdownMenuItem>}
+              {rollovers.filter((n) => n.due && !n.auto).map((n) => <DropdownMenuItem key={n.branchId} onClick={() => setRolloverOpen(n.branchId)}><GraduationCapIcon /> เลื่อนชั้นประจำปี {n.count} คน{rollovers.length > 1 ? ` · ${branchList.find((b) => b.id === n.branchId)?.name ?? ""}` : ""}</DropdownMenuItem>)}
               {can(me, "student.export") && <DropdownMenuItem onClick={exportCsv}><DownloadIcon /> ส่งออก</DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -247,8 +251,10 @@ export default function StudentsPage() {
         <Kpi icon={GraduationCapIcon} label="กำลังเรียน" value={kpi.active} sub={`ในรายการ ${shown.length} คน`} tone="emerald" onClick={() => pick("active")} active={status === "active"} />
         <Kpi icon={RefreshCwIcon} label="รอต่อคอร์ส" value={kpi.renewal} tone="amber" emphasis={!!(kpi.renewal)} onClick={() => pick("renewal")} active={status === "renewal"} />
         <Kpi icon={SparklesIcon} label="นักเรียนใหม่เดือนนี้" value={kpi.fresh} tone="sky" />
-        <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.attention} tone="amber" emphasis={!!kpi.attention}
-          sub={<>แจ้งออก {kpi.exiting}{" · "}ไม่ผูกครอบครัว {kpi.noFamily}</>}
+        <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.attention} tone="amber" emphasis={!!kpi.attention || rollCount > 0}
+          // owner 2026-11-25: the yearly grade change lives here (it was a banner above the page) — the approval is in the "เพิ่ม / ส่งออก" menu
+          info={rollovers.length > 0 ? rollovers.map((n) => `${typeof n.title === "string" ? n.title : ""} ${n.sub}`.trim()).join(" · ") : undefined}
+          sub={<>แจ้งออก {kpi.exiting}{" · "}ไม่ผูกครอบครัว {kpi.noFamily}{rollCount > 0 && <>{" · "}เลื่อนชั้น {rollCount}</>}</>}
           onClick={() => { setStatus(""); setNoFamily(noFamily === "attention" ? "" : "attention") }} active={noFamily === "attention"} />
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" />}

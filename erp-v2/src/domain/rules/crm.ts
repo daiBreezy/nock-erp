@@ -171,8 +171,8 @@ export function leadDetail(l: Pick<Lead, "stage" | "createdAt" | "notes" | "sche
     const { date, daysLeft, overdue } = scheduleInfo(l.scheduledAt, now)
     const long = fmtDate(date, { weekday: true })
     const short = fmtDate(date)
-    if (overdue) { const suffix = `เลยนัด ${-daysLeft} วัน`; return { text: `${long} · ${suffix}`, shortText: `${short} · ${suffix}`, level: "danger" } }
-    const suffix = daysLeft === 0 ? "วันนี้" : daysLeft === 1 ? "พรุ่งนี้" : `อีก ${daysLeft} วัน`
+    if (overdue) { const suffix = `เลยนัด ${-daysLeft} ว`; return { text: `${long} · ${suffix}`, shortText: `${short} · ${suffix}`, level: "danger" } }
+    const suffix = daysLeft === 0 ? "วันนี้" : daysLeft === 1 ? "พรุ่งนี้" : `อีก ${daysLeft} ว`
     return { text: `${long} · ${suffix}`, shortText: `${short} · ${suffix}`, level: daysLeft <= 1 ? "warn" : "info" }
   }
   if (l.stage === "tested") return plain("สอบแล้ว · รอนัดทดลองเรียน", "info")
@@ -181,8 +181,8 @@ export function leadDetail(l: Pick<Lead, "stage" | "createdAt" | "notes" | "sche
 
   // new / contacting: how long since we actually talked to them, not since the lead first arrived
   const days = daysAgo(lastContactAt(l), now)
-  if (l.stage === "new") return days === 0 ? plain("เพิ่งเข้ามาวันนี้", "info") : plain(`รอติดต่อมา ${days} วัน`, days >= 2 ? "warn" : "info")
-  return days === 0 ? plain("ติดต่อวันนี้", "muted") : plain(`ติดต่อล่าสุด ${days} วันก่อน`, days >= 3 ? "warn" : "muted")
+  if (l.stage === "new") return days === 0 ? plain("เพิ่งเข้ามาวันนี้", "info") : plain(`รอติดต่อมา ${days} ว`, days >= 2 ? "warn" : "info")
+  return days === 0 ? plain("ติดต่อวันนี้", "muted") : plain(`ติดต่อล่าสุด ${days} ว ก่อน`, days >= 3 ? "warn" : "muted")
 }
 
 export interface CrmKpis {
