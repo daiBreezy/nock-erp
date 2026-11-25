@@ -140,11 +140,11 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
   }
   const doIt = (a: NonNullable<typeof ask>) => a.kind === "off" ? update(a.p.id, { active: false }) : setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== a.p.id) })
   return (
-    <SettingsCard title={tx("ช่วงเวลาพิเศษ ({0})", [b.specialPeriods.length])}
+    <SettingsCard bare title={tx("ช่วงเวลาพิเศษ ({0})", [b.specialPeriods.length])}
       hint={tx("ช่วงวันที่ที่โรงเรียนเปิด-ปิดไม่เหมือนปกติ เช่น Summer เปิด 08:00–22:00 ทุกวัน — ระหว่างช่วงนี้ระบบใช้เวลาของช่วงแทนเวลาปกติ (ตอนสร้างคลาส/ย้ายคาบ/ฟอร์ม Trial) · วันปิดทั้งวันใส่ที่แท็บวันหยุด")}
       action={<Button size="xs" variant="outline" onClick={add}><PlusIcon />  {tx("เพิ่มช่วง")}</Button>}>
       {list.length === 0 && <Empty>{tx("ยังไม่มีช่วงเวลาพิเศษ")}</Empty>}
-      <div className="divide-y">
+      <div className={cn("divide-y", list.length > 0 && "rounded-xl border px-3")}>
         {list.map((p) => (
           <SpecialPeriodEditor key={p.id} p={p} branchId={branch.id} saved={branch.specialPeriods.some((x) => x.id === p.id)} normal={b.hours} today={today} startOpen={!branch.specialPeriods.some((x) => x.id === p.id)}
             classCount={classes.filter((k) => k.periodId === p.id && k.active).length}
