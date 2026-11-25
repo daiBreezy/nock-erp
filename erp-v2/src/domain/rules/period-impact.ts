@@ -137,3 +137,23 @@ export function periodBusImpact(
   }
   return out
 }
+
+/**
+ * owner 2026-11-25 — paid bus legs the school stopped are paid back as MONEY, like a class Credit: a Credit Note (refund · or kept as credit for the next invoice) off the PAID
+ * invoice, lines "ค่ารถ" (legs on the invoice × the invoice's rate) and "ค่ารถเพิ่ม" (extra rides billed on it). One note per invoice.
+ */
+export interface BusMoneyItem { key: "bus" | "busExtra"; label: string; legs: number; amount: number }
+export interface BusMoneyPlan { invoiceId: ID; items: BusMoneyItem[]; amount: number }
+export function planBusMoney(studentId: ID, lostDates: Set<DateStr>, invoices: Pick<Invoice, "id" | "studentId" | "status" | "bus" | "busExtras">[], rateOf: (invoiceId: ID) => number): BusMoneyPlan[] {
+  const out: BusMoneyPlan[] = []
+  for (const inv of invoices) {
+    if (inv.studentId !== studentId || inv.status !== "paid") continue
+    const legs = inv.bus.filter((l) => lostDates.has(l.date)).reduce((a, l) => a + (l.pickup ? 1 : 0) + (l.dropoff ? 1 : 0), 0)
+    const extras = (inv.busExtras ?? []).filter((x) => lostDates.has(x.date))
+    const items: BusMoneyItem[] = []
+    if (legs) items.push({ key: "bus", label: "ค่ารถ", legs, amount: legs * rateOf(inv.id) })
+    if (extras.length) items.push({ key: "busExtra", label: "ค่ารถเพิ่ม", legs: extras.reduce((a, x) => a + (x.pickup ? 1 : 0) + (x.dropoff ? 1 : 0), 0), amount: extras.reduce((a, x) => a + x.amount, 0) })
+    if (items.length) out.push({ invoiceId: inv.id, items, amount: items.reduce((a, i) => a + i.amount, 0) })
+  }
+  return out
+}

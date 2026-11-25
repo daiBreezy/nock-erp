@@ -20,6 +20,7 @@ export type SummaryLesson = { bookId?: ID; topicId?: ID; detail?: string; level?
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
 import * as SCredit from "@/domain/rules/session-credit"
+import * as PeriodImpact from "@/domain/rules/period-impact"
 import { daysUntilPeriod, PERIOD_NOTICE_DAYS, shortNotice } from "@/domain/rules/period-impact"
 import { can, canDeactivateStaff, canEditBlocks, canEditLead, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
@@ -49,7 +50,7 @@ import type { BankAccountEntry, SystemLogEntry, HomePin, CustomFormResponse, For
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
-import type { ChatMessageMeta, CourseLine, CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, CreditSettle, SessionCredit, SpecialPeriod, PeriodParentMsg, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, ReceiptMerge, ExamResult, ExamScore, ExamTerm, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr, BusLegKind } from "@/domain/types"
+import type { ChatMessageMeta, CourseLine, CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, CreditMode, CreditSettle, SessionCredit, SpecialPeriod, PeriodParentMsg, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, ReceiptMerge, ExamResult, ExamScore, ExamTerm, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr, BusLegKind } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -341,6 +342,8 @@ type Store = DB & UIState & {
   setPeriodMessages: (branchId: ID, periodId: ID, msg: PeriodParentMsg) => Result
   /** owner 2026-11-25: spend session credits on make-up sessions — 1 credit = 1 session; the student joins each picked session (the package pays for it) */
   bookMakeupSessions: (creditIds: ID[], sessionIds: ID[], otherCourse?: boolean) => Result<{ booked: number }>
+  /** owner 2026-11-25: pay back the PAID bus legs a Special Period stopped (Credit Note off the paid invoice: refund, or credit for the next invoice) */
+  settleBusLegs: (periodId: ID, studentId: ID, mode: CreditMode, note?: string) => Result<{ notes: number; amount: number }>
   /** cancel open session credits by hand (e.g. the unpaid invoice was reduced instead) */
   revokeSessionCredits: (ids: ID[], reason: string) => Result
   voidCreditNote: (id: ID, reason: string) => Result
@@ -3196,6 +3199,36 @@ export const useStore = create<Store>()(
         const stu = s.students.find((x) => x.id === studentId)
         log("class", [studentId], "ชดเชยคาบจาก Credit", `${stu?.nickname ?? ""} · ${pairs.length} คาบ`)
         return { ok: true, value: { booked: pairs.length } }
+      },
+      settleBusLegs: (periodId, studentId, mode, note) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const stu = s.students.find((x) => x.id === studentId)
+        const branch = stu && s.branches.find((b) => b.id === stu.branchId)
+        const period = branch?.specialPeriods.find((p) => p.id === periodId)
+        if (!stu || !branch || !period) return fail("ไม่พบช่วงพิเศษหรือนักเรียน")
+        if (s.creditNotes.some((n) => n.periodId === periodId && n.studentId === studentId && n.status !== "void")) return fail("ทำใบลดหนี้ค่ารถของช่วงนี้ให้นักเรียนคนนี้ไปแล้ว")
+        const legs = PeriodImpact.periodBusImpact(period, { students: s.students, classes: s.classes, invoices: s.invoices, busAddOns: s.busAddOns }, branch.id, toDateStr(s.now())).find((x) => x.studentId === studentId)
+        if (!legs) return fail("ไม่มีเที่ยวรถที่เสียไปในช่วงนี้")
+        const plans = PeriodImpact.planBusMoney(studentId, new Set(legs.legs.map((l) => l.date)), s.invoices, (id) => Cfg.busRate(branch, s.invoices.find((i) => i.id === id)?.busFeeId ?? null))
+        if (!plans.length) return fail("ไม่มีค่ารถที่จ่ายแล้วให้คืน — เที่ยวที่ยังไม่จ่ายแก้ที่ใบแจ้งหนี้")
+        const reasons = ["โรงเรียนหยุดคาบ (ช่วงเวลาพิเศษ) — ค่ารถรับส่ง"]
+        const itemsOf = (p: PeriodImpact.BusMoneyPlan) => p.items.map((i) => ({ key: i.key, label: i.label, courseId: s.invoices.find((x) => x.id === p.invoiceId)?.lines[0]?.courseId, amount: i.amount }))
+        // check every note first so nothing is half-made
+        for (const p of plans) {
+          const inv = s.invoices.find((x) => x.id === p.invoiceId)!
+          const err = Refund.validateCreditNote({ invoiceId: inv.id, mode, items: itemsOf(p), reasons, remark: note ?? "" }, inv, Refund.refundableItems(inv, Bill.invoiceTotals(inv, ctxOf(s, inv.branchId)), s.creditNotes), s.creditNotes)
+          if (err) return fail(err)
+        }
+        let made = 0
+        for (const p of plans) {
+          const r = get().createCreditNote({ invoiceId: p.invoiceId, mode, items: itemsOf(p), reasons, remark: note?.trim() ?? "" })
+          if (!r.ok) return r
+          set({ creditNotes: get().creditNotes.map((n) => (n.id === r.value.id ? { ...n, periodId } : n)) })
+          made++
+        }
+        return { ok: true, value: { notes: made, amount: plans.reduce((a, p) => a + p.amount, 0) } }
       },
       revokeSessionCredits: (ids, reason) => {
         const s = get()

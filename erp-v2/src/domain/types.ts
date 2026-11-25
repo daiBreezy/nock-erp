@@ -1564,6 +1564,8 @@ export interface CreditNote {
   remark: string
   /** the student stops the chosen courses from this day (packages end, removed from later sessions) */
   stopFrom?: DateStr
+  /** owner 2026-11-25: made for the bus legs a Special Period stopped (so each child is paid back once per period) */
+  periodId?: ID
   status: "pending_approval" | "approved" | "void"
   createdBy: ID
   createdAt: string

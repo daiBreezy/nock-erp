@@ -97,3 +97,14 @@ describe("bus in a Special Period (owner 2026-11-25)", () => {
     expect(periodBusImpact(per, withBus, "b1", "2026-11-25")).toHaveLength(0)
   })
 })
+
+import { planBusMoney } from "./period-impact"
+describe("bus money back (owner 2026-11-25)", () => {
+  const inv = (id: string, status: string) => ({ id, studentId: "a", status, bus: [{ date: "2026-12-08", pickup: true, dropoff: true }, { date: "2026-12-09", pickup: true, dropoff: false }, { date: "2027-01-05", pickup: true, dropoff: true }], busExtras: [{ addOnId: "x", date: "2026-12-08", pickup: true, dropoff: false, amount: 80 }] }) as never
+  it("legs on the lost days × the invoice's rate, extras apart — paid invoices only", () => {
+    const plans = planBusMoney("a", new Set(["2026-12-08", "2026-12-09"]), [inv("i1", "paid"), inv("i2", "sent")], () => 100)
+    expect(plans).toHaveLength(1)
+    expect(plans[0]).toMatchObject({ invoiceId: "i1", amount: 380 })
+    expect(plans[0].items.map((i) => [i.key, i.legs, i.amount])).toEqual([["bus", 3, 300], ["busExtra", 1, 80]])
+  })
+})

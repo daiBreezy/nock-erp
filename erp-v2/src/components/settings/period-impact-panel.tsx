@@ -8,6 +8,7 @@ import { EntityPanel, PanelBody, PanelFooter } from "@/components/app/form-shell
 import { Kpi } from "@/components/app/kpi"
 import { KpiRow, Segmented } from "@/components/app/page-layout"
 import { Pill } from "@/components/app/badges"
+import { BusMoneyDialog } from "@/components/settings/bus-money-dialog"
 import { PeriodMessagesDialog } from "@/components/settings/period-messages-dialog"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
@@ -48,6 +49,8 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
   const [show, setShow] = useState<Show>("all")
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
   const [msgOpen, setMsgOpen] = useState(false)
+  const [busMoney, setBusMoney] = useState<ID | null>(null)
+  const creditNotes = useStore((s) => s.creditNotes)
   const who = (id: ID) => students.find((x) => x.id === id)
   const days = daysUntilPeriod(period, today)
   const short = period.active && period.to >= today && shortNotice(period, today)
@@ -151,18 +154,25 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
                       {b.paidLost > 0 && <Pill tone="blue">{tx("จ่ายแล้ว {0} เที่ยว", [b.paidLost])}</Pill>}
                       <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
                     </Button>
+                    {b.paidLost > 0 && (
+                      <div className="flex justify-end px-2.5 pb-2">
+                        {creditNotes.some((n) => n.periodId === period.id && n.studentId === b.studentId && n.status !== "void")
+                          ? <Pill tone="green">{tx("ทำใบลดหนี้ค่ารถแล้ว")}</Pill>
+                          : <Button size="xs" variant="outline" onClick={() => setBusMoney(b.studentId)}>{tx("จัดการค่ารถที่จ่ายแล้ว")}</Button>}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
             </section>
           )}
-          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรก — ค่ารถที่จ่ายแล้วยังไม่ได้คืน/เป็น Credit")}</p>
         </PanelBody>
         <PanelFooter>
           <Button variant="outline" disabled={impact.students.length === 0} onClick={() => setMsgOpen(true)}><SendIcon /> {tx("ข้อความถึงผู้ปกครอง")}</Button>
           <Button variant="ghost" className="ml-auto" onClick={onClose}>{tx("ปิด")}</Button>
         </PanelFooter>
       </EntityPanel>
+      {busMoney && busRows.find((x) => x.studentId === busMoney) && <BusMoneyDialog periodId={period.id} bus={busRows.find((x) => x.studentId === busMoney)!} onClose={() => setBusMoney(null)} />}
       {msgOpen && <PeriodMessagesDialog period={period} impact={impact} branchId={branchId} onClose={() => setMsgOpen(false)} />}
       <StudentSheet studentId={studentOpen} onClose={() => setStudentOpen(null)} />
     </>

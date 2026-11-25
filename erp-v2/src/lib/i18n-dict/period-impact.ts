@@ -110,4 +110,9 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "รอบ {0} เต็ม": { en: "run {0} is full", ja: "{0} の便は満席" },
   "รอบ {0} · ที่นั่ง {1}/{2}": { en: "run {0} · seats {1}/{2}", ja: "{0} の便 · 座席 {1}/{2}" },
   "ถ้าต้องใช้รถ เพิ่มที่ แผงนักเรียน › การเงิน › รอบรถเพิ่ม (เลือกจากคาบจริงของนักเรียน)": { en: "If the child needs the bus, add it in the student panel › Billing › Extra bus days (chosen from the child's real sessions)", ja: "送迎が必要な場合は 生徒パネル › 請求 › 追加送迎 で追加(実際の授業から選択)" },
+  "ไม่มีค่ารถที่จ่ายแล้วให้คืน — เที่ยวที่ยังไม่จ่ายแก้ที่ใบแจ้งหนี้": { en: "No paid bus fee to pay back — for unpaid legs, fix the invoice", ja: "返金できる支払済み送迎代なし — 未払いの便は請求書を修正" },
+  "วิธีคืน": { en: "How to pay back", ja: "返し方" },
+  "สร้างใบลดหนี้ค่ารถ": { en: "Create the bus Credit Note", ja: "送迎代の貸方票を作成" },
+  "ไม่พบช่วงพิเศษหรือนักเรียน": { en: "Special period or student not found", ja: "特別期間または生徒が見つかりません" },
+  "ไม่มีเที่ยวรถที่เสียไปในช่วงนี้": { en: "No bus legs lost in this period", ja: "この期間に失われた送迎便はありません" },
 }
