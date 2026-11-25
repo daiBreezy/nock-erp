@@ -22,6 +22,7 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { PeriodMessageEditor } from "@/components/settings/period-message-editor"
 import { PeriodImpactPanel, usePeriodImpact } from "@/components/settings/period-impact-panel"
 import { periodHours } from "@/components/app/period-banner"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
@@ -291,6 +292,10 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
               </div>
             <p className="text-xs text-muted-foreground">{tx("คลาสพิเศษ: สร้างคลาสแล้วเลือก \"ช่วงเวลาพิเศษ\" =")} {p.name || tx("ช่วงนี้")}  {tx("· ช่วงคลาสของช่วงนี้ตั้งจากตารางครู (ปุ่ม ตั้งช่วงเวลา ที่หัววันในช่วง)")}</p>
           </div>
+          <details className="rounded-xl bg-muted/40 p-2">
+            <summary className="cursor-pointer text-sm font-medium">{tx("ข้อความถึงผู้ปกครอง (แก้ได้ · ส่งจากศูนย์ผลกระทบ)")}</summary>
+            <PeriodMessageEditor className="mt-2" period={p} onChange={(parentMsg) => onChange({ parentMsg })} />
+          </details>
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-2 text-sm">
             
             {tx("เปิดทุกวัน")}

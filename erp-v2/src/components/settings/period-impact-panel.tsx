@@ -1,19 +1,20 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ChevronRightIcon, SunIcon, TriangleAlertIcon } from "lucide-react"
+import { ChevronRightIcon, SendIcon, SunIcon, TriangleAlertIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EntityPanel, PanelBody, PanelFooter } from "@/components/app/form-shell"
 import { Kpi } from "@/components/app/kpi"
 import { KpiRow, Segmented } from "@/components/app/page-layout"
 import { Pill } from "@/components/app/badges"
+import { PeriodMessagesDialog } from "@/components/settings/period-messages-dialog"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { creditTotal, invoiceStateFor } from "@/domain/rules/session-credit"
 import { daysUntilPeriod, PERIOD_NOTICE_DAYS, periodImpact, shortNotice, type ImpactStudent } from "@/domain/rules/period-impact"
 import type { ID, SpecialPeriod } from "@/domain/types"
-import { useNow } from "@/lib/hooks"
+import { useEntitlements, useNow } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -24,7 +25,7 @@ type Show = "all" | "hourly" | "subscription" | "bookings"
 export function usePeriodImpact(period: SpecialPeriod, branchId: ID) {
   const classes = useStore((s) => s.classes)
   const sessions = useStore((s) => s.sessions)
-  const entitlements = useStore((s) => s.entitlements)
+  const entitlements = useEntitlements() // real end dates (an extended package still covers its sessions)
   const today = toDateStr(useNow(60_000))
   return useMemo(() => periodImpact(period, branchId, { classes, sessions, entitlements }, today), [period, branchId, classes, sessions, entitlements, today])
 }
@@ -43,6 +44,7 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
   const today = toDateStr(useNow(60_000))
   const [show, setShow] = useState<Show>("all")
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
+  const [msgOpen, setMsgOpen] = useState(false)
   const who = (id: ID) => students.find((x) => x.id === id)
   const days = daysUntilPeriod(period, today)
   const short = period.active && period.to >= today && shortNotice(period, today)
@@ -132,10 +134,14 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
               </ul>
             </section>
           )}
-          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรก — ยังไม่รวม: เที่ยวรถรับส่ง · ข้อความถึงผู้ปกครอง")}</p>
+          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรก — ยังไม่รวม: เที่ยวรถรับส่ง")}</p>
         </PanelBody>
-        <PanelFooter><Button variant="ghost" className="ml-auto" onClick={onClose}>{tx("ปิด")}</Button></PanelFooter>
+        <PanelFooter>
+          <Button variant="outline" disabled={impact.students.length === 0} onClick={() => setMsgOpen(true)}><SendIcon /> {tx("ข้อความถึงผู้ปกครอง")}</Button>
+          <Button variant="ghost" className="ml-auto" onClick={onClose}>{tx("ปิด")}</Button>
+        </PanelFooter>
       </EntityPanel>
+      {msgOpen && <PeriodMessagesDialog period={period} impact={impact} branchId={branchId} onClose={() => setMsgOpen(false)} />}
       <StudentSheet studentId={studentOpen} onClose={() => setStudentOpen(null)} />
     </>
   )

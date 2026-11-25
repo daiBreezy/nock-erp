@@ -48,6 +48,8 @@ export interface DB {
   /** owner 2026-11-24: system-level audit trail (Bank Account created / edited / deleted …) — the Log page is not built yet */
   systemLogs: SystemLogEntry[]
   sessionCredits: SessionCredit[]
+  /** owner 2026-11-25: `${periodId}|${familyId}` → when the Special Period message went to that family */
+  periodSent: Record<string, string>
   system: SystemConfig
   notes: StudentNote[]
   /** Note Calendar (owner 2026-10-15) — notes on students in classes, apart from the student's Note tab */
@@ -814,7 +816,7 @@ export function buildSeed(now = new Date()): DB {
   const bankAccounts = defaultBankAccounts(branches)
   system.bankAccounts = bankAccounts
   const withBank = applyBankAccounts(branches, bankAccounts).branches
-  return { branches: withBank, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, examResults: buildExamDemo({ branches: withBank, students }, now), invoices: withBankSnapshots({ invoices: withDemoSlips({ invoices }).invoices, branches: withBank }).invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], systemLogs: [] as SystemLogEntry[], sessionCredits: [] as SessionCredit[], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
+  return { branches: withBank, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, examResults: buildExamDemo({ branches: withBank, students }, now), invoices: withBankSnapshots({ invoices: withDemoSlips({ invoices }).invoices, branches: withBank }).invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], systemLogs: [] as SystemLogEntry[], sessionCredits: [] as SessionCredit[], periodSent: {} as Record<string, string>, system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
 }
 
 /**

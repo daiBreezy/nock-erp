@@ -42,7 +42,12 @@ export interface SpecialPeriod {
   pauseCause?: "school" | "other"
   /** owner 2026-10-13: Memo printed on the invoice + receipt of this period's courses only (replaces the brand memo) */
   invoiceMemo?: string
+  /** owner 2026-11-25: the message set sent to parents about this period (one editable text per impact group) — edited in the period's card AND in the Impact Center */
+  parentMsg?: PeriodParentMsg
 }
+
+/** owner 2026-11-25: placeholders {ครอบครัว} {ช่วง} {วันที่ช่วง} (intro) · {ชื่อลูก} {ช่วง} {วันที่ช่วง} {คาบที่หยุด} {จำนวนคาบ} {วันจบใหม่} (per child) */
+export interface PeriodParentMsg { intro: string; hourly: string; subscription: string; unpaid: string; outro: string }
 
 /** One row of the teacher board, e.g. 13:00–15:00 (owner 2026-10-01: each branch sets its own, per weekday) */
 export interface ClassBlock {
