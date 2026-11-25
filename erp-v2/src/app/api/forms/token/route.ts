@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { checkToken, createToken, peekToken } from "@/server/form-store"
+import { claimSend } from "@/server/form-gate"
 import type { Brand, FormLang, FormToken, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 
 // Staff side: mint a one-time link for a lead, carrying the offered slots the admin picked
@@ -12,6 +13,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 })
   }
   if (!body.type || !body.leadId || !body.branchId || !body.offers?.length) return NextResponse.json({ ok: false, error: "missing fields" }, { status: 400 })
+  // owner 2026-11-25: one live link per lead / chat
+  const claim = await claimSend({ leadId: body.leadId, conversationId: body.conversationId }, body.type)
+  if (!claim.ok) return NextResponse.json(claim)
   const token = await createToken({
     type: body.type, leadId: body.leadId, branchId: body.branchId,
     conversationId: body.conversationId ?? null, offers: body.offers, grades: body.grades ?? [],

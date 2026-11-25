@@ -116,9 +116,35 @@ export async function checkEnrollToken(token: string): Promise<{ ok: true; token
   const s = await readEnroll()
   const t = s.tokens.find((x) => x.token === token)
   if (!t) return { ok: false, error: "ลิงก์นี้ไม่ถูกต้อง" }
+  if (t.revoked) return { ok: false, error: "ลิงก์นี้ถูกยกเลิกแล้ว — ติดต่อสถาบันเพื่อขอลิงก์ใหม่" }
   if (!t.reusable && t.used) return { ok: false, error: "ส่งใบสมัครนี้ไปแล้ว ขอบคุณค่ะ" }
   if (t.expiresAt && new Date(t.expiresAt) < new Date()) return { ok: false, error: "ลิงก์หมดอายุแล้ว — ติดต่อสถาบันเพื่อขอลิงก์ใหม่" }
   return { ok: true, token: t }
+}
+
+// ---------- owner 2026-11-25: one live link per lead / chat; staff can cancel a link ----------
+const enrollState = (t: EnrollToken): "waiting" | "answered" | "expired" | "cancelled" => (t.revoked ? "cancelled" : t.used ? "answered" : t.expiresAt && new Date(t.expiresAt) < new Date() ? "expired" : "waiting")
+
+export function revokeEnrollToken(token: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  return mutateEnroll((s) => {
+    const t = s.tokens.find((x) => x.token === token)
+    if (!t) return { ok: false as const, error: "ลิงก์นี้ไม่ถูกต้อง" }
+    if (t.reusable) return { ok: false as const, error: "ลิงก์ถาวรของสาขา (Rich Menu) ยกเลิกไม่ได้" }
+    if (t.used) return { ok: false as const, error: "ผู้ปกครองกรอกมาแล้ว — ยกเลิกลิงก์ไม่ได้" }
+    t.revoked = true
+    return { ok: true as const }
+  })
+}
+
+export async function enrollTokenStates(tokens: string[]) {
+  const s = await readEnroll()
+  return Object.fromEntries(s.tokens.filter((t) => tokens.includes(t.token)).map((t) => [t.token, enrollState(t)]))
+}
+
+/** the enroll links still waiting for the parent, for this lead or chat (the branch's permanent Rich Menu link is not "sent to someone") */
+export async function waitingEnrollLinksFor(q: { leadId?: string; conversationId?: string | null }): Promise<{ token: string; kind: "enroll"; createdAt: string }[]> {
+  const s = await readEnroll()
+  return s.tokens.filter((x) => !x.reusable && enrollState(x) === "waiting" && ((q.leadId && x.leadId === q.leadId) || (q.conversationId && x.conversationId === q.conversationId))).map((t) => ({ token: t.token, kind: "enroll" as const, createdAt: t.createdAt }))
 }
 
 export function submitEnroll(token: string, input: Omit<EnrollSubmission, "id" | "token" | "branchId" | "leadId" | "conversationId" | "status" | "submittedAt">): Promise<{ ok: true; submission: EnrollSubmission } | { ok: false; error: string }> {
@@ -137,10 +163,16 @@ export function submitEnroll(token: string, input: Omit<EnrollSubmission, "id" |
 }
 
 /** the admin voided / the family paid this invoice: every enroll link carrying it follows (the form then says so) */
-export function setEnrollInvoiceStatus(invoiceId: string, status: "void" | "paid" | "open") {
+export function setEnrollInvoiceStatus(invoiceId: string, status: "void" | "paid" | "open", allPaid?: boolean) {
   return mutateEnroll((s) => {
     let n = 0
-    for (const t of s.tokens) if (t.invoice?.invoiceId === invoiceId) { t.invoice.status = status; n++ }
+    for (const t of s.tokens) {
+      const inv = t.invoice
+      if (!inv || !(inv.invoiceIds ?? [inv.invoiceId]).includes(invoiceId)) continue
+      // owner 2026-11-25: a family SET — any one voided kills the link; "paid" only once EVERY invoice in it is paid
+      if (status === "paid" && (inv.invoiceIds?.length ?? 1) > 1 && !allPaid) continue
+      inv.status = status; n++
+    }
     return n
   })
 }

@@ -7,12 +7,13 @@ import { Confirmation, ConfirmationActions, ConfirmationBody, ConfirmationHeader
 import { Button } from "@/components/ui/button"
 import { fmtDate } from "@/domain/dates"
 import { FORM_TYPE_LABEL, canEditTogether, repeatTrials } from "@/domain/rules/forms"
-import { BUS_USE_LABEL, matchExistingFamily, PDPA_LABEL, submissionChanges } from "@/domain/rules/people"
+import { matchExistingFamily, submissionChanges } from "@/domain/rules/people"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { TriangleAlertIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import type { FormOfferSlot, FormSubmission } from "@/domain/types"
+import type { Assessment, FormOfferSlot, FormSubmission } from "@/domain/types"
+import { AssessmentResult } from "@/components/app/assessment-note"
 import { approveSubmission, editSubmissionSlot, rejectSubmission } from "@/lib/forms"
 import { report } from "@/lib/feedback"
 import { tx } from "@/lib/i18n"
@@ -31,7 +32,9 @@ import { FamilyMatchChoice } from "@/components/app/family-match-choice"
  * Approve/Edit/Reject while pending. Shared by the Inbox chat bubble and the Lead sheet so review logic
  * and markup live in exactly one place.
  */
-export function SubmissionReviewCard({ submission: sub, onChanged, groupMates }: { submission: FormSubmission; onChanged: () => void; groupMates?: FormSubmission[] }) {
+export function SubmissionReviewCard({ submission: sub, onChanged, groupMates, results }: { submission: FormSubmission; onChanged: () => void; groupMates?: FormSubmission[]
+  /** owner 2026-11-25: on the Lead PANEL the approved card also holds the Test / Trial result (record it right here); in the chat this is left out — a result can only be recorded on the Panel */
+  results?: { assessments: Assessment[]; editable: boolean } }) {
   const branch = useBranch()
   const staff = useStore((s) => s.staff)
   const sessions = useStore((s) => s.sessions)
@@ -145,19 +148,6 @@ export function SubmissionReviewCard({ submission: sub, onChanged, groupMates }:
       <ConfirmationHeader state={sub.status} icon={sub.type === "trial" ? <GraduationCapIcon /> : <ClipboardListIcon />}
         title={<>ฟอร์ม{FORM_TYPE_LABEL[sub.type]} — {sub.studentName}{sub.studentNickname && ` (${sub.studentNickname})`}</>} />
       <ConfirmationBody>
-      <div className="space-y-0.5 text-xs text-muted-foreground">
-        <div>นักเรียน: {sub.studentName} · {sub.studentGrade}{sub.studentBirthDate && ` · เกิด ${fmtDate(sub.studentBirthDate)}`}</div>
-        {sub.studentNote && <div>หมายเหตุ: {sub.studentNote}</div>}
-        {sub.parents.map((p, i) => (
-          <div key={i}>
-            ผู้ปกครอง{sub.parents.length > 1 ? ` ${i + 1}` : ""}: {p.name} · {p.phone}{p.relationship ? ` (${p.relationship})` : ""}{p.email ? ` · ${p.email}` : ""}
-          </div>
-        ))}
-        {(sub.familyAddress || sub.familyPostcode) && <div>ที่อยู่: {[sub.familyAddress, sub.familyPostcode].filter(Boolean).join(" ")}</div>}
-        {sub.familyBusLeg && <div>รถรับส่ง: {BUS_USE_LABEL[sub.familyBusLeg]}</div>}
-        {sub.pdpa && <div>PDPA (ถ่ายภาพ): {PDPA_LABEL[sub.pdpa]}</div>}
-      </div>
-
       {sub.referral && sub.status === "pending" && <div className="mt-1.5"><ReferrerPicker text={sub.referral} exceptFamilyId={knownFamily?.id} value={referrerId} onChange={setReferrerId} /></div>}
       {sub.referral && sub.status !== "pending" && <p className="mt-1.5 text-xs"><span className="text-muted-foreground">ใครแนะนำ (ผู้ปกครองพิมพ์):</span> <b>{sub.referral}</b></p>}
 
@@ -188,16 +178,17 @@ export function SubmissionReviewCard({ submission: sub, onChanged, groupMates }:
         <FamilyMatchChoice className="mt-1.5" familyName={matchedFamily.name} reason="เบอร์ / LINE ตรงกัน" newFamily={newFamily} onChange={setNewFamily} />
       )}
 
+      {/* owner 2026-11-25: the parent's personal details are not repeated here (Preview shows them) — only a short note that there is something new / changed */}
       {changes.length > 0 && (
-        <div className="mt-1.5 space-y-1 rounded-lg border border-warning/40 bg-warning-soft/60 p-2 text-2xs text-warning-ink">
-          <p className="font-semibold">ผู้ปกครองแก้ข้อมูลในฟอร์ม {changes.length} รายการ{knownFamily ? ` · ${knownFamily.name}` : ""}</p>
-          <ul className="space-y-0.5">
-            {changes.map((c) => <li key={c.key}>{c.label}: <span className="line-through opacity-60">{c.from}</span> → <b>{c.to}</b></li>)}
+        <div className="mt-1.5 space-y-1 text-2xs text-warning-ink">
+          <p className="flex flex-wrap items-center gap-x-2"><b className="font-semibold">{tx("ผู้ปกครองแก้ข้อมูล {0} รายการ", [changes.length])}</b>
+            <label className="flex items-center gap-1.5 font-medium"><Checkbox checked={applyChanges} onCheckedChange={(v) => setApplyChanges(!!v)} /> {tx("อัปเดตในระบบตามนี้ตอนอนุมัติ")}</label>
+          </p>
+          <ul className="space-y-0.5 text-muted-foreground">
+            {changes.map((c) => <li key={c.key}>{c.label}: <span className="line-through opacity-60">{c.from}</span> → <b className="text-foreground">{c.to}</b></li>)}
           </ul>
-          <label className="flex items-center gap-1.5 pt-0.5 font-medium"><Checkbox checked={applyChanges} onCheckedChange={(v) => setApplyChanges(!!v)} /> อัปเดตข้อมูลในระบบตามนี้ตอนอนุมัติ</label>
         </div>
       )}
-
 
       {sub.status === "pending" && ask !== null && (
         <div className="mt-2 space-y-2 rounded-lg border bg-background p-2.5">
@@ -244,7 +235,7 @@ export function SubmissionReviewCard({ submission: sub, onChanged, groupMates }:
       {sub.status === "pending" && idle && (
         <ConfirmationActions>
           {/* owner 2026-11-20: the whole answer sheet, read only — on the left so ปฏิเสธ / อนุมัติ stay together on the right */}
-          <Button size="sm" variant="ghost" className="mr-auto" onClick={() => setPreviewing(true)}><EyeIcon /> Preview Form</Button>
+          <Button size="sm" variant="ghost" className="mr-auto" onClick={() => setPreviewing(true)}><EyeIcon /> Preview</Button>
           <Button size="sm" variant="outline" className="text-danger" disabled={busy} onClick={() => (noLead ? setAskLead(true) : reject())}><XIcon /> ปฏิเสธ</Button>
           <Button size="sm" disabled={busy || needReason} onClick={approve}><CheckIcon /> {noLead ? "อนุมัติ / สร้าง Lead" : "อนุมัติ"}</Button>
           {!!groupMates?.length && !noLead && <Button size="sm" disabled={busy || needReason} onClick={approveGroup}><CheckIcon /> {tx("อนุมัติทั้งกลุ่ม ({0} คน)", [groupMates.length + 1])}</Button>}
@@ -254,8 +245,7 @@ export function SubmissionReviewCard({ submission: sub, onChanged, groupMates }:
         onApprove={async () => { if (await approve()) setPreviewing(false) }} onReject={() => { setPreviewing(false); if (noLead) setAskLead(true); else void reject() }} approveBusy={busy} approveBlocked={needReason ? "ใส่เหตุผลที่ให้ Trial ซ้ำที่การ์ดก่อน" : undefined} approveLabel={noLead ? "อนุมัติ / สร้าง Lead" : "อนุมัติ"} />}
       {sub.status === "approved" && (
         <ConfirmationResult>
-          <span>สร้างคาบเรียนจริงแล้ว</span>
-          <Button size="xs" variant="ghost" onClick={() => setPreviewing(true)}><EyeIcon /> Preview Form</Button>
+          <Button size="xs" variant="ghost" onClick={() => setPreviewing(true)}><EyeIcon /> Preview</Button>
           {sub.createdSessionId && (
             <Link href={`/calendar?sessionId=${sub.createdSessionId}`} className="ml-auto inline-flex items-center gap-1 text-info hover:underline">
               <CalendarIcon className="size-3" /> ดูในปฏิทิน
@@ -263,7 +253,17 @@ export function SubmissionReviewCard({ submission: sub, onChanged, groupMates }:
           )}
         </ConfirmationResult>
       )}
-      {sub.status === "rejected" && <ConfirmationResult><span>ไม่ได้สร้างคาบเรียน</span><Button size="xs" variant="ghost" onClick={() => setPreviewing(true)}><EyeIcon /> Preview Form</Button></ConfirmationResult>}
+      {results && sub.status === "approved" && results.assessments.length > 0 && (
+        <div className="space-y-2 border-t px-3.5 py-2.5">
+          {results.assessments.map((a) => (
+            <div key={a.id} className="space-y-1">
+              {results.assessments.length > 1 && <p className="text-xs text-muted-foreground">{a.subject} · {fmtDate(a.date, { weekday: true })} {a.start}</p>}
+              <AssessmentResult a={a} editable={results.editable} />
+            </div>
+          ))}
+        </div>
+      )}
+      {sub.status === "rejected" && <ConfirmationResult><span>ไม่ได้สร้างคาบเรียน</span><Button size="xs" variant="ghost" onClick={() => setPreviewing(true)}><EyeIcon /> Preview</Button></ConfirmationResult>}
       {askLead && (
         <Dialog open onOpenChange={(o) => !o && setAskLead(false)}>
           <DialogContent className="lg:max-w-sm">

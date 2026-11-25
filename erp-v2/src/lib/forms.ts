@@ -245,42 +245,59 @@ export async function postToChat(conversationId: ID, text: string): Promise<Resu
   return useStore.getState().sendChatMessage(conversationId, text)
 }
 
-/** owner 2026-11-19: a copy of the invoice that travels with the enroll form — what the parent sees, pays and attaches the slip to */
-export function enrollInvoiceSnapshot(invoiceId: ID): EnrollInvoiceSnap | null {
+/** owner 2026-11-19: a copy of the invoice that travels with the enroll form — what the parent sees, pays and attaches the slip to.
+ *  owner 2026-11-25: several ids = a family SET travelling as one (one link, set total, each line named after its child). */
+export function enrollInvoiceSnapshot(ids: ID | ID[]): EnrollInvoiceSnap | null {
+  const list = Array.isArray(ids) ? ids : [ids]
   const s = useStore.getState()
-  const inv = s.invoices.find((x) => x.id === invoiceId)
-  const branch = inv && s.branches.find((b) => b.id === inv.branchId)
-  if (!inv || !branch) return null
-  const t = Bill.invoiceTotals(inv, { branch, courses: s.courses, classes: s.classes, holidays: s.holidays })
-  const items: EnrollInvoiceSnap["items"] = t.lines.map((l) => ({ name: l.course?.name ?? "คอร์ส", amount: l.amount + l.courseFee - l.promotion }))
-  for (const a of inv.advance) items.push({ name: a.name, amount: a.amount })
-  if (t.bus + t.busExtra > 0) items.push({ name: "ค่ารถรับส่ง", amount: t.bus + t.busExtra, kind: "bus" as const })
-  if (t.book > 0) items.push({ name: "ค่าหนังสือ", amount: t.book, kind: "book" as const })
-  if (t.concession) items.push({ name: "ส่วนลด", amount: -Math.abs(t.concession), kind: "discount" as const })
-  if (t.credit) items.push({ name: "เครดิตคอร์ส", amount: -Math.abs(t.credit), kind: "credit" as const })
-  if (t.rounding) items.push({ name: "ปัดเศษ", amount: t.rounding, kind: "rounding" as const })
-  const gap = t.total - items.reduce((a, x) => a + x.amount, 0) // never show a list that doesn't add up to the total
-  if (gap) items.push({ name: "อื่นๆ", amount: gap, kind: "other" as const })
-  const stu = s.students.find((x) => x.id === inv.studentId)
-  return { invoiceId, number: inv.number ?? "", status: inv.status === "paid" ? "paid" : inv.status === "void" ? "void" : "open", studentNickname: stu?.nickname ?? "", items, total: t.total, owed: Bill.owedOn(inv, t.total),
-    bank: { bank: (inv.bankSnapshot ?? branch.bankAccount).bank, name: (inv.bankSnapshot ?? branch.bankAccount).name, number: (inv.bankSnapshot ?? branch.bankAccount).number },
-    promptPayId: (inv.bankSnapshot ?? branch.bankAccount).promptPayId, qrImage: (inv.bankSnapshot ?? branch.bankAccount).qrImage }
+  const invs = list.map((id) => s.invoices.find((x) => x.id === id))
+  if (!list.length || invs.some((i) => !i)) return null
+  const first = invs[0]!
+  const branch = s.branches.find((b) => b.id === first.branchId)
+  if (!branch) return null
+  const many = list.length > 1
+  const items: EnrollInvoiceSnap["items"] = []
+  let total = 0, owed = 0
+  for (const inv of invs as NonNullable<(typeof invs)[number]>[]) {
+    const t = Bill.invoiceTotals(inv, { branch, courses: s.courses, classes: s.classes, holidays: s.holidays })
+    const stu = s.students.find((x) => x.id === inv.studentId)
+    const tag = (n: string) => (many && stu ? `${stu.nickname} · ${n}` : n)
+    const mine: EnrollInvoiceSnap["items"] = t.lines.map((l) => ({ name: tag(l.course?.name ?? "คอร์ส"), amount: l.amount + l.courseFee - l.promotion }))
+    for (const a of inv.advance) mine.push({ name: tag(a.name), amount: a.amount })
+    if (t.bus + t.busExtra > 0) mine.push({ name: tag("ค่ารถรับส่ง"), amount: t.bus + t.busExtra, kind: "bus" as const })
+    if (t.book > 0) mine.push({ name: tag("ค่าหนังสือ"), amount: t.book, kind: "book" as const })
+    if (t.concession) mine.push({ name: tag("ส่วนลด"), amount: -Math.abs(t.concession), kind: "discount" as const })
+    if (t.credit) mine.push({ name: tag("เครดิตคอร์ส"), amount: -Math.abs(t.credit), kind: "credit" as const })
+    if (t.rounding) mine.push({ name: tag("ปัดเศษ"), amount: t.rounding, kind: "rounding" as const })
+    const gap = t.total - mine.reduce((a, x) => a + x.amount, 0) // never show a list that doesn't add up to the total
+    if (gap) mine.push({ name: tag("อื่นๆ"), amount: gap, kind: "other" as const })
+    // a fixed-kind line of a set loses its translation (the name carries the child) — keep `kind` only for a single invoice
+    items.push(...(many ? mine.map((x) => ({ name: x.name, amount: x.amount })) : mine))
+    total += t.total
+    owed += Bill.owedOn(inv, t.total)
+  }
+  const nick = (id: ID) => s.students.find((x) => x.id === id)?.nickname ?? ""
+  const bank = first.bankSnapshot ?? branch.bankAccount
+  return { invoiceId: first.id, invoiceIds: many ? list : undefined, number: invs.map((i) => i!.number ?? "").join(" · "),
+    status: invs.some((i) => i!.status === "void") ? "void" : invs.every((i) => i!.status === "paid") ? "paid" : "open",
+    studentNickname: invs.map((i) => nick(i!.studentId)).filter(Boolean).join(" + "), items, total, owed,
+    bank: { bank: bank.bank, name: bank.name, number: bank.number }, promptPayId: bank.promptPayId, qrImage: bank.qrImage }
 }
 
 /** the invoice was voided / paid → the enroll links carrying it say so (the parent can't pay a dead invoice) */
-export async function syncEnrollInvoice(invoiceId: ID, status: "void" | "paid" | "open") {
-  await postJson("/api/parent-forms/enroll-invoice", { invoiceId, status }).catch(() => undefined)
+export async function syncEnrollInvoice(invoiceId: ID, status: "void" | "paid" | "open", allPaid?: boolean) {
+  await postJson("/api/parent-forms/enroll-invoice", { invoiceId, status, allPaid }).catch(() => undefined)
 }
 
 /** Enroll form for any chat — a lead's or an existing family's (a sibling) — prefilled with what we know. */
-export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollClassOffer[], plan?: EnrollPlan, invoiceId?: ID): Promise<Result<{ url: string }>> {
+export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollClassOffer[], plan?: EnrollPlan, invoiceId?: ID | ID[]): Promise<Result<{ url: string }>> {
   const s = useStore.getState()
   const conv = s.conversations.find((c) => c.id === conversationId)
   if (!conv) return { ok: false, error: "ไม่พบบทสนทนานี้" }
   const lead = conv.leadId ? s.leads.find((l) => l.id === conv.leadId) : undefined
   const fam = conv.familyId ? s.families.find((f) => f.id === conv.familyId) : undefined
-  const invoice = invoiceId ? enrollInvoiceSnapshot(invoiceId) ?? undefined : undefined
-  if (invoiceId && !invoice) return { ok: false, error: "ไม่พบใบแจ้งหนี้" }
+  const invoice = invoiceId && (!Array.isArray(invoiceId) || invoiceId.length) ? enrollInvoiceSnapshot(invoiceId) ?? undefined : undefined
+  if (invoiceId && (!Array.isArray(invoiceId) || invoiceId.length) && !invoice) return { ok: false, error: "ไม่พบใบแจ้งหนี้" }
   const prefill: FormPrefill = lead
     ? { parents: lead.phone ? [{ name: lead.name, phone: lead.phone, primary: true }] : [], students: [{ name: "", grade: lead.childGrade }] }
     : { parents: (fam?.parents ?? []).map((p) => ({ name: p.name, phone: p.phone, primary: !!p.primary })), students: [{ name: "", grade: "" }] }
@@ -441,4 +458,18 @@ export async function sendCatalogToChat(conversationId: ID): Promise<Result> {
   const link = await publishCatalogLink(conv.branchId)
   if (!link.ok) return link
   return postToChat(conv.id, notice(brandOfBranch(conv.branchId), "catalog", link.value.url))
+}
+
+// ---------------- owner 2026-11-25: where a sent link stands · cancel it ----------------
+export type LinkStateName = "waiting" | "answered" | "expired" | "cancelled"
+
+export async function fetchTokenStates(tokens: string[]): Promise<Record<string, LinkStateName>> {
+  if (!tokens.length) return {}
+  const r = await postJson<{ ok: boolean; states?: Record<string, LinkStateName> }>("/api/forms/token-state", { tokens }).catch(() => null)
+  return r?.states ?? {}
+}
+
+export async function revokeFormLink(token: string): Promise<Result> {
+  const r = await postJson<{ ok: boolean; error?: string }>("/api/forms/revoke", { token })
+  return r.ok ? { ok: true, value: undefined } : { ok: false, error: r.error ?? "ยกเลิกลิงก์ไม่สำเร็จ" }
 }

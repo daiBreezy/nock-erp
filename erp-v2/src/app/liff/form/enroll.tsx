@@ -9,6 +9,7 @@ import { slipDataUrl } from "@/lib/image"
 import type { EnrollInvoiceSnap } from "@/domain/types"
 import qrcode from "qrcode-generator"
 import { promptPayPayload } from "@/domain/rules/documents"
+import { slipsCheck, type PaySlip } from "@/domain/rules/form-hub"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import type { EnrollClassOffer, EnrollCourseOption, EnrollPackage, EnrollPlan, FormLang } from "@/domain/types"
@@ -17,7 +18,7 @@ import { Button } from "@/components/ui/button"
 
 export const ENROLL_DICT = {
   th: {
-    invoice: "ใบแจ้งหนี้", itemKinds: { bus: "ค่ารถรับส่ง", book: "ค่าหนังสือ", discount: "ส่วนลด", credit: "เครดิตคอร์ส", rounding: "ปัดเศษ", other: "อื่นๆ" } as Record<string, string>, invoiceNo: "เลขที่", invoiceFor: "สำหรับ", invoiceTotal: "ยอดรวม", invoiceOwed: "ยอดที่ต้องชำระ", payTo: "โอนเงินเข้าบัญชี", promptPay: "พร้อมเพย์", attachSlip: "แนบสลิปการโอน", attachSlipSub: "จ่ายแล้วแนบสลิปได้เลย — แอดมินจะตรวจและยืนยันให้", slipPick: "เลือกรูปสลิป", slipChange: "เปลี่ยนรูป", slipRemove: "ลบ", invoicePaid: "ใบแจ้งหนี้นี้ชำระแล้ว",
+    invoice: "ใบแจ้งหนี้", itemKinds: { bus: "ค่ารถรับส่ง", book: "ค่าหนังสือ", discount: "ส่วนลด", credit: "เครดิตคอร์ส", rounding: "ปัดเศษ", other: "อื่นๆ" } as Record<string, string>, invoiceNo: "เลขที่", invoiceFor: "สำหรับ", invoiceTotal: "ยอดรวม", invoiceOwed: "ยอดที่ต้องชำระ", payTo: "โอนเงินเข้าบัญชี", promptPay: "พร้อมเพย์", attachSlip: "แนบสลิปการโอน", attachSlipSub: "จ่ายแล้วแนบสลิปได้เลย — แอดมินจะตรวจและยืนยันให้", slipPick: "เลือกรูปสลิป", slipChange: "เปลี่ยนรูป", slipRemove: "ลบ", slipRef: "Ref ID ของสลิป", slipAmount: "ยอดในสลิปนี้", slipAnother: "เพิ่มสลิปอีกใบ", slipSum: "ยอดสลิปรวม", slipNeedRef: "ใส่ Ref ID ให้ครบทุกสลิป", slipNeedSum: "ยอดสลิปรวมต้องเท่ากับยอดที่ต้องชำระ — โอนเพิ่มแล้วแนบสลิปใหม่ได้", invoicePaid: "ใบแจ้งหนี้นี้ชำระแล้ว",
     invoiceVoid: "ใบแจ้งหนี้นี้ถูกยกเลิกแล้ว — โปรดใช้ลิงก์ใหม่ที่แอดมินส่งให้",
     title: "ใบสมัครเรียน", sent: "ส่งใบสมัครเรียนแล้ว", sentSub: "ขอบคุณค่ะ แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทาง LINE เร็วๆ นี้",
     studentSub: "ข้อมูลน้อง + คอร์สและเวลาที่สะดวก", subjects: "อยากเรียนวิชา", courses: "คอร์สที่สนใจ", coursesSub: "ไม่แน่ใจ เว้นไว้ได้ — แอดมินช่วยเลือกให้",
@@ -30,7 +31,7 @@ export const ENROLL_DICT = {
     plan: "คอร์สที่ตกลงกันไว้", periodsUnit: "งวด", busLegs: { both: "ไป-กลับ", pickup: "ขาไป (รับที่บ้าน)", dropoff: "ขากลับ (ส่งที่บ้าน)" },
   },
   en: {
-    invoice: "Invoice", itemKinds: { bus: "School bus", book: "Books", discount: "Discount", credit: "Course credit", rounding: "Rounding", other: "Other" }, invoiceNo: "No.", invoiceFor: "For", invoiceTotal: "Total", invoiceOwed: "Amount due", payTo: "Transfer to", promptPay: "PromptPay", attachSlip: "Attach the transfer slip", attachSlipSub: "Paid already? Attach the slip — our staff will check and confirm", slipPick: "Choose slip image", slipChange: "Change", slipRemove: "Remove", invoicePaid: "This invoice has been paid",
+    invoice: "Invoice", itemKinds: { bus: "School bus", book: "Books", discount: "Discount", credit: "Course credit", rounding: "Rounding", other: "Other" }, invoiceNo: "No.", invoiceFor: "For", invoiceTotal: "Total", invoiceOwed: "Amount due", payTo: "Transfer to", promptPay: "PromptPay", attachSlip: "Attach the transfer slip", attachSlipSub: "Paid already? Attach the slip — our staff will check and confirm", slipPick: "Choose slip image", slipChange: "Change", slipRemove: "Remove", slipRef: "Slip Ref ID", slipAmount: "Amount on this slip", slipAnother: "Add another slip", slipSum: "Slips total", slipNeedRef: "Enter a Ref ID for every slip", slipNeedSum: "The slips must add up to the amount due — transfer the rest and attach the new slip", invoicePaid: "This invoice has been paid",
     invoiceVoid: "This invoice was cancelled — please use the new link our staff sent you.",
     title: "Enrolment form", sent: "Application sent", sentSub: "Thank you! Our staff will arrange the class and send the invoice on LINE shortly.",
     studentSub: "Your child + courses and times", subjects: "Subjects", courses: "Courses", coursesSub: "Not sure? Leave it — our staff will help",
@@ -43,7 +44,7 @@ export const ENROLL_DICT = {
     plan: "The course we agreed", periodsUnit: "periods", busLegs: { both: "Both ways", pickup: "To school (pick-up)", dropoff: "Home (drop-off)" },
   },
   ja: {
-    invoice: "請求書", itemKinds: { bus: "送迎バス", book: "教材費", discount: "割引", credit: "コースクレジット", rounding: "端数調整", other: "その他" }, invoiceNo: "番号", invoiceFor: "対象", invoiceTotal: "合計", invoiceOwed: "お支払い額", payTo: "振込先", promptPay: "プロンプトペイ", attachSlip: "振込明細を添付", attachSlipSub: "お支払い済みの場合は明細を添付してください — 担当者が確認します", slipPick: "画像を選択", slipChange: "変更", slipRemove: "削除", invoicePaid: "この請求書は支払い済みです",
+    invoice: "請求書", itemKinds: { bus: "送迎バス", book: "教材費", discount: "割引", credit: "コースクレジット", rounding: "端数調整", other: "その他" }, invoiceNo: "番号", invoiceFor: "対象", invoiceTotal: "合計", invoiceOwed: "お支払い額", payTo: "振込先", promptPay: "プロンプトペイ", attachSlip: "振込明細を添付", attachSlipSub: "お支払い済みの場合は明細を添付してください — 担当者が確認します", slipPick: "画像を選択", slipChange: "変更", slipRemove: "削除", slipRef: "明細の参照番号", slipAmount: "この明細の金額", slipAnother: "明細を追加", slipSum: "明細の合計", slipNeedRef: "すべての明細に参照番号を入力してください", slipNeedSum: "明細の合計がお支払い額と一致する必要があります — 不足分を振込んで新しい明細を添付してください", invoicePaid: "この請求書は支払い済みです",
     invoiceVoid: "この請求書は取り消されました — 担当者から届く新しいリンクをご利用ください。",
     title: "入塾申込書", sent: "申込書を送信しました", sentSub: "ありがとうございます。担当者がクラスを手配し、LINEで請求書をお送りします。",
     studentSub: "お子様の情報・コースとご希望の時間", subjects: "希望科目", courses: "希望コース", coursesSub: "未定の場合は空欄で構いません",
@@ -203,7 +204,7 @@ export const PREVIEW_INVOICE: EnrollInvoiceSnap = {
 }
 
 /** owner 2026-11-19: the invoice that came with the form — what it is, where to transfer, and the slip to attach (nothing else to type) */
-export function InvoicePay({ t, inv, slip, onSlip }: { t: EnrollT; inv: EnrollInvoiceSnap; slip: string; onSlip: (v: string) => void }) {
+export function InvoicePay({ t, inv, slips, onSlips }: { t: EnrollT; inv: EnrollInvoiceSnap; slips: PaySlip[]; onSlips: (v: PaySlip[]) => void }) {
   const baht = (n: number) => `${n.toLocaleString()}฿`
   return (
     <section className="space-y-2.5">
@@ -226,16 +227,20 @@ export function InvoicePay({ t, inv, slip, onSlip }: { t: EnrollT; inv: EnrollIn
           <div className="space-y-1.5">
             <p className="text-sm font-semibold">{t.attachSlip}</p>
             <p className="text-xs text-muted-foreground">{t.attachSlipSub}</p>
-            {slip ? (
-              <div className="flex items-center gap-3">
+            {slips.map((sl, i) => (
+              <div key={i} className="flex items-start gap-3 border-t pt-2.5 first:border-t-0 first:pt-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={slip} alt="slip" className="h-24 w-auto rounded-xl border" />
-                <Button type="button" size="xs" variant="outline" onClick={() => onSlip("")}><XIcon /> {t.slipRemove}</Button>
+                <img src={sl.image} alt="slip" className="h-20 w-auto rounded-xl border" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Input value={sl.ref} placeholder={t.slipRef} aria-label={t.slipRef} onChange={(e) => onSlips(slips.map((x, k) => (k === i ? { ...x, ref: e.target.value } : x)))} />
+                  <Input type="number" inputMode="decimal" value={sl.amount || ""} placeholder={t.slipAmount} aria-label={t.slipAmount} onChange={(e) => onSlips(slips.map((x, k) => (k === i ? { ...x, amount: Number(e.target.value) || 0 } : x)))} />
+                </div>
+                <Button type="button" size="xs" variant="outline" onClick={() => onSlips(slips.filter((_, k) => k !== i))}><XIcon /> {t.slipRemove}</Button>
               </div>
-            ) : (
-              <label className="inline-flex"><Input type="file" accept="image/*" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) onSlip(await slipDataUrl(f)); e.target.value = "" }} />
-                <span className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm hover:bg-muted"><ImageIcon className="size-4" />{t.slipPick}</span></label>
-            )}
+            ))}
+            <label className="inline-flex"><Input type="file" accept="image/*" className="sr-only" onChange={async (e) => { const f = e.target.files?.[0]; if (f) onSlips([...slips, { ref: "", amount: slips.length ? 0 : inv.owed, image: await slipDataUrl(f) }]); e.target.value = "" }} />
+              <span className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm hover:bg-muted"><ImageIcon className="size-4" />{slips.length ? t.slipAnother : t.slipPick}</span></label>
+            {slips.length > 0 && (() => { const c = slipsCheck(slips, inv.owed); return <p className={cn("text-xs", c.ok ? "text-muted-foreground" : "text-danger")}>{t.slipSum} {baht(c.sum)} / {baht(inv.owed)}{c.ok ? "" : ` · ${c.error === "ทุกสลิปต้องมี Ref ID" ? t.slipNeedRef : t.slipNeedSum}`}</p> })()}
           </div>
         </>
       )}

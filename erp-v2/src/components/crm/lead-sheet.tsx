@@ -8,12 +8,18 @@ import { LeadDialog } from "./lead-dialog"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { SchoolPicker } from "@/components/app/school-picker"
-import { BookOpenIcon, CheckIcon, CalendarPlusIcon, ChevronDownIcon, EyeIcon, ClipboardListIcon, PlusIcon, TargetIcon, XIcon, ArchiveIcon, CalendarIcon, GraduationCapIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, UsersRoundIcon, PencilIcon, UserPlusIcon } from "lucide-react"
+import { BookOpenIcon, CalendarPlusIcon, ChevronDownIcon, ClipboardListIcon, PlusIcon, TargetIcon, XIcon, ArchiveIcon, CalendarIcon, GraduationCapIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, UsersRoundIcon, PencilIcon, UserPlusIcon, UsersIcon } from "lucide-react"
 import { AssessmentNote } from "@/components/app/assessment-note"
 import { Pill } from "@/components/app/badges"
 import { LeadChildDialog } from "@/components/crm/lead-child-dialog"
 import { PanelFooter, PanelMore } from "@/components/app/form-shell"
 import { Tabs } from "@/components/app/page-layout"
+import { CourseWishEditor, LeadParentCard, ReturnsHint, SentForms, useSentForms } from "./lead-form-block"
+import { decideSend, FORM_LABEL } from "@/domain/rules/form-send"
+import { revokeFormLink } from "@/lib/forms"
+import { FamilyInfoTab } from "@/components/app/family-info-tab"
+import { FamilyForm, type FamilyFormOnly } from "@/components/app/family-form"
+import { FamilyEditItems, type EditTarget } from "@/components/app/family-edit-menu"
 import { NativeSelect } from "@/components/app/native-select"
 import { gradeTone, avatarTone, initial, subjectColor } from "@/components/app/subject-color"
 import { StudentSheet } from "@/components/app/student-sheet"
@@ -24,19 +30,18 @@ import { sendEnrollForm, sendEnrollToChat } from "@/lib/forms"
 import { Checkbox } from "@/components/ui/checkbox"
 import { tagChip } from "@/components/app/tags"
 import { classesOfCourse } from "@/domain/rules/catalog"
-import { enrollClassOffers, FORM_TYPE_LABEL } from "@/domain/rules/forms"
+import { enrollClassOffers } from "@/domain/rules/forms"
 import { SubmissionReviewCard } from "@/components/inbox/submission-review-card"
-import { SubmissionPreviewDialog } from "@/components/inbox/submission-preview"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CHANNEL_LABEL, followUpState, REACHED, RESULT_LABEL } from "@/domain/rules/loss"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
-import { fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
+import { weekdayShort, fmtDate, fmtDateTime, toDateStr } from "@/domain/dates"
 import { InvoiceRows, INV_STATUS } from "@/components/billing/invoice-rows"
 import { startFamilySet } from "@/lib/family-set"
 import { flatFromKids, interestCourseIdsFor, leadKids, BOARD_GROUPS, daysAgoLabel, groupOf, LEAD_SOURCE_LABEL, scheduleInfo, STAGE_FOR_GROUP, stageGroupLabel } from "@/domain/rules/crm"
-import { can } from "@/domain/rules/permissions"
+import { can, canEditLead } from "@/domain/rules/permissions"
 import { catalogInterests } from "@/domain/rules/catalog"
 import type { Assessment, FormSubmission, FormType, ID, Lead, LeadKid, LeadStage, TargetSchool } from "@/domain/types"
 import { report } from "@/lib/feedback"
@@ -97,9 +102,15 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const [childDialog, setChildDialog] = useState(false)
   // owner 2026-11-18: one tab per kind of content — progress first (what staff need most), then who, then the log
   const [tab, setTab] = useState<"progress" | "info">("progress")
+  // owner 2026-11-25: the “แก้ไข” menu asks WHO (family details · a guardian · a new guardian · a child) and opens just that
+  const [familyEdit, setFamilyEdit] = useState<FamilyFormOnly | null>(null)
+  const [studentEdit, setStudentEdit] = useState(false)
+  // owner 2026-11-25: opening a Lead makes sure each named child is on file as a Student (Lead state) — older Leads get them the first time they are opened (silent; no-op without permission)
+  useEffect(() => { useStore.getState().syncLeadRecords(id) }, [id])
   const [archiving, setArchiving] = useState(false)
   const [openStudentId, setOpenStudentId] = useState<ID | null>(null)
-  const [submissions, setSubmissions] = useState<FormSubmission[]>([])
+  // null until the first answer comes back — so a form that is really approved never flashes “waiting” while it loads
+  const [submissions, setSubmissions] = useState<FormSubmission[] | null>(null)
   const [sendingFormOpen, setSendingFormOpen] = useState(false)
   // owner 2026-11-20: a form planned from courses ticked in the summary (type + the courses it opens on)
   const [formPlan, setFormPlan] = useState<{ type: FormType; courseIds: ID[]; kids?: LeadKid[] } | null>(null)
@@ -126,7 +137,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   const interests = catalogInterests(messages.filter((m) => convIds.has(m.conversationId)), { classes: allClasses, courses: allCourses })
   // owner 2026-11-20: a form with 2 children is 2 answer sheets in one group — the 2nd child has no Lead until it is approved, but belongs to this panel from the moment
   // the parent presses send (sheets are found by the group's first Lead); once approved, that child's results come along too
-  const mySubmissions = submissions.filter((s) => s.leadId === lead.id || s.primaryLeadId === lead.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+  const mySubmissions = (submissions ?? []).filter((s) => s.leadId === lead.id || s.primaryLeadId === lead.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
   const groupSubIds = new Set(mySubmissions.map((s) => s.id))
   const myAssessments = assessments.filter((a) => a.leadId === lead.id || (!!a.submissionId && groupSubIds.has(a.submissionId))).sort((a, b) => a.date.localeCompare(b.date))
   const latestAssessment = myAssessments.at(-1)
@@ -135,6 +146,9 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   // the fuller, live contact record; show it here too so this panel never falls behind what Inbox knows
   const linkedStudent = students.find((s) => s.id === (lead.convertedStudentId ?? lead.trialStudentId))
   const linkedFamily = linkedStudent ? families.find((f) => f.id === linkedStudent.familyId) : undefined
+  // owner 2026-11-25: the Lead's own family file (made on demand) wins; else the one its child already belongs to
+  const ownFamily = families.find((f) => f.id === lead.familyId) ?? linkedFamily
+  const ownKids = ownFamily ? students.filter((s) => s.familyId === ownFamily.id) : []
   const familyChildren = linkedFamily ? students.filter((s) => s.familyId === linkedFamily.id) : []
   // every child we know of: the children on the parent's forms (even before approval) + the family's children on file, one line each
   const children = (() => {
@@ -154,7 +168,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
   // each child with their own name · grade · interests · note — the children already on the parent's forms / the family file are folded in by name
   const kids = leadKids(lead, children.map((c) => ({ name: c.key, grade: c.grade, alias: c.name !== c.key ? c.name : undefined })))
 
-  const canManage = can(me, "lead.manage")
+  const canManage = canEditLead(me, lead) // owner 2026-11-25: the assigned person helps too, whatever their role
   const stageEditable = canManage && lead.stage !== "archived" && lead.stage !== "enrolled"
 
   const isOpen = lead.stage !== "archived" && lead.stage !== "enrolled"
@@ -165,6 +179,26 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
     ...(lead.followUps ?? []).map((f) => ({ key: f.id, at: f.at, by: f.by, kind: "fu" as const, text: f.note ?? "", f })),
   ].sort((x, y) => y.at.localeCompare(x.at))
 
+  const ensureFamily = useStore.getState().ensureLeadFamilyFile
+  // the same family form the Customer's panel uses — one record, so editing here is editing the family
+  if (familyEdit && ownFamily) {
+    return (
+      <PanelForm>
+        <FamilyForm key={`${ownFamily.id}-${JSON.stringify(familyEdit)}`} family={ownFamily} only={familyEdit} onClose={() => setFamilyEdit(null)} onSaved={() => setFamilyEdit(null)} />
+      </PanelForm>
+    )
+  }
+  // the missing family-level things (address · home pin · PDPA …) are filled on the family file — start it first if there is none
+  const openFamily = () => { if (!ownFamily && !ensureFamily(lead.id).ok) return; setTab("info"); setFamilyEdit("family") }
+  const pickEdit = (t: EditTarget) => {
+    if (t.kind === "student") { setStudentEdit(true); setOpenStudentId(t.id); return }
+    if (t.kind === "newStudent") { setChildDialog(true); return }
+    setFamilyEdit(t.kind === "family" ? "family" : t.kind === "newParent" ? "newParent" : { parent: t.index })
+  }
+  // owner 2026-11-25: ONE “แก้ไข” — in ⋯, like the family panel — asking WHO (family details · a guardian · a child · the Lead itself). No separate button.
+  const editItem = canManage ? (ownFamily
+    ? { label: "แก้ไข", icon: PencilIcon, onClick: () => undefined, sub: <FamilyEditItems family={ownFamily} kids={ownKids} onPick={pickEdit} /> }
+    : { label: "แก้ไข", icon: PencilIcon, onClick: onEdit }) : false
   return (
     <>
       <SheetHeader className="gap-3 border-b pb-0">
@@ -218,14 +252,20 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
         )}
         <Tabs className="-mx-4 border-b-0 px-3" value={tab} onChange={setTab} options={[
           { value: "progress", label: "ภาพรวม" },
-          { value: "info", label: "ข้อมูลติดต่อ" },
+          { value: "info", label: "ข้อมูลครอบครัว" },
         ]} />
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
         {tab === "info" && <>
+        {/* owner 2026-11-25: Lead and Customer are one record — once there is a family file it is shown with the SAME body as the Customer's family panel */}
+        {ownFamily && (
+          <>
+            <FamilyInfoTab f={ownFamily} kids={ownKids} onOpenStudent={(id) => (id === "new" ? setChildDialog(true) : setOpenStudentId(id))} onAddParent={() => pickEdit({ kind: "newParent" })} onGoBilling={() => undefined} />
+          </>
+        )}
         {/* contact always first (owner 2026-10-05) */}
-        <Section title="ติดต่อ">
+        {!ownFamily && <Section title="ติดต่อ">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {lead.phone && <a href={`tel:${lead.phone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-info hover:underline"><PhoneIcon className="size-3.5" />{lead.phone}</a>}
             {lead.lineId && <span className="text-muted-foreground">LINE {lead.lineId}</span>}
@@ -242,9 +282,12 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
               ))}
             </div>
           )}
-        </Section>
+        </Section>}
+        {!ownFamily && canManage && (
+          <Button variant="outline" onClick={() => { const r = ensureFamily(lead.id); report(r, "เริ่มเก็บข้อมูลครอบครัวแล้ว — กรอกที่อยู่ ผู้ปกครอง ฯลฯ ได้เลย") }}><UsersIcon /> เริ่มเก็บข้อมูลครอบครัว</Button>
+        )}
 
-        {familyChildren.length > 0 && (
+        {!ownFamily && familyChildren.length > 0 && (
           <Section title={`ลูก (${familyChildren.length})`}>
             <div className="flex flex-wrap items-center gap-1.5">
               {familyChildren.map((c) => (
@@ -260,7 +303,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
         {/* owner 2026-11-20: the summary + note box + contact history are the "ติดต่อ" step, the forms sit under สอบ / ทดลอง — one stepper, no separate boxes */}
         {/* owner 2026-11-20: no frame, no title — the stepper IS the panel */}
         <div>
-          <LeadSteps onOpenInvoice={(id) => setInvoice(id)} lead={lead} assessments={myAssessments} canManage={canManage} now={now} subs={mySubmissions} onChanged={pollSubmissions}
+          <LeadSteps onOpenInvoice={(id) => setInvoice(id)} lead={lead} assessments={myAssessments} canManage={canManage} now={now} subs={mySubmissions} subsReady={submissions !== null} onChanged={pollSubmissions}
             next={{
               kids, interests, canSend: !!lead.lineUserId,
               onSendForm: (type, courseIds, picked) => setFormPlan({ type, courseIds, kids: picked }),
@@ -277,7 +320,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
               summary: [kids.map((k) => [k.name, k.grade].filter(Boolean).join(" ")).filter(Boolean).join(", ") || tx("{0} คน", [kids.length]), [...new Set(kids.flatMap((k) => k.subjects))].join(", "), timeline.length ? tx("โน้ต/ติดต่อ {0}", [timeline.length]) : ""].filter(Boolean).join(" · "),
               body: (
                 <div className="space-y-3">
-                  <LeadKids lead={lead} canManage={canManage} kids={kids} interests={interests} />
+                  <LeadKids lead={lead} canManage={canManage} kids={kids} interests={interests} onOpenFamily={openFamily} />
                   {canManage && (
                     <div className="flex gap-2 border-t pt-3">
                       <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="จดโน้ต / ผลคุย" rows={1} className="min-h-9 flex-1" />
@@ -325,6 +368,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
           <>
             <PanelMore items={
               isOpen ? [
+                editItem,
                 { label: "บันทึกการติดตาม (โทร / LINE)", icon: PhoneIcon, onClick: () => setFollowingUp(true) },
                 // owner 2026-11-18: no LINE / form needed — staff fill the child in (and book the test / trial) right here
                 { label: lead.trialStudentId ? "นัดสอบ / ทดลองเรียน (กรอกเอง)" : "เพิ่มลูก / นัดสอบ-ทดลอง (กรอกเอง)", icon: UserPlusIcon, onClick: () => setChildDialog(true) },
@@ -340,6 +384,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
               ] : lead.stage === "archived" ? [
                 { label: "กู้คืนจากคลัง", icon: RotateCcwIcon, onClick: () => report(restore(lead.id), "กู้คืนแล้ว") },
               ] : [
+                editItem,
                 !!lead.convertedStudentId && { label: "เปิดโปรไฟล์นักเรียน", icon: GraduationCapIcon, onClick: () => setOpenStudentId(lead.convertedStudentId!) },
               ]
             } />
@@ -347,7 +392,6 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
               {/* owner 2026-10-12: what moves the stage by itself — an ⓘ to hover, not a line of text */}
               {AUTO_HINT[lead.stage] && <InfoTip text={`อัตโนมัติ: ${AUTO_HINT[lead.stage]}`} />}
               {conversation && <Button variant="outline" size="icon" aria-label="เปิดแชทใน Inbox" title="เปิดแชทใน Inbox" nativeButton={false} render={<Link href={`/inbox?conversation=${conversation.id}`} />}><MessageCircleIcon /></Button>}
-              <Button variant="outline" onClick={onEdit}><PencilIcon /> แก้ไข</Button>
             </span>
           </>
         )}
@@ -376,7 +420,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
         <SendFormDialog leadId={lead.id} branchId={lead.branchId} conversationId={`line_${lead.lineUserId}`} lineUserId={lead.lineUserId}
           initialType={formPlan?.type} initialCourseIds={formPlan?.courseIds} initialKids={formPlan?.kids} initialSubjects={formPlan?.kids ? [...new Set(formPlan.kids.flatMap((k) => k.subjects))] : undefined} onClose={() => { setSendingFormOpen(false); setFormPlan(null) }} />
       )}
-      <StudentSheet studentId={openStudentId} onClose={() => setOpenStudentId(null)} />
+      <StudentSheet studentId={openStudentId} startEditing={studentEdit} onClose={() => { setOpenStudentId(null); setStudentEdit(false) }} />
     </>
   )
 }
@@ -409,7 +453,9 @@ const STEP_KEYS = ["contact", "test", "trial", "closing"] as const
  *   ติดต่อ → the summary (what they want), the note box and the contact history · สอบ / ทดลอง → the forms (waiting + earlier) and the results · ปิดการขาย → the invoice.
  * Only the step the lead is on is open; finished steps fold to one line (tap to open), steps ahead are faint — so the panel stays short.
  */
-function LeadSteps({ lead, assessments, canManage, now, contact, subs, onChanged, next, onOpenInvoice }: {
+function LeadSteps({ lead, assessments, canManage, now, contact, subs, subsReady, onChanged, next, onOpenInvoice }: {
+  /** the answer sheets have been fetched at least once */
+  subsReady: boolean;
   /** owner 2026-11-20: tap an invoice in the closing step → its panel (progress) opens */
   onOpenInvoice: (id: ID) => void
   lead: Lead; assessments: Assessment[]; canManage: boolean; now: Date
@@ -458,11 +504,17 @@ function LeadSteps({ lead, assessments, canManage, now, contact, subs, onChanged
       const none = !mine.length && !pend.length && !hist.length
       body = (
         <div className="space-y-2">
-          {pend.map((sub) => <SubmissionReviewCard key={sub.id} submission={sub} onChanged={onChanged} groupMates={sub.groupId && key === "test" ? pend.filter((x) => x.id !== sub.id && x.groupId === sub.groupId) : undefined} />)}
-          {/* the form the parent filled comes first — the results it leads to sit under it */}
-          {hist.length > 0 && <div className="space-y-1.5">{hist.map((sub) => <FormRow key={sub.id} sub={sub} />)}</div>}
-          {mine.map((x) => <AssessmentNote key={x.id} a={x} editable={canManage} compact showWhen child={childCount > 1 ? allStudents.find((st) => st.id === x.studentId)?.nickname : undefined} />)}
-          {canManage && leadOpen && !past && pend.length === 0 && <NextStepForm lead={lead} type={key} {...next} />}
+          {/* owner 2026-11-25: ONE card per form, the same one the chat shows — waiting for review (with the approve / reject buttons) → approved (with the result to record, Panel only) */}
+          {subs.filter((x) => x.type === key).map((sub) => (
+            <SubmissionReviewCard key={sub.id} submission={sub} onChanged={onChanged}
+              groupMates={sub.status === "pending" && sub.groupId && key === "test" ? pend.filter((x) => x.id !== sub.id && x.groupId === sub.groupId) : undefined}
+              results={{ assessments: mine.filter((a) => a.submissionId === sub.id), editable: canManage }} />
+          ))}
+          {/* a test / trial booked by hand (no form behind it) keeps its own small card */}
+          {mine.filter((a) => !a.submissionId || !subs.some((x) => x.id === a.submissionId)).map((x) => (
+            <AssessmentNote key={x.id} a={x} editable={canManage} compact showWhen child={childCount > 1 ? allStudents.find((st) => st.id === x.studentId)?.nickname : undefined} />
+          ))}
+          {canManage && leadOpen && !past && pend.length === 0 && <NextStepForm lead={lead} type={key} {...next} subs={subs} subsReady={subsReady} />}
           {none && (current && lead.scheduledAt ? (() => {
             const due = scheduleInfo(lead.scheduledAt, now)
             return <p className={cn(due.overdue ? "font-medium text-danger" : "")}>นัด {fmtDateTime(lead.scheduledAt)} · {due.overdue ? `เลยนัด ${-due.daysLeft} วัน` : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : `อีก ${due.daysLeft} วัน`}</p>
@@ -477,14 +529,14 @@ function LeadSteps({ lead, assessments, canManage, now, contact, subs, onChanged
             <InvoiceRows list={myInvoices} onOpen={onOpenInvoice} />
           ) : <p className="text-muted-foreground">ยังไม่ออกใบแจ้งหนี้</p>}
           {/* owner 2026-11-20: more invoices / another enroll form stay one tap away under the list */}
-          {canManage && leadOpen && <NextStepForm lead={lead} type="enroll" {...next} onInvoice={myInvoices.length ? undefined : next.onInvoice} />}
+          {canManage && leadOpen && <NextStepForm lead={lead} type="enroll" {...next} subs={subs} subsReady={subsReady} onInvoice={myInvoices.length ? undefined : next.onInvoice} />}
         </div>
       )
     }
     const expandable = !future || (canManage && leadOpen) || waiting(key)
     const isOpen = expandable && (touched[key] ?? (current || waiting(key) || (future && i === upTo + 1 && canManage && leadOpen) || (key === "closing" && myInvoices.length > 0)))
     const hasContent = waiting(key) || (key === "closing" && myInvoices.length > 0) || (key !== "contact" && key !== "closing" && (assessments.some((x) => x.type === key) || subs.some((x) => x.type === key)))
-    if (future && !hasContent) body = canManage && leadOpen ? <NextStepForm lead={lead} type={key === "test" || key === "trial" ? key : "enroll"} {...next} /> : null
+    if (future && !hasContent) body = canManage && leadOpen ? <NextStepForm lead={lead} type={key === "test" || key === "trial" ? key : "enroll"} {...next} subs={subs} subsReady={subsReady} /> : null
     return (
       <li key={key} className="relative flex gap-3 pb-3 last:pb-0">
         {n < visible.length && <span className={cn("absolute top-6 left-2.75 h-[calc(100%-1.25rem)] w-px", future ? "border-l border-dashed border-border" : "bg-border")} />}
@@ -517,81 +569,93 @@ interface NextStepProps {
  * owner 2026-11-20: the next thing to do in a step — pick WHICH child (when there is more than one), see that child's courses of interest (ticked = all, untick the ones to leave out) or
  * their subjects, and ONE button that sends the form for that child.
  */
-function NextStepForm({ type, kids, interests, canSend, onSendForm, onEnroll, onInvoice }: NextStepProps) {
+function NextStepForm({ lead, type, kids, interests, canSend, subs, subsReady, onSendForm, onEnroll, onInvoice }: NextStepProps & { subs: FormSubmission[]; subsReady: boolean }) {
   const courses = useStore((s) => s.courses)
   // children are ticked: everyone by default (one form, one link, they come together) — untick to send to just one child
   const [offKids, setOffKids] = useState<string[]>([])
   const [off, setOff] = useState<ID[]>([])
+  const sent = useSentForms(lead, type, subs, subsReady)
+  // nothing sent yet → the send form is open straight away; something already out → it stays closed until “ส่งอีกครั้ง”
+  const [composing, setComposing] = useState(false)
+  const [confirmBlock, setConfirmBlock] = useState(false)
+  // owner 2026-11-25: ONE live link per lead — a form waiting for the parent blocks every OTHER form; the same form again is “ส่งใหม่” (the old link is cancelled by the send)
+  const decision = decideSend(type, sent.links)
+  const open = decision.action !== "blocked" && (composing || !sent.everSent || decision.action === "resend" && composing)
+  const cancelLink = async (token: string) => { if (report(await revokeFormLink(token), tx("ยกเลิกลิงก์แล้ว"))) sent.refresh() }
   const picked = kids.filter((k) => !offKids.includes(k.id))
   if (!kids.length) return null
   // what they like: the ticked children's courses (a course two children share is listed once) — or, with none, their subjects
   const rows = [...new Map(picked.flatMap((k) => kidInterestRows(k, kids, interests, courses)).map((r) => [r.courseId ?? r.key, r])).values()]
   const selectable = [...new Set(rows.map((r) => r.courseId).filter((x): x is ID => !!x))]
   const ticked = selectable.filter((id) => !off.includes(id))
-  const subjects = [...new Set(picked.flatMap((k) => k.subjects))]
   const send = () => (type === "enroll" ? onEnroll(ticked) : onSendForm(type, ticked, picked))
   const toggleKid = (id: string) => setOffKids((o) => (o.includes(id) ? o.filter((x) => x !== id) : kids.length - o.length > 1 ? [...o, id] : o))
   const noun = type === "test" ? "ส่งฟอร์ม Test" : type === "trial" ? "ส่งฟอร์ม Trial" : "ส่งใบสมัคร"
   return (
-    <div className="space-y-2 rounded-xl bg-muted/40 p-2.5">
-      {kids.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">ส่งให้</span>
-          {kids.map((k, i) => {
-            const on = !offKids.includes(k.id)
-            return (
-              <Button key={k.id} variant="ghost" size="inline" type="button" aria-pressed={on} onClick={() => toggleKid(k.id)}
-                className={cn("rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset", on ? "bg-primary text-primary-foreground ring-transparent" : "text-muted-foreground ring-border hover:bg-muted")}>
-                {on && <CheckIcon className="size-3" />}{k.name || tx("ลูกคนที่ {0}", [i + 1])}{k.grade && <span className="ml-1 font-normal opacity-80">{k.grade}</span>}
-              </Button>
-            )
-          })}
+    <div className="space-y-2">
+      {/* owner 2026-11-25: a form that is already out says so (and where it stands); a NEW one is one quiet step away */}
+      <SentForms type={type} items={sent.items} onCancel={cancelLink} />
+      {decision.action === "blocked" && (
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl bg-muted/40 p-2.5 text-xs text-muted-foreground">
+          <span>{tx("รอผู้ปกครองกรอก{0} — ส่งฟอร์มอื่นไม่ได้", [tx(FORM_LABEL[decision.blocking.kind])])} · {fmtDateTime(decision.blocking.sentAt)}</span>
+          {/* the way out is right here: cancel that link (two taps), then this form can be sent */}
+          {canSend && (confirmBlock
+            ? <span className="flex items-center gap-1"><Button size="xs" variant="ghost" type="button" className="text-danger" onClick={() => { void cancelLink(decision.blocking.token); setConfirmBlock(false) }}>{tx("ยืนยันยกเลิกลิงก์")}</Button><Button size="xs" variant="ghost" type="button" onClick={() => setConfirmBlock(false)}>{tx("ไม่")}</Button></span>
+            : <Button size="xs" variant="ghost" type="button" onClick={() => setConfirmBlock(true)}>{tx("ยกเลิกลิงก์{0}", [tx(FORM_LABEL[decision.blocking.kind])])}</Button>)}
         </div>
       )}
-      {/* owner 2026-11-20: with several children each one's own interest is listed — a course, or just the subjects when no course is picked yet */}
-      {kids.length > 1 ? (
-        <div className="space-y-2">
-          {picked.map((k, i) => {
+      {!sent.ready ? null : decision.action === "blocked" ? null : !open ? (
+        <Button size="xs" variant="ghost" type="button" className="text-muted-foreground" onClick={() => setComposing(true)}><SendIcon /> {decision.action === "resend" ? tx("{0} ใหม่ (ยกเลิกลิงก์เดิม)", [tx(noun)]) : sent.everSent ? tx("{0} อีกครั้ง", [tx(noun)]) : tx(noun)}</Button>
+      ) : (
+        // owner 2026-11-25: the send form is a CARD like every other box in the steps
+        <div className="space-y-2 rounded-xl bg-muted/40 p-2.5">
+          {decision.action === "resend" && <p className="text-xs text-warning-ink">{tx("ลิงก์เดิมจะใช้ไม่ได้ — ผู้ปกครองต้องใช้ลิงก์ใหม่")}</p>}
+          {/* who / what the form is for — a tick on each child (several children), the courses they like (what the parent picks times for) */}
+          {kids.length === 1 && (() => {
+            // one child: no card, no name — just what the form is for
+            const mine = kidInterestRows(kids[0], kids, interests, courses)
+            return (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">{type === "enroll" ? tx("คอร์สที่คุยกัน") : tx("ให้ผู้ปกครองเลือกเวลาสำหรับ")}</p>
+                {mine.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {mine.map((r) => <InterestItem key={r.key} r={r} ticked={ticked} toggle={(id) => setOff((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]))} />)}
+                  </ul>
+                ) : kids[0].subjects.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">{kids[0].subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div>
+                ) : <p className="text-xs text-muted-foreground">{tx("ยังไม่ได้ระบุวิชา / คอร์สที่สนใจ")}</p>}
+              </div>
+            )
+          })()}
+          {kids.length > 1 && kids.map((k, i) => {
+            const on = !offKids.includes(k.id)
             const mine = kidInterestRows(k, kids, interests, courses)
             return (
-              <div key={k.id} className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">{k.name || tx("ลูกคนที่ {0}", [i + 1])}</p>
+              <div key={k.id} className={cn("space-y-1.5 rounded-xl bg-muted/40 p-2.5", !on && "opacity-60")}>
+                <div className="flex items-center gap-2">
+                  {kids.length > 1 && <Checkbox checked={on} aria-label={tx("ส่งให้ {0}", [k.name || tx("ลูกคนที่ {0}", [i + 1])])} onCheckedChange={() => toggleKid(k.id)} />}
+                  <p className="min-w-0 flex-1 truncate text-sm font-semibold">{k.name || tx("ลูกคนที่ {0}", [i + 1])}{k.grade && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{k.grade}</span>}</p>
+                </div>
                 {mine.length > 0 ? (
                   <ul className="space-y-1.5">
                     {mine.map((r) => <InterestItem key={r.key} r={r} ticked={ticked} toggle={(id) => setOff((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]))} />)}
                   </ul>
                 ) : k.subjects.length > 0 ? (
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{tx("สนใจวิชา")} {k.subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)} · {tx("ยังไม่เลือกคอร์ส")}</div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{tx("สนใจวิชา")} {k.subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div>
                 ) : <p className="text-xs text-muted-foreground">{tx("ยังไม่ได้ระบุวิชา / คอร์สที่สนใจ")}</p>}
               </div>
             )
           })}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" disabled={!canSend} onClick={() => { send(); setComposing(false) }}>{type === "trial" ? <CalendarPlusIcon /> : type === "test" ? <ClipboardListIcon /> : <UserPlusIcon />} {picked.length > 1 && type !== "enroll" ? tx("{0} ({1} คน)", [noun, picked.length]) : noun}</Button>
+            {type === "enroll" && onInvoice && <Button size="sm" variant="outline" onClick={onInvoice}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
+            <ReturnsHint type={type} />
+            {(sent.everSent || decision.action === "resend") && <Button size="sm" variant="ghost" onClick={() => setComposing(false)}>{tx("ยกเลิก")}</Button>}
+            {!canSend && <span className="text-2xs text-muted-foreground">ต้องผูก LINE ใน Inbox ก่อน</span>}
+          </div>
         </div>
-      ) : rows.length > 0 ? (
-        <ul className="space-y-1.5">
-          {rows.map((r) => <InterestItem key={r.key} r={r} ticked={ticked} toggle={(id) => setOff((o) => (o.includes(id) ? o.filter((x) => x !== id) : [...o, id]))} />)}
-        </ul>
-      ) : subjects.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">สนใจวิชา {subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div>
-      ) : <p className="text-xs text-muted-foreground">ยังไม่ได้ระบุวิชา / คอร์สที่สนใจ (ใส่ได้ที่ขั้น ติดต่อ)</p>}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" disabled={!canSend} onClick={send}>{type === "trial" ? <CalendarPlusIcon /> : type === "test" ? <ClipboardListIcon /> : <UserPlusIcon />} {picked.length > 1 && type !== "enroll" ? tx("{0} ({1} คน)", [noun, picked.length]) : noun}</Button>
-        {type === "enroll" && onInvoice && <Button size="sm" variant="outline" onClick={onInvoice}><ReceiptIcon /> ออกใบแจ้งหนี้</Button>}
-        {!canSend && <span className="text-2xs text-muted-foreground">ต้องผูก LINE ใน Inbox ก่อน</span>}
-      </div>
-    </div>
-  )
-}
-
-/** an earlier form in one line — the whole answer sheet opens read only with Preview Form (owner 2026-11-20) */
-function FormRow({ sub }: { sub: FormSubmission }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs">
-      <span className="min-w-0 flex-1 truncate">{tx("ฟอร์ม{0} — {1}", [FORM_TYPE_LABEL[sub.type], sub.studentName])} <span className="text-muted-foreground">· {fmtDateTime(sub.submittedAt)}</span></span>
-      <Pill tone={sub.status === "approved" ? "green" : "gray"}>{sub.status === "approved" ? "อนุมัติแล้ว" : "ปฏิเสธ"}</Pill>
-      <Button size="icon-xs" variant="ghost" aria-label="Preview Form" title="Preview Form" onClick={() => setOpen(true)}><EyeIcon /></Button>
-      {open && <SubmissionPreviewDialog sub={sub} onClose={() => setOpen(false)} />}
+      )}
+      {type === "enroll" && !open && onInvoice && <div><Button size="xs" variant="ghost" type="button" className="text-muted-foreground" onClick={onInvoice}><ReceiptIcon /> ออกใบแจ้งหนี้</Button></div>}
     </div>
   )
 }
@@ -637,23 +701,69 @@ function TargetSchools({ targets, canManage, province, onChange }: { targets: Ta
   )
 }
 
-function LeadKids({ lead, canManage, kids, interests }: { lead: Lead; canManage: boolean; kids: LeadKid[]; interests: ReturnType<typeof catalogInterests> }) {
+/** owner 2026-11-25: the child as a quiet summary — name · grade, subjects, each course with the days / start the parent chose, the schools they hope for, the note */
+function KidPreview({ k, index, kids, interests, canManage, province, onEdit }: { k: LeadKid; index: number; kids: LeadKid[]; interests: ReturnType<typeof catalogInterests>; canManage: boolean; province?: string; onEdit: () => void }) {
+  const courses = useStore((s) => s.courses)
+  const students = useStore((s) => s.students)
+  const rows = kidInterestRows(k, kids, interests, courses)
+  const schools = k.targetSchools ?? (k.studentId ? students.find((x) => x.id === k.studentId)?.targetSchools : undefined) ?? []
+  const wishText = (cid?: ID) => {
+    const w = cid ? k.wishes?.[cid] : undefined
+    const parts = [w?.slots.length ? w.slots.map((x) => `${weekdayShort(x.weekday)} ${x.start}`).join(", ") : "", w?.startDate ? `${tx("เริ่ม")} ${fmtDate(w.startDate, { weekday: true })}` : ""].filter(Boolean)
+    return parts.length ? parts.join(" · ") : tx("ยังไม่ระบุวัน/เวลา · วันเริ่ม")
+  }
+  void province
+  const many = kids.length > 1
+  return (
+    <section className="space-y-1 rounded-xl bg-muted/40 p-2.5">
+      <div className="flex items-center gap-2">
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold">{many && <span className="mr-1.5 text-xs font-semibold text-muted-foreground">{index + 1}</span>}{k.name || tx("ลูกคนที่ {0}", [index + 1])}{k.grade && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{k.grade}</span>}</p>
+        {/* the subjects only when no course is picked yet — a course already says its subject */}
+        {rows.length === 0 && k.subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}
+        {canManage && <Button size="xs" variant="ghost" type="button" onClick={onEdit}><PencilIcon /> {tx("แก้ไข")}</Button>}
+      </div>
+      {rows.length > 0 ? rows.map((r) => (
+        <div key={r.key} className="text-xs">
+          <p className="text-sm">{r.title}</p>
+          {r.courseId && <p className="text-muted-foreground">{wishText(r.courseId)}</p>}
+        </div>
+      )) : <p className="text-xs text-muted-foreground">{tx("ยังไม่ได้เลือกคอร์ส")}</p>}
+      {schools.length > 0 && <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground"><TargetIcon className="size-3.5" />{schools.map((t, j) => <span key={j}>{j + 1} {t.school}</span>)}</p>}
+      {k.note && <p className="text-xs text-muted-foreground">{k.note}</p>}
+    </section>
+  )
+}
+
+function LeadKids({ lead, canManage, kids, interests, onOpenFamily }: { lead: Lead; canManage: boolean; kids: LeadKid[]; interests: ReturnType<typeof catalogInterests>; onOpenFamily: () => void }) {
   const branch = useStore((s) => s.branches.find((b) => b.id === lead.branchId))
   const courses = useStore((s) => s.courses)
   const saveLead = useStore((s) => s.saveLead)
   const allStudents = useStore((s) => s.students)
   const now = useNow()
   const [pickingFor, setPickingFor] = useState<string | null>(null)
+  // owner 2026-11-25: each child is a PREVIEW by default; “แก้ไข” opens the edit form on a draft, “บันทึก” writes it once and goes back to the preview (a child with no name yet starts in edit)
+  const [drafts, setDrafts] = useState<Record<string, LeadKid>>(() => Object.fromEntries(kids.filter((k) => canManage && !k.name.trim()).map((k) => [k.id, k])))
   if (!branch) return null
   const save = (next: LeadKid[]) => report(saveLead({ ...lead, ...flatFromKids(next) }, { quick: true }), "บันทึกแล้ว")
-  const patch = (id: string, p: Partial<LeadKid>) => save(kids.map((k) => (k.id === id ? { ...k, ...p } : k)))
+  const patch = (id: string, p: Partial<LeadKid>) => {
+    if (id in drafts) setDrafts((d) => ({ ...d, [id]: { ...d[id], ...p } }))
+    else save(kids.map((k) => (k.id === id ? { ...k, ...p } : k)))
+  }
+  const endEdit = (id: string) => setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([key]) => key !== id)))
+  const saveKid = (id: string) => { if (drafts[id]) save(kids.map((k) => (k.id === id ? drafts[id] : k))); endEdit(id) }
   const unassigned = kids.length > 1 ? catalogRowsOf(kids, interests) : []
-  const picking = kids.find((k) => k.id === pickingFor)
+  const picking = pickingFor ? (drafts[pickingFor] ?? kids.find((k) => k.id === pickingFor)) : undefined
   return (
     <div className="space-y-3">
-      {kids.map((k, i) => (
+      {/* owner 2026-11-25: the ONE place for what we know — the guardian first, then each child (grade · courses · wished days / times · start day) */}
+      <LeadParentCard lead={lead} canEdit={canManage} onOpenFamily={onOpenFamily} />
+      {kids.map((kid, i) => {
+        const editing = kid.id in drafts
+        const k = drafts[kid.id] ?? kid
+        if (!editing) return <KidPreview key={kid.id} k={k} index={i} kids={kids} interests={interests} canManage={canManage} province={branch.province} onEdit={() => setDrafts((d) => ({ ...d, [kid.id]: kid }))} />
+        return (
         // owner 2026-11-20: tight — three lines per child: name · grade, subjects + courses, note (labels live in the placeholders)
-        <section key={k.id} className="space-y-1.5 border-t pt-2.5 first:border-t-0 first:pt-0">
+        <section key={k.id} className="space-y-1.5 rounded-xl bg-muted/40 p-2.5">
           <div className="flex items-center gap-2">
             <span className="w-4 shrink-0 text-center text-xs font-semibold text-muted-foreground" title={tx("ลูกคนที่ {0}", [i + 1])}>{i + 1}</span>
             <Input key={`${k.id}-${k.name}`} className="h-8 min-w-0 flex-1" defaultValue={k.name} disabled={!canManage} placeholder={tx("ชื่อลูกคนที่ {0}", [i + 1])} aria-label={tx("ชื่อลูกคนที่ {0}", [i + 1])}
@@ -681,6 +791,7 @@ function LeadKids({ lead, canManage, kids, interests }: { lead: Lead; canManage:
                     <div className="min-w-0 flex-1">
                       <p className="text-sm">{r.title}{r.grades.length > 0 && <span className="ml-1.5 text-xs text-muted-foreground">{r.grades.join(" · ")}</span>}</p>
                       {r.sub && <p className="text-xs text-muted-foreground">{r.sub}</p>}
+                      {r.courseId && <CourseWishEditor kid={k} courseId={r.courseId} disabled={!canManage} onChange={(w) => patch(k.id, { wishes: { ...k.wishes, [r.courseId!]: w } })} />}
                     </div>
                     {!r.manual && <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-px text-2xs font-medium", tagChip("interest", "catalog"))} title="ผู้ปกครองกด สนใจ ใน Catalog"><BookOpenIcon className="size-2.5" /> Catalog</span>}
                     {r.trial && <Pill tone="amber">ขอนัดทดลองเรียน</Pill>}
@@ -696,9 +807,14 @@ function LeadKids({ lead, canManage, kids, interests }: { lead: Lead; canManage:
             onChange={(t) => patch(k.id, { targetSchools: t.length ? t : undefined })} />
           <Textarea key={`${k.id}-${k.note}`} rows={1} className="ml-6 min-h-8 w-[calc(100%-1.5rem)] py-1.5" defaultValue={k.note} disabled={!canManage} placeholder="โน้ตเรื่องลูกคนนี้" aria-label={tx("โน้ตลูกคนที่ {0}", [i + 1])}
             onBlur={(e) => { const v = e.target.value.trim(); if (v !== k.note) patch(k.id, { note: v }) }} />
+          <div className="flex justify-end gap-2 pt-1">
+            <Button size="xs" variant="ghost" type="button" onClick={() => endEdit(kid.id)}>{tx("ยกเลิก")}</Button>
+            <Button size="xs" type="button" onClick={() => saveKid(kid.id)}>{tx("บันทึก")}</Button>
+          </div>
         </section>
-      ))}
-      {canManage && kids.length < 6 && <Button size="xs" variant="outline" type="button" onClick={() => save([...kids, { id: `k${Date.now().toString(36)}`, name: "", grade: "", subjects: [], courseIds: [], note: "" }])}><PlusIcon /> เพิ่มลูก</Button>}
+        )
+      })}
+      {canManage && kids.length < 6 && <Button size="xs" variant="outline" type="button" onClick={() => { const nk: LeadKid = { id: `k${Date.now().toString(36)}`, name: "", grade: "", subjects: [], courseIds: [], note: "" }; save([...kids, nk]); setDrafts((d) => ({ ...d, [nk.id]: nk })) }}><PlusIcon /> เพิ่มลูก</Button>}
       {unassigned.length > 0 && (
         <div className="space-y-1.5 border-t pt-3">
           <p className="flex items-center gap-1 text-xs font-semibold"><BookOpenIcon className="size-3.5 text-muted-foreground" /> จาก Catalog — ยังไม่ได้เลือกว่าเป็นของลูกคนไหน</p>

@@ -19,7 +19,7 @@ import { fmtMonth, toDateStr } from "@/domain/dates"
 import * as Exam from "@/domain/rules/exams"
 import { can } from "@/domain/rules/permissions"
 import type { ExamTerm, ID } from "@/domain/types"
-import { useBranch, useNow, useQueryState } from "@/lib/hooks"
+import { useBranch, useLeadSets, useNow, useQueryState } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -52,7 +52,8 @@ export default function ExamsPage() {
   const { sort, toggle } = useSort<ExamSort>("nickname")
   const byGrade = gradeCompare(branch.grades)
   // a teacher sees (and enters for) their own students; admin / manager see the whole branch
-  const students = allStudents.filter((s) => scope.ids.includes(s.branchId) && !s.archived && !s.graduatedAt && Exam.canRecordExam(me, s, classes).ok)
+  const leadSet = useLeadSets() // owner 2026-11-25: Customers only — a Lead has no school exam to record
+  const students = allStudents.filter((s) => scope.ids.includes(s.branchId) && !s.archived && !s.graduatedAt && !leadSet.studentIds.has(s.id) && Exam.canRecordExam(me, s, classes).ok)
   // default = the newest school year; the exam = the latest one that already has results (else the one running now)
   const newestYear = Math.max(Exam.academicYear(today), ...results.map((r) => r.year))
   const [yearPick, setYear] = useState<number | null>(null)

@@ -14,6 +14,7 @@ import { commonSlots, picksClash, slotClashes } from "@/domain/rules/forms"
 import { phoneIssue, validEmail } from "@/domain/rules/people"
 import { CatalogApp } from "../catalog/catalog-app"
 import { gradeLabel, subjectLabel } from "@/domain/rules/settings"
+import { slipsCheck, type PaySlip } from "@/domain/rules/form-hub"
 import type { Brand, FormSubmission, EnrollClassOffer, EnrollInvoiceSnap, EnrollCourseOption, EnrollPlan, EnrollToken, FormLang, FormToken, FormOfferSlot, FormPrefill, FormSubjectOffer, FormType } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { addressPartsOf, emptyFamilyDraft, emptyParentDraft, emptyStudentDraft, FamilyAcquisition, FamilyBus, FamilyPdpa, FamilyTax, ParentFields, parentDraftOf, parentInputOf, StudentFields, studentDraftOf, studentInputOf, type FamilyDraft, type ParentDraft, type StudentDraft } from "@/components/people/person-fields"
@@ -110,7 +111,7 @@ export function LiffForm() {
   const [enroll, setEnroll] = useState<EnrollInfo | null>(null)
   /** owner 2026-11-19: the invoice sent with this form + the pay slip the parent attaches */
   const [invoice, setInvoice] = useState<EnrollInvoiceSnap | null>(null)
-  const [slip, setSlip] = useState("")
+  const [slips, setSlips] = useState<PaySlip[]>([])
   const [terms, setTerms] = useState(false)
   const t = DICT[lang]
   const te = ENROLL_DICT[lang]
@@ -300,6 +301,8 @@ export function LiffForm() {
     if (!parentsValid || !studentsValid) return
     if (enroll && !terms) { setError(te.termsNeed); return }
     if (invoice?.status === "void") { setError(te.invoiceVoid); return }
+    // owner 2026-11-25: several slips are fine, but each needs its own Ref ID and together they must equal what is owed (none yet = pay later)
+    if (enroll && invoice && slips.length) { const c = slipsCheck(slips, invoice.owed); if (!c.ok) { setError(c.error === "ทุกสลิปต้องมี Ref ID" ? te.slipNeedRef : te.slipNeedSum); return } }
     setError("")
     setPhase("submitting")
     if (preview || previewEnroll) { setPhase("done"); return }
@@ -326,7 +329,7 @@ export function LiffForm() {
         body: JSON.stringify({
           token, lineUserId: lineUserId || undefined, lineName: displayName || undefined, parents: parentsPayload(), lang, acceptedTerms: true,
           ...familyPayload(),
-          invoiceId: invoice?.invoiceId, slip: slip || undefined,
+          invoiceId: invoice?.invoiceId, invoiceIds: invoice?.invoiceIds, slips: slips.length ? slips : undefined,
           children: students.map((s) => ({ ...studentInputOf(withLast(s)), ...s.enroll, bus: busOffered && fam.busUse, busLeg: busOffered && fam.busUse ? fam.busLeg : undefined, ...(enroll.plan ? { courseIds: [enroll.plan.course.id], periods: enroll.plan.periods } : {}) })),
         }),
       }).then((r) => r.json()).catch(() => ({ ok: false, error: "ส่งไม่สำเร็จ — เครือข่ายมีปัญหา ลองอีกครั้ง" }))
@@ -438,7 +441,7 @@ export function LiffForm() {
           <section className="space-y-3">
             <SectionHead icon={ClipboardCheckIcon} title={t.summaryTitle} sub={t.summarySub} />
             {summary}
-            {enroll && invoice && <InvoicePay t={te} inv={invoice} slip={slip} onSlip={setSlip} />}
+            {enroll && invoice && <InvoicePay t={te} inv={invoice} slips={slips} onSlips={setSlips} />}
             {enroll && <label className={cn("flex items-start gap-2 rounded-2xl bg-card p-3 text-sm ring-1", terms ? "ring-foreground/5" : "ring-warning/40")}><Checkbox className="mt-0.5" checked={terms} onCheckedChange={(v) => setTerms(!!v)} />{te.terms}</label>}
           </section>
         )}

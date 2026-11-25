@@ -342,6 +342,9 @@ export interface Archived {
   at: string
   by: ID
   reason: string
+  /** owner 2026-11-25: ONE Archived box for everyone who left — told apart by kind: a Lead that did not go on ("lead_lost", shown in the CRM)
+   *  or a Customer who quit ("customer_exit", shown on the Families / Students pages). Unset = customer_exit (all existing records). */
+  kind?: "lead_lost" | "customer_exit"
 }
 
 export interface Staff {
@@ -1011,6 +1014,9 @@ export interface EnrollClassOffer { id: ID; name: string; subjects: string[]; gr
  *  and issues a new one, so the old link says so instead of taking money for a dead invoice. */
 export interface EnrollInvoiceSnap {
   invoiceId: ID
+  /** owner 2026-11-25: a family SET travels as one — every invoice id in it (first = `invoiceId`). Unset = a single invoice.
+   *  Any one voided → the whole link is dead; paid only when every one is paid. */
+  invoiceIds?: ID[]
   number: string
   status: "open" | "void" | "paid"
   studentNickname: string
@@ -1054,6 +1060,8 @@ export interface EnrollToken {
   createdAt: string
   expiresAt?: string
   used: boolean
+  /** owner 2026-11-25: staff cancelled the link — it opens as "cancelled" and takes no answer */
+  revoked?: boolean
 }
 
 export interface EnrollChild extends FormStudentExtras {
@@ -1105,7 +1113,11 @@ export interface EnrollSubmission {
   pdpa?: PdpaChoice
   /** owner 2026-11-19: paid through the form — the invoice it was for + the pay slip (downscaled JPEG data URL) */
   invoiceId?: ID
+  /** owner 2026-11-25: the other invoices of a family set that travelled with the form (first = `invoiceId`) */
+  invoiceIds?: ID[]
   slip?: string
+  /** owner 2026-11-25: several transfers for one invoice / set — each slip has its own Ref ID, together they equal the total owed */
+  slips?: { ref: string; amount: number; image: string }[]
   taxInfo?: { customerName: string; taxId: string; address: string }
   /** the family name the parent typed (optional — empty = "ครอบครัว" + the main parent's surname) */
   familyName?: string
@@ -1302,7 +1314,13 @@ export interface LeadKid {
   studentId?: ID
   /** owner 2026-11-23: schools the family hopes to enter (up to 3, best first) */
   targetSchools?: TargetSchool[]
+  /** owner 2026-11-25: what the parent agreed in the chat, per interested course — the days / times they like and when they start.
+   *  Staff record it in the panel (the enroll form no longer asks); a new invoice starts with it already filled in. */
+  wishes?: Record<ID, CourseWish>
 }
+
+/** owner 2026-11-25: the weekly slots a parent wants for one course + the day they decided to start */
+export interface CourseWish { slots: { weekday: Weekday; start: TimeStr }[]; startDate?: DateStr }
 
 export interface Lead {
   id: ID
@@ -1331,6 +1349,8 @@ export interface Lead {
   scheduledAt?: string
   archivedFrom?: LeadStage
   archiveReason?: string
+  /** owner 2026-11-25: the same Archived box as families / students (kind "lead_lost"). Older archived Leads have only `stage` + `lost` — `archivedOf` reads both. */
+  archived?: Archived
   /** the short close-lead form (owner 2026-10-05) — archiveReason keeps the main reason's label for older screens */
   lost?: LeadLost
   /** came through the enroll-now form — no test / trial (the funnel skips those steps for it) */
@@ -1340,6 +1360,9 @@ export interface Lead {
   /** every call / LINE follow-up and what came of it — shows whether a quiet lead is really gone */
   followUps?: LeadFollowUp[]
   notes: LeadNote[]
+  /** owner 2026-11-25: Lead and Customer are ONE record in two states — the family file this Lead's information lives in (made the first time
+   *  there is family-level information to keep). The Lead page and the family page show the same data; the state is what differs. */
+  familyId?: ID | null
   /** set once the lead becomes a real Student record */
   convertedStudentId?: ID | null
   /** real LINE Messaging API user id, once linked via Inbox — lets staff send a real Test/Trial form link */
@@ -1753,6 +1776,8 @@ export interface FormToken {
   createdAt: string
   expiresAt: string
   used: boolean
+  /** owner 2026-11-25: staff cancelled the link (sent again / not needed) — it opens as "cancelled" and takes no answer */
+  revoked?: boolean
 }
 
 /** A parent as typed into the form — not yet a `Parent` record (no `lineLinked`/`primary`,

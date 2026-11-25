@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MailIcon, MessageCircleIcon, MessagesSquareIcon, PencilIcon, StarIcon, PhoneIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UserPlusIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
+import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MessagesSquareIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UsersIcon, UsersRoundIcon, PencilIcon } from "lucide-react"
 import { ParentPreview } from "@/components/parent/parent-preview"
 import { tx } from "@/lib/i18n"
 import { Pill } from "@/components/app/badges"
@@ -12,23 +12,25 @@ import { MathGate } from "@/components/app/math-gate"
 import { ReasonDialog } from "@/components/app/reason-dialog"
 import { StudentPanelContent } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { startFamilySet } from "@/lib/family-set"
 import { Tabs } from "@/components/app/page-layout"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
-import { FamilyBillingTab, FamilyClassTab, FamilyKidsList, FamilyOverview, FamilyProfile, InfoGrid, NotSet, PhoneValue, FamilyNotesTab } from "@/components/app/family-tabs"
+import { FamilyBillingTab, FamilyClassTab, FamilyOverview, FamilyNotesTab } from "@/components/app/family-tabs"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { can } from "@/domain/rules/permissions"
 import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "./form-shell"
-import { FamilyForm } from "./family-form"
+import { FamilyForm, type FamilyFormOnly } from "./family-form"
+import { FamilyEditItems, type EditTarget } from "./family-edit-menu"
 import { FamilyForms } from "@/components/forms/family-forms"
-import { fmtDate, toDateStr } from "@/domain/dates"
+import { FamilyInfoTab } from "@/components/app/family-info-tab"
+import { EnrollFormCard } from "@/components/forms/enroll-form-card"
+import { toDateStr } from "@/domain/dates"
 import { studentState } from "@/domain/rules/attendance"
-import { birthdaysToday, mainLineAccount, parentHasLine, parentIndexOfAccount, familyDisplay } from "@/domain/rules/people"
+import { birthdaysToday, mainLineAccount, familyDisplay } from "@/domain/rules/people"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useEntitlements, useNow } from "@/lib/hooks"
-import type { Family, ID } from "@/domain/types"
+import type { ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -45,6 +47,9 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   // owner 2026-10-09: View → แก้ไข → back in the same panel; "new" opens the empty form and becomes the view once saved
   const [createdId, setCreatedId] = useState<ID | "new" | null>(null)
   const [editing, setEditing] = useState(target === "new")
+  // owner 2026-11-25: edit ONE person / the family's own details (the “แก้ไข” menu asks who)
+  const [editOnly, setEditOnly] = useState<FamilyFormOnly | undefined>()
+  const [studentEdit, setStudentEdit] = useState(false)
   const id = target === "new" ? createdId : target
   const f = useStore((s) => s.families.find((x) => x.id === id))
   const kids = useStore((s) => s.students).filter((s) => s.familyId === id)
@@ -54,10 +59,15 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const conv = lineConvs.find((c) => c.familyId === id && !!mainAccount && c.id === `line_${mainAccount}`) ?? lineConvs.find((c) => c.familyId && c.familyId === id)
   const me = useStore((s) => s.me())
   const archive = useStore((s) => s.archiveFamily)
-  const saveFamily = useStore((s) => s.saveFamily)
   const restore = useStore((s) => s.restoreFamily)
   const del = useStore((s) => s.deleteFamily)
-  const [studentOpen, setStudentOpen] = useState<ID | null>(null)
+  const [studentOpen, setStudentOpenRaw] = useState<ID | null>(null)
+  const setStudentOpen = (v: ID | null) => { setStudentOpenRaw(v); if (!v) setStudentEdit(false) }
+  const pick = (t: EditTarget) => {
+    if (t.kind === "student") { setStudentEdit(true); setStudentOpenRaw(t.id); return }
+    if (t.kind === "newStudent") { setStudentOpenRaw("new" as ID); return }
+    setEditOnly(t.kind === "family" ? "family" : t.kind === "newParent" ? "newParent" : { parent: t.index }); setEditing(true)
+  }
   // owner 2026-11-20: the family panel is a workplace, not a card — สมาชิก · ใบแจ้งหนี้ · คอร์ส · ฟอร์ม (it used to show only people, so the work on invoices disappeared)
   const [tab, setTab] = useState<FamilyTab>(initialTab ?? "overview")
   const [invoice, setInvoice] = useState<ID | "new" | null>(null)
@@ -73,26 +83,17 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const today = toDateStr(useNow())
   const anyActive = kids.some((k) => studentState(k, ents.filter((e) => e.studentId === k.id), leaves.filter((l) => l.studentId === k.id), today, renewalDays).status === "active")
   const bdayNames = f ? birthdaysToday(f, kids, today) : []
-  // owner 2026-11-20: LINE shows by itself, per person — the ID the guardian typed, else the name they show in LINE (the API never gives the @ID); linked with neither = "linked"
-  const lineOf = (p: Family["parents"][number], i: number): React.ReactNode => {
-    const account = p.lineUserId ?? (f && f.lineUserId && parentIndexOfAccount(f, f.lineUserId) === i ? f.lineUserId : undefined)
-    const name = account ? lineConvs.find((c) => c.id === `line_${account}`)?.lineName : undefined
-    if (p.lineId) return <>{p.lineId}{name && <span className="text-muted-foreground"> · {name}</span>}</>
-    if (name) return name
-    return p.lineLinked || account ? <span className="text-success-ink">{tx("เชื่อม LINE แล้ว")}</span> : <NotSet what="LINE" />
-  }
-
   return (
     <>
       {parentApp && f && <ParentPreview family={f} onClose={() => setParentApp(false)} />}
       <EntityPanel open={target !== null} onClose={onClose} wide={!!studentOpen}>
           {studentOpen ? (
             // owner 2026-11-20: a child opens IN PLACE — this same panel swaps to the student (Back returns here), no second sheet on top
-            <StudentPanelContent studentId={studentOpen} familyId={f?.id} onClose={() => setStudentOpen(null)} back={f ? { label: familyDisplay(f.name), onBack: () => setStudentOpen(null) } : undefined} />
+            <StudentPanelContent studentId={studentOpen} familyId={f?.id} startEditing={studentEdit} onClose={() => setStudentOpen(null)} back={f ? { label: familyDisplay(f.name), onBack: () => setStudentOpen(null) } : undefined} />
           ) : editing ? (
             <PanelForm>
-              <FamilyForm key={f?.id ?? "new"} family={f} onClose={() => (f ? setEditing(false) : onClose())}
-                onSaved={(saved) => { if (target === "new") setCreatedId(saved.id); setEditing(false) }} />
+              <FamilyForm key={`${f?.id ?? "new"}-${JSON.stringify(editOnly ?? "all")}`} family={f} only={editOnly} onClose={() => { setEditOnly(undefined); if (f) setEditing(false); else onClose() }}
+                onSaved={(saved) => { if (target === "new") setCreatedId(saved.id); setEditOnly(undefined); setEditing(false) }} />
             </PanelForm>
           ) : f && (
             <>
@@ -124,53 +125,14 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
               </SheetHeader>
               <PanelBody>
                 {tab === "overview" && <FamilyOverview family={f} kids={kids} onOpen={setStudentOpen} onGoBilling={() => setTab("billing")} />}
-                {tab === "info" && <>
-                <section className="space-y-2"><h3 className="text-sm font-semibold">ครอบครัว</h3>
-                <FamilyProfile family={f} kids={kids} onGoBilling={() => setTab("billing")} />
-                </section>
-                {/* owner 2026-11-20: the divider separates the HEADINGS (ครอบครัว | ผู้ปกครอง | นักเรียน), not the people inside one */}
-                <section className="space-y-2 border-t pt-4">
-                  <h3 className="text-sm font-semibold">ผู้ปกครอง</h3>
-                  <div className="space-y-3">
-                    {f.parents.map((p, i) => (
-                      <div key={i} className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2 text-sm">
-                          <span className="font-medium">{p.name}{p.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({p.nameEn})</span>}</span>{p.primary && <StarIcon className="size-3.5 fill-muted-foreground/40 text-muted-foreground/60" aria-label={tx("ผู้ปกครองหลัก")}><title>{tx("ผู้ปกครองหลัก")}</title></StarIcon>}
-                        </div>
-                        <InfoGrid rows={[
-                          { icon: UsersIcon, label: tx("ความสัมพันธ์"), value: p.relationship || <NotSet what="ความสัมพันธ์" /> },
-                          { icon: PhoneIcon, label: tx("โทร"), value: <PhoneValue numbers={[p.phone, ...(p.altPhones ?? [])]} /> },
-                          { icon: MessageCircleIcon, label: "LINE", value: lineOf(p, i) },
-                          { icon: MailIcon, label: tx("อีเมล"), value: p.email || <NotSet what="อีเมล" /> },
-                          { icon: CakeIcon, label: tx("วันเกิด"), value: p.birthDate ? fmtDate(p.birthDate, { year: true }) : <NotSet what="วันเกิด" /> },
-                        ]} />
-                        {/* owner 2026-11-20: who gets the Summaries on LINE — only a guardian with a LINE account can be ticked */}
-                        {(() => {
-                          const has = parentHasLine(f, i)
-                          return (
-                            <label className={cn("flex w-fit items-center gap-2 text-xs", has && manage ? "cursor-pointer" : "cursor-not-allowed text-muted-foreground")} title={has ? undefined : tx("ผูก LINE ก่อนถึงเลือกได้")}>
-                              <Checkbox checked={has && p.summaryViaLine !== false} disabled={!has || !manage}
-                                onCheckedChange={(v) => report(saveFamily({ ...f, parents: f.parents.map((x, k) => (k === i ? { ...x, summaryViaLine: !!v } : x)) }), v ? `${p.name} ${tx("รับ Summary ผ่าน LINE")}` : `${p.name} ${tx("ไม่รับ Summary ผ่าน LINE")}`)} />
-                              {tx("รับ Summary ผ่าน LINE")}
-                            </label>
-                          )
-                        })()}
-                      </div>
-                    ))}
-                  </div>
-                  {!f.parents.some((p) => p.lineLinked) && <p className="text-xs text-muted-foreground">{tx("ยังไม่ผูก LINE — ให้ผู้ปกครองแอด LINE OA แล้วดึงแชทเข้าครอบครัวนี้จาก Inbox ระบบจะเชื่อมให้ทันที")}</p>}
-                </section>
-                <section className="space-y-2 border-t pt-4">
-                  <div className="flex items-center"><h3 className="text-sm font-semibold">{tx("นักเรียน")} ({kids.length})</h3><Button size="xs" variant="ghost" className="ml-auto" onClick={() => setStudentOpen("new")}><UserPlusIcon /> {tx("เพิ่มลูก")}</Button></div>
-                  <FamilyKidsList kids={kids} onOpen={setStudentOpen} plain />
-                </section>
-                </>}
+                {tab === "info" && <FamilyInfoTab f={f} kids={kids} onOpenStudent={setStudentOpen} onAddParent={() => pick({ kind: "newParent" })} onGoBilling={() => setTab("billing")} />}
                 {tab === "billing" && <FamilyBillingTab kids={kids} />}
                 {tab === "courses" && <FamilyClassTab kids={kids} />}
                 {tab === "notes" && <FamilyNotesTab kids={kids} />}
                 {tab === "forms" && (
                   <div className="space-y-3">
-                    <p className="rounded-2xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{tx("ฟอร์มที่บริษัทสร้างเอง (ตั้งค่า › ฟอร์ม) เช่น แบบสอบถามพิเศษ — ดูคำตอบของครอบครัวนี้และส่งฟอร์มให้ได้ที่นี่ · ใบสมัคร / Test / Trial อยู่ในแผง Lead")}</p>
+                    <p className="rounded-2xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{tx("ฟอร์มของครอบครัวนี้ — ดูว่ามีข้อมูลอะไรอยู่แล้ว ส่งแล้วได้อะไรกลับมา · ฟอร์มที่บริษัทสร้างเอง (ตั้งค่า › ฟอร์ม) อยู่ด้านล่าง · Test / Trial อยู่ในแผง Lead")}</p>
+                    <EnrollFormCard family={f} />
                     <FamilyForms family={f} />
                   </div>
                 )}
@@ -179,8 +141,9 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
               {/* owner 2026-11-20: Bottom = ⋯ on the left (view as parent · edit · archive · delete), the one main action on the right (new invoice → pick a child or the whole family) */}
               <PanelFooter>
                 <PanelMore items={[
+                  // owner 2026-11-25: “แก้ไข” lives in ⋯ and asks WHO (family details · a guardian · a child) before opening anything
+                  { label: tx("แก้ไข"), icon: PencilIcon, onClick: () => undefined, sub: <FamilyEditItems family={f} kids={kids} onPick={pick} /> },
                   { label: "ดูแบบผู้ปกครอง", icon: SmartphoneIcon, onClick: () => setParentApp(true) },
-                  { label: "แก้ไข", icon: PencilIcon, onClick: () => setEditing(true) },
                   manage && !f.archived && { label: "เก็บเข้าคลัง", icon: ArchiveIcon, destructive: true, onClick: () => setArchiving(true) },
                       manage && !f.archived && { label: "ลบถาวร", icon: Trash2Icon, destructive: true, disabled: kids.length > 0, title: kids.length > 0 ? "ครอบครัวนี้มีนักเรียนผูกอยู่ — เก็บเข้าคลังแทน" : undefined, onClick: () => setDeleting(true) },
                 ]} />

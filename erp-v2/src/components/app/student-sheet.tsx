@@ -1,5 +1,6 @@
 "use client"
 
+import { StudentStatusPill } from "@/components/app/student-status-pill"
 import { familyDisplay } from "@/domain/rules/people"
 import * as People from "@/domain/rules/people"
 import { tagChip } from "@/components/app/tags"
@@ -47,7 +48,7 @@ import { LeaveDialog } from "./leave-dialog"
 import { RenewalFollowUpSection } from "./renewal-followup"
 import { StudentForm } from "./student-form"
 import { AddToClassDialog } from "./add-to-class-dialog"
-import { stateDetail, STATUS_PILL } from "./student-status"
+import { stateDetail } from "./student-status"
 import { avatarTone, gradeTone, initial, subjectColor } from "./subject-color"
 import { InfoTip } from "./info-tip"
 import { Textarea } from "@/components/ui/textarea"
@@ -73,10 +74,10 @@ const SEGS: { id: Seg; label: string }[] = [
  * Billing · Note · Timeline; แก้ไข switches the panel to the form; "new" opens the empty form and becomes the
  * information view once saved. Active/Inactive is automatic (packages + long leave); only Archive is manual.
  */
-export function StudentSheet({ studentId, familyId, onClose, back }: { studentId: ID | "new" | null; familyId?: ID; onClose: () => void; /** owner 2026-11-20: opened from another panel (e.g. the family) → a Back button that returns there */ back?: { label: string; onBack: () => void } }) {
+export function StudentSheet({ studentId, familyId, onClose, back, startEditing }: { studentId: ID | "new" | null; familyId?: ID; startEditing?: boolean; onClose: () => void; /** owner 2026-11-20: opened from another panel (e.g. the family) → a Back button that returns there */ back?: { label: string; onBack: () => void } }) {
   return (
     <EntityPanel open={!!studentId} onClose={onClose} wide>
-      <StudentPanelContent studentId={studentId} familyId={familyId} onClose={onClose} back={back} />
+      <StudentPanelContent studentId={studentId} familyId={familyId} onClose={onClose} back={back} startEditing={startEditing} />
     </EntityPanel>
   )
 }
@@ -85,16 +86,16 @@ export function StudentSheet({ studentId, familyId, onClose, back }: { studentId
  * The student's panel CONTENT without its own sheet — so another panel (the family) can swap to it IN PLACE instead of stacking a second sheet on top
  * (owner 2026-11-20). A brother / sister chip switches this same panel to them — the jump forgets itself when the panel is opened for someone else.
  */
-export function StudentPanelContent({ studentId, familyId, onClose, back }: { studentId: ID | "new" | null; familyId?: ID; onClose: () => void; back?: { label: string; onBack: () => void } }) {
+export function StudentPanelContent({ studentId, familyId, onClose, back, startEditing }: { studentId: ID | "new" | null; familyId?: ID; /** owner 2026-11-25: opened from an “edit this child” menu → straight into the edit form */ startEditing?: boolean; onClose: () => void; back?: { label: string; onBack: () => void } }) {
   const [jump, setJump] = useState<{ from: ID | "new" | null; to: ID } | null>(null)
   const shown = jump && jump.from === studentId ? jump.to : studentId
-  return shown ? <Panel key={shown} studentId={shown} familyId={familyId} onClose={onClose} back={back} onOpenStudent={(id) => setJump({ from: studentId, to: id })} /> : null
+  return shown ? <Panel key={shown} studentId={shown} familyId={familyId} startEditing={startEditing && shown === studentId} onClose={onClose} back={back} onOpenStudent={(id) => setJump({ from: studentId, to: id })} /> : null
 }
 
-function Panel({ studentId, familyId, onClose, back, onOpenStudent }: { studentId: ID | "new"; familyId?: ID; onClose: () => void; back?: { label: string; onBack: () => void }; onOpenStudent: (id: ID) => void }) {
+function Panel({ studentId, familyId, startEditing, onClose, back, onOpenStudent }: { studentId: ID | "new"; familyId?: ID; startEditing?: boolean; onClose: () => void; back?: { label: string; onBack: () => void }; onOpenStudent: (id: ID) => void }) {
   const [createdId, setCreatedId] = useState<ID | null>(null)
   const isNew = studentId === "new"
-  const [editing, setEditing] = useState(isNew)
+  const [editing, setEditing] = useState(isNew || !!startEditing)
   const id = isNew ? createdId : studentId
   const stu = useStore((s) => (id ? s.students.find((x) => x.id === id) : undefined))
   return (editing && (isNew && !createdId ? true : !!stu)) ? (
@@ -153,7 +154,7 @@ function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEd
               <span className="inline-flex items-center gap-1"><GraduationCapIcon className="size-3" /> Student</span>
               <span aria-hidden>·</span>
               {stu.grade && <span className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(stu.grade))}>{stu.grade}</span>}
-              <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
+              <StudentStatusPill studentId={stu.id} status={state.status} />
               {owed.length > 0 && <CreditTag />}
               {/* owner 2026-10-29: helper text on hover only */}
               <InfoTip text={stateDetail(state, today) || "สถานะคำนวณอัตโนมัติจากแพ็กเกจและการลา"} />

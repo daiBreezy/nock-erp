@@ -83,9 +83,35 @@ export async function checkToken(token: string): Promise<TokenCheck> {
   const store = await readStore()
   const t = store.tokens.find((x) => x.token === token)
   if (!t) return { ok: false, error: "ลิงก์นี้ไม่ถูกต้อง" }
+  if (t.revoked) return { ok: false, error: "ลิงก์นี้ถูกยกเลิกแล้ว — ติดต่อสถาบันเพื่อขอลิงก์ใหม่" }
   if (t.used) return { ok: false, error: "ลิงก์นี้ถูกใช้ไปแล้ว" }
   if (new Date(t.expiresAt) < new Date()) return { ok: false, error: "ลิงก์หมดอายุแล้ว — ติดต่อขอลิงก์ใหม่" }
   return { ok: true, token: t }
+}
+
+// ---------- owner 2026-11-25: one live link per lead / chat; staff can cancel a link ----------
+export type LinkState = "waiting" | "answered" | "expired" | "cancelled"
+const linkState = (t: { used: boolean; revoked?: boolean; expiresAt?: string }): LinkState => (t.revoked ? "cancelled" : t.used ? "answered" : t.expiresAt && new Date(t.expiresAt) < new Date() ? "expired" : "waiting")
+
+export async function revokeToken(token: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  return mutate((store) => {
+    const t = store.tokens.find((x) => x.token === token)
+    if (!t) return { ok: false as const, error: "ลิงก์นี้ไม่ถูกต้อง" }
+    if (t.used) return { ok: false as const, error: "ผู้ปกครองกรอกมาแล้ว — ยกเลิกลิงก์ไม่ได้" }
+    t.revoked = true
+    return { ok: true as const }
+  })
+}
+
+export async function tokenStates(tokens: string[]): Promise<Record<string, LinkState>> {
+  const store = await readStore()
+  return Object.fromEntries(store.tokens.filter((t) => tokens.includes(t.token)).map((t) => [t.token, linkState(t)]))
+}
+
+/** the Test / Trial links still waiting for the parent, for this lead or chat */
+export async function waitingLinksFor(q: { leadId?: string; conversationId?: string | null }): Promise<{ token: string; kind: "test" | "trial"; createdAt: string }[]> {
+  const store = await readStore()
+  return store.tokens.filter((x) => linkState(x) === "waiting" && ((q.leadId && x.leadId === q.leadId) || (q.conversationId && x.conversationId === q.conversationId))).map((t) => ({ token: t.token, kind: t.type, createdAt: t.createdAt }))
 }
 
 export async function submitForm(input: {

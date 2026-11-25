@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toDateStr } from "@/domain/dates"
 import { resolveEntitlements } from "@/domain/rules/attendance"
+import { leadSets } from "@/domain/rules/customer-state"
 import { useStore } from "@/store/store"
 
 /**
@@ -80,3 +81,15 @@ export function useLookup() {
   )
 }
 
+
+/**
+ * owner 2026-11-25: Lead and Customer are one record in two states, but the Families / Students pages list CUSTOMERS only and the CRM lists
+ * LEADS only. Use this to drop Leads from a Customer list (`!sets.familyIds.has(f.id)` / `!sets.studentIds.has(s.id)`).
+ */
+export function useLeadSets() {
+  const students = useStore((s) => s.students)
+  const leads = useStore((s) => s.leads)
+  const invoices = useStore((s) => s.invoices)
+  const entitlements = useStore((s) => s.entitlements)
+  return useMemo(() => leadSets({ students, leads, invoices, entitlements }), [students, leads, invoices, entitlements])
+}

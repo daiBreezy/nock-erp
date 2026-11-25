@@ -6,6 +6,8 @@
 import { useState } from "react"
 import { fmtMoney } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
+import { enrollInvoiceChoices } from "@/domain/rules/form-hub"
+import { UsersIcon } from "lucide-react"
 import { useStore } from "@/store/store"
 import { cn } from "@/lib/utils"
 import { CheckIcon, ReceiptIcon, SendIcon, UserPlusIcon } from "lucide-react"
@@ -30,14 +32,16 @@ export function SendEnrollDialog({ conversationId, onClose, onInvoice, preferNew
   const holidays = useStore((s) => s.holidays)
   const lead = useStore((s) => s.leads.find((l) => l.id === conv?.leadId))
   const mine = new Set(students.filter((x) => (conv?.familyId && x.familyId === conv.familyId) || x.id === lead?.trialStudentId || x.id === lead?.convertedStudentId).map((x) => x.id))
-  const open = invoices.filter((i) => mine.has(i.studentId) && i.number && i.status !== "paid" && i.status !== "void")
-  const [invoiceId, setInvoiceId] = useState<ID | null>(() => (preferNewest ? [...open].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.id ?? null : null))
-  const totalOf = (i: (typeof invoices)[number]) => { const b = branches.find((x) => x.id === i.branchId); return b ? Bill.invoiceTotals(i, { branch: b, courses, classes, holidays }).total : 0 }
+  // owner 2026-11-25: a family SET is one choice (one link, set total); the rest are single invoices
+  const open = enrollInvoiceChoices(invoices, mine)
+  const [pickKey, setPickKey] = useState<string | null>(() => (preferNewest ? open[0]?.key ?? null : null))
+  const chosen = open.find((c) => c.key === pickKey)
+  const owedOf = (ids: ID[]) => ids.reduce((a, id) => { const i = invoices.find((x) => x.id === id); const b = i && branches.find((x) => x.id === i.branchId); return a + (i && b ? Bill.owedOn(i, Bill.invoiceTotals(i, { branch: b, courses, classes, holidays }).total) : 0) }, 0)
   const send = async () => {
     setBusy(true)
-    const r = await sendEnrollToChat(conversationId, [], undefined, invoiceId ?? undefined)
+    const r = await sendEnrollToChat(conversationId, [], undefined, chosen?.invoiceIds)
     setBusy(false)
-    if (report(r, invoiceId ? "ส่งใบสมัครเรียนพร้อมใบแจ้งหนี้แล้ว" : "ส่งใบสมัครเรียนแล้ว")) onClose()
+    if (report(r, chosen ? (chosen.kind === "set" ? "ส่งใบสมัครเรียนพร้อมใบแจ้งหนี้ชุดครอบครัวแล้ว" : "ส่งใบสมัครเรียนพร้อมใบแจ้งหนี้แล้ว") : "ส่งใบสมัครเรียนแล้ว")) onClose()
   }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -52,12 +56,13 @@ export function SendEnrollDialog({ conversationId, onClose, onInvoice, preferNew
         {open.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-sm font-semibold">แนบใบแจ้งหนี้ไปด้วย <span className="font-normal text-muted-foreground">· ไม่บังคับ</span></p>
-            {open.map((i) => { const on = invoiceId === i.id; return (
-              <Button key={i.id} variant="row" size="inline" type="button" aria-pressed={on} onClick={() => setInvoiceId(on ? null : i.id)}
+            {open.map((c) => { const on = pickKey === c.key; return (
+              <Button key={c.key} variant="row" size="inline" type="button" aria-pressed={on} onClick={() => setPickKey(on ? null : c.key)}
                 className={cn("flex w-full items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm", on ? "border-primary bg-primary/10" : "hover:bg-muted")}>
                 <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on && "border-primary bg-primary text-primary-foreground")}>{on && <CheckIcon className="size-3" />}</span>
-                <span className="min-w-0 flex-1 truncate">{i.number} · {students.find((x) => x.id === i.studentId)?.nickname}</span>
-                <span className="shrink-0 tabular-nums">{fmtMoney(totalOf(i))}</span>
+                {c.kind === "set" && <UsersIcon className="size-4 shrink-0 text-muted-foreground" />}
+                <span className="min-w-0 flex-1 truncate">{c.kind === "set" ? `ชุดครอบครัว · ${c.studentIds.map((id) => students.find((x) => x.id === id)?.nickname).join(" + ")}` : `${c.numbers[0]} · ${students.find((x) => x.id === c.studentIds[0])?.nickname}`}</span>
+                <span className="shrink-0 tabular-nums">{fmtMoney(owedOf(c.invoiceIds))}</span>
               </Button>
             ) })}
           </div>

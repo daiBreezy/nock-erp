@@ -6,6 +6,12 @@ import { useEffect, useRef } from "react"
 import { syncEnrollInvoice } from "@/lib/forms"
 import { useStore } from "@/store/store"
 
+/** owner 2026-11-25: a family set is "paid" for the parent's link only when every invoice of the set is */
+const setPaid = (invoices: { id: string; status: string; bundleId?: string }[], id: string) => {
+  const b = invoices.find((i) => i.id === id)?.bundleId
+  return !b || invoices.filter((i) => i.bundleId === b && i.status !== "void").every((i) => i.status === "paid")
+}
+
 export function EnrollInvoiceSync() {
   const invoices = useStore((s) => s.invoices)
   const seen = useRef<Map<string, string> | null>(null)
@@ -14,7 +20,7 @@ export function EnrollInvoiceSync() {
     if (seen.current) {
       for (const [id, status] of now) {
         const before = seen.current.get(id)
-        if (before && before !== status && (status === "paid" || status === "void")) void syncEnrollInvoice(id, status)
+        if (before && before !== status && (status === "paid" || status === "void")) void syncEnrollInvoice(id, status, status === "paid" ? setPaid(invoices, id) : undefined)
         else if (before === "void" || before === "paid") { if (status !== before && status !== "paid" && status !== "void") void syncEnrollInvoice(id, "open") }
       }
     }

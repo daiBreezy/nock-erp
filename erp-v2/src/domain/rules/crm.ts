@@ -1,7 +1,7 @@
 // CRM lead pipeline (Phase 2 rebuild). Spec ref: new-erp/js/crm.js (stage list + grouping).
 
 import { daysBetween, fmtDate, toDateStr } from "../dates"
-import type { LeadKid, DateStr, Family, FormSubmission, ID, Lead, LeadStage, Result, Student } from "../types"
+import type { Archived, TargetSchool, CourseWish, LeadKid, DateStr, TimeStr, Weekday, Family, FormSubmission, ID, Lead, LeadStage, Result, Student } from "../types"
 
 export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   new: "ลูกค้าใหม่",
@@ -264,4 +264,86 @@ export function interestCourseIdsFor(lead: Pick<Lead, "kids" | "childGrade" | "c
 export function flatFromKids(kids: LeadKid[]): Pick<Lead, "kids" | "childGrade" | "childGrades" | "childCount" | "subject" | "subjects" | "interestCourseIds"> {
   const subjects = [...new Set(kids.flatMap((k) => k.subjects))]
   return { kids, childGrade: kids[0]?.grade ?? "", childGrades: kids.map((k) => k.grade), childCount: kids.length, subject: subjects[0] ?? "", subjects, interestCourseIds: [...new Set(kids.flatMap((k) => k.courseIds))] }
+}
+
+/** owner 2026-11-25: the Lead's kid a Student came from — by link, else (the lead's own trial / converted Student) by name, else the lone kid */
+export function kidForStudent(leads: Pick<Lead, "kids" | "childGrade" | "childGrades" | "childCount" | "subject" | "subjects" | "interestCourseIds" | "trialStudentId" | "convertedStudentId">[], student?: { id: string; name?: string; nickname?: string }): LeadKid | undefined {
+  if (!student) return undefined
+  for (const l of leads) { const k = l.kids?.find((x) => x.studentId === student.id); if (k) return k }
+  const lead = leads.find((l) => l.trialStudentId === student.id || l.convertedStudentId === student.id)
+  if (!lead) return undefined
+  const kids = leadKids(lead)
+  return kids.find((k) => k.name && (norm(k.name) === norm(student.nickname) || norm(k.name) === norm(student.name))) ?? (kids.length === 1 ? kids[0] : undefined)
+}
+
+/** owner 2026-11-25: a new invoice line starts with what the parent wished for: the classes that sit on the wished weekday + time, and the start day */
+export function lineFromWish(wish: CourseWish | undefined, options: { id: string; weekday: Weekday; start: TimeStr }[]): { classIds: string[]; startDate?: DateStr } {
+  if (!wish) return { classIds: [] }
+  const classIds = wish.slots.flatMap((sl) => options.filter((k) => k.weekday === sl.weekday && k.start === sl.start).map((k) => k.id))
+  return { classIds: [...new Set(classIds)], startDate: wish.startDate }
+}
+
+/** which of a kid's wanted things are still unknown — what the Lead panel lists as missing for the invoice */
+export function wishGaps(kid: Pick<LeadKid, "courseIds" | "wishes">): { noCourse: boolean; noSlot: ID[]; noStart: ID[] } {
+  return {
+    noCourse: kid.courseIds.length === 0,
+    noSlot: kid.courseIds.filter((id) => !kid.wishes?.[id]?.slots.length),
+    noStart: kid.courseIds.filter((id) => !kid.wishes?.[id]?.startDate),
+  }
+}
+
+/** owner 2026-11-25: a Lead's place in the shared Archived box — the new envelope, else built from the older stage + close-lead form so nothing is lost */
+export function archivedOf(lead: Pick<Lead, "stage" | "archived" | "lost" | "archiveReason" | "createdAt">): Archived | undefined {
+  if (lead.archived) return lead.archived
+  if (lead.stage !== "archived") return undefined
+  return { at: lead.lost?.at ?? lead.createdAt, by: lead.lost?.by ?? "", reason: lead.archiveReason ?? "", kind: "lead_lost" }
+}
+
+export interface ArchiveEntry { kind: "lead_lost" | "customer_exit"; type: "lead" | "family" | "student"; id: string; name: string; at: string; by: string; reason: string }
+
+/** ONE list of everyone archived — Leads and Customers together; the CRM shows `lead_lost`, the Families / Students pages `customer_exit` */
+export function archiveBox(d: { leads: (Pick<Lead, "id" | "name" | "stage" | "archived" | "lost" | "archiveReason" | "createdAt">)[]; families: { id: string; name: string; archived?: Archived }[]; students: { id: string; name: string; archived?: Archived }[] }): ArchiveEntry[] {
+  const out: ArchiveEntry[] = []
+  for (const l of d.leads) { const a = archivedOf(l); if (a) out.push({ kind: a.kind ?? "lead_lost", type: "lead", id: l.id, name: l.name, at: a.at, by: a.by, reason: a.reason }) }
+  for (const f of d.families) if (f.archived) out.push({ kind: f.archived.kind ?? "customer_exit", type: "family", id: f.id, name: f.name, at: f.archived.at, by: f.archived.by, reason: f.archived.reason })
+  for (const s of d.students) if (s.archived) out.push({ kind: s.archived.kind ?? "customer_exit", type: "student", id: s.id, name: s.name, at: s.archived.at, by: s.archived.by, reason: s.archived.reason })
+  return out.sort((a, b) => b.at.localeCompare(a.at))
+}
+
+/**
+ * owner 2026-11-25: ONE place for each fact. The parent lives on the FAMILY file, a child on the STUDENT record — the Lead only keeps what is
+ * about the sale (interested courses, wished days, start day, notes). The Lead's own name / phone / kids' name · grade · target schools are a
+ * cache the store re-derives from those records after every edit (`pullFromRecords`), so no screen can ever show two different answers.
+ */
+export function pullFromRecords<L extends Pick<Lead, "name" | "phone" | "lineId" | "kids" | "childGrade" | "childGrades" | "childCount" | "subject" | "subjects" | "interestCourseIds">>(
+  lead: L,
+  family: { parents: { name: string; phone: string; lineId?: string; primary?: boolean }[] } | undefined,
+  students: { id: string; name: string; nickname: string; grade: string; targetSchools?: TargetSchool[] }[],
+): L {
+  const main = family?.parents.find((p) => p.primary) ?? family?.parents[0]
+  const name = main?.name?.trim() ? main.name : lead.name
+  const phone = main ? main.phone : lead.phone
+  const linked = (lead.kids ?? []).some((k) => k.studentId && students.some((s) => s.id === k.studentId))
+  const lineId = main?.lineId?.trim() ? main.lineId : lead.lineId
+  let next: L = { ...lead, name, phone, lineId }
+  if (linked) {
+    const kids = (lead.kids ?? []).map((k) => {
+      const st = k.studentId ? students.find((s) => s.id === k.studentId) : undefined
+      return st ? { ...k, name: st.nickname || st.name, grade: st.grade, targetSchools: st.targetSchools?.length ? st.targetSchools : k.targetSchools } : k
+    })
+    next = { ...next, ...flatFromKids(kids) }
+  }
+  const same = next.name === lead.name && next.phone === lead.phone && next.lineId === lead.lineId && JSON.stringify(next.kids) === JSON.stringify(lead.kids) && next.childGrade === lead.childGrade
+  return same ? lead : next
+}
+
+/** the kids that have a name and a grade but no Student record yet — a Student (Lead state) is made for each, so the child is on file from the start */
+export function kidsNeedingStudent(kids: LeadKid[], students: { id: string }[]): LeadKid[] {
+  return kids.filter((k) => k.name.trim() && k.grade && !(k.studentId && students.some((s) => s.id === k.studentId)))
+}
+
+/** the Lead-side edit of a child that belongs to the Student record, to write there (kid name = the Student's nickname; the full name only follows when it was just the nickname) */
+export function studentPatchFromKid(kid: LeadKid, st: { name: string; nickname: string }): { name: string; nickname: string; grade: string; targetSchools?: TargetSchool[] } {
+  const nick = kid.name.trim()
+  return { name: st.name === st.nickname ? nick : st.name, nickname: nick || st.nickname, grade: kid.grade, targetSchools: kid.targetSchools }
 }

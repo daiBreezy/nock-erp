@@ -19,7 +19,7 @@ import * as Les from "@/domain/rules/lessons"
 export type SummaryLesson = { bookId?: ID; topicId?: ID; detail?: string; level?: number; subjectLevels?: Record<string, number> }
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
-import { can, canDeactivateStaff, canEditBlocks, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
+import { can, canDeactivateStaff, canEditBlocks, canEditLead, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as CN from "@/domain/rules/calendar-notes"
 import * as BusR from "@/domain/rules/bus"
@@ -252,6 +252,10 @@ type Store = DB & UIState & {
   createBlankFamilyBundle: (studentIds: ID[]) => Result<{ created: Invoice[] }>
   /** owner 2026-11-20: every child named on the Lead becomes a Student of one family (existing ones are matched, not duplicated) */
   ensureLeadKidStudents: (leadId: ID) => Result<{ studentIds: ID[] }>
+  /** owner 2026-11-25: Lead and Customer are one record — the family file this Lead's information lives in; made the first time it is needed (never a blank family for every Lead) */
+  ensureLeadFamilyFile: (leadId: ID) => Result<{ familyId: ID }>
+  /** make sure every named child of an open Lead is a Student (Lead state) and the Lead mirrors the family / student records — safe to repeat */
+  syncLeadRecords: (leadId: ID) => Result
   /** owner 2026-11-20: the course summary went to the parent (these invoices = one child or a whole set) */
   markAgreementSent: (ids: ID[]) => Result
   /** owner 2026-11-20: build the course summary from the Draft (or the whole family set) and send it to the parent's chat */
@@ -680,19 +684,20 @@ export const useStore = create<Store>()(
         }
         set({ invoices: s.invoices.map((x) => (x.id === invoiceId ? next : x)), entitlements, classes, sessions })
         log("billing", [inv.studentId], forced ? "Force ยืนยันยอดเงิน" : "ยืนยันยอดเงิน", `${inv.number} · ${fmtMoney(pay.amount)}${forced ? ` · เหตุผล: ${forceRemark!.trim()}` : ""}`)
+        // payment confirmed = the lead is a student now — nobody has to press "convert" (owner 2026-09-28).
+        // owner 2026-11-25: the FIRST confirmed payment is enough (any amount, e.g. one of several slips) — money has arrived, so Lead → Customer
+        const lead = leadOfStudent(inv.studentId)
+        if (lead && lead.stage !== "enrolled") {
+          const stu = get().students.find((x) => x.id === inv.studentId)!
+          if (!stu.familyId) {
+            const familyId = ensureLeadFamily(lead, { studentName: stu.name })
+            set((cur) => ({ students: cur.students.map((x) => (x.id === stu.id ? { ...x, familyId } : x)) }))
+          }
+          set((cur) => ({ leads: cur.leads.map((l) => (l.id === lead.id ? { ...l, stage: "enrolled", convertedStudentId: inv.studentId } : l)) }))
+          log("profile", [inv.studentId], "ลงทะเบียนเป็นนักเรียน", `อัตโนมัติจากการยืนยันยอด ${inv.number} · Lead ${lead.name}`, true)
+        }
         if (paid) {
           log("billing", [inv.studentId], "ชำระครบ", `${inv.number}${inv.lines.length ? " · ระบบเพิ่มเข้าคลาสอัตโนมัติ" : ""} · ยังไม่ออกใบเสร็จ`, true)
-          // payment confirmed = the lead is a student now — nobody has to press "convert" (owner 2026-09-28)
-          const lead = leadOfStudent(inv.studentId)
-          if (lead && lead.stage !== "enrolled") {
-            const stu = get().students.find((x) => x.id === inv.studentId)!
-            if (!stu.familyId) {
-              const familyId = ensureLeadFamily(lead, { studentName: stu.name })
-              set((cur) => ({ students: cur.students.map((x) => (x.id === stu.id ? { ...x, familyId } : x)) }))
-            }
-            set((cur) => ({ leads: cur.leads.map((l) => (l.id === lead.id ? { ...l, stage: "enrolled", convertedStudentId: inv.studentId } : l)) }))
-            log("profile", [inv.studentId], "ลงทะเบียนเป็นนักเรียน", `อัตโนมัติจากการยืนยันยอด ${inv.number} · Lead ${lead.name}`, true)
-          }
           // owner 2026-11-19: the family just paid — if a referrer was matched, the referrer's teachers earn the point (once per family)
           {
             const st = get(), fid = st.students.find((x) => x.id === inv.studentId)?.familyId
@@ -714,6 +719,65 @@ export const useStore = create<Store>()(
           conversations: cur.conversations.map((c) => (c.leadId === lead.id || (lead.lineUserId && c.id === `line_${lead.lineUserId}`) ? { ...c, familyId: family.id } : c)),
         }))
         return family.id
+      }
+
+      /** owner 2026-11-25 — ONE place per fact. The parent lives on the family file, a child on the Student record; the Lead keeps only the sale
+       *  (courses · wished days · start · notes). `pushLeadToRecords` = after a Lead-side edit; `pullLeadsFor` = after a family / student edit. */
+      const leadIsOpen = (l: Lead) => l.stage !== "enrolled" && l.stage !== "archived" && !l.winBackOf
+      const pushLeadToRecords = (leadId: ID) => {
+        const s0 = get()
+        const lead0 = s0.leads.find((x) => x.id === leadId)
+        if (!lead0 || !leadIsOpen(lead0)) return
+        const kids = CRM.leadKids(lead0).map((k) => ({ ...k }))
+        const need = CRM.kidsNeedingStudent(kids, s0.students)
+        let familyId: ID | null = lead0.familyId && s0.families.some((f) => f.id === lead0.familyId) ? lead0.familyId : null
+        if (!familyId && need.length) {
+          const known = [lead0.trialStudentId, lead0.convertedStudentId, ...kids.map((k) => k.studentId)].map((id) => s0.students.find((x) => x.id === id)?.familyId).find((x): x is ID => !!x) ?? s0.conversations.find((c) => c.leadId === lead0.id)?.familyId ?? null
+          familyId = known ?? ensureLeadFamily(lead0, { studentName: need[0].name })
+        }
+        const norm = (x?: string) => (x ?? "").trim().toLowerCase()
+        const made: Student[] = []
+        for (const k of need) {
+          const mine = [...get().students, ...made].filter((x) => x.familyId === familyId)
+          const found = mine.find((x) => norm(x.nickname) === norm(k.name) || norm(x.name) === norm(k.name))
+          if (found) { k.studentId = found.id; continue }
+          const st: Student = { id: uid("stu"), familyId, branchId: lead0.branchId, name: k.name.trim(), nickname: People.nicknameFrom(k.name), grade: k.grade, usesBus: false, createdAt: get().now().toISOString(), createdBranchId: lead0.branchId, targetSchools: k.targetSchools }
+          if (People.validateStudent(st, toDateStr(get().now())).length) continue // not valid yet (e.g. a grade the branch lacks) — stays on the Lead until it is
+          made.push(st); k.studentId = st.id
+        }
+        set((cur) => {
+          const students = [...cur.students, ...made].map((st) => {
+            const k = kids.find((x) => x.studentId === st.id)
+            if (!k) return st
+            const p = CRM.studentPatchFromKid(k, st)
+            return p.nickname === st.nickname && p.name === st.name && p.grade === st.grade && JSON.stringify(p.targetSchools ?? null) === JSON.stringify(st.targetSchools ?? null) ? st : { ...st, ...p }
+          })
+          // the guardian the Lead names is the family's main guardian (the Lead never keeps its own copy once there is a family file)
+          const families = familyId ? cur.families.map((f) => {
+            if (f.id !== familyId || !lead0.name.trim()) return f
+            const i = Math.max(0, f.parents.findIndex((p) => p.primary))
+            const p = f.parents[i]
+            const phone = People.formatPhone(lead0.phone)
+            const lineId = lead0.lineId.trim() ? lead0.lineId.trim() : p?.lineId
+            if (!p || (p.name === lead0.name && p.phone === phone && p.lineId === lineId)) return f
+            return { ...f, parents: f.parents.map((x, k) => (k === i ? { ...x, name: lead0.name, phone, lineId } : x)) }
+          }) : cur.families
+          const stuIds = kids.map((k) => k.studentId).filter((x): x is ID => !!x)
+          const lead = cur.leads.find((x) => x.id === leadId)!
+          const linked = { ...lead, ...CRM.flatFromKids(kids), familyId: familyId ?? lead.familyId, trialStudentId: lead.trialStudentId ?? stuIds[0] ?? lead.trialStudentId }
+          const fam = families.find((f) => f.id === linked.familyId)
+          return { students, families, leads: cur.leads.map((x) => (x.id === leadId ? CRM.pullFromRecords(linked, fam, students) : x)) }
+        })
+      }
+      const pullLeadsFor = (q: { familyId?: ID; studentId?: ID }) => {
+        const s = get()
+        const out = s.leads.map((l) => {
+          if (l.winBackOf) return l
+          const fid = l.familyId ?? [l.trialStudentId, l.convertedStudentId, ...(l.kids ?? []).map((k) => k.studentId)].map((id) => s.students.find((x) => x.id === id)?.familyId).find((x): x is ID => !!x)
+          const hit = (q.familyId && fid === q.familyId) || (q.studentId && (l.kids ?? []).some((k) => k.studentId === q.studentId))
+          return hit ? CRM.pullFromRecords(l, s.families.find((f) => f.id === fid), s.students) : l
+        })
+        if (out.some((l, i) => l !== s.leads[i])) set({ leads: out })
       }
       return {
       // owner 2026-10-20 ("เที่ยวรถ หายไปไหนหมด"): a browser with nothing saved yet starts with the same demo as a reset /
@@ -1098,6 +1162,7 @@ export const useStore = create<Store>()(
         if (errs.length) return fail(errs[0].message)
         const clean = { ...f, parents: f.parents.map(People.cleanParent) }
         set({ families: s.families.some((x) => x.id === f.id) ? s.families.map((x) => (x.id === f.id ? clean : x)) : [...s.families, clean] })
+        pullLeadsFor({ familyId: f.id })
         return { ok: true, value: clean }
       },
 
@@ -1174,6 +1239,7 @@ export const useStore = create<Store>()(
           const changes = People.studentChanges(prev, st, (id) => s.families.find((f) => f.id === id)?.name ?? "—")
           if (changes.length) log("profile", [st.id], "แก้ข้อมูล", changes.join(" · "))
         }
+        pullLeadsFor({ studentId: st.id, familyId: st.familyId ?? undefined })
         return { ok: true, value: st }
       },
 
@@ -3205,6 +3271,28 @@ export const useStore = create<Store>()(
         return { ok: true, value: { studentIds } }
       },
 
+      syncLeadRecords: (leadId) => {
+        const lead = get().leads.find((x) => x.id === leadId)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        if (!canEditLead(get().me(), lead)) return fail("คุณไม่มีสิทธิ์ทำรายการนี้")
+        pushLeadToRecords(leadId)
+        return OK
+      },
+
+      ensureLeadFamilyFile: (leadId) => {
+        const s = get()
+        const lead = s.leads.find((x) => x.id === leadId)
+        if (!lead) return fail("ไม่พบ Lead นี้")
+        if (!canEditLead(s.me(), lead)) return fail("คุณไม่มีสิทธิ์ทำรายการนี้")
+        if (lead.familyId && s.families.some((f) => f.id === lead.familyId)) return { ok: true, value: { familyId: lead.familyId } }
+        // already has one through a child / the chat → just link it
+        const kidIds = [lead.trialStudentId, lead.convertedStudentId, ...(lead.kids ?? []).map((k) => k.studentId)].filter((x): x is ID => !!x)
+        const known = kidIds.map((id) => s.students.find((x) => x.id === id)?.familyId).find((x): x is ID => !!x) ?? s.conversations.find((c) => c.leadId === lead.id)?.familyId ?? null
+        const familyId = known ?? ensureLeadFamily(lead, { studentName: CRM.leadKids(lead)[0]?.name?.trim() || lead.name })
+        set((cur) => ({ leads: cur.leads.map((x) => (x.id === leadId ? { ...x, familyId } : x)) }))
+        return { ok: true, value: { familyId } }
+      },
+
       markAgreementSent: (ids) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
@@ -3553,13 +3641,14 @@ export const useStore = create<Store>()(
       // ---------------- CRM ----------------
       saveLead: (input, opts) => {
         const s = get()
-        const perm = requirePerm(s.me(), "lead.manage")
+        const perm = canEditLead(s.me(), s.leads.find((x) => x.id === input.id)) ? ({ ok: true } as const) : requirePerm(s.me(), "lead.manage")
         if (!perm.ok) return perm
         const err = CRM.validateLead(input, opts)
         if (err) return fail(err)
         const l = { ...input, name: People.splitParentTitle(input.name).name, phone: People.formatPhone(input.phone) }
         set({ leads: s.leads.some((x) => x.id === l.id) ? s.leads.map((x) => (x.id === l.id ? l : x)) : [l, ...s.leads] })
-        return { ok: true, value: l }
+        pushLeadToRecords(l.id)
+        return { ok: true, value: get().leads.find((x) => x.id === l.id) ?? l }
       },
 
       moveLeadStage: (id, stage) => {
@@ -3597,7 +3686,7 @@ export const useStore = create<Store>()(
         const label = Loss.reasonLabel(input.reasonId, s.system.lossReasons)
         const known = s.system.competitors ?? []
         set({
-          leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "archived", archivedFrom: x.stage, archiveReason: label + (lost.note ? ` · ${lost.note}` : ""), lost } : x)),
+          leads: s.leads.map((x) => (x.id === id ? { ...x, stage: "archived", archivedFrom: x.stage, archiveReason: label + (lost.note ? ` · ${lost.note}` : ""), lost, archived: { at: lost.at, by: lost.by, reason: label + (lost.note ? ` · ${lost.note}` : ""), kind: "lead_lost" as const } } : x)),
           system: competitor && competitor !== "ไม่ทราบ" && !known.some((c) => c.toLowerCase() === competitor.toLowerCase()) ? { ...s.system, competitors: [...known, competitor] } : s.system,
         })
         return OK
@@ -3920,7 +4009,7 @@ export const useStore = create<Store>()(
         const lead = s.leads.find((x) => x.id === id)
         if (!lead) return fail("ไม่พบ Lead นี้")
         if (lead.stage !== "archived") return fail("Lead นี้ไม่ได้อยู่ในคลัง")
-        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: CRM.restoreStage(x) } : x)) })
+        set({ leads: s.leads.map((x) => (x.id === id ? { ...x, stage: CRM.restoreStage(x), archived: undefined } : x)) })
         return OK
       },
 

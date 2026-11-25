@@ -71,10 +71,8 @@ export default function CrmPage() {
   const [archivedParam, setArchivedParam] = useQueryState<"0" | "1">("archived", "0")
   const showArchived = archivedParam === "1"
   const setShowArchived = (v: boolean) => setArchivedParam(v ? "1" : "0")
-  // owner 2026-11-13: "ปิดแล้ว" (became a student) and "Archived" (closed without enrolling) are two separate switches
-  const [enrolledParam, setEnrolledParam] = useQueryState<"0" | "1">("enrolled", "0")
-  const showEnrolled = enrolledParam === "1"
-  const setShowEnrolled = (v: boolean) => setEnrolledParam(v ? "1" : "0")
+  // owner 2026-11-25: the CRM lists LEADS only — a Lead that has paid is a Customer now and lives on the Families / Students pages (the old "ปิดแล้ว" switch is gone)
+  const showEnrolled = false
   const hiddenStage = (l: Lead) => (l.stage === "archived" && !showArchived) || (l.stage === "enrolled" && !showEnrolled)
   const [openLead, setOpenLead] = useState<ID | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
@@ -164,7 +162,6 @@ export default function CrmPage() {
       filters={<>
         <FilterMenu
           checks={[
-            { key: "enrolled", label: "ปิดแล้ว", on: showEnrolled, count: leads.filter((l) => l.stage === "enrolled").length, onChange: setShowEnrolled },
             { key: "archived", label: "Archived", on: showArchived, count: leads.filter((l) => l.stage === "archived").length, onChange: setShowArchived },
           ]}
           fields={[{ id: "assignee", label: "ผู้ดูแล", value: assigneeFilter === "all" ? "" : assigneeFilter, onChange: (v) => setAssigneeFilter(v || "all"), placeholder: `ผู้ดูแลทั้งหมด (${assigneeScope.length})`,

@@ -6,7 +6,7 @@
 import { createContext, useContext, useState, type ComponentType, type ReactNode } from "react"
 import { EllipsisIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useSidePanel } from "@/hooks/use-mobile"
@@ -102,7 +102,9 @@ export function PanelFooter({ children }: { children: React.ReactNode }) {
   return <div className="flex shrink-0 flex-wrap items-center gap-2 border-t bg-popover px-4 py-3">{children}</div>
 }
 
-export interface MoreItem { label: ReactNode; icon?: ComponentType; onClick: () => void; destructive?: boolean; disabled?: boolean; title?: string }
+export interface MoreItem { label: ReactNode; icon?: ComponentType; onClick: () => void; destructive?: boolean; disabled?: boolean; title?: string
+  /** owner 2026-11-25: the item opens a submenu (its content) instead of acting — e.g. “แก้ไข” → who to edit */
+  sub?: ReactNode }
 
 /**
  * ⋯ on the left of a panel's bottom bar (owner 2026-10-12): every negative / rarely-used action (แจ้งออก, ปิดบัญชี,
@@ -118,6 +120,12 @@ export function PanelMore({ items, className }: { items: (MoreItem | false | nul
       <DropdownMenuContent align="start" side="top" className="w-max min-w-52 max-w-sm">
         {list.map((it, i) => {
           const Icon = it.icon
+          if (it.sub) return (
+            <DropdownMenuSub key={i}>
+              <DropdownMenuSubTrigger disabled={it.disabled}>{Icon && <Icon />}{it.label}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-max min-w-56 max-w-sm">{it.sub}</DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )
           return (
             <DropdownMenuItem key={i} variant={it.destructive ? "destructive" : "default"} disabled={it.disabled} title={it.title} onClick={it.onClick}>
               {Icon && <Icon />}{it.label}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { checkEnrollToken, upsertEnrollToken } from "@/server/parent-form-store"
+import { claimSend } from "@/server/form-gate"
 import type { EnrollToken } from "@/domain/types"
 
 // Staff: create / refresh an enroll-now link (Rich Menu = reusable, keeps its token). Parent page: read the link.
@@ -7,6 +8,11 @@ export async function POST(req: Request) {
   let body: Partial<EnrollToken>
   try { body = await req.json() } catch { return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 }) }
   if (!body.branchId || !body.courses?.length || !body.grades?.length) return NextResponse.json({ ok: false, error: "สาขานี้ยังไม่มีคอร์สหรือระดับชั้น" }, { status: 400 })
+  // owner 2026-11-25: one live link per lead / chat (the branch's permanent Rich Menu link is not sent to someone, so it is exempt)
+  if (!body.reusable && !body.token) {
+    const claim = await claimSend({ leadId: body.leadId, conversationId: body.conversationId }, "enroll")
+    if (!claim.ok) return NextResponse.json(claim)
+  }
   const token = await upsertEnrollToken({
     token: body.token, reusable: !!body.reusable, branchId: body.branchId, branchName: body.branchName ?? "", brand: body.brand ?? "nockacademy", bus: body.bus, sources: body.sources, lang: body.lang ?? "th",
     grades: body.grades, subjects: body.subjects ?? [], subjectNames: body.subjectNames, courses: body.courses, classOffers: body.classOffers, plan: body.plan, invoice: body.invoice, leadId: body.leadId, conversationId: body.conversationId ?? null, prefill: body.prefill,

@@ -32,7 +32,7 @@ import { EditCell } from "@/components/app/inline-edit"
 import { report } from "@/lib/feedback"
 
 type StudentSort = "nickname" | "name" | "grade" | "family" | "course" | "enroll" | "end" | "status" | "left"
-import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
+import { useBranch, useEntitlements, useLeadSets, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "@/lib/toast"
@@ -48,8 +48,10 @@ export default function StudentsPage() {
   const edit = (st: Student, patch: Partial<Student>) => report(saveStudent({ ...st, ...patch }), "บันทึกแล้ว")
   // owner 2026-10-09: Director / Area Manager can list several branches at once
   const scope = useBranchScope()
-  const students = useStore((s) => s.students).filter((s) => scope.ids.includes(s.branchId))
-  const families = useStore((s) => s.families)
+  // owner 2026-11-25: this page lists CUSTOMERS only — a Lead (not paid yet) lives in the CRM
+  const leadSet = useLeadSets()
+  const students = useStore((s) => s.students).filter((s) => scope.ids.includes(s.branchId) && !leadSet.studentIds.has(s.id))
+  const families = useStore((s) => s.families).filter((f) => !leadSet.familyIds.has(f.id))
   const classes = useStore((s) => s.classes)
   const entitlements = useEntitlements()
   const invoices = useStore((s) => s.invoices)

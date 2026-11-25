@@ -3,7 +3,7 @@
 import { tx } from "@/lib/i18n"
 import { birthdaysToday, familyShortName, PARENT_RELATIONS, familyDisplay } from "@/domain/rules/people"
 import { toDateStr } from "@/domain/dates"
-import { useNow } from "@/lib/hooks"
+import { useLeadSets, useNow } from "@/lib/hooks"
 import { useMemo, useState } from "react"
 import { BusIcon, CakeIcon, PlusIcon, TriangleAlertIcon, UnlinkIcon, UsersIcon, UsersRoundIcon } from "lucide-react"
 import { ListPage, ShowChip, SearchBox } from "@/components/app/page-layout"
@@ -32,8 +32,10 @@ type FamSort = "name" | "parent" | "kids" | "line" | "address"
 export default function FamiliesPage() {
   // owner 2026-10-09: Director / Area Manager can list several branches at once
   const scope = useBranchScope()
-  const families = useStore((s) => s.families)
-  const students = useStore((s) => s.students)
+  // owner 2026-11-25: this page lists CUSTOMERS only — a Lead (not paid yet) lives in the CRM
+  const leadSet = useLeadSets()
+  const families = useStore((s) => s.families).filter((f) => !leadSet.familyIds.has(f.id))
+  const students = useStore((s) => s.students).filter((s) => !leadSet.studentIds.has(s.id))
   const allBranches = useStore((s) => s.branches)
   const [q, setQ] = useState("")
   const [lineF, setLineF] = useState("")

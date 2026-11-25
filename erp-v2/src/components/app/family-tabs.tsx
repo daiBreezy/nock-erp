@@ -3,14 +3,15 @@
 import { useState } from "react"
 import { UserRoundPlusIcon, TimerIcon, ChevronRightIcon, CopyIcon, MapPinIcon, MegaphoneIcon, ReceiptIcon, ShieldCheckIcon, StarIcon, StoreIcon, UsersIcon, WalletIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
+import { StudentStatusPill } from "@/components/app/student-status-pill"
 import { NativeSelect } from "@/components/app/native-select"
 import { avatarTone, gradeTone, initial } from "@/components/app/subject-color"
-import { STATUS_PILL } from "@/components/app/student-status"
 import { useInvoicesOf, useOwed } from "@/components/billing/invoice-rows"
 import { StudentFacts } from "@/components/app/student-facts"
 import { StudentKpis } from "@/components/app/student-kpis"
 import { Kpi, KpiGroup, kpiMoney } from "@/components/app/kpi"
 import { SessionSheet } from "@/components/app/session-sheet"
+import { LeadHistory } from "@/components/app/lead-history"
 import { familySnapshot, mergeSameCourse } from "@/domain/rules/family-overview"
 import { PackageRow, StudentBilling, StudentClassTab, StudentNotes } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
@@ -144,7 +145,7 @@ export function FamilyKidsList({ kids, onOpen, plain }: { kids: Student[]; onOpe
                 <span className="flex items-center gap-1.5"><span className="font-medium">{k.nickname}</span><span className={cn("rounded px-1 text-2xs", gradeTone(k.grade))}>{k.grade}</span></span>
                 <span className="block truncate text-xs text-muted-foreground">{k.name}</span>
               </span>
-              <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
+              <StudentStatusPill studentId={k.id} status={state.status} />
               <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
             </Button>
             <StudentFacts student={k} className="mt-2 pl-1" />
@@ -242,7 +243,7 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
                   <span className="block truncate text-xs text-muted-foreground">{k.name}</span>
                 </span>
                 {snap.exiting.length > 0 && <Pill tone="amber">{tx("แจ้งออก")}</Pill>}
-                <Pill tone={STATUS_PILL[state.status].tone}>{STATUS_PILL[state.status].label}</Pill>
+                <StudentStatusPill studentId={k.id} status={state.status} />
                 <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
               </Button>
               {/* the child's own numbers sit right under the name, full width (owner 2026-11-20) */}
@@ -256,6 +257,7 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
           )
         })}
       </div>
+      <LeadHistory family={family} />
       <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
     </div>
   )

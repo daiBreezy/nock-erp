@@ -119,6 +119,11 @@ export function can(user: Staff | undefined, p: Permission): boolean {
   return !!user?.active && user.roles.some((r) => ROLE_PERMISSIONS[r].includes(p))
 }
 
+/** owner 2026-11-25: any role that was assigned a Lead (a teacher, a manager …) helps fill it in — not only the roles with lead.manage */
+export function canEditLead(user: Staff | undefined, lead?: { assigneeId: string | null }): boolean {
+  return can(user, "lead.manage") || (!!user?.active && !!lead && lead.assigneeId === user.id)
+}
+
 export function require(user: Staff | undefined, p: Permission): Result {
   return can(user, p) ? { ok: true, value: undefined } : { ok: false, error: "คุณไม่มีสิทธิ์ทำรายการนี้" }
 }

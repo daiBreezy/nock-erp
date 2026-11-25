@@ -25,18 +25,24 @@ type Row = { draft: ParentDraft; stored?: Parent }
  * owner 2026-10-15: exactly the fields of the parent's LINE form (components/people/person-fields) — what an admin
  * types for a walk-in lands where a form answer would. The family is named after the main parent's surname unless typed.
  */
-export function FamilyForm({ family, initialName, initialParent, onClose, onSaved }: { family?: Family; initialName?: string; initialParent?: { name: string; phone?: string }; onClose: () => void; onSaved?: (f: Family) => void }) {
+export type FamilyFormOnly = "family" | "newParent" | { parent: number }
+
+export function FamilyForm({ family, initialName, initialParent, only, onClose, onSaved }: { family?: Family; initialName?: string; initialParent?: { name: string; phone?: string }; /** owner 2026-11-25: edit ONE thing — the family's own fields, one guardian, or a new guardian (unset = everything, as when creating a family) */ only?: FamilyFormOnly; onClose: () => void; onSaved?: (f: Family) => void }) {
   const save = useStore((s) => s.saveFamily)
   // owner 2026-11-19: a Liclass branch writes names surname-first
   const branchSf = useBranch().brand === "liclass"
   const families = useStore((s) => s.families)
   const students = useStore((s) => s.students)
   const [dupes, setDupes] = useState<DuplicateHit<Family>[] | null>(null)
-  const [rows, setRows] = useState<Row[]>(() =>
-    family?.parents.length
+  const [rows, setRows] = useState<Row[]>(() => {
+    const base: Row[] = family?.parents.length
       ? family.parents.map((p) => ({ draft: parentDraftOf(p, branchSf), stored: p }))
-      : [{ draft: { ...emptyParentDraft(initialParent?.name, branchSf), phones: [initialParent?.phone ?? ""] } }],
-  )
+      : [{ draft: { ...emptyParentDraft(initialParent?.name, branchSf), phones: [initialParent?.phone ?? ""] } }]
+    return only === "newParent" ? [...base, { draft: emptyParentDraft("", branchSf) }] : base
+  })
+  // which guardians / sections this form shows (the rest are kept as they are and saved with it)
+  const showParent = (i: number) => !only || only === "newParent" ? (only !== "newParent" || i === rows.length - 1) : only === "family" ? false : only.parent === i
+  const showFamily = !only || only === "family"
   const [primaryIdx, setPrimaryIdx] = useState(() => Math.max(0, family?.parents.findIndex((p) => p.primary) ?? 0))
   const [fam, setFam] = useState<FamilyDraft>(() => family ? {
     ...emptyFamilyDraft(),
@@ -94,15 +100,15 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
   }
 
   return (
-    <FormShell className="max-h-[92vh] sm:max-w-xl" onClose={onClose} title={family ? `แก้ไข ${familyDisplay(family.name)}` : "เพิ่มครอบครัว"}
+    <FormShell className="max-h-[92vh] sm:max-w-xl" onClose={onClose} title={!family ? "เพิ่มครอบครัว" : only === "newParent" ? "เพิ่มผู้ปกครอง" : only && only !== "family" ? `แก้ไข ${rows[only.parent]?.stored?.name || "ผู้ปกครอง"}` : `แก้ไข ${familyDisplay(family.name)}`}
       description="ช่องเดียวกับฟอร์มที่ผู้ปกครองกรอกใน LINE — ข้อมูลเก็บที่เดียวกัน"
       footer={<><Button variant="ghost" onClick={onClose}>ยกเลิก</Button><Button onClick={submit}>{family ? "บันทึก" : "เพิ่มครอบครัว"}</Button></>}>
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
+      {(!only || rows.some((_, i) => showParent(i))) && <section className="space-y-2">
+        {!only && <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">{t.parentTitle}</p>
           <Button size="xs" variant="secondary" onClick={() => setRows((rs) => [...rs, { draft: emptyParentDraft("", branchSf) }])}><PlusIcon /> {t.addParent}</Button>
-        </div>
-        {rows.map((r, i) => (
+        </div>}
+        {rows.map((r, i) => showParent(i) && (
           <div key={i} className="space-y-3 rounded-2xl border p-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground">{t.parentN(i + 1)}</p>
@@ -117,15 +123,15 @@ export function FamilyForm({ family, initialName, initialParent, onClose, onSave
           </div>
         ))}
         {err("parents") && <p className="text-xs text-danger">{err("parents")}</p>}
-      </section>
+      </section>}
 
-      <section className="space-y-2">
+      {showFamily && <section className="space-y-2">
         <p className="text-sm font-semibold">{t.family}</p>
         <div className="rounded-2xl border p-3">
           <FamilyFields t={t} value={fam} onChange={(patch) => setFam((x) => ({ ...x, ...patch }))} parentLast={rows[primaryIdx]?.draft.last ?? ""}
             errors={{ name: err("name"), postcode: err("postcode") }} />
         </div>
-      </section>
+      </section>}
       {dupes && (
         <DuplicateDialog title="พบครอบครัวที่อาจซ้ำ" description="ระบบพบครอบครัวที่อาจเป็นครอบครัวเดียวกัน — ถ้าใช่ ให้รวมกับครอบครัวเดิม ถ้าไม่ใช่ ให้เพิ่มเป็นครอบครัวใหม่" hits={dupes} mergeLabel="รวม — ใช้ครอบครัวนี้" newLabel="ไม่ใช่ — เพิ่มเป็นครอบครัวใหม่"
           onClose={() => setDupes(null)} onNew={() => { setDupes(null); finish(save(built), "บันทึกครอบครัวแล้ว") }} onMerge={(old) => { setDupes(null); mergeInto(old) }}

@@ -1,5 +1,6 @@
 "use client"
 
+import { kidForStudent, lineFromWish } from "@/domain/rules/crm"
 import { InvoicePaper, InvoicePreview } from "./invoice-preview"
 import * as Bank from "@/domain/rules/bank-accounts"
 import { CustomerPicker } from "@/components/app/customer-picker"
@@ -126,12 +127,16 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
     const out = Object.fromEntries(Object.entries(l.seats ?? {}).filter(([cid, seat]) => { const k = classes.find((x) => x.id === cid); return l.classIds.includes(cid) && !!k && isPartial(seat, k.minutes) }))
     return Object.keys(out).length ? out : undefined
   }
+  const allLeads = useStore((st) => st.leads)
   const lineFor = (courseId: string): LineDraft => {
     const options = classOptionsFor(courses.find((c) => c.id === courseId), classes, branch.id, staff)
+    // owner 2026-11-25: what the parent agreed in the chat (days / times / start) comes in as the default — staff can still change it here
+    const wish = lineFromWish(kidForStudent(allLeads, students.find((x) => x.id === studentId))?.wishes?.[courseId], options)
+    const cur = studentId ? currentOf(studentId, courseId) : undefined
     return {
       id: uid("ln"), courseId, periodsText: "1", overlapRemark: "",
-      classIds: (studentId && currentOf(studentId, courseId)?.classIds) || (options.length === 1 ? [options[0].id] : []),
-      startDate: startFor(studentId, courseId),
+      classIds: cur?.classIds || (wish.classIds.length ? wish.classIds : options.length === 1 ? [options[0].id] : []),
+      startDate: cur ? startFor(studentId, courseId) : wish.startDate ?? startFor(studentId, courseId),
     }
   }
   // owner 2026-11-20: a new invoice starts with the courses the family was interested in already ticked — staff only change what differs

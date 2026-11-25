@@ -6,6 +6,7 @@ import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { fmtDate, fmtDateTime, fmtMoney, toDateStr } from "@/domain/dates"
+import { slipsCheck } from "@/domain/rules/form-hub"
 import * as Bill from "@/domain/rules/billing"
 import { matchExistingFamily } from "@/domain/rules/people"
 import type { EnrollSubmission, ID } from "@/domain/types"
@@ -63,17 +64,32 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
   // owner 2026-10-29: the match is a suggestion — the admin picks รวม / แยก before approving
   const [newFamily, setNewFamily] = useState(false)
   const [referrerId, setReferrerId] = useState<ID | null>(null)
-  const inv = sub.invoiceId ? s.invoices.find((x) => x.id === sub.invoiceId) : undefined
-  const invBranch = inv && s.branches.find((b) => b.id === inv.branchId)
-  const owed = inv && invBranch ? Bill.owedOn(inv, Bill.invoiceTotals(inv, { branch: invBranch, courses: s.courses, classes: s.classes, holidays: s.holidays }).total) : 0
-  const invOpen = !!inv && inv.status !== "void" && inv.status !== "paid"
+  // owner 2026-11-25: a family SET travels as one — every invoice of it; any one voided = the link is dead
+  const invIds = sub.invoiceIds?.length ? sub.invoiceIds : sub.invoiceId ? [sub.invoiceId] : []
+  const invs = invIds.map((id) => s.invoices.find((x) => x.id === id)).filter((x): x is NonNullable<typeof x> => !!x)
+  const inv = invs[0]
+  const invMissing = invIds.length > invs.length
+  const owed = invs.reduce((a, i) => { const b = s.branches.find((x) => x.id === i.branchId); return a + (b ? Bill.owedOn(i, Bill.invoiceTotals(i, { branch: b, courses: s.courses, classes: s.classes, holidays: s.holidays }).total) : 0) }, 0)
+  const anyVoid = invs.some((i) => i.status === "void")
+  const invOpen = invs.length > 0 && !invMissing && !anyVoid && invs.every((i) => i.status !== "paid")
+  // old forms carried one slip; new ones several (each with its own Ref ID)
+  const slips = sub.slips?.length ? sub.slips : sub.slip ? [{ ref: "จากฟอร์มสมัครเรียน", amount: owed, image: sub.slip }] : []
+  const slipCheck = slipsCheck(slips, owed)
 
   const submit = async () => {
     setBusy(true)
     const r = approve(sub, sub.children.map((_, i) => ({ childIndex: i })), { newFamily })
     if (report(r, (v) => (inv ? `สร้างนักเรียน ${v.studentIds.length} คนแล้ว` : `สร้างนักเรียน ${v.studentIds.length} คนแล้ว — เลือกคอร์ส + คลาสในใบแจ้งหนี้ได้เลย`))) {
       // owner 2026-11-19: the invoice travelled with the form — the slip goes on THAT invoice (to confirm in Billing); no second invoice
-      if (inv && sub.slip && invOpen) report(s.recordPayment(inv.id, { amount: owed, method: "transfer", reference: "จากฟอร์มสมัครเรียน", slip: sub.slip, paidOn: toDateStr(s.now()) }), "บันทึกสลิปลงใบแจ้งหนี้แล้ว — ไปยืนยันยอดที่ Billing")
+      // each slip is its own payment (own Ref ID); a set's slip is shared across its invoices (recordGroupPayment)
+      if (inv && slips.length && invOpen && slipCheck.ok) {
+        const st = useStore.getState()
+        for (const sl of slips) {
+          const p = { amount: sl.amount, method: "transfer" as const, reference: sl.ref, slip: sl.image, paidOn: toDateStr(st.now()) }
+          const res = invs.length > 1 ? st.recordGroupPayment(invIds, p) : st.recordPayment(inv.id, p)
+          if (!report(res, `บันทึกสลิป Ref ${sl.ref} ลงใบแจ้งหนี้แล้ว — ไปยืนยันยอดที่ Billing`)) break
+        }
+      }
       // owner 2026-11-19: who told them about us — the admin matched it; the family remembers, the teachers' point comes once they pay
       if (referrerId) { const fid = useStore.getState().students.find((x) => x.id === r.value.studentIds[0])?.familyId; if (fid) useStore.getState().setFamilyReferrer(fid, referrerId) }
       await markEnrollReviewed(sub.id, "approved", r.value.studentIds)
@@ -101,14 +117,21 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
         {sub.invoiceId && (
           <section className="space-y-1.5 rounded-2xl border p-3 text-sm">
             <p className="font-medium">ใบแจ้งหนี้ที่แนบไปกับฟอร์ม</p>
-            {!inv ? <p className="text-danger">ไม่พบใบแจ้งหนี้นี้แล้ว</p> : inv.status === "void" ? <p className="text-danger">{inv.number} ถูกยกเลิกแล้ว — ผู้ปกครองกรอกมาจากลิงก์เก่า</p> : (
+            {!inv || invMissing ? <p className="text-danger">ไม่พบใบแจ้งหนี้นี้แล้ว</p> : anyVoid ? <p className="text-danger">{invs.find((i) => i.status === "void")?.number} ถูกยกเลิกแล้ว — ผู้ปกครองกรอกมาจากลิงก์เก่า</p> : (
               <>
-                <p>{inv.number} · ยอดค้าง <b>{fmtMoney(owed)}</b></p>
-                {sub.slip ? (
-                  <div className="flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={sub.slip} alt="สลิป" className="h-28 w-auto rounded-xl border" />
-                    <p className="text-xs text-muted-foreground">ผู้ปกครองแนบสลิปมา — กดสร้างนักเรียนแล้วระบบบันทึกลงใบนี้ รอยืนยันยอดที่ Billing</p>
+                <p>{invs.map((i) => i.number).join(" · ")} · ยอดค้าง <b>{fmtMoney(owed)}</b>{invs.length > 1 ? ` · ชุดครอบครัว ${invs.length} ใบ` : ""}</p>
+                {slips.length ? (
+                  <div className="space-y-2">
+                    {slips.map((sl, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={sl.image} alt="สลิป" className="h-24 w-auto rounded-xl border" />
+                        <div className="min-w-0 text-xs"><p className="font-medium text-foreground">Ref ID {sl.ref}</p><p className="tabular-nums text-muted-foreground">{fmtMoney(sl.amount)}</p></div>
+                      </div>
+                    ))}
+                    <p className={slipCheck.ok ? "text-xs text-muted-foreground" : "text-xs text-danger"}>
+                      {slipCheck.ok ? "ยอดสลิปรวมตรงกับใบแจ้งหนี้ — กดสร้างนักเรียนแล้วระบบบันทึกทุกใบ รอยืนยันยอดที่ Billing" : `${slipCheck.error} (รวม ${fmtMoney(slipCheck.sum)} จากที่ต้องชำระ ${fmtMoney(owed)}) — ระบบจะไม่บันทึกสลิป ตามผู้ปกครองให้โอนเพิ่ม/แก้ก่อน`}
+                    </p>
                   </div>
                 ) : <p className="text-xs text-muted-foreground">ยังไม่ได้แนบสลิป</p>}
               </>
@@ -133,7 +156,7 @@ export function EnrollReviewDialog({ sub, onClose, onDone }: { sub: EnrollSubmis
           <Button variant="ghost" className="text-muted-foreground" onClick={reject}><XIcon /> ปิดใบสมัคร (ไม่รับ)</Button>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>ไว้ก่อน</Button>
-            <Button disabled={busy} onClick={submit}><ReceiptIcon /> {inv ? (sub.slip && invOpen ? "สร้างนักเรียน + บันทึกสลิป" : "สร้างนักเรียน") : "สร้างนักเรียน + ใบแจ้งหนี้"}</Button>
+            <Button disabled={busy} onClick={submit}><ReceiptIcon /> {inv ? (slips.length && invOpen && slipCheck.ok ? "สร้างนักเรียน + บันทึกสลิป" : "สร้างนักเรียน") : "สร้างนักเรียน + ใบแจ้งหนี้"}</Button>
           </div>
         </DialogFooter>
       </DialogContent>
