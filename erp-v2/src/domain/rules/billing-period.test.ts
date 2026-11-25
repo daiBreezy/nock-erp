@@ -31,3 +31,22 @@ describe("quoteCourse with Special Periods", () => {
     expect(q([special] as never, period("2027-01-01", "2027-01-31")).total).toBe(4800)
   })
 })
+
+describe("a weekly pack is handled like a monthly one (owner 2026-11-25)", () => {
+  const week = { unit: "week", duration: 4, price: 4000 } as never
+  const qw = (periods?: SpecialPeriod[], startDate = "2027-01-04") => {
+    const r = quoteCourse({ course: week, klasses: [monday] as never, startDate, periods: 1, holidays: [], specialPeriods: periods })
+    if (!r.ok) throw new Error(r.error)
+    return r.value
+  }
+  it("no period = the pack price; a stopped week is left out (price is per week)", () => {
+    expect(qw().total).toBe(4000)
+    // Mondays 4 11 18 25: the period stops the first two weeks → 2 of 4 weeks billed
+    expect(qw(period("2027-01-01", "2027-01-17")).total).toBe(2000)
+  })
+  it("a pack fully inside the period costs 0", () => {
+    const v = qw(period("2027-01-01", "2027-02-28"))
+    expect(v.total).toBe(0)
+    expect(v.periodSkipped.length).toBeGreaterThan(0)
+  })
+})

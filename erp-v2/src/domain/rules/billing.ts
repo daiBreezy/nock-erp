@@ -130,7 +130,17 @@ export function quoteCourse(opts: {
   if (course.unit === "week") {
     const to = addDays(first, course.duration * 7 * opts.periods - 1)
     const { slots, skipped, periodSkipped } = classSlots(klasses, first, holidays, (d) => d > to, opts.specialPeriods)
-    return done(slots, skipped, first, to, [{ month: monthKey(first), sessions: slots.map((x) => x.date), factor: opts.periods, amount: course.price * opts.periods }], 0, 0, periodSkipped)
+    // owner 2026-11-25: a weekly pack is handled like a monthly one — a week in which the school stops every regular class (a Special Period) is not billed.
+    // The price is per week (pack price ÷ its weeks); weeks that are stopped are left out, every other week (holiday weeks included) is billed as before.
+    const totalWeeks = course.duration * opts.periods
+    const stopped = Array.from({ length: totalWeeks }, (_, i) => {
+      const a = addDays(first, 7 * i), b = addDays(first, 7 * i + 6)
+      const inWeek = (d: DateStr) => d >= a && d <= b
+      return periodSkipped.some(inWeek) && !slots.some((x) => inWeek(x.date))
+    }).filter(Boolean).length
+    const billedWeeks = totalWeeks - stopped
+    const amount = stopped === 0 ? course.price * opts.periods : Math.round((course.price / Math.max(1, course.duration)) * billedWeeks)
+    return done(slots, skipped, first, to, [{ month: monthKey(first), sessions: slots.map((x) => x.date), factor: stopped === 0 ? opts.periods : billedWeeks / Math.max(1, course.duration), amount }], 0, 0, periodSkipped)
   }
 
   // hour packs: whole sessions the minutes pay for, in real class order across every class, at each class's real

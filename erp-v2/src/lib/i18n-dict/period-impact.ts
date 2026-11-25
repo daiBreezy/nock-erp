@@ -144,5 +144,5 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "เลื่อนชั้น": { en: "Grade change", ja: "進級" },
   "กดเพื่อตรวจสอบและอนุมัติเลื่อนชั้น": { en: "Click to review and approve the grade change", ja: "クリックして進級を確認・承認" },
   "— คลาสปกติหยุด": { en: "— regular classes pause", ja: "— 通常クラスは休止" },
-  "(เดือนนี้คิด ฿0 — ถ้าผู้ปกครองต้องการเรียนช่วงนี้ ให้เลือกคอร์สของช่วงพิเศษ)": { en: "(this month is ฿0 — if the parent wants to study in this period, pick the period's own course)", ja: "(今月は ฿0 — この期間に受講したい場合は期間限定コースを選択)" },
+  "(รอบนี้คิด ฿0 — ถ้าผู้ปกครองต้องการเรียนช่วงนี้ ให้เลือกคอร์สของช่วงพิเศษ)": { en: "(this round is ฿0 — if the parent wants to study in this period, pick the period's own course)", ja: "(今月は ฿0 — この期間に受講したい場合は期間限定コースを選択)" },
 }

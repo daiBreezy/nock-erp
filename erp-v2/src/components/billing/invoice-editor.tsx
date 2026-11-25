@@ -751,7 +751,7 @@ export function LineCard({ index, draft, quote, studentId, studentGrade, choices
           {/* owner 2026-11-25: the month falls inside an Active Special Period — the regular class does not meet, so those weeks are not billed */}
           {q.periodSkipped.length > 0 && (
             <p className={cn("px-3 py-1.5 text-xs", HUE.teal.chip)}>
-              <SunIcon className="mr-1 inline size-3" />ช่วงพิเศษ {[...new Set(periodNamesOn(specialPeriods, q.periodSkipped))].join(", ")} — คลาสปกติหยุด {q.periodSkipped.length} วัน ไม่คิดเงินสัปดาห์เหล่านั้น{q.total === 0 ? " (เดือนนี้คิด ฿0 — ถ้าผู้ปกครองต้องการเรียนช่วงนี้ ให้เลือกคอร์สของช่วงพิเศษ)" : ""}
+              <SunIcon className="mr-1 inline size-3" />ช่วงพิเศษ {[...new Set(periodNamesOn(specialPeriods, q.periodSkipped))].join(", ")} — คลาสปกติหยุด {q.periodSkipped.length} วัน ไม่คิดเงินสัปดาห์เหล่านั้น{q.total === 0 ? " (รอบนี้คิด ฿0 — ถ้าผู้ปกครองต้องการเรียนช่วงนี้ ให้เลือกคอร์สของช่วงพิเศษ)" : ""}
             </p>
           )}
           <table className="w-full text-sm">

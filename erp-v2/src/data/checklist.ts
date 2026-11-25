@@ -64,7 +64,7 @@ export const CHECKLIST: CheckItem[] = [
   { id: "d-sp-msg", area: "ระบบ & ทั่วไป", title: "ข้อความถึงผู้ปกครองเรื่องช่วงพิเศษ: 1 ข้อความต่อครอบครัว ชุดข้อความแก้ได้ 2 ที่ ส่งเองทีละบ้าน + แถบช่วงพิเศษในแอปผู้ปกครอง", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/settings" },
   { id: "d-sp-date", area: "ระบบ & ทั่วไป", title: "ช่องเลือกวันที่เห็นช่วงพิเศษ: ห้ามเลือก Trial และวันเริ่มคลาสปกติ เตือน teal ที่อื่น", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/billing" },
   { id: "d-sp-count", area: "ระบบ & ทั่วไป", title: "แถบนับถอยหลังช่วงพิเศษ (เทา/ส้ม/แดง) บน Dashboard และ Calendar + ตัวย่อวัน ว / Nd ทั้งระบบ (ชี้ดูคำเต็ม)", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/" },
-  { id: "d-sp-invoice", area: "ระบบ & ทั่วไป", title: "ใบแจ้งหนี้ต่อคอร์สรายเดือนที่เดือนนั้นอยู่ในช่วงพิเศษ: ไม่คิดเงินสัปดาห์ที่คลาสปกติหยุด (ทั้งเดือน = ฿0 + ข้อความเตือน, ซ้อนบางส่วน = คิดตามสัปดาห์ที่เหลือ)", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/billing" },
+  { id: "d-sp-invoice", area: "ระบบ & ทั่วไป", title: "ใบแจ้งหนี้ต่อคอร์สรายเดือน/รายสัปดาห์ที่ตกในช่วงพิเศษ: ไม่คิดเงินสัปดาห์ที่คลาสปกติหยุด (รายเดือน: ทั้งเดือน = ฿0, ซ้อนบางส่วน = คิดตามสัปดาห์ที่เหลือ · รายสัปดาห์: คิดเฉพาะสัปดาห์ที่คลาสเปิด + ข้อความเตือน)", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/billing" },
 ]
 
 export const checklistOpen = () => CHECKLIST.filter((i) => i.status !== "done").length
