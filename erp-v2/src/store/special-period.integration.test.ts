@@ -139,6 +139,16 @@ describe("Special Period — end to end", () => {
     expect(st().bookMakeupSessions([mine[1]?.id ?? mine[0].id], [cand[0].id]).ok).toBe(false)
   })
 
+  it("8b. cancelling the make-up session gives the Credit back", () => {
+    const booked = st().sessionCredits.find((c) => c.periodId === period.id && c.settle?.mode === "makeup" && c.settle.makeupSessionId)
+    if (!booked) return
+    const sid = booked.settle!.makeupSessionId!
+    useStore.setState({ sessions: st().sessions.map((x) => (x.id === sid ? { ...x, cancelled: true } : x)) })
+    const after = st().sessionCredits.find((c) => c.id === booked.id)!
+    expect(after.status).toBe("open")
+    expect(after.settle).toBeUndefined()
+  })
+
   it("9. a bus extra ride must be a day the child really has a session", () => {
     const s = st()
     const stu = s.students.find((x) => x.branchId === "br_thl" && x.usesBus)!
@@ -187,7 +197,7 @@ describe("Special Period — end to end", () => {
     expect(after.filter((c) => c.status === "settled").length).toBe(settledBefore)
     expect(st().sessions.filter((s) => s.pausedBy === period.id)).toHaveLength(0)
     // the settled make-up credit asks the Admin to decide by hand
-    expect(st().notifications.some((n) => n.title === "Credit ที่ใช้ไปแล้ว แต่คาบกลับมาเรียน")).toBe(true)
+    if (settledBefore > 0) expect(st().notifications.some((n) => n.title === "Credit ที่ใช้ไปแล้ว แต่คาบกลับมาเรียน")).toBe(true) // (the make-up credit is open again after test 8b)
   })
 
   it("13. an extra ride IS accepted on a day the child really has a session", () => {

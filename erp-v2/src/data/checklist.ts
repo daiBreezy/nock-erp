@@ -26,6 +26,7 @@ export const CHECK_AREAS = ["Exam Result", "Invoice / Receipt", "Liclass", "น�
 
 export const CHECKLIST: CheckItem[] = [
   // ───────────────────────── ยังไม่เสร็จ
+  { id: "sp-next-invoice", area: "ระบบ & ทั่วไป", title: "ช่วงพิเศษ: ใบแจ้งหนี้รอบถัดไปของคนที่แพ็กเกจจบก่อนช่วง (เช่น 19 จาก 20 คนของ Summer ไม่มีแพ็กเกจครอบคลุม) ต้องคิดอย่างไร — ยังไม่ได้ออกแบบ", status: "decide", waiting: "คุณ", how: "ศูนย์ผลกระทบ › กลุ่ม ยังไม่มีแพ็กเกจครอบคลุมช่วงนี้", href: "/settings", date: "2026-11-25" },
   { id: "exam-months", area: "Exam Result", title: "ยืนยันช่วงเดือนของแต่ละครั้งสอบ (ผมตั้งเอง: กลาง 1 ก.ค.–ส.ค. · ปลาย 1 ก.ย.–ต.ค. · กลาง 2 ธ.ค.–ม.ค. · ปลาย 2 ก.พ.–มี.ค.)", status: "decide", waiting: "คุณ / Shibasan", how: "เปิดหน้า ผลสอบโรงเรียน — บรรทัดเล็กใต้ชื่อหน้าคือช่วงเดือน · แก้ที่ termRange ใน domain/rules/exams.ts", href: "/exams", date: "2026-11-23" },
   { id: "exam-prev4", area: "Exam Result", title: "ตัวกรองวิชา: \"4 ครั้งก่อนหน้า\" ผมทำเป็น 4 ครั้งก่อน + ครั้งที่เลือก (5 คอลัมน์) — ตรงที่ต้องการไหม", status: "decide", waiting: "คุณ", how: "ผลสอบโรงเรียน → ตัวกรอง › วิชา → เลือกวิชาหนึ่ง", href: "/exams", date: "2026-11-23" },
   { id: "exam-spacing", area: "Exam Result", title: "ระยะห่างตัวเลขในช่องวิชา — เลือก ก) ชิดแน่น (ลูกศรไม่ตรงกันแนวตั้ง) หรือ ข) คงแบบตอนนี้ (ตรงกัน แต่เลขสั้นมีช่องว่าง)", status: "decide", waiting: "คุณ", href: "/exams", date: "2026-11-23" },
@@ -58,6 +59,12 @@ export const CHECKLIST: CheckItem[] = [
   { id: "d-featuretree", area: "ระบบ & ทั่วไป", title: "แท็บ \"ฟีเจอร์ทั้งหมด\": ทรีกางได้ + ป้าย Pending + คำอธิบายการทำงาน · ครบ 31 List (ละเอียด 3 + ร่าง 28)", status: "done", date: "2026-11-24", round: "Checklist", href: "/checklist?view=features" },
   { id: "d-bilingual", area: "ระบบ & ทั่วไป", title: "Checklist และทรีฟีเจอร์เป็นไทย + อังกฤษ (สลับตามปุ่มภาษา · ภาษาญี่ปุ่นแสดงอังกฤษ) พร้อมเทสต์กันลืมแปล", status: "done", date: "2026-11-24", round: "Checklist", href: "/checklist" },
   { id: "d-arch", area: "ระบบ & ทั่วไป", title: "หน้า ERP Architecture — แผนที่ทุกหน้า/ฟีเจอร์ของ ERP", status: "done", date: "2026-11-21", round: "ERP Architecture", href: "/architecture" },
+  { id: "d-sp-impact", area: "ระบบ & ทั่วไป", title: "ศูนย์ผลกระทบช่วงพิเศษ: คาบที่หยุด นักเรียนที่กระทบ แยกกลุ่ม ขึ้น Dashboard พร้อมจำนวนบ้านที่ยังไม่ส่งข้อความ", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/settings" },
+  { id: "d-sp-credit", area: "ระบบ & ทั่วไป", title: "Credit คาบสำหรับแพ็กเกจรายสัปดาห์/เดือน (สร้างเอง ถอนเองเมื่อคาบกลับมา ยกเลิกคาบชดเชยแล้วกลับมา) + Refund / ลดครั้งถัดไป เป็นใบลดหนี้ + ชดเชยคาบจริง", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/students" },
+  { id: "d-sp-bus", area: "ระบบ & ทั่วไป", title: "รถรับส่งตามคาบจริง (คาบยกเลิก/ถูกพัก = ถอดออกจากรอบ) + รอบรถเพิ่มต้องเป็นวันที่มีคาบ + คืนค่ารถที่จ่ายแล้วเป็นใบลดหนี้", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/transport" },
+  { id: "d-sp-msg", area: "ระบบ & ทั่วไป", title: "ข้อความถึงผู้ปกครองเรื่องช่วงพิเศษ: 1 ข้อความต่อครอบครัว ชุดข้อความแก้ได้ 2 ที่ ส่งเองทีละบ้าน + แถบช่วงพิเศษในแอปผู้ปกครอง", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/settings" },
+  { id: "d-sp-date", area: "ระบบ & ทั่วไป", title: "ช่องเลือกวันที่เห็นช่วงพิเศษ: ห้ามเลือก Trial และวันเริ่มคลาสปกติ เตือน teal ที่อื่น", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/billing" },
+  { id: "d-sp-count", area: "ระบบ & ทั่วไป", title: "แถบนับถอยหลังช่วงพิเศษ (เทา/ส้ม/แดง) บน Dashboard และ Calendar + ตัวย่อวัน ว / Nd ทั้งระบบ (ชี้ดูคำเต็ม)", status: "done", date: "2026-11-25", round: "ช่วงพิเศษ (Special Period)", href: "/" },
 ]
 
 export const checklistOpen = () => CHECKLIST.filter((i) => i.status !== "done").length

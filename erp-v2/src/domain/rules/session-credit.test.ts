@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Course, Entitlement, Klass, Session, SpecialPeriod } from "../types"
-import { classWeeksInMonth, creditValue, invoiceStateFor, makeupCandidates, pairMakeups, planCreditNotes, syncPeriodCredits } from "./session-credit"
+import { classWeeksInMonth, creditValue, invoiceStateFor, makeupCandidates, pairMakeups, releaseMakeups, planCreditNotes, syncPeriodCredits } from "./session-credit"
 
 const klass = (id: string, weekday: number) => ({ id, weekday }) as Klass
 const monday = 1, thursday = 4
@@ -92,5 +92,16 @@ describe("make-up from credit", () => {
   it("pairs the earliest lost sessions first and leaves the rest open", () => {
     const cs = [{ id: "late", date: "2027-01-05", status: "open" }, { id: "early", date: "2026-12-08", status: "open" }, { id: "done", date: "2026-12-01", status: "settled", settle: { mode: "refund" } }] as never
     expect(pairMakeups(cs, ["s1"]).map((p) => [p.credit.id, p.sessionId])).toEqual([["early", "s1"]])
+  })
+})
+
+describe("make-up cancelled gives the credit back", () => {
+  const credit = { id: "c", studentId: "s1", status: "settled", settle: { mode: "makeup", makeupSessionId: "m1" } } as never
+  it("cancelled / deleted / student removed → open again; healthy booking untouched", () => {
+    const ok = [{ id: "m1", cancelled: false, studentIds: ["s1"] }]
+    expect(releaseMakeups([credit], ok)).toEqual([credit]) // same content, nothing changed
+    expect(releaseMakeups([credit], [{ id: "m1", cancelled: true, studentIds: ["s1"] }])[0]).toMatchObject({ status: "open", settle: undefined })
+    expect(releaseMakeups([credit], [])[0].status).toBe("open")
+    expect(releaseMakeups([credit], [{ id: "m1", cancelled: false, studentIds: [] }])[0].status).toBe("open")
   })
 })

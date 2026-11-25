@@ -175,3 +175,20 @@ export function makeupCandidates(opts: {
 export function pairMakeups(credits: SessionCredit[], sessionIds: ID[]): { credit: SessionCredit; sessionId: ID }[] {
   return [...credits].filter(makeupReady).sort((a, b) => a.date.localeCompare(b.date)).slice(0, sessionIds.length).map((credit, i) => ({ credit, sessionId: sessionIds[i] }))
 }
+
+/**
+ * owner 2026-11-25: a make-up session that is cancelled (or deleted, or the student taken out of it) gives the Credit back — it returns to "open" so the Admin can choose again.
+ * Returns the SAME array when nothing changed.
+ */
+export function releaseMakeups(credits: SessionCredit[], sessions: Pick<Session, "id" | "cancelled" | "studentIds">[]): SessionCredit[] {
+  let changed = false
+  const next = credits.map((c) => {
+    const sid = c.status === "settled" && c.settle?.mode === "makeup" ? c.settle.makeupSessionId : undefined
+    if (!sid) return c
+    const s = sessions.find((x) => x.id === sid)
+    if (s && !s.cancelled && s.studentIds.includes(c.studentId)) return c
+    changed = true
+    return { ...c, status: "open" as const, settle: undefined }
+  })
+  return changed ? next : credits
+}

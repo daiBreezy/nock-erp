@@ -4637,6 +4637,12 @@ if (typeof window !== "undefined") void useStore.persist.rehydrate()
 // the holiday rules need to know each branch's brand (Liclass / NockAcademy keep different calendars) — keep that in step with the branches
 Sch.setBranchBrands(useStore.getState().branches)
 useStore.subscribe((s, prev) => { if (s.branches !== prev.branches) Sch.setBranchBrands(s.branches) })
+// owner 2026-11-25: a make-up session cancelled / deleted / emptied of the student gives its session Credit back (open again)
+useStore.subscribe((s, prev) => {
+  if (s.sessions === prev.sessions) return
+  const next = SCredit.releaseMakeups(s.sessionCredits ?? [], s.sessions)
+  if (next !== (s.sessionCredits ?? [])) useStore.setState({ sessionCredits: next })
+})
 
 /**
  * Demo: a few Thonglor families have someone whose birthday is TODAY (a guardian or a child), so the little cake beside the family's name shows up
