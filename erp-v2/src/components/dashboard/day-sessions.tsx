@@ -28,8 +28,8 @@ export function DaySessions({ todays, now, attendance, mineOnly, onOpen }: {
   const live = todays.filter((s) => sessionState(s, now) === "live")
   const upcoming = todays.filter((s) => sessionState(s, now) === "upcoming")
   const past = todays.filter(ended)
-  // owner 2026-11-25: the whole day left → right in time order; the LEFTMOST visible card is always the current one (live, else the next one, else the last that ended) —
-  // the ones already over sit off the left edge: scroll or tap the arrows to look back
+  // owner 2026-11-25: the whole day left → right in time order; the current card (live, else the next one, else the last that ended) is brought to the LEFT edge as far as the
+  // row can scroll — the ones already over sit off the left: scroll or tap the arrows to look back. A day whose cards all fit shows them all (no blank space, nothing to scroll).
   const ordered = [...todays].sort((a, b) => a.start.localeCompare(b.start))
   const current = live[0] ?? ordered.find((s) => sessionState(s, now) === "upcoming") ?? ordered.at(-1)
   const strip = useRef<HTMLDivElement>(null)
@@ -64,8 +64,6 @@ export function DaySessions({ todays, now, attendance, mineOnly, onOpen }: {
         {todays.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{tx("วันนี้ไม่มีคาบเรียน")}</p>}
         <div ref={strip} onScroll={measure} className="relative -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2">
           {ordered.map((s) => <SessionCard key={s.id} s={s} now={now} L={L} attendance={attendance} onOpen={() => onOpen(s.id)} muted={ended(s)} />)}
-          {/* room after the last card so the current one can always sit at the left edge */}
-          <div aria-hidden className="w-[calc(100%-15.5rem)] shrink-0" />
         </div>
       </CardContent>
     </DashCard>
