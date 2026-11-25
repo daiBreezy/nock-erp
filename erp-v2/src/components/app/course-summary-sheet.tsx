@@ -33,6 +33,7 @@ import { toast } from "@/lib/toast"
 import { Empty } from "@/components/app/empty"
 import { fmtSpan } from "@/lib/span"
 import { tx } from "@/lib/i18n"
+import { SpanTip } from "@/components/app/span-tip"
 
 const FIELD_MAX = 250
 type Draft = { overallProgress: string; toImprove: string; strengths: string }
@@ -155,7 +156,7 @@ function Body({ round }: { round: Sum.EntitlementRound }) {
           ["นักเรียน", <>{student.name}{family && <Link href="/families" className="text-xs text-primary underline">{familyDisplay(family.name)}</Link>}</>],
           ["คอร์ส", <>{course?.name}{bundle && <Pill tone="special"><LayersIcon className="size-3" /> Bundle</Pill>}{course?.subjects.map((x) => <span key={x} className={cn("rounded-full px-1.5 py-0.5 text-2xs", subjectColor(x).chip)}>{x}</span>)}</>],
           ["ช่วงเรียน", <>{fmtDate(round.from)} – {fmtDate(round.to, { year: true })}{round.entitlementIds.length > 1 && <span className="text-muted-foreground">({round.entitlementIds.length} รอบต่อเนื่อง)</span>}<span className="text-muted-foreground">· {branch?.name}</span></>],
-          ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? tx("เลย {0}", [fmtSpan(-due.daysLeft)]) : tx("อีก {0}", [fmtSpan(due.daysLeft)])}</span>] as [string, React.ReactNode]]),
+          ...(status === "sent" ? [] : [["กำหนดส่ง", <span key="d" className={cn(due.overdue || due.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(due.deadline, { weekday: true })} · {due.overdue ? <SpanTip days={-due.daysLeft} phrase="เลย {0}" /> : <SpanTip days={due.daysLeft} phrase="อีก {0}" />}</span>] as [string, React.ReactNode]]),
           ...(cs ? [["เขียนโดย", L.teacher(cs.authorId).label] as [string, React.ReactNode]] : []),
           ...(approved ? [["อนุมัติโดย", `${L.teacher(approved.by).label} · ${fmtDateTime(approved.at)}`] as [string, React.ReactNode]] : []),
         ]} />

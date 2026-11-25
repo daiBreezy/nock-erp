@@ -33,6 +33,7 @@ import { useStore } from "@/store/store"
 import { Empty } from "@/components/app/empty"
 import { fmtSpan } from "@/lib/span"
 import { tx } from "@/lib/i18n"
+import { SpanTip } from "@/components/app/span-tip"
 
 // owner 2026-10-13: six statuses, in the order the work moves — "not written" and "draft" are no longer one pile
 type Bucket = "to_write" | "draft" | "submitted" | "approved" | "sent" | "changes"
@@ -295,7 +296,7 @@ function CourseSummaryTab({ head }: { head: Head }) {
     { id: "due", label: "กำหนดส่ง", info: "ต้องส่งสรุปภายในกี่วันหลังคอร์สจบ", cell: (r) => {
       if (bucket(r) === "sent") return <span className="text-muted-foreground">—</span>
       const d = Sum.courseSummaryDeadline(r, now)
-      return <span className={cn("whitespace-nowrap", d.overdue || d.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(d.deadline)} · {d.overdue ? tx("เลย {0}", [fmtSpan(-d.daysLeft)]) : tx("อีก {0}", [fmtSpan(d.daysLeft)])}</span>
+      return <span className={cn("whitespace-nowrap", d.overdue || d.daysLeft <= 2 ? "font-medium text-danger" : "")}>{fmtDate(d.deadline)} · {d.overdue ? <SpanTip days={-d.daysLeft} phrase="เลย {0}" /> : <SpanTip days={d.daysLeft} phrase="อีก {0}" />}</span>
     } },
     { id: "status", label: "สถานะ", align: "right", required: true, cell: (r) => <Pill tone={PILL_TONE[bucket(r)]}>{BUCKETS.find((x) => x.key === bucket(r))!.label}</Pill> },
   ]

@@ -75,7 +75,7 @@ export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?:
 }
 
 /** ⚠️ ต้องรู้ไว้ — alerts you should see even if they aren't yours to do. Compact, yellow-framed. */
-export function AlertBox({ topics, periods, branchId, notices }: { topics: Topic[]; /** owner 2026-11-25: one-off notices that are not counted topics (e.g. the yearly grade change) — a row each */ notices?: { key: string; title: string; sub?: string; onClick?: () => void }[]; /** owner 2026-11-25: Special Periods coming (countdown, gray → orange → red) */ periods?: PeriodCountdown[]; branchId?: string }) {
+export function AlertBox({ topics, periods, branchId, notices }: { topics: Topic[]; /** owner 2026-11-25: one-off notices that are not counted topics (e.g. the yearly grade change) — a row each */ notices?: { key: string; title: React.ReactNode; sub?: string; onClick?: () => void }[]; /** owner 2026-11-25: Special Periods coming (countdown, gray → orange → red) */ periods?: PeriodCountdown[]; branchId?: string }) {
   const open = topics.filter((t) => t.count > 0)
   const coming = periods ?? []
   const extra = notices ?? []

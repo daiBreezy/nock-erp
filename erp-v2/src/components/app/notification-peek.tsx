@@ -7,7 +7,7 @@ import type { NotificationKind } from "@/domain/types"
 import { useSidePanel } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { NOTI_KIND, NotiScrim, notiAgo, type NotiKind } from "./noti"
+import { NOTI_KIND, NotiScrim, NotiAgo, type NotiKind } from "./noti"
 import { peekClose, peekEnter, peekLeave, usePeekOpen } from "./noti-peek-state"
 
 /** which Noti look (colour + icon) a team notification gets */
@@ -43,7 +43,7 @@ export function NotificationPeek() {
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="flex items-start gap-2">
                   <span className={cn("line-clamp-2 min-w-0 flex-1 text-sm", isNew ? "font-semibold" : "font-medium")}>{n.title}</span>
-                  <span className="mt-0.5 shrink-0 text-2xs text-muted-foreground">{notiAgo(Date.parse(n.at))}</span>
+                  <span className="mt-0.5 shrink-0 text-2xs text-muted-foreground"><NotiAgo at={Date.parse(n.at)} /></span>
                 </span>
                 <span className="line-clamp-2 text-xs">{n.body}</span>
               </span>

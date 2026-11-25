@@ -17,6 +17,7 @@ import { useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { fmtSpan } from "@/lib/span"
 import { tx } from "@/lib/i18n"
+import { SpanTip } from "@/components/app/span-tip"
 
 const MAX_LISTED = 200
 
@@ -37,7 +38,7 @@ export function useRolloverNotice(branchId: ID) {
   const due = st.kind === "due"
   return {
     due, auto, count,
-    title: due ? `ถึงเวลาเลื่อนชั้นประจำปี ${st.year + 543} แล้ว` : `${tx("อีก {0}", [fmtSpan(st.daysLeft)])} (${fmtDate(st.date)}) จะเลื่อนชั้นประจำปี`,
+    title: due ? `ถึงเวลาเลื่อนชั้นประจำปี ${st.year + 543} แล้ว` : <><SpanTip days={st.daysLeft} phrase="อีก {0}" date={st.date} /> ({fmtDate(st.date)}) จะเลื่อนชั้นประจำปี</>,
     sub: `${count} คนจะขึ้นชั้นถัดไป · ${auto ? "สาขานี้ตั้งเป็น Auto — ระบบจะเลื่อนให้เองในวันนั้น" : "ต้องให้ Admin กดอนุมัติ"}`,
     action: due ? (auto ? "เลื่อนเลย" : "ตรวจสอบและอนุมัติ") : null,
   }

@@ -125,8 +125,6 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "แก้ได้ · ส่งจากศูนย์ผลกระทบ": { en: "Editable · sent from the Impact Center", ja: "編集可 · 影響センターから送信" },
   "ลบช่วงนี้": { en: "Delete this period", ja: "この期間を削除" },
   "{0} ว": { en: "{0}d", ja: "{0}日" },
-  "{0} ด": { en: "{0}m", ja: "{0}ヶ月" },
-  "{0} ป": { en: "{0}y", ja: "{0}年" },
   "อีก {0}": { en: "in {0}", ja: "あと{0}" },
   "เหลือ {0}": { en: "{0} left", ja: "残り{0}" },
   "เริ่มอีก {0}": { en: "starts in {0}", ja: "あと{0}で開始" },
@@ -136,4 +134,7 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "ใช้เวลา {0}": { en: "took {0}", ja: "所要 {0}" },
   "จบ {0} ({1})": { en: "ends {0} ({1})", ja: "{0} 終了({1})" },
   "{0} ({1}) จะเลื่อนชั้นประจำปี": { en: "{0} ({1}) the yearly grade change happens", ja: "{0}({1})に進級を行います" },
+  "{0} เดือน": { en: "{0} months", ja: "{0}か月" },
+  "{0} วัน": { en: "{0} days", ja: "{0}日" },
+  ") จะเลื่อนชั้นประจำปี": { en: ") the yearly grade change happens", ja: ")に進級を行います" },
 }

@@ -14,7 +14,10 @@ import { agoLabel } from "@/domain/dates"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { usePeekOpen } from "./noti-peek-state"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { fmtSpan } from "@/lib/span"
+import { useNow } from "@/lib/hooks"
+import { fmtDate, toDateStr } from "@/domain/dates"
 
 export type NotiKind = "exit" | "leave" | "return" | "bus" | "home" | "message" | "note" | "info"
 // `tone` = the round icon chip · `card` = the whole card (tinted bg + coloured border + thick left accent) so each
@@ -48,16 +51,29 @@ export function notify({ title, body, kind = "info", action, sticky = true }: {
   return id
 }
 
-export function notiAgo(at: number) {
-  const a = agoLabel(at, Date.now())
+/** "3 ว ที่แล้ว" compact, the full words on hover (owner 2026-11-25) — past a month it is the DATE, there is no month / year unit */
+export function NotiAgo({ at }: { at: number }) {
+  const now = useNow(60_000).getTime()
+  const a = agoLabel(at, now)
+  if (a.kind !== "days") return <>{notiAgo(at, now)}</>
+  return (
+    <HoverCard>
+      <HoverCardTrigger render={<span className="cursor-default" />}>{notiAgo(at, now)}</HoverCardTrigger>
+      <HoverCardContent side="top" align="end" className="w-auto px-3 py-2 text-xs">{tx("{0} วันที่แล้ว", [a.n])}</HoverCardContent>
+    </HoverCard>
+  )
+}
+
+export function notiAgo(at: number, now: number = Date.now()) {
+  const a = agoLabel(at, now)
   switch (a.kind) {
     case "now": return tx("เมื่อสักครู่")
     case "minutes": return tx("{0} นาทีที่แล้ว", [a.n])
     case "clock": return a.clock!
     case "yesterday": return tx("เมื่อวาน")
     case "days": return tx("{0}ที่แล้ว", [fmtSpan(a.n)])
-    case "months": return tx("{0}ที่แล้ว", [tx("{0} ด", [a.n])])
-    case "years": return tx("{0}ที่แล้ว", [tx("{0} ป", [a.n])])
+    case "months": return fmtDate(toDateStr(new Date(at)), { year: true })
+    case "years": return fmtDate(toDateStr(new Date(at)), { year: true })
   }
 }
 
@@ -114,7 +130,7 @@ function NotiCard({ t, list }: { t: ReturnType<typeof ToastPrimitive.useToastMan
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-start gap-2">
             <ToastTitle className="line-clamp-2 min-w-0 flex-1 font-semibold" />
-            {data && <span className="mt-0.5 shrink-0 text-2xs text-muted-foreground">{notiAgo(data.at)}</span>}
+            {data && <span className="mt-0.5 shrink-0 text-2xs text-muted-foreground"><NotiAgo at={data.at} /></span>}
           </div>
           <ToastDescription className="line-clamp-2 text-xs" />
           {t.actionProps && <ToastAction render={<Button variant="outline" />} className="mt-2 self-start" />}

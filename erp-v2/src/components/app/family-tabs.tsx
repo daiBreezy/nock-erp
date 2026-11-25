@@ -27,6 +27,7 @@ import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { fmtSpan } from "@/lib/span"
+import { SpanTip } from "@/components/app/span-tip"
 
 /** owner 2026-11-20: a DROPDOWN (not a segmented control) — "everyone" + one entry per child; only when the family has more than one child */
 function KidFilter({ kids, value, onChange }: { kids: Student[]; value: ID | "all"; onChange: (v: ID | "all") => void }) {
@@ -180,7 +181,7 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
     { icon: MapPinIcon, label: tx("ที่อยู่"), value: <AddressValue note={family.addressNote} address={addr} location={family.location} /> },
     { icon: StoreIcon, label: tx("สร้างที่สาขา"), value: first ? <>{tx("สร้างที่สาขา{0}", [firstBranch ?? "—"])}<span className="text-muted-foreground"> · {fmtDate(first.createdAt.slice(0, 10), { year: true })}</span></> : <NotSet what="สร้างที่สาขา" /> },
     { icon: UserRoundPlusIcon, label: tx("เป็น Lead วันแรก"), value: lc.leadSince ? <>{tx("เป็น Lead")} {fmtDate(lc.leadSince, { year: true })}</> : <NotSet what="เป็น Lead วันแรก" /> },
-    { icon: TimerIcon, label: tx("จาก Lead เป็นลูกค้า"), value: lc.days !== null && lc.customerSince ? <>{tx("เป็นลูกค้า")} {fmtDate(lc.customerSince, { year: true })}<span className="text-muted-foreground"> · {tx("ใช้เวลา {0}", [fmtSpan(lc.days)])}</span></> : lc.leadSince ? <span className="text-muted-foreground">{tx("ยังไม่เป็นลูกค้า · เป็น Lead มา {0} วัน", [Math.max(0, daysBetween(lc.leadSince, today))])}</span> : <NotSet what="จาก Lead เป็นลูกค้า" /> },
+    { icon: TimerIcon, label: tx("จาก Lead เป็นลูกค้า"), value: lc.days !== null && lc.customerSince ? <>{tx("เป็นลูกค้า")} {fmtDate(lc.customerSince, { year: true })}<span className="text-muted-foreground"> · <SpanTip days={lc.days} phrase="ใช้เวลา {0}" /></span></> : lc.leadSince ? <span className="text-muted-foreground">{tx("ยังไม่เป็นลูกค้า · เป็น Lead มา {0} วัน", [Math.max(0, daysBetween(lc.leadSince, today))])}</span> : <NotSet what="จาก Lead เป็นลูกค้า" /> },
     { icon: MegaphoneIcon, label: tx("รู้จักเราจาก"), value: sources.length ? sources.join(", ") : <NotSet what="รู้จักเราจาก" /> },
     { icon: UsersIcon, label: tx("ผู้แนะนำ"), value: family.referralText || referrer ? <>{tx("แนะนำโดย")} {family.referralText}{referrer && <span className="text-muted-foreground"> → {referrer}</span>}</> : <NotSet what="ผู้แนะนำ" /> },
     { icon: ShieldCheckIcon, label: "PDPA", value: family.pdpa ? `PDPA · ${PDPA_LABEL[family.pdpa]}` : <NotSet what="PDPA" /> },

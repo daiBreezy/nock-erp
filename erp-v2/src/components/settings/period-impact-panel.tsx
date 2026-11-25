@@ -21,6 +21,7 @@ import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { fmtSpan } from "@/lib/span"
+import { SpanTip } from "@/components/app/span-tip"
 
 type Show = "all" | "hourly" | "subscription" | "bookings" | "bus"
 
@@ -102,7 +103,7 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
           <SheetDescription className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span>{fmtDate(period.from, { year: true })} – {fmtDate(period.to, { year: true })}</span>
             <Pill tone={period.active ? "green" : "gray"}>{period.active ? "Active" : "Inactive"}</Pill>
-            {period.to >= today && <span className={cn(short && "font-medium text-warning-ink")}>{days === 0 ? tx("เริ่มแล้ว") : tx("เริ่มอีก {0}", [fmtSpan(days)])}</span>}
+            {period.to >= today && <span className={cn(short && "font-medium text-warning-ink")}>{days === 0 ? tx("เริ่มแล้ว") : <SpanTip days={days} phrase="เริ่มอีก {0}" date={period.from} />}</span>}
           </SheetDescription>
         </SheetHeader>
         <PanelBody>

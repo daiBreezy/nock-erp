@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { ChevronRightIcon, SunIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SpanTip } from "@/components/app/span-tip"
 import { PeriodImpactPanel, usePeriodImpact } from "@/components/settings/period-impact-panel"
 import { toDateStr } from "@/domain/dates"
 import { periodCountdown, type CountdownTone, type PeriodCountdown } from "@/domain/rules/period-impact"
@@ -11,7 +12,6 @@ import { useNow } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { fmtSpan } from "@/lib/span"
 
 /** the current branch's upcoming Special Periods with their colour (owner 2026-11-25): gray 60–45 days · orange under 45 and not switched on · red under 30 */
 export function usePeriodCountdown(opts?: { includeRunning?: boolean }): { items: PeriodCountdown[]; branchId: string } {
@@ -29,7 +29,10 @@ const TONE: Record<CountdownTone, { text: string; dot: string; chip: string }> =
   red: { text: "text-danger", dot: "bg-danger", chip: "bg-danger-soft text-danger" },
 }
 
-export const countdownText = (c: PeriodCountdown) => `${c.period.name} · ${c.running ? tx("กำลังอยู่ในช่วงนี้") : tx("เริ่มอีก {0}", [fmtSpan(c.days)])}${c.opened ? "" : ` · ${tx("ยังไม่เปิด")}`}`
+/** "Summer · เริ่มอีก 40 ว" — compact, the full words on hover */
+export function CountdownLabel({ c }: { c: PeriodCountdown }) {
+  return <>{c.period.name} · {c.running ? tx("กำลังอยู่ในช่วงนี้") : <SpanTip days={c.days} phrase="เริ่มอีก {0}" date={c.period.from} />}{c.opened ? "" : ` · ${tx("ยังไม่เปิด")}`}</>
+}
 
 /**
  * Dashboard › ต้องรู้ไว้ — one row per period. owner 2026-11-25: the Impact Center is serious and takes a long time to work through, so it lives here too: the row says how many
@@ -47,7 +50,7 @@ function CountdownRow({ c, branchId }: { c: PeriodCountdown; branchId: string })
         <span className={cn("size-1.5 shrink-0 rounded-full", TONE[c.tone].dot)} />
         <SunIcon className={cn("size-3.5 shrink-0", TONE[c.tone].text)} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm">{tx("ช่วงพิเศษ")} {countdownText(c)}</span>
+          <span className="block truncate text-sm">{tx("ช่วงพิเศษ")} <CountdownLabel c={c} /></span>
           {impact.students.length > 0 && <span className="block truncate text-xs text-muted-foreground">{tx("ผลกระทบ {0} คน", [impact.students.length])}{unsent > 0 ? ` · ${tx("ยังไม่ส่งข้อความ {0} บ้าน", [unsent])}` : ""}</span>}
         </span>
         <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -67,7 +70,7 @@ export function CountdownPills({ items, branchId }: { items: PeriodCountdown[]; 
     <>
       {items.map((c) => (
         <Link key={c.period.id} href={`/settings/branches/${branchId}`} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", TONE[c.tone].chip)}>
-          <SunIcon className="size-3" /> {countdownText(c)}
+          <SunIcon className="size-3" /> <CountdownLabel c={c} />
         </Link>
       ))}
     </>
