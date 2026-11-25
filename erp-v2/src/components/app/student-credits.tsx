@@ -7,11 +7,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
-import { creditTotal } from "@/domain/rules/session-credit"
+import { creditTotal, makeupReady } from "@/domain/rules/session-credit"
 import type { CreditSettle, ID, SessionCredit, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { tx } from "@/lib/i18n"
 import { useStore } from "@/store/store"
+import { MakeupDialog } from "./makeup-dialog"
 import { Pill } from "./badges"
 import { NativeSelect } from "./native-select"
 
@@ -34,14 +35,14 @@ export function SessionCreditsCard({ kids }: { kids: Student[] }) {
   const [pick, setPick] = useState<Set<ID>>(new Set())
   const [mode, setMode] = useState<CreditSettle>("refund")
   const [note, setNote] = useState("")
-  const [other, setOther] = useState(false)
+  const [makeup, setMakeup] = useState<ID[] | null>(null)
   if (mine.length === 0) return null
   const canAct = can(me, "billing.manage")
   const open = mine.filter((c) => c.status === "open")
   const total = creditTotal(open)
   const toggle = (id: ID) => setPick((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const chosen = open.filter((c) => pick.has(c.id))
-  const done = () => { setPick(new Set()); setNote(""); setOther(false) }
+  const chosen = mine.filter((c) => pick.has(c.id) && makeupReady(c))
+  const done = () => { setPick(new Set()); setNote("") }
   const kidName = (c: SessionCredit) => (kids.length > 1 ? `${kids.find((k) => k.id === c.studentId)?.nickname ?? "—"} · ` : "")
   return (
     <section className="space-y-2 rounded-xl bg-muted/40 p-2.5">
@@ -53,9 +54,10 @@ export function SessionCreditsCard({ kids }: { kids: Student[] }) {
       <ul className="divide-y rounded-lg bg-background text-sm">
         {mine.map((c) => (
           <li key={c.id} className="flex items-center gap-2 px-2.5 py-1.5">
-            {c.status === "open" && canAct && <Checkbox checked={pick.has(c.id)} onCheckedChange={() => toggle(c.id)} aria-label={tx("เลือก Credit นี้")} />}
+            {makeupReady(c) && canAct && <Checkbox checked={pick.has(c.id)} onCheckedChange={() => toggle(c.id)} aria-label={tx("เลือก Credit นี้")} />}
             <span className="min-w-0 flex-1 truncate">{kidName(c)}{courses.find((x) => x.id === c.courseId)?.name ?? "—"}<span className="ml-1.5 text-xs text-muted-foreground">{fmtDate(c.date, { weekday: true })}</span></span>
             <span className="tabular-nums">{fmtMoney(c.value)}</span>
+            {c.status === "settled" && makeupReady(c) && canAct && <Button size="xs" variant="outline" onClick={() => setMakeup([c.id])}>{tx("จองคาบ")}</Button>}
             {c.status === "settled" && <Pill tone="green">{tx(SETTLE_LABEL[c.settle!.mode])}{c.settle!.creditNoteId && ` · ${notes.find((n) => n.id === c.settle!.creditNoteId)?.number ?? ""}`}</Pill>}
           </li>
         ))}
@@ -68,18 +70,16 @@ export function SessionCreditsCard({ kids }: { kids: Student[] }) {
               options={(Object.keys(SETTLE_LABEL) as CreditSettle[]).map((m) => ({ value: m, label: tx(SETTLE_LABEL[m]) }))} />
             <Input className="h-8 min-w-40 flex-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder={tx("หมายเหตุ / เหตุผลที่ยกเลิก")} />
           </div>
-          {mode === "makeup" && (
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Checkbox checked={other} onCheckedChange={(v) => setOther(!!v)} /> {tx("อนุญาตให้ชดเชยในคอร์สอื่นของนักเรียนได้ (ปกติชดเชยในคอร์สเดียวกัน)")}
-            </label>
-          )}
           <div className="flex justify-end gap-1.5">
             <Button size="xs" variant="ghost" onClick={() => { if (report(revoke([...pick], note), tx("ยกเลิก Credit แล้ว"))) done() }}>{tx("ยกเลิก Credit (ต้องใส่เหตุผล)")}</Button>
-            <Button size="xs" onClick={() => { if (report(settle([...pick], mode, note, other), tx("บันทึกการเลือกแล้ว"))) done() }}>{tx("บันทึกการเลือก")}</Button>
+            {mode === "makeup"
+              ? <Button size="xs" onClick={() => setMakeup(chosen.map((c) => c.id))}>{tx("เลือกคาบชดเชย")}</Button>
+              : <Button size="xs" onClick={() => { if (report(settle([...pick], mode, note), tx("บันทึกการเลือกแล้ว"))) done() }}>{tx("บันทึกการเลือก")}</Button>}
           </div>
-          <p className="text-2xs text-muted-foreground">{tx("Refund และส่วนลดสร้างใบลดหนี้จากใบที่จ่ายแล้วให้เอง (ไปอนุมัติ/โอนคืนที่ Billing › ใบลดหนี้) · ใบที่ยังไม่จ่ายให้แก้ยอดใบแล้วยกเลิก Credit · ชดเชยคาบบันทึกการเลือกเท่านั้น ต้องจองคาบเองที่ปฏิทิน")}</p>
+          <p className="text-2xs text-muted-foreground">{tx("Refund และส่วนลดสร้างใบลดหนี้จากใบที่จ่ายแล้วให้เอง (ไปอนุมัติ/โอนคืนที่ Billing › ใบลดหนี้) · ใบที่ยังไม่จ่ายให้แก้ยอดใบแล้วยกเลิก Credit · ชดเชยคาบ: เลือกคาบที่ว่างให้ได้เลย (1 Credit = 1 คาบ)")}</p>
         </div>
       )}
+      {makeup && <MakeupDialog creditIds={makeup} onClose={() => { setMakeup(null); done() }} />}
     </section>
   )
 }

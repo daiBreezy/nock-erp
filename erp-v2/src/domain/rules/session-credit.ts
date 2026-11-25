@@ -135,3 +135,43 @@ export function planCreditNotes(
   }
   return { ok: true, plans: [...byKey.values()] }
 }
+
+/**
+ * owner 2026-11-25 — make-up from Credit: the Admin picks EXISTING sessions (default: the same course as the lost session, with a free seat); optionally the
+ * Admin may allow any course of the branch, or create a new one-off session first. 1 credit = 1 make-up session; credits with no pick stay open.
+ */
+export const CAPACITY_CLASS = { single: 3, group: 6 } as const
+const seatsOf = (k: Pick<Klass, "type"> | undefined) => CAPACITY_CLASS[k?.type ?? "group"]
+
+/** credits that can still be turned into a make-up: open ones, or ones the Admin already chose "make-up" for but nothing is booked yet */
+export const makeupReady = (c: SessionCredit) => c.status === "open" || (c.status === "settled" && c.settle?.mode === "makeup" && !c.settle.makeupSessionId)
+
+export function makeupCandidates(opts: {
+  credit: Pick<SessionCredit, "studentId" | "courseId" | "branchId">
+  sessions: Session[]
+  classes: Pick<Klass, "id" | "courseId" | "type">[]
+  course?: Pick<Course, "subjects">
+  now: Date
+  /** Admin's optional choice: any course of the student's branch */
+  otherCourse?: boolean
+  today: DateStr
+}): Session[] {
+  const { credit, now, otherCourse } = opts
+  return opts.sessions
+    .filter((s) => s.branchId === credit.branchId && !s.cancelled && !s.trial && !s.studentIds.includes(credit.studentId) && s.date >= opts.today)
+    .filter((s) => new Date(`${s.date}T${s.start}:00`) >= now)
+    .filter((s) => {
+      const k = opts.classes.find((x) => x.id === s.classId)
+      if (s.studentIds.length >= seatsOf(k)) return false
+      if (otherCourse) return true
+      // same course: a class of the course, or a one-off session in one of the course's subjects
+      if (k) return k.courseId === credit.courseId
+      return !s.classId && (opts.course?.subjects ?? []).some((sub) => [s.subject, ...(s.subjects ?? [])].includes(sub))
+    })
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+}
+
+/** which credit pays which make-up session — earliest lost session first */
+export function pairMakeups(credits: SessionCredit[], sessionIds: ID[]): { credit: SessionCredit; sessionId: ID }[] {
+  return [...credits].filter(makeupReady).sort((a, b) => a.date.localeCompare(b.date)).slice(0, sessionIds.length).map((credit, i) => ({ credit, sessionId: sessionIds[i] }))
+}

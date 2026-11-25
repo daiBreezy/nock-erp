@@ -1531,7 +1531,7 @@ export interface SessionCredit {
   /** baht for this one session */
   value: number
   status: "open" | "settled" | "revoked"
-  settle?: { mode: CreditSettle; at: string; by: ID; note?: string; /** Refund / discount: the Credit Note (ใบลดหนี้) that carries the money — its approval + transfer-back happen in Billing */ creditNoteId?: ID; /** make-up may use another course of the student (Admin's optional choice) */ otherCourse?: boolean }
+  settle?: { mode: CreditSettle; at: string; by: ID; note?: string; /** Refund / discount: the Credit Note (ใบลดหนี้) that carries the money — its approval + transfer-back happen in Billing */ creditNoteId?: ID; /** make-up: the session this credit was spent on */ makeupSessionId?: ID; /** make-up may use another course of the student (Admin's optional choice) */ otherCourse?: boolean }
   /** why a credit was revoked (period changed · invoice adjusted by hand …) */
   revokedReason?: string
   createdAt: string

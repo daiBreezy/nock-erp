@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Course, Entitlement, Klass, Session, SpecialPeriod } from "../types"
-import { classWeeksInMonth, creditValue, invoiceStateFor, planCreditNotes, syncPeriodCredits } from "./session-credit"
+import { classWeeksInMonth, creditValue, invoiceStateFor, makeupCandidates, pairMakeups, planCreditNotes, syncPeriodCredits } from "./session-credit"
 
 const klass = (id: string, weekday: number) => ({ id, weekday }) as Klass
 const monday = 1, thursday = 4
@@ -71,5 +71,26 @@ describe("planCreditNotes", () => {
   it("an unpaid invoice cannot carry money — says to reduce the invoice instead", () => {
     const r = planCreditNotes([cr("a", 500)], [{ id: "e1", invoiceId: "i1" }], [inv("sent")], () => "Eng Fun")
     expect(r.ok).toBe(false)
+  })
+})
+
+describe("make-up from credit", () => {
+  const credit = { id: "c1", studentId: "s1", courseId: "c1", branchId: "b1", date: "2026-12-08", status: "open" } as never
+  const classes = [{ id: "k1", courseId: "c1", type: "group" }, { id: "k2", courseId: "c2", type: "group" }, { id: "k3", courseId: "c1", type: "single" }] as never
+  const ses = (id: string, classId: string | null, date: string, over = {}) => ({ id, branchId: "b1", classId, date, start: "10:00", subject: "Eng", studentIds: [], cancelled: false, trial: false, ...over }) as never
+  const base = { credit, classes, course: { subjects: ["Eng"] }, now: new Date("2026-11-25T09:00:00"), today: "2026-11-25" }
+  it("default = same course, upcoming, free seat, student not already in it", () => {
+    const sessions = [
+      ses("a", "k1", "2026-12-22"), ses("b", "k2", "2026-12-22"), ses("full", "k3", "2026-12-23", { studentIds: ["x", "y", "z"] }),
+      ses("past", "k1", "2026-11-20"), ses("cancelled", "k1", "2026-12-24", { cancelled: true }), ses("in", "k1", "2026-12-25", { studentIds: ["s1"] }), ses("oneoff", null, "2026-12-26"),
+    ]
+    expect(makeupCandidates({ ...base, sessions }).map((s) => s.id)).toEqual(["a", "oneoff"])
+  })
+  it("Admin's optional choice: any course", () => {
+    expect(makeupCandidates({ ...base, otherCourse: true, sessions: [ses("a", "k1", "2026-12-22"), ses("b", "k2", "2026-12-22")] }).map((s) => s.id)).toEqual(["a", "b"])
+  })
+  it("pairs the earliest lost sessions first and leaves the rest open", () => {
+    const cs = [{ id: "late", date: "2027-01-05", status: "open" }, { id: "early", date: "2026-12-08", status: "open" }, { id: "done", date: "2026-12-01", status: "settled", settle: { mode: "refund" } }] as never
+    expect(pairMakeups(cs, ["s1"]).map((p) => [p.credit.id, p.sessionId])).toEqual([["early", "s1"]])
   })
 })

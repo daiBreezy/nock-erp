@@ -339,6 +339,8 @@ type Store = DB & UIState & {
   sendPeriodMessage: (periodId: ID, familyId: ID, text: string) => Result
   /** owner 2026-11-25: edit the period's parent-message set from the Impact Center (the period card edits the same field through its draft) */
   setPeriodMessages: (branchId: ID, periodId: ID, msg: PeriodParentMsg) => Result
+  /** owner 2026-11-25: spend session credits on make-up sessions — 1 credit = 1 session; the student joins each picked session (the package pays for it) */
+  bookMakeupSessions: (creditIds: ID[], sessionIds: ID[], otherCourse?: boolean) => Result<{ booked: number }>
   /** cancel open session credits by hand (e.g. the unpaid invoice was reduced instead) */
   revokeSessionCredits: (ids: ID[], reason: string) => Result
   voidCreditNote: (id: ID, reason: string) => Result
@@ -3160,6 +3162,36 @@ export const useStore = create<Store>()(
         if (!perm.ok) return perm
         set({ branches: s.branches.map((b) => (b.id === branchId ? { ...b, specialPeriods: b.specialPeriods.map((p) => (p.id === periodId ? { ...p, parentMsg: msg } : p)) } : b)) })
         return OK
+      },
+      bookMakeupSessions: (creditIds, sessionIds, otherCourse) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const hit = (s.sessionCredits ?? []).filter((c) => creditIds.includes(c.id) && SCredit.makeupReady(c))
+        if (!hit.length) return fail("ไม่มี Credit ที่จองคาบชดเชยได้")
+        if (new Set(hit.map((c) => c.studentId)).size > 1) return fail("จองชดเชยได้ทีละนักเรียน")
+        if (!sessionIds.length) return fail("เลือกคาบชดเชยอย่างน้อย 1 คาบ")
+        if (sessionIds.length > hit.length) return fail(`มี Credit ${hit.length} คาบ — เลือกคาบชดเชยได้ไม่เกิน ${hit.length} คาบ`)
+        const studentId = hit[0].studentId
+        const pairs = SCredit.pairMakeups(hit, sessionIds)
+        // every pick must still be a valid make-up (a free seat, the right course unless the Admin allowed any) — checked against the live data
+        for (const p of pairs) {
+          const course = s.courses.find((c) => c.id === p.credit.courseId)
+          const ok = SCredit.makeupCandidates({ credit: p.credit, sessions: s.sessions, classes: s.classes, course, now: s.now(), today: toDateStr(s.now()), otherCourse }).some((x) => x.id === p.sessionId)
+          if (!ok) return fail("คาบที่เลือกใช้ชดเชยไม่ได้แล้ว (เต็ม / ผ่านไปแล้ว / คนละคอร์ส) — เลือกใหม่")
+        }
+        const at = s.now().toISOString()
+        const into = new Set(sessionIds)
+        set({
+          sessions: s.sessions.map((x) => (into.has(x.id) ? { ...x, studentIds: [...x.studentIds, studentId], rescheduledIn: [...(x.rescheduledIn ?? []), studentId] } : x)),
+          sessionCredits: s.sessionCredits.map((c) => {
+            const p = pairs.find((y) => y.credit.id === c.id)
+            return p ? { ...c, status: "settled" as const, settle: { mode: "makeup" as const, at, by: s.userId, makeupSessionId: p.sessionId, otherCourse: otherCourse || undefined, note: c.settle?.note } } : c
+          }),
+        })
+        const stu = s.students.find((x) => x.id === studentId)
+        log("class", [studentId], "ชดเชยคาบจาก Credit", `${stu?.nickname ?? ""} · ${pairs.length} คาบ`)
+        return { ok: true, value: { booked: pairs.length } }
       },
       revokeSessionCredits: (ids, reason) => {
         const s = get()
