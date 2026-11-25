@@ -252,13 +252,13 @@ export default function DashboardPage() {
       {/* owner 2026-11-10 (DASHBOARD.md): fixed boxes, DO on top / KNOW below. ต้องทำ (hero) + ⚠️ ต้องรู้ side by side;
           then คาบ (day timeline / week board) + ลีด-ขาย; the branch Pulse charts sit at the bottom. */}
       <div className="grid items-stretch gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2"><HeroTasks topics={heroTopics} title={heroTitle} /></div>
+        <div className="lg:col-span-2 [&>*]:h-full"><HeroTasks topics={heroTopics} title={heroTitle} /></div>
         {branchView && <AlertBox topics={alertTopics} periods={countdown.items} branchId={countdown.branchId}
           notices={rollover ? [{ key: "rollover", title: rollover.title, sub: rollover.sub, onClick: rollover.action ? () => setRolloverOpen(true) : undefined }] : []} />}
       </div>
 
       <div className="grid items-stretch gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 [&>*]:h-full">
           {range === "week"
             ? <WeekSessions sessions={weekSessions} weekStart={weekStart} today={today} markedCount={weekMarked} />
             : <DaySessions todays={todays} now={now} attendance={attendance} mineOnly={mineOnly}
