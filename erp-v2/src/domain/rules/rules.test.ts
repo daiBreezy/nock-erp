@@ -4107,3 +4107,15 @@ describe("delete and merge invoices without a running number (owner 2026-11-24)"
     expect(Pay.canMergeInvoices([inv("draft"), inv("draft")], [], ["f1", undefined]).ok).toBe(false) // a child with no family
   })
 })
+
+import { defaultExamPeriod } from "./exams"
+describe("defaultExamPeriod (panels open on the newest exam)", () => {
+  const r = (studentId: string, year: number, term: "mid1" | "final1" | "mid2" | "final2", scores: object = { คณิต: { score: 1, full: 2 } }) => ({ id: `${studentId}${year}${term}`, studentId, branchId: "b", year, term, scores, enteredBy: "u", enteredAt: "x" }) as never
+  it("is the newest exam any of the students has", () => {
+    expect(defaultExamPeriod([r("a", 2568, "mid1"), r("b", 2568, "final1"), r("a", 2567, "final2")], ["a", "b"], "2026-11-25")).toEqual({ year: 2568, term: "final1" })
+  })
+  it("ignores other students and exams with no scores", () => {
+    expect(defaultExamPeriod([r("x", 2569, "mid1"), r("a", 2568, "mid2", {})], ["a"], "2026-11-25")).toEqual({ year: Exam_year("2026-11-25"), term: Exam_term("2026-11-25") })
+  })
+})
+import { academicYear as Exam_year, currentTerm as Exam_term } from "./exams"

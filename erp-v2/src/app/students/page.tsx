@@ -26,7 +26,7 @@ import { addDays, daysBetween, fmtDate, fmtMoney, toDateStr } from "@/domain/dat
 import * as Att from "@/domain/rules/attendance"
 import { can } from "@/domain/rules/permissions"
 import * as Exam from "@/domain/rules/exams"
-import { ScoreCell } from "@/components/exams/exam-sheet"
+import { PctChange } from "@/components/exams/exam-sheet"
 import type { ID, Student } from "@/domain/types"
 import { EditCell } from "@/components/app/inline-edit"
 import { report } from "@/lib/feedback"
@@ -62,7 +62,6 @@ export default function StudentsPage() {
   const busOn = scope.ids.some((id) => branchHasBus(branchOf(id)))
   const examResults = useStore((s) => s.examResults)
   // every subject the exam page asks for at the branches in view — one hidden column each
-  const examSubjects = [...new Set(scope.ids.flatMap((id) => { const b = branchOf(id); return b ? Exam.examSubjectsOf(b) : [] }))]
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const leaves = useStore((s) => s.leaves)
@@ -190,12 +189,13 @@ export default function StudentsPage() {
     // owner 2026-11-23 (Shibasan): the schools the family hopes to enter — hidden until switched on in the columns menu
     { id: "target", label: "โรงเรียนเป้าหมาย", width: "210px", defaultHidden: true, className: "text-muted-foreground",
       cell: ({ s }) => (s.targetSchools?.length ? <span className="block truncate" title={s.targetSchools.map((t, i) => `${i + 1}. ${t.school}`).join("\n")}>{s.targetSchools.map((t, i) => `${i + 1}. ${t.school}`).join(" · ")}</span> : "—") },
-    // owner 2026-11-23: school exam result per subject (newest score as a %, ▲▼ against the previous exam) — hidden until switched on
-    ...examSubjects.map((sub): Column<Row> => ({ id: `exam-${sub}`, label: `สอบ ${sub}`, width: "104px", align: "right", defaultHidden: true,
+    // owner 2026-11-25: the table keeps ONE exam column — the newest exam's average (▲▼ against the one before); every subject lives in the student's / family's ผลสอบ tab
+    { id: "exam-avg", label: "ผลสอบเฉลี่ย", width: "118px", align: "right", defaultHidden: true,
+      info: "% เฉลี่ยของการสอบล่าสุดที่กรอกไว้ (ลูกศร = เทียบครั้งก่อน) — ดูรายวิชาในแท็บ ผลสอบ ของนักเรียน",
       cell: ({ s }) => {
-        const r = Exam.examsOf(examResults, s.id).reverse().find((x) => x.scores[sub])
-        return r ? <ScoreCell score={r.scores[sub]} change={Exam.examChangeAt(examResults, s.id, r.year, r.term, sub)} /> : <span className="text-muted-foreground">—</span>
-      } })),
+        const last = Exam.latestExam(examResults, s.id)
+        return last ? <PctChange pct={Exam.examAverage(last)} change={Exam.examChangeAt(examResults, s.id, last.year, last.term)} /> : <span className="text-muted-foreground">—</span>
+      } },
     { id: "enroll", label: "Enroll date", width: "100px", sort: "enroll", defaultHidden: true, className: "text-muted-foreground tabular-nums", cell: ({ main }) => (main ? fmtDate(main.from) : "—") },
     // owner 2026-11-19: the date stays neutral; "เหลือ N วัน" shows only in the last 7 days and carries the colour — 4–7 yellow, 0–3 red
     { id: "end", label: "End date", width: "110px", sort: "end", cell: ({ main }) => {

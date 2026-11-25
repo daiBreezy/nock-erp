@@ -133,3 +133,12 @@ export function previousPeriods(year: number, term: ExamTerm, n: number): { year
   const at = year * 4 + ids.indexOf(term)
   return Array.from({ length: n }, (_, i) => at - n + i).map((k) => ({ year: Math.floor(k / 4), term: ids[((k % 4) + 4) % 4] }))
 }
+
+/**
+ * owner 2026-11-25: the exam a panel opens on — the NEWEST exam any of these students has (a family tab shows every child on the same exam so the
+ * children can be compared); with no results yet, the current school year / exam.
+ */
+export function defaultExamPeriod(results: ExamResult[], studentIds: ID[], today: DateStr): { year: number; term: ExamTerm } {
+  const newest = sortExams(results.filter((r) => studentIds.includes(r.studentId) && Object.keys(r.scores).length > 0)).at(-1)
+  return newest ? { year: newest.year, term: newest.term } : { year: academicYear(today), term: currentTerm(today) }
+}

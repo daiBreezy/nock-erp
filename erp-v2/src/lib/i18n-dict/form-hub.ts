@@ -98,4 +98,11 @@ export const FORM_HUB: Record<string, Entry> = {
   "รอผู้ปกครองกรอก{0} — ส่งฟอร์มอื่นไม่ได้": { en: "Waiting for the parent to fill {0} — no other form can be sent", ja: "{0} の回答待ち — 他のフォームは送れません" },
   "ยกเลิกลิงก์ไม่สำเร็จ": { en: "Could not cancel the link", ja: "リンクをキャンセルできませんでした" },
   "ยกเลิกลิงก์{0}": { en: "Cancel the {0} link", ja: "{0} のリンクをキャンセル" },
+  "ผลสอบ": { en: "Exam results", ja: "試験結果" },
+  "แก้ผลสอบ": { en: "Edit results", ja: "結果を編集" },
+  "กรอกผลสอบ": { en: "Enter results", ja: "結果を入力" },
+  "ยังไม่มีผลสอบของการสอบนี้": { en: "No results for this exam yet", ja: "この試験の結果はまだありません" },
+  "ยังไม่มีนักเรียน": { en: "No students yet", ja: "生徒はまだいません" },
+  "ผลสอบเฉลี่ย": { en: "Exam average", ja: "試験平均" },
+  "% เฉลี่ยของการสอบล่าสุดที่กรอกไว้ (ลูกศร = เทียบครั้งก่อน) — ดูรายวิชาในแท็บ ผลสอบ ของนักเรียน": { en: "Average % of the newest exam entered (arrow = against the previous one) — see each subject in the student's Exam results tab", ja: "入力済みの最新試験の平均%(矢印=前回比)— 科目別は生徒の「試験結果」タブで" },
 }

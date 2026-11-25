@@ -1,5 +1,6 @@
 "use client"
 
+import { StudentExams } from "@/components/exams/student-exams"
 import { StudentStatusPill } from "@/components/app/student-status-pill"
 import { familyDisplay } from "@/domain/rules/people"
 import * as People from "@/domain/rules/people"
@@ -60,11 +61,12 @@ import { creditCourseOn, creditAgeDays, creditOwedTotal, creditsOwed, creditStat
 
 export { STATUS_PILL } from "./student-status"
 
-type Seg = "overview" | "class" | "billing" | "note" | "timeline"
+type Seg = "overview" | "class" | "billing" | "exam" | "note" | "timeline"
 const SEGS: { id: Seg; label: string }[] = [
   { id: "overview", label: "ภาพรวม" },
   { id: "class", label: "คลาส" },
   { id: "billing", label: "การเงิน" },
+  { id: "exam", label: "ผลสอบ" },
   { id: "note", label: "โน้ต" },
   { id: "timeline", label: "Timeline" },
 ]
@@ -170,6 +172,7 @@ function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEd
         {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} onHistory={() => { setClassSub("history"); setSeg("class") }} onEditLeave={(leave) => setLeaveDialog({ leave })} onOpenInvoice={(id) => setInvoice(id)} onFamily={() => (back ? back.onBack() : setFamilyOpen(true))} onOpenStudent={onOpenStudent} />}
         {seg === "class" && <ClassSeg kids={[stu]} ents={ents} sub={classSub} setSub={setClassSub} />}
         {seg === "billing" && <BillingSeg stu={stu} />}
+        {seg === "exam" && <StudentExams students={[stu]} />}
         {seg === "note" && <NoteSeg stu={stu} />}
         {seg === "timeline" && <TimelineSeg stu={stu} />}
       </div>

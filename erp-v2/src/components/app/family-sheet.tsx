@@ -23,6 +23,7 @@ import { EntityPanel, PanelBody, PanelFooter, PanelForm, PanelMore } from "./for
 import { FamilyForm, type FamilyFormOnly } from "./family-form"
 import { FamilyEditItems, type EditTarget } from "./family-edit-menu"
 import { FamilyForms } from "@/components/forms/family-forms"
+import { StudentExams } from "@/components/exams/student-exams"
 import { FamilyInfoTab } from "@/components/app/family-info-tab"
 import { EnrollFormCard } from "@/components/forms/enroll-form-card"
 import { toDateStr } from "@/domain/dates"
@@ -35,7 +36,7 @@ import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-export type FamilyTab = "overview" | "info" | "billing" | "courses" | "notes" | "forms"
+export type FamilyTab = "overview" | "info" | "billing" | "courses" | "exams" | "notes" | "forms"
 
 /**
  * Family detail panel: overview snapshot · family info (family / guardians / students) · billing · class · notes · forms.
@@ -119,6 +120,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   { value: "info", label: tx("ข้อมูลครอบครัว") },
                   { value: "billing", label: tx("การเงิน") },
                   { value: "courses", label: tx("คลาส") },
+                  { value: "exams", label: tx("ผลสอบ") },
                   { value: "notes", label: tx("โน้ต") },
                   { value: "forms", label: tx("ฟอร์มพิเศษ") },
                 ]} />
@@ -128,6 +130,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                 {tab === "info" && <FamilyInfoTab f={f} kids={kids} onOpenStudent={setStudentOpen} onAddParent={() => pick({ kind: "newParent" })} onGoBilling={() => setTab("billing")} />}
                 {tab === "billing" && <FamilyBillingTab kids={kids} />}
                 {tab === "courses" && <FamilyClassTab kids={kids} />}
+                {tab === "exams" && <StudentExams students={kids} />}
                 {tab === "notes" && <FamilyNotesTab kids={kids} />}
                 {tab === "forms" && (
                   <div className="space-y-3">
