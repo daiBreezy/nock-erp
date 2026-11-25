@@ -2824,6 +2824,10 @@ export const useStore = create<Store>()(
         for (const d of days) { const err = Bill.validateBusAddOn(d); if (err) return fail(err) }
         const dup = Bill.duplicateBusDay(studentId, days, s.busAddOns)
         if (dup) return fail(`${fmtDate(dup)} มีรอบรถนี้อยู่แล้ว`)
+        // owner 2026-11-25: an extra ride is asked for from a REAL session of the child — never any date
+        for (const d of days) {
+          if (!s.sessions.some((x) => !x.cancelled && x.date === d.date && x.studentIds.includes(studentId))) return fail(`${fmtDate(d.date)} นักเรียนไม่มีคาบเรียนวันนี้ — เพิ่มรอบรถได้เฉพาะวันที่มีคาบจริง`)
+        }
         const stu = s.students.find((x) => x.id === studentId)!
         const branch = s.branches.find((b) => b.id === stu.branchId)!
         const rate = Cfg.busRate(branch, busFeeId)

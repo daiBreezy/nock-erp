@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { endTime, fmtDate, toDateStr } from "@/domain/dates"
+import { checkRide } from "@/domain/rules/bus"
 import { staffAt } from "@/domain/rules/permissions"
 import { makeupCandidates, makeupReady } from "@/domain/rules/session-credit"
 import type { ID } from "@/domain/types"
@@ -33,6 +34,8 @@ export function MakeupDialog({ creditIds, onClose }: { creditIds: ID[]; onClose:
   const book = useStore((s) => s.bookMakeupSessions)
   const addSession = useStore((s) => s.addSession)
   const now = useNow(60_000)
+  const invoices = useStore((s) => s.invoices)
+  const busAddOns = useStore((s) => s.busAddOns)
   const first = allCredits.find((c) => creditIds.includes(c.id) && makeupReady(c))
   // one course at a time — the make-up list is that course's
   const credits = allCredits.filter((c) => creditIds.includes(c.id) && makeupReady(c) && c.studentId === first?.studentId && c.courseId === first?.courseId)
@@ -44,6 +47,17 @@ export function MakeupDialog({ creditIds, onClose }: { creditIds: ID[]; onClose:
   const [mk, setMk] = useState({ date: "", start: "10:00", teacherId: "", roomId: "" })
   const candidates = useMemo(() => (first ? makeupCandidates({ credit: first, sessions, classes, course, now, today: toDateStr(now), otherCourse: other }) : []), [first, sessions, classes, course, now, other])
   if (!first || !branch) return null
+  // owner 2026-11-25: a new session for a child who rides the bus is checked WITH the bus — is there a run at that time, and a free seat?
+  const busRounds = branch.busRounds ?? []
+  const rideRows = stu?.usesBus && busRounds.length
+    ? picks.flatMap((id) => {
+      const x = sessions.find((y) => y.id === id)
+      if (!x) return []
+      const times = { start: x.start, end: endTime(x.start, x.minutes) }
+      const ctx = { branchId: branch.id, invoices, busAddOns, classes }
+      return [{ x, pickup: checkRide("pickup", x.date, times, busRounds, ctx, stu.id), dropoff: checkRide("dropoff", x.date, times, busRounds, ctx, stu.id) }]
+    })
+    : []
   const room = (id: ID | null) => branch.rooms.find((r) => r.id === id)?.name
   const teacher = (id: ID | null) => staff.find((t) => t.id === id)?.nickname
   const teachers = staff.map((t) => staffAt(t, branch.id)).filter((t) => t.active && t.roles.includes("teacher") && t.branchIds.includes(branch.id))
@@ -78,6 +92,22 @@ export function MakeupDialog({ creditIds, onClose }: { creditIds: ID[]; onClose:
               )
             })}
           </ul>
+          {rideRows.length > 0 && (
+            <div className="space-y-1 rounded-xl bg-muted/40 p-2.5 text-xs">
+              <p className="text-sm font-medium">{tx("รถรับส่งของคาบที่เลือก")}</p>
+              {rideRows.map((r) => (
+                <p key={r.x.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  <span className="font-medium">{fmtDate(r.x.date, { weekday: true })} {r.x.start}</span>
+                  {([["pickup", tx("รับ"), r.pickup], ["dropoff", tx("ส่ง"), r.dropoff]] as const).map(([k, label, c]) => (
+                    <span key={k} className={cn(!c.round ? "text-warning-ink" : c.full ? "text-danger" : "text-muted-foreground")}>
+                      {label}: {!c.round ? tx("ไม่มีรอบรถที่ตรงเวลา") : c.full ? tx("รอบ {0} เต็ม", [c.round.time]) : tx("รอบ {0} · ที่นั่ง {1}/{2}", [c.round.time, c.taken, c.round.seats])}
+                    </span>
+                  ))}
+                </p>
+              ))}
+              <p className="text-muted-foreground">{tx("ถ้าต้องใช้รถ เพิ่มที่ แผงนักเรียน › การเงิน › รอบรถเพิ่ม (เลือกจากคาบจริงของนักเรียน)")}</p>
+            </div>
+          )}
           <details className="rounded-xl bg-muted/40 p-2">
             <summary className="cursor-pointer text-sm font-medium">{tx("สร้างคาบชดเชยใหม่ (ตัวเลือก)")}</summary>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">

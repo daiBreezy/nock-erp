@@ -59,6 +59,7 @@ export default function TransportPage() {
   const classes = useStore((s) => s.classes)
   const invoices = useStore((s) => s.invoices)
   const busAddOns = useStore((s) => s.busAddOns)
+  const sessions = useStore((s) => s.sessions)
   const trips = useStore((s) => s.busTrips)
   const staff = useStore((s) => s.staff)
   const parentRequests = useStore((s) => s.parentRequests)
@@ -69,7 +70,7 @@ export default function TransportPage() {
   // branches with a bus: the one in the top bar, or all of them (Branch filter) for those who see every branch
   const busBranches = branches.filter((b) => (b.busRounds ?? []).length || (b.vehicles ?? []).length)
   const scope = fBranch === "*" ? busBranches : branches.filter((b) => b.id === (fBranch || branch.id))
-  const ctx = useMemo(() => ({ students, families, classes, invoices, busAddOns, trips: trips ?? [], parentRequests, staff, events, now }), [students, families, classes, invoices, busAddOns, trips, parentRequests, staff, events, now])
+  const ctx = useMemo(() => ({ students, families, classes, sessions, invoices, busAddOns, trips: trips ?? [], parentRequests, staff, events, now }), [students, families, classes, invoices, busAddOns, trips, parentRequests, staff, events, now])
   const monday = mondayOf(date)
   const days = useMemo(() => (range === "week" ? weekDates(monday) : [date]), [range, monday, date])
   const plans = days.map((d) => scope.map((b) => ({ branch: b, plan: planDay(b, d, ctx) })))

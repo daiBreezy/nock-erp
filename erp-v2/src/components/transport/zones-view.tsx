@@ -59,11 +59,12 @@ export function ZonesView({ branch }: { branch: Branch }) {
   // the coming week's rides (which homes are on each van at once) — for "does a layout fit the seats"
   const classes = useStore((s) => s.classes)
   const trips = useStore((s) => s.busTrips)
+  const sessions = useStore((s) => s.sessions)
   const rides = useMemo(() => {
-    const ctx = { students, families, classes, invoices, busAddOns, trips: trips ?? [] }
+    const ctx = { students, families, classes, sessions, invoices, busAddOns, trips: trips ?? [] }
     return Array.from({ length: 7 }, (_, i) => planDay(branch, addDays(today, i), ctx).trips)
       .flat().filter((t) => t.stops.length).map((t) => t.stops.map((x) => x.rider.familyId ?? ""))
-  }, [students, families, classes, invoices, busAddOns, trips, branch, today])
+  }, [students, families, classes, sessions, invoices, busAddOns, trips, branch, today])
   const busHomes = useMemo(() => homes.map((h) => ({ id: h.fam.id, loc: h.fam.location, kids: h.kids.length })), [homes])
   const spots = useMemo(() => (branch.location ? hotspots(busHomes, branch.location) : []), [busHomes, branch.location])
   const options = useMemo(() => (branch.location ? zoneOptions(busHomes, branch.location, vans.map((v) => ({ id: v.id, seats: v.seats })), rides) : []), [busHomes, branch.location, vans, rides])

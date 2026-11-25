@@ -4,8 +4,8 @@
 // drops the class that ended, then brings the next one in); stops are ordered and timed from the home pins; the
 // driver app reports when the van left, each stop, and when it got back. The admin reorders, moves, adds / removes,
 // swaps the van or driver, cancels, approves & sends.
-import { addDays, fromMinutes, toMinutes, weekdayOf } from "../dates"
-import type { Branch, BusAddOn, BusLegKind, BusRound, BusTrip, BusZone, DateStr, Family, ID, Invoice, Klass, ParentRequest, Staff, Student, TimeStr, Vehicle } from "../types"
+import { addDays, endTime, fromMinutes, toMinutes, weekdayOf } from "../dates"
+import type { Branch, BusAddOn, BusLegKind, BusRound, BusTrip, BusZone, DateStr, Family, ID, Invoice, Klass, ParentRequest, Session, Staff, Student, TimeStr, Vehicle } from "../types"
 import { BOTH_LEAD_MIN, busZone, distanceKm, rideTimes, roundFor } from "./bus"
 import { busDaysOf } from "./parent-view"
 import { activePeriodOn } from "./period-impact"
@@ -120,6 +120,8 @@ export interface TransportCtx {
   students: Student[]
   families: Family[]
   classes: Klass[]
+  /** owner 2026-11-25: the child's REAL sessions — who rides on a day follows them (a cancelled / paused class takes the child off the van; a make-up session puts them on it) */
+  sessions?: Session[]
   invoices: Invoice[]
   busAddOns: BusAddOn[]
   trips: BusTrip[]
@@ -334,6 +336,15 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
   ]
   const isExtra = (r: BusRound) => !!states.get(r.id)?.extra
   const stopped = activePeriodOn(branch.specialPeriods, date)
+  // owner 2026-11-25: a ride follows the child's REAL session that day (cancelled / paused = no ride; a make-up counts). Sessions only exist a few weeks ahead, so
+  // beyond the last generated session of the branch the weekly class plan is used as before.
+  const branchSessions = (ctx.sessions ?? []).filter((x) => x.branchId === branch.id)
+  const strict = !!ctx.sessions && date <= branchSessions.reduce((m, x) => (x.date > m ? x.date : m), "")
+  const sessionTimes = (studentId: ID): { start: TimeStr; end: TimeStr } | null => {
+    const mine = branchSessions.filter((x) => x.date === date && !x.cancelled && x.studentIds.includes(studentId))
+    if (!mine.length) return null
+    return { start: mine.map((x) => x.start).sort()[0], end: mine.map((x) => endTime(x.start, x.minutes)).sort().reverse()[0] }
+  }
   // a run cancelled that day takes nobody — its children are matched to another run or left for the admin
   const runs = allRuns.filter((r) => !states.get(r.id)?.cancelled)
   const weekly = runs.filter((r) => !isExtra(r))
@@ -348,7 +359,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     const fam = ctx.families.find((f) => f.id === stu.familyId)
     const parent = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
     // owner 2026-11-25: while a Special Period is Active only ITS classes run — a child's regular class is stopped, so it must not set the ride time
-    const times = rideTimes(ctx.classes, ctx.classes.filter((k) => k.studentIds.includes(stu.id) && (!stopped || k.periodId === stopped.id)).map((k) => k.id), date)
+    const times = strict ? sessionTimes(stu.id) : rideTimes(ctx.classes, ctx.classes.filter((k) => k.studentIds.includes(stu.id) && (!stopped || k.periodId === stopped.id)).map((k) => k.id), date)
     return {
       times,
       base: {
@@ -363,7 +374,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     const legs = busDaysOf(stu.id, ctx.invoices, ctx.busAddOns).get(date)
     if (!legs || (!legs.pickup && !legs.dropoff)) continue
     // owner 2026-11-25: the van doesn't fetch a child whose class the school stopped (Special Period) — taken off the run by itself; the Impact Center lists these
-    if (stopped && !ctx.classes.some((k) => k.periodId === stopped.id && k.studentIds.includes(stu.id))) continue
+    if (strict ? !sessionTimes(stu.id) : stopped && !ctx.classes.some((k) => k.periodId === stopped.id && k.studentIds.includes(stu.id))) continue
     const { times, base } = riderBase(stu, legs)
     for (const leg of ["pickup", "dropoff"] as const) {
       if (!legs[leg]) continue

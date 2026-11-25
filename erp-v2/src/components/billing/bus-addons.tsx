@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { addDays, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
+import { endTime, fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { billedOn, busAddOnAmount } from "@/domain/rules/billing"
 import { can } from "@/domain/rules/permissions"
 import { busRate } from "@/domain/rules/settings"
@@ -17,7 +17,6 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { PeriodNote } from "@/components/app/period-note"
 
 type Day = { date: string; pickup: boolean; dropoff: boolean }
 
@@ -33,15 +32,27 @@ export function BusAddOns({ stu, initialDate, autoStart }: { stu: Student; /** o
   const add = useStore((s) => s.addBusAddOns)
   const remove = useStore((s) => s.removeBusAddOn)
   const today = toDateStr(useNow(60_000))
+  // owner 2026-11-25: an extra ride is chosen from the child's REAL coming sessions (not any date) — one choice per day, with what that day looks like
+  const sessions = useStore((s) => s.sessions)
+  const classes = useStore((s) => s.classes)
+  const dayChoices = (() => {
+    const byDate = new Map<string, string[]>()
+    for (const x of sessions) {
+      if (x.cancelled || x.date < today || !x.studentIds.includes(stu.id)) continue
+      byDate.set(x.date, [...(byDate.get(x.date) ?? []), `${x.start}–${endTime(x.start, x.minutes)} ${classes.find((k) => k.id === x.classId)?.name ?? x.subject}`])
+    }
+    return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, what]) => ({ value: date, label: `${fmtDate(date, { weekday: true })} · ${what.join(" · ")}` }))
+  })()
+  const firstFree = (taken: string[]) => dayChoices.find((c) => !taken.includes(c.value))?.value
   const busFees = branch.fees.filter((f) => f.kind === "bus")
   const manage = can(me, "billing.manage")
 
   const [open, setOpen] = useState(!!autoStart)
-  const [days, setDays] = useState<Day[]>(autoStart ? [{ date: initialDate ?? addDays(toDateStr(new Date()), 1), pickup: true, dropoff: true }] : [])
+  const [days, setDays] = useState<Day[]>(autoStart && initialDate ? [{ date: initialDate, pickup: true, dropoff: true }] : [])
   const [feeId, setFeeId] = useState(busFees[0]?.id ?? "")
   const [note, setNote] = useState("")
   const rate = busRate(branch, feeId)
-  const start = () => { setDays([{ date: initialDate ?? addDays(today, 1), pickup: true, dropoff: true }]); setNote(""); setOpen(true) }
+  const start = () => { setDays([{ date: initialDate && dayChoices.some((c) => c.value === initialDate) ? initialDate : firstFree([]) ?? "", pickup: true, dropoff: true }]); setNote(""); setOpen(true) }
   const patch = (i: number, p: Partial<Day>) => setDays((ds) => ds.map((d, j) => (j === i ? { ...d, ...p } : d)))
   const pending = addOns.filter((a) => !a.cancel && !a.companion && !billedOn(a.id, invoices))
   const total = days.reduce((a, d) => a + busAddOnAmount(d, rate), 0)
@@ -63,10 +74,11 @@ export function BusAddOns({ stu, initialDate, autoStart }: { stu: Student; /** o
 
       {open && (
         <div className="space-y-2 rounded-xl bg-muted/40 p-2.5">
+          {dayChoices.length === 0 && <p className="text-xs text-muted-foreground">นักเรียนยังไม่มีคาบเรียนข้างหน้า — เพิ่มรอบรถได้เฉพาะวันที่มีคาบจริง</p>}
           {days.map((d, i) => (
             <div key={i} className="flex flex-wrap items-center gap-3 text-sm">
-              <Input type="date" className="w-40" value={d.date} onChange={(e) => patch(i, { date: e.target.value })} />
-              <PeriodNote date={d.date} className="w-full" />
+              <NativeSelect className="w-full sm:w-72" value={d.date} placeholder="เลือกวันที่มีคาบเรียน" onChange={(e) => patch(i, { date: e.target.value })}
+                options={dayChoices.filter((c) => c.value === d.date || !days.some((x) => x.date === c.value)).map((c) => ({ value: c.value, label: c.label }))} />
               {(["pickup", "dropoff"] as const).map((k) => (
                 <label key={k} className="flex items-center gap-1.5"><Checkbox checked={d[k]} onCheckedChange={(v) => patch(i, { [k]: !!v })} />{k === "pickup" ? "รับ" : "ส่ง"}</label>
               ))}
@@ -74,7 +86,7 @@ export function BusAddOns({ stu, initialDate, autoStart }: { stu: Student; /** o
               {days.length > 1 && <Button size="icon-xs" variant="ghost" aria-label="เอาวันนี้ออก" onClick={() => setDays((ds) => ds.filter((_, j) => j !== i))}><XIcon /></Button>}
             </div>
           ))}
-          <Button size="xs" variant="ghost" onClick={() => setDays((ds) => [...ds, { date: addDays(ds[ds.length - 1]?.date ?? today, 1), pickup: true, dropoff: true }])}><PlusIcon /> เพิ่มอีกวัน</Button>
+          <Button size="xs" variant="ghost" disabled={!firstFree(days.map((d) => d.date))} onClick={() => setDays((ds) => [...ds, { date: firstFree(ds.map((d) => d.date)) ?? "", pickup: true, dropoff: true }])}><PlusIcon /> เพิ่มอีกวัน</Button>
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">ประเภทค่ารถ</Label>

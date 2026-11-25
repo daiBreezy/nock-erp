@@ -39,7 +39,7 @@ export function usePublishDriverTrips() {
     const run = () => {
       const s = useStore.getState()
       const today = toDateStr(s.now())
-      const ctx = { students: s.students, families: s.families, classes: s.classes, invoices: s.invoices, busAddOns: s.busAddOns, trips: s.busTrips ?? [], staff: s.staff, now: s.now() }
+      const ctx = { students: s.students, families: s.families, classes: s.classes, sessions: s.sessions, invoices: s.invoices, busAddOns: s.busAddOns, trips: s.busTrips ?? [], staff: s.staff, now: s.now() }
       const out = []
       for (const b of s.branches.filter((x) => (x.busRounds ?? []).length)) {
         for (let i = 0; i < 7; i++) {

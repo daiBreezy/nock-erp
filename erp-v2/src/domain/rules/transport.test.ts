@@ -24,6 +24,21 @@ const ctx = (extra: { busAddOns?: BusAddOn[]; trips?: BusTrip[] } = {}) => ({
 })
 
 describe("transport — planDay", () => {
+  it("owner 2026-11-25: a ride follows the child's REAL session — a cancelled class takes the child off the van, a make-up session puts one on it", () => {
+    const ses = (id: string, students: string[], over = {}) => ({ id, branchId: "b", classId: "k", date: MON, start: "16:00", minutes: 60, studentIds: students, cancelled: false, ...over })
+    const sessions = [ses("s1", ["b2", "c", "d"]), ses("s2", ["a"], { cancelled: true })] as never
+    const p = planDay(branch, MON, { ...ctx(), sessions })
+    const pick = p.trips.find((t) => t.round.id === "p")!
+    expect(pick.stops.map((x) => x.rider.studentId).sort()).toEqual(["b2", "d"]) // "a" had the class cancelled
+    // a make-up session with no class at all still gets "a" a ride
+    const withMakeup = [...sessions, ses("mk", ["a"], { classId: null, cancelled: false })] as never
+    expect(planDay(branch, MON, { ...ctx(), sessions: withMakeup }).trips.find((t) => t.round.id === "p")!.stops.map((x) => x.rider.studentId)).toContain("a")
+  })
+  it("beyond the last generated session the weekly class plan is used as before", () => {
+    const far = [{ id: "x", branchId: "b", classId: "k", date: "2026-10-12", start: "16:00", minutes: 60, studentIds: ["a"], cancelled: false }] as never
+    const p = planDay(branch, MON, { ...ctx(), sessions: far })
+    expect(p.trips.find((t) => t.round.id === "p")!.stops.map((x) => x.rider.studentId).sort()).toEqual(["a", "b2", "d"])
+  })
   it("owner 2026-11-25: while a Special Period is Active the van skips a child whose regular class is stopped, but keeps one who has a class of the period", () => {
     const period = { id: "sp", name: "Summer", from: "2026-10-01", to: "2026-10-31", active: true }
     const sp = { id: "ks", weekday: 1, start: "16:00", minutes: 60, periodId: "sp", studentIds: ["b2"] } as unknown as Klass
