@@ -81,3 +81,19 @@ describe("countdown colours (owner 2026-11-25)", () => {
     expect(periodCountdown([p("2026-11-20")], today)).toHaveLength(0)
   })
 })
+
+import { periodBusImpact } from "./period-impact"
+describe("bus in a Special Period (owner 2026-11-25)", () => {
+  const per = { id: "p1", from: "2026-12-07", to: "2026-12-20" } as never
+  const inv = { studentId: "a", status: "paid", bus: [{ date: "2026-12-08", pickup: true, dropoff: true }, { date: "2026-12-22", pickup: true, dropoff: true }] } as never
+  const data = { students: [{ id: "a", branchId: "b1" }, { id: "b", branchId: "b1" }] as never, classes: [{ periodId: "p1", studentIds: ["b"] }] as never, invoices: [inv], busAddOns: [] }
+  it("counts legs inside the period only, paid ones apart", () => {
+    const r = periodBusImpact(per, data, "b1", "2026-11-25")
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ studentId: "a", lost: 2, paidLost: 2 })
+  })
+  it("a child with a class IN the period keeps the bus", () => {
+    const withBus = { ...data, invoices: [{ ...(inv as object), studentId: "b" }] as never }
+    expect(periodBusImpact(per, withBus, "b1", "2026-11-25")).toHaveLength(0)
+  })
+})

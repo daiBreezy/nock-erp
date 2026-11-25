@@ -24,7 +24,7 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "ลงชื่อในคาบที่หยุดแต่ไม่มีแพ็กเกจครอบคลุม (เช่น คอร์สเครดิต) — ตรวจเป็นรายคน": { en: "Enrolled in a paused session without a covering package (e.g. credit course) — check one by one", ja: "休止コマに登録済みだがパックなし(例: クレジットコース)— 個別に確認" },
   "Test / Trial / นัดเดี่ยว ในช่วงนี้": { en: "Test / Trial / one-off bookings in this period", ja: "この期間の Test / Trial / 単発予約" },
   "ยังไม่ถูกพัก — Trial ไม่ควรอยู่ในช่วงนี้ ตรวจเป็นรายรายการ": { en: "Not paused — Trial should not fall in this period, check each one", ja: "休止されません — Trial はこの期間に入れない方針、1件ずつ確認" },
-  "เวอร์ชันแรก — ยังไม่รวม: เที่ยวรถรับส่ง · ข้อความถึงผู้ปกครอง": { en: "First version — not included yet: bus trips · messages to parents", ja: "初版 — 未対応: 送迎便・保護者へのメッセージ" },
+  "เวอร์ชันแรก — ยังไม่รวม: เที่ยวรถรับส่ง": { en: "First version — not included yet: bus trips · messages to parents", ja: "初版 — 未対応: 送迎便・保護者へのメッセージ" },
   "โรงเรียนปิดเอง → รายชั่วโมงยืดวันจบให้ · รายสัปดาห์/เดือนได้ Credit คาบ": { en: "The school closes → hourly packages get a later end date · weekly/monthly get session Credit", ja: "学校都合の休講 → 時間制は終了日を延長・週/月は コマ Credit" },
   "⚠ {0}: เหลือ {1} วันก่อนเริ่ม (น้อยกว่า {2} วัน) — อาจมีผลกระทบกับคาบเรียนของนักเรียน ตรวจสอบที่ ตั้งค่า › ช่วงเวลาพิเศษ › ผลกระทบ แล้วรีบจัดการให้เรียบร้อย": { en: "⚠ {0}: {1} days before it starts (under {2} days) — students' sessions may be affected. Check Settings › Special periods › Impact and handle it quickly", ja: "⚠ {0}: 開始まで {1} 日({2} 日未満)— 生徒の授業に影響する可能性があります。設定 › 特別期間 › 影響 で確認し早急に対応してください" },
   "{0}: ประกาศล่วงหน้า {1} วัน — ตรวจผลกระทบที่ ตั้งค่า › ช่วงเวลาพิเศษ › ผลกระทบ เพื่อเตรียมก่อนออกใบแจ้งหนี้รอบถัดไป": { en: "{0}: announced {1} days ahead — check Settings › Special periods › Impact before the next invoice round", ja: "{0}: {1} 日前に告知 — 次回の請求前に 設定 › 特別期間 › 影響 を確認してください" },
@@ -95,4 +95,9 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "คาบที่เลือกใช้ชดเชยไม่ได้แล้ว (เต็ม / ผ่านไปแล้ว / คนละคอร์ส) — เลือกใหม่": { en: "A chosen session can no longer be used (full / past / another course) — pick again", ja: "選択したコマは使えません(満席 / 終了 / 別コース)— 選び直してください" },
   "ชดเชยคาบจาก Credit": { en: "Make-up from Credit", ja: "Credit からの振替" },
   "อนุญาตให้ชดเชยในคอร์สอื่นได้ (ปกติชดเชยในคอร์สเดียวกัน)": { en: "Allow the make-up in another course (normally the same course)", ja: "他のコースでの振替を許可(通常は同じコース)" },
+  "รถรับส่ง": { en: "School bus", ja: "送迎バス" },
+  "รถไม่ไปรับเด็กที่คาบหยุด — ถอดออกจากรอบรถให้เองแล้ว · เที่ยวที่จ่ายค่ารถไปแล้วต้องตัดสินใจเรื่องเงิน": { en: "The van does not fetch children whose class is stopped — taken off the runs by itself · legs already paid for need a money decision", ja: "休講の子は送迎しません — 送迎便から自動で外れます · 支払済みの便は返金等の判断が必要" },
+  "{0} เที่ยว": { en: "{0} legs", ja: "{0} 便" },
+  "จ่ายแล้ว {0} เที่ยว": { en: "{0} legs paid", ja: "支払済み {0} 便" },
+  "เวอร์ชันแรก — ค่ารถที่จ่ายแล้วยังไม่ได้คืน/เป็น Credit": { en: "First version — bus money already paid is not yet refunded / credited", ja: "初版 — 支払済みの送迎代はまだ返金/Credit 化されません" },
 }

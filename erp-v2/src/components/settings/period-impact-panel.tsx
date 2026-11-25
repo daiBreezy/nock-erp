@@ -11,6 +11,7 @@ import { Pill } from "@/components/app/badges"
 import { PeriodMessagesDialog } from "@/components/settings/period-messages-dialog"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
+import { periodBusImpact } from "@/domain/rules/period-impact"
 import { creditTotal, invoiceStateFor } from "@/domain/rules/session-credit"
 import { daysUntilPeriod, PERIOD_NOTICE_DAYS, periodImpact, shortNotice, type ImpactStudent } from "@/domain/rules/period-impact"
 import type { ID, SpecialPeriod } from "@/domain/types"
@@ -19,7 +20,7 @@ import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type Show = "all" | "hourly" | "subscription" | "bookings"
+type Show = "all" | "hourly" | "subscription" | "bookings" | "bus"
 
 /** how many students a period touches — the number on the card's button */
 export function usePeriodImpact(period: SpecialPeriod, branchId: ID) {
@@ -41,6 +42,8 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
   const courses = useStore((s) => s.courses)
   const invoices = useStore((s) => s.invoices)
   const credits = useStore((s) => s.sessionCredits ?? [])
+  const allClasses = useStore((s) => s.classes)
+  const busAddOns = useStore((s) => s.busAddOns)
   const today = toDateStr(useNow(60_000))
   const [show, setShow] = useState<Show>("all")
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
@@ -82,7 +85,8 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
       <ul className="divide-y rounded-xl bg-muted/40">{list.map((r) => row(r, unit))}</ul>
     </section>
   )
-  const nothing = impact.students.length === 0 && impact.bookings.length === 0
+  const busRows = periodBusImpact(period, { students, classes: allClasses, invoices, busAddOns }, branchId, today)
+  const nothing = impact.students.length === 0 && impact.bookings.length === 0 && busRows.length === 0
   return (
     <>
       <EntityPanel open={open} onClose={onClose}>
@@ -116,6 +120,7 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
             { value: "hourly", label: tx("รายชั่วโมง") },
             { value: "subscription", label: tx("สัปดาห์/เดือน") },
             { value: "bookings", label: tx("Test/Trial") },
+            ...(busRows.length ? [{ value: "bus" as const, label: tx("รถรับส่ง") }] : []),
           ]} />
           {nothing && <p className="rounded-xl bg-muted/40 p-3 text-center text-xs text-muted-foreground">{tx("ช่วงนี้ยังไม่กระทบนักเรียนคนใด")}</p>}
           {(show === "all" || show === "hourly") && group(tx("รายชั่วโมง"), tx("วันจบแพ็กเกจยืดออกไปเอง (ข้ามวันหยุดและช่วงพิเศษ) — แค่แจ้งผู้ปกครอง"), impact.hourly, "hourly")}
@@ -134,7 +139,24 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
               </ul>
             </section>
           )}
-          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรก — ยังไม่รวม: เที่ยวรถรับส่ง")}</p>
+          {(show === "all" || show === "bus") && busRows.length > 0 && (
+            <section className="space-y-1.5">
+              <div><p className="text-sm font-semibold">{tx("รถรับส่ง")} ({busRows.length})</p><p className="text-xs text-muted-foreground">{tx("รถไม่ไปรับเด็กที่คาบหยุด — ถอดออกจากรอบรถให้เองแล้ว · เที่ยวที่จ่ายค่ารถไปแล้วต้องตัดสินใจเรื่องเงิน")}</p></div>
+              <ul className="divide-y rounded-xl bg-muted/40">
+                {busRows.map((b) => (
+                  <li key={b.studentId}>
+                    <Button variant="row" size="inline" type="button" onClick={() => setStudentOpen(b.studentId)} className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-sm hover:bg-muted/40">
+                      <span className="min-w-0 flex-1 truncate font-medium">{who(b.studentId)?.nickname ?? "—"}</span>
+                      <Pill tone="amber">{tx("{0} เที่ยว", [b.lost])}</Pill>
+                      {b.paidLost > 0 && <Pill tone="blue">{tx("จ่ายแล้ว {0} เที่ยว", [b.paidLost])}</Pill>}
+                      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรก — ค่ารถที่จ่ายแล้วยังไม่ได้คืน/เป็น Credit")}</p>
         </PanelBody>
         <PanelFooter>
           <Button variant="outline" disabled={impact.students.length === 0} onClick={() => setMsgOpen(true)}><SendIcon /> {tx("ข้อความถึงผู้ปกครอง")}</Button>

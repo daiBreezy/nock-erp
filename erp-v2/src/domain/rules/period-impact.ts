@@ -1,5 +1,6 @@
-import type { DateStr, Entitlement, ID, Klass, Session, SpecialPeriod } from "../types"
+import type { BusAddOn, DateStr, Entitlement, ID, Invoice, Klass, Session, SpecialPeriod, Student } from "../types"
 import { packageCovers } from "./attendance"
+import { busDaysOf } from "./parent-view"
 
 /**
  * owner 2026-11-25 — Impact Center (v1): when a Special Period is open (or about to be), who does it hit? A REGULAR class stops for the whole period
@@ -99,4 +100,40 @@ export function periodCountdown(periods: SpecialPeriod[] | undefined, today: Dat
       return { period, days, opened, tone: opened || days >= PERIOD_NOTICE_DAYS ? "gray" : days < 30 ? "red" : "orange" }
     })
     .sort((a, b) => a.days - b.days)
+}
+
+/**
+ * owner 2026-11-25 — school bus: the van skips a child whose class the school stopped (planDay), so every bus ride booked on a day inside the period for a child who has
+ * NO class of the period is lost. Listed per child with how many legs, and how many of those were already PAID on an invoice (the money is decided in the Impact Center).
+ */
+export interface BusImpactLeg { date: DateStr; pickup: boolean; dropoff: boolean; paid: boolean }
+export interface BusImpact { studentId: ID; legs: BusImpactLeg[]; /** pickup + drop-off legs lost */ lost: number; /** of those, paid on a non-void invoice */ paidLost: number }
+export function periodBusImpact(
+  period: SpecialPeriod,
+  data: { students: Pick<Student, "id" | "branchId" | "archived">[]; classes: Pick<Klass, "periodId" | "studentIds">[]; invoices: Invoice[]; busAddOns: BusAddOn[] },
+  branchId: ID,
+  today: DateStr,
+): BusImpact[] {
+  const from = period.from > today ? period.from : today
+  const out: BusImpact[] = []
+  for (const stu of data.students) {
+    if (stu.branchId !== branchId || stu.archived) continue
+    if (data.classes.some((k) => k.periodId === period.id && k.studentIds.includes(stu.id))) continue // still has a class in the period
+    const paidDates = new Map<DateStr, { pickup: boolean; dropoff: boolean }>()
+    for (const inv of data.invoices) {
+      if (inv.studentId !== stu.id || inv.status !== "paid") continue
+      for (const l of inv.bus) { const cur = paidDates.get(l.date) ?? { pickup: false, dropoff: false }; paidDates.set(l.date, { pickup: cur.pickup || l.pickup, dropoff: cur.dropoff || l.dropoff }) }
+    }
+    const legs: BusImpactLeg[] = []
+    for (const [date, d] of busDaysOf(stu.id, data.invoices, data.busAddOns)) {
+      if (date < from || date > period.to || (!d.pickup && !d.dropoff)) continue
+      const p = paidDates.get(date)
+      legs.push({ date, pickup: d.pickup, dropoff: d.dropoff, paid: !!p && (p.pickup || p.dropoff) })
+    }
+    if (!legs.length) continue
+    legs.sort((a, b) => a.date.localeCompare(b.date))
+    const n = (l: BusImpactLeg) => (l.pickup ? 1 : 0) + (l.dropoff ? 1 : 0)
+    out.push({ studentId: stu.id, legs, lost: legs.reduce((a, l) => a + n(l), 0), paidLost: legs.filter((l) => l.paid).reduce((a, l) => a + n(l), 0) })
+  }
+  return out
 }

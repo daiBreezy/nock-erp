@@ -24,6 +24,13 @@ const ctx = (extra: { busAddOns?: BusAddOn[]; trips?: BusTrip[] } = {}) => ({
 })
 
 describe("transport — planDay", () => {
+  it("owner 2026-11-25: while a Special Period is Active the van skips a child whose regular class is stopped, but keeps one who has a class of the period", () => {
+    const period = { id: "sp", name: "Summer", from: "2026-10-01", to: "2026-10-31", active: true }
+    const sp = { id: "ks", weekday: 1, start: "16:00", minutes: 60, periodId: "sp", studentIds: ["b2"] } as unknown as Klass
+    const p = planDay({ ...branch, specialPeriods: [period] } as unknown as Branch, MON, { ...ctx(), classes: [k, sp] })
+    const pick = p.trips.find((t) => t.round.id === "p")!
+    expect(pick.stops.map((x) => x.rider.studentId)).toEqual(["b2"])
+  })
   it("puts each child on the run that fits their class time, from what they paid for", () => {
     const p = planDay(branch, MON, ctx())
     const pick = p.trips.find((t) => t.round.id === "p")!, drop = p.trips.find((t) => t.round.id === "d")!

@@ -8,6 +8,7 @@ import { addDays, fromMinutes, toMinutes, weekdayOf } from "../dates"
 import type { Branch, BusAddOn, BusLegKind, BusRound, BusTrip, BusZone, DateStr, Family, ID, Invoice, Klass, ParentRequest, Staff, Student, TimeStr, Vehicle } from "../types"
 import { BOTH_LEAD_MIN, busZone, distanceKm, rideTimes, roundFor } from "./bus"
 import { busDaysOf } from "./parent-view"
+import { activePeriodOn } from "./period-impact"
 
 type LatLng = { lat: number; lng: number }
 
@@ -332,6 +333,7 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
     ...[...states.values()].filter((t) => t.extra).map((t) => ({ id: t.roundId, weekdays: [wd], ...t.extra! })),
   ]
   const isExtra = (r: BusRound) => !!states.get(r.id)?.extra
+  const stopped = activePeriodOn(branch.specialPeriods, date)
   // a run cancelled that day takes nobody — its children are matched to another run or left for the admin
   const runs = allRuns.filter((r) => !states.get(r.id)?.cancelled)
   const weekly = runs.filter((r) => !isExtra(r))
@@ -345,7 +347,8 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
   const riderBase = (stu: Student, legs: { adult?: boolean } | undefined) => {
     const fam = ctx.families.find((f) => f.id === stu.familyId)
     const parent = fam?.parents.find((p) => p.primary) ?? fam?.parents[0]
-    const times = rideTimes(ctx.classes, ctx.classes.filter((k) => k.studentIds.includes(stu.id)).map((k) => k.id), date)
+    // owner 2026-11-25: while a Special Period is Active only ITS classes run — a child's regular class is stopped, so it must not set the ride time
+    const times = rideTimes(ctx.classes, ctx.classes.filter((k) => k.studentIds.includes(stu.id) && (!stopped || k.periodId === stopped.id)).map((k) => k.id), date)
     return {
       times,
       base: {
@@ -359,6 +362,8 @@ export function planDay(branch: Branch, date: DateStr, ctx: TransportCtx): DayPl
   for (const stu of branchStudents) {
     const legs = busDaysOf(stu.id, ctx.invoices, ctx.busAddOns).get(date)
     if (!legs || (!legs.pickup && !legs.dropoff)) continue
+    // owner 2026-11-25: the van doesn't fetch a child whose class the school stopped (Special Period) — taken off the run by itself; the Impact Center lists these
+    if (stopped && !ctx.classes.some((k) => k.periodId === stopped.id && k.studentIds.includes(stu.id))) continue
     const { times, base } = riderBase(stu, legs)
     for (const leg of ["pickup", "dropoff"] as const) {
       if (!legs[leg]) continue
