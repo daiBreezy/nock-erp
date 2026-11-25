@@ -224,10 +224,6 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
             <Textarea rows={2} value={p.invoiceMemo ?? ""} onChange={(e) => onChange({ invoiceMemo: e.target.value })} placeholder={tx("เช่น ค่าเรียน Summer ชำระครั้งเดียว ไม่คืนเงินหลังเริ่มเรียน")} />
             <p className="mt-0.5 text-xs text-muted-foreground">{tx("พิมพ์แทน Memo ของแบรนด์ เฉพาะใบที่มีคอร์สของช่วงนี้ (คอร์สที่ผูกกับช่วงนี้ หรือคลาสพิเศษของช่วงนี้) — ออกใบก่อนช่วงเริ่มก็ใช้ Memo นี้ · เว้นว่าง = ใช้ Memo ของแบรนด์")}</p>
           </Field>
-          <div className="space-y-1.5">
-            <p className="text-sm font-medium">{tx("คลาสปกติระหว่างช่วงนี้ = หยุดทั้งหมด (ปฏิทินสลับเป็นช่วงนี้ · ไม่ซ้อนกับช่วงอื่น)")}</p>
-            <p className="text-xs text-muted-foreground">{tx("คลาสพิเศษ: สร้างคลาสแล้วเลือก \"ช่วงเวลาพิเศษ\" =")} {p.name || tx("ช่วงนี้")}  {tx("· ช่วงคลาสของช่วงนี้ตั้งจากตารางครู (ปุ่ม ตั้งช่วงเวลา ที่หัววันในช่วง)")}</p>
-          </div>
           <div>
             <Button size="sm" variant="outline" onClick={() => setMsgOpen(true)}><MessageSquareTextIcon /> {tx("ข้อความถึงผู้ปกครอง")}</Button>
             <Dialog open={msgOpen} onOpenChange={setMsgOpen}>
