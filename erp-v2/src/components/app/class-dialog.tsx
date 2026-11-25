@@ -21,6 +21,8 @@ import { CustomerPicker } from "./customer-picker"
 import { NativeSelect } from "./native-select"
 import { gradeTone, subjectColor } from "./subject-color"
 import { InfoTip } from "@/components/app/info-tip"
+import { PeriodNote } from "@/components/app/period-note"
+import { activePeriodOn } from "@/domain/rules/period-impact"
 
 export interface ClassPrefill {
   date?: DateStr
@@ -107,7 +109,9 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
   const all = rowIssues.flat()
   const blocked = all.some((i) => i.level === "block") || selfClash.length > 0 || (layout === "teacher" && !teacherId)
   const needsReason = all.some((i) => i.level === "override")
-  const ok = !blocked && rowIssues.every((list) => canSave(list, overrideReason))
+  // owner 2026-11-25: a REGULAR class can't start inside an Active Special Period (regular classes stop for the whole period) — the day is refused
+  const startInPeriod = !period ? activePeriodOn(branch.specialPeriods, startDate) : null
+  const ok = !blocked && !startInPeriod && rowIssues.every((list) => canSave(list, overrideReason))
 
   const occurrences = (r: Row) => {
     const first = nextWeekday(startDate, r.weekday)
@@ -235,7 +239,7 @@ export function ClassDialog({ prefill, onClose }: { prefill: ClassPrefill; onClo
                   options={periods.map((p) => ({ value: p.id, label: `${p.name} · ${fmtDate(p.from)}–${fmtDate(p.to)}` }))} />
               </Field>
             )}
-            <Field label="เริ่มตั้งแต่" className={periods.length ? "" : "ml-auto"}><Input className="h-8 w-40" type="date" value={startDate} min={period?.from} max={period?.to} onChange={(e) => setStartDate(e.target.value)} /></Field>
+            <Field label="เริ่มตั้งแต่" className={periods.length ? "" : "ml-auto"}><Input className="h-8 w-40" type="date" value={startDate} min={period?.from} max={period?.to} onChange={(e) => setStartDate(e.target.value)} />{!period && <PeriodNote date={startDate} branchId={branch.id} block />}</Field>
           </div>
           {rows.map((r, i) => {
             const mins = minutesOf(r)

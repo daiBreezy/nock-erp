@@ -6,6 +6,7 @@
 import { staffAt } from "./permissions"
 import { addDays, at, fromMinutes, overlaps, toMinutes, weekdayOf } from "../dates"
 import type { Assessment, Attendance, Branch, Course, DateStr, EnrollClassOffer, Family, FormOfferSlot, FormParentInput, FormPick, FormPrefill, FormSubjectOffer, FormType, Holiday, ID, Klass, Lead, LeadStage, Result, Session, Staff, Student, TimeStr } from "../types"
+import { activePeriodOn } from "./period-impact"
 import { classCapacity, hoursFor, isHoliday, sessionState, slotProblem, teachersOf, validateClass } from "./scheduling"
 
 export const FORM_TYPE_LABEL: Record<FormType, string> = { test: "สอบวัดระดับ", trial: "ทดลองเรียน" }
@@ -233,6 +234,8 @@ export function findOfferSlots(params: {
   courses?: Pick<Course, "id" | "maxStudents">[]
   /** owner 2026-11-20: offered "by course" — only these classes' sessions are offered (the picked courses' own classes), not every class of the subject */
   classIds?: ID[]
+  /** owner 2026-11-25: a Trial can't be booked inside a Special Period (a Test can) — those days are not offered */
+  skipPeriods?: boolean
 }): FormOfferSlot[] {
   const { branch, staff, sessions, classes, holidays, subject, from, to, now } = params
   const minutes = params.minutes ?? branch.defaultSessionMinutes
@@ -242,6 +245,7 @@ export function findOfferSlots(params: {
   let gi = 0
   for (let date = from; date <= to; date = addDays(date, 1)) {
     if (isHoliday(date, branch.id, holidays)) continue
+    if (params.skipPeriods && activePeriodOn(branch.specialPeriods, date)) continue
     for (const start of openHourStarts(branch, date)) {
       if (at(date, start) < now) continue
       if (slotProblem(branch, date, start, minutes)) continue
@@ -266,6 +270,7 @@ export function findOfferSlots(params: {
     if (params.classIds && !params.classIds.includes(s.classId)) continue
     if (s.date < from || s.date > to) continue
     if (isHoliday(s.date, branch.id, holidays)) continue
+    if (params.skipPeriods && activePeriodOn(branch.specialPeriods, s.date)) continue
     if (at(s.date, s.start) < now) continue
     const klass = classes.find((k) => k.id === s.classId)
     const cap = classCapacity(klass)

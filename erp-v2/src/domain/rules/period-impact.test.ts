@@ -48,3 +48,18 @@ describe("45-day notice", () => {
     expect(daysUntilPeriod({ from: "2026-11-01" }, "2026-11-25")).toBe(0)
   })
 })
+
+import { activePeriodOn, periodsCovering } from "./period-impact"
+describe("date pickers see Special Periods (owner 2026-11-25)", () => {
+  const periods = [
+    { id: "a", name: "Summer", from: "2027-03-20", to: "2027-05-10", active: true },
+    { id: "b", name: "Mid-year", from: "2027-10-01", to: "2027-10-10", active: false },
+  ] as never[]
+  it("shows planned (inactive) periods but only an active one blocks", () => {
+    expect(periodsCovering(periods, "2027-04-01").map((h) => h.period.name)).toEqual(["Summer"])
+    expect(periodsCovering(periods, "2027-10-05")).toHaveLength(1)
+    expect(activePeriodOn(periods, "2027-10-05")).toBeNull()
+    expect(activePeriodOn(periods, "2027-04-01")?.name).toBe("Summer")
+    expect(periodsCovering(periods, "2027-06-01")).toHaveLength(0)
+  })
+})

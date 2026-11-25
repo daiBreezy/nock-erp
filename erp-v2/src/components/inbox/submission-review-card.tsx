@@ -221,6 +221,7 @@ export function SubmissionReviewCard({ submission: sub, onChanged, groupMates, r
           <SlotPicker
             branch={branch} staff={staff} sessions={sessions} classes={classes} holidays={holidays} now={now}
             subject={editSubject} onSubjectChange={(s) => { setEditSubject(s); setEditSlot(null) }} subjectOptions={branch.subjects}
+            skipPeriods={sub.type === "trial"}
             selected={editSlot ? new Set([editSlot.id]) : new Set()}
             onToggle={(slot) => setEditSlot((cur) => (cur?.id === slot.id ? null : slot))}
           />

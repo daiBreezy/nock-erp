@@ -23,7 +23,7 @@ import { addDays, fmtDate, fmtMoney, fmtMonth, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
 import { busTotal, carriedMinutes, lastNoteFor, lastPaidInvoice, familyPromotion, invoiceHours, FAMILY_PROMO_TIERS, pendingBusAddOns, classChoices, classOptionsFor, defaultAdvance, isBackdated, defaultBusLegs, setAllBusLegs, usesNoBus, entryFeeWaiver, invoiceSessionDates, invoiceTotals, validateInvoiceDraft, type LineQuote } from "@/domain/rules/billing"
 import { lastAssessmentDate } from "@/domain/rules/forms"
-import type { Holiday, AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
+import type { Holiday, SpecialPeriod, AdvanceItem, BusExtraLine, BusLeg, CourseLine, Entitlement, Family, Invoice, Klass, Leftover, Seat } from "@/domain/types"
 import { isPartial } from "@/domain/rules/seats"
 import { SeatHours } from "@/components/app/seat-hours"
 import { CAPACITY, closesBranch } from "@/domain/rules/scheduling"
@@ -430,7 +430,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
           ) : (
             <LineCard key={l.id} index={i} draft={l} quote={totals.lines[i]} studentId={studentId} studentGrade={student?.grade}
               choices={classChoices(totals.lines[i]?.course, classes, branch.id, staff, student?.grade)}
-              today={today} closed={holidays.filter((h) => closesBranch(h, branch.id))} overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
+              today={today} closed={holidays.filter((h) => closesBranch(h, branch.id))} specialPeriods={branch.specialPeriods} overlapTo={studentId ? Att.activeEntitlements(studentId, entitlements, l.startDate).find((e) => e.courseId === l.courseId)?.to : undefined}
               onChange={(patch) => patchLine(l.id, patch)} onRemove={() => removeLine(l.id)} />
           ))}
           {pickingCourses && (
@@ -593,8 +593,8 @@ function CreditLineCard({ index, quote, entitlement, onRemove }: { index: number
   )
 }
 
-export function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, closed, onChange, onRemove }: {
-  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string; today: string; closed: Holiday[]
+export function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, closed, specialPeriods, onChange, onRemove }: {
+  index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string; today: string; closed: Holiday[]; specialPeriods?: SpecialPeriod[]
   onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
 }) {
   const staff = useStore((s) => s.staff)
@@ -694,7 +694,7 @@ export function LineCard({ index, draft, quote, studentId, studentGrade, choices
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <Label className="text-xs">เริ่มเรียนตั้งแต่</Label>
-          <StartDatePicker value={draft.startDate} today={today} closed={closed} onChange={(d) => onChange({ startDate: d })} />
+          <StartDatePicker value={draft.startDate} today={today} closed={closed} periods={specialPeriods} onChange={(d) => onChange({ startDate: d })} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">จำนวน{course.unit === "month" ? "เดือน" : "แพ็ก"} *</Label>

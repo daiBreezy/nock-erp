@@ -18,6 +18,7 @@ import { useStore } from "@/store/store"
 
 export type { FormKind } from "@/domain/rules/form-send"
 import type { FormKind } from "@/domain/rules/form-send"
+import { PeriodNote } from "@/components/app/period-note"
 
 /**
  * owner 2026-11-25 — ONE place for what we know about a Lead: the “ติดต่อ” step. Whatever new comes in (the parent answered in the chat, not in the form)
@@ -95,6 +96,7 @@ export function CourseWishEditor({ kid, courseId, disabled, onChange }: { kid: L
         <Input key={w?.startDate} className="h-8 w-40" type="date" disabled={disabled} defaultValue={w?.startDate ?? ""} aria-label={tx("วันเริ่มเรียน")}
           onChange={(e) => { if (e.target.value !== (w?.startDate ?? "")) onChange({ slots: w?.slots ?? [], startDate: e.target.value || undefined }) }} />
         {w?.startDate && <span className="text-muted-foreground">{fmtDate(w.startDate, { weekday: true })}</span>}
+        <PeriodNote date={w?.startDate} className="w-full" />
       </div>
     </div>
   )

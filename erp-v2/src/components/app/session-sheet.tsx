@@ -60,6 +60,7 @@ import { TeacherPicker } from "./teacher-picker"
 import { type MoveScope } from "@/domain/rules/scheduling"
 import { InfoTip } from "./info-tip"
 import { Empty } from "@/components/app/empty"
+import { PeriodNote } from "@/components/app/period-note"
 
 /** 1–5 understanding (owner 2026-10-14) */
 const LEVEL_LABEL = Sum.LEVEL_LABEL
@@ -1411,7 +1412,7 @@ function EditSessionDialog({ id, onClose }: { id: ID; onClose: () => void }) {
           <DialogDescription>คาบอื่นของคลาสไม่เปลี่ยน · คาบนี้จะไม่ถูกทับเมื่อแก้ทั้งคลาส</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1"><Label>วันที่</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+          <div className="space-y-1"><Label>วันที่</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /><PeriodNote date={date} /></div>
           <div className="space-y-1"><Label>เวลาเริ่ม</Label><Input type="time" step={300} value={start} onChange={(e) => setStart(e.target.value)} /></div>
           <div className="space-y-1">
             <Label>ครู</Label>

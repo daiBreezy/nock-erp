@@ -13,6 +13,7 @@ import { useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { Field } from "./student-form"
 import { Segmented } from "./page-layout"
+import { PeriodNote } from "@/components/app/period-note"
 
 /** Create / edit a student-level, date-range "ลาพักยาว ไม่หักโควตา" record — editable any time, always re-notifies. */
 export function LeaveDialog({ studentId, leave, onClose }: { studentId: ID; leave?: StudentLeave; onClose: () => void }) {
@@ -85,6 +86,7 @@ export function LongLeaveFields({ studentId, from, to, reason, onChange, error }
             <Field label="เริ่มลา *"><Input type="date" value={from} onChange={(e) => { onChange({ from: e.target.value }); if (countOk) syncTo(e.target.value, count) }} /></Field>
             <Field label="จำนวนคาบ *"><Input type="number" min={1} max={60} value={countText} aria-invalid={!countOk} onChange={(e) => { setCountText(e.target.value); const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 60) syncTo(from, n) }} /></Field>
           </div>
+          <PeriodNote date={from} />
           <SessionList sessions={run} more={countOk && run.length < count ? `มีคาบในตารางแค่ ${run.length} คาบ` : undefined}
             empty={countOk ? "ไม่มีคาบตั้งแต่วันนี้ — ใช้แบบ “ช่วงวันที่” แทน" : undefined} />
         </>
@@ -94,6 +96,7 @@ export function LongLeaveFields({ studentId, from, to, reason, onChange, error }
             <Field label="เริ่มลา *"><Input type="date" value={from} onChange={(e) => onChange({ from: e.target.value })} /></Field>
             <Field label="ถึงวันที่ *"><Input type="date" value={to} onChange={(e) => onChange({ to: e.target.value })} /></Field>
           </div>
+          <PeriodNote date={from} /><PeriodNote date={to} />
           {/* owner 2026-10-12: a date range also shows which sessions it covers — how many, which day, what time */}
           {from && to && from <= to && <SessionList sessions={inRange} empty="ไม่มีคาบในช่วงนี้" />}
         </>

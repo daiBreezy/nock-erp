@@ -19,19 +19,21 @@ import { Button } from "@/components/ui/button"
 export function SlotPicker({
   branch, staff, sessions, classes, holidays, now,
   subject, onSubjectChange, subjectOptions,
-  selected, onToggle,
+  selected, onToggle, skipPeriods,
 }: {
   branch: Branch; staff: Staff[]; sessions: Session[]; classes: Klass[]; holidays: Holiday[]; now: Date
   subject: string; onSubjectChange: (subject: string) => void; subjectOptions: string[]
   selected: Set<string>
   onToggle: (slot: FormOfferSlot) => void
+  /** owner 2026-11-25: a Trial can't fall inside a Special Period */
+  skipPeriods?: boolean
 }) {
   const [from, setFrom] = useState(toDateStr(now))
   const [to, setTo] = useState(addDays(toDateStr(now), 14))
 
   const slots = useMemo(
-    () => findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now }),
-    [branch, staff, sessions, classes, holidays, subject, from, to, now],
+    () => findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now, skipPeriods }),
+    [branch, staff, sessions, classes, holidays, subject, from, to, now, skipPeriods],
   )
 
   const grouped = useMemo(() => {

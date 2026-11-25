@@ -17,6 +17,7 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { PeriodNote } from "@/components/app/period-note"
 
 type Day = { date: string; pickup: boolean; dropoff: boolean }
 
@@ -65,6 +66,7 @@ export function BusAddOns({ stu, initialDate, autoStart }: { stu: Student; /** o
           {days.map((d, i) => (
             <div key={i} className="flex flex-wrap items-center gap-3 text-sm">
               <Input type="date" className="w-40" value={d.date} onChange={(e) => patch(i, { date: e.target.value })} />
+              <PeriodNote date={d.date} className="w-full" />
               {(["pickup", "dropoff"] as const).map((k) => (
                 <label key={k} className="flex items-center gap-1.5"><Checkbox checked={d[k]} onCheckedChange={(v) => patch(i, { [k]: !!v })} />{k === "pickup" ? "รับ" : "ส่ง"}</label>
               ))}

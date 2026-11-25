@@ -106,9 +106,9 @@ export function SendFormDialog({
   const offers: FormSubjectOffer[] = useMemo(() => subjects.map((subject) => {
     // "by course": only the picked courses' own classes are offered (owner 2026-11-20)
     const classIds = by === "course" ? classes.filter((k) => k.courseId && courseIds.includes(k.courseId)).map((k) => k.id) : undefined
-    const all = findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now, courses, classIds })
+    const all = findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to, now, courses, classIds, skipPeriods: type === "trial" })
     return { subject, slots: freeShown ? all : all.filter((x) => x.source === "class") }
-  }), [subjects, branch, staff, sessions, classes, holidays, from, to, now, courses, freeShown, by, courseIds])
+  }), [subjects, branch, staff, sessions, classes, holidays, from, to, now, courses, freeShown, by, courseIds, type])
   // one visit = ONE teacher for every subject (owner 2026-11-20): only times when a single free teacher teaches them all are offered
   const combined = useMemo(() => (oneVisit ? commonSlots(visitOffers(offers, subjects), subjects).filter((c) => visitTeachersAt(staff, sessions, branchId, subjects, c.date, c.start, c.minutes).length > 0) : []), [oneVisit, offers, subjects, staff, sessions, branchId])
   // owner 2026-11-20: the courses this family tapped "interested" on in the catalog — marked (and first) in the course picker

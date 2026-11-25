@@ -12,6 +12,7 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx } from "@/lib/i18n"
+import { PeriodNote } from "@/components/app/period-note"
 
 const CHANNEL_ICON = { call: PhoneIcon, line: MessageCircleIcon, other: MoreHorizontalIcon } as const
 const RESULTS_FOR: Record<ContactChannel, ContactResult[]> = {
@@ -82,6 +83,7 @@ export function RenewalFollowUpSection({ stu, canManage, onNotRenewing }: { stu:
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Input type="date" min={today} value={nextTryOn} onChange={(e) => setNextTryOn(e.target.value)} className="h-8 w-40" />
                   <span className="text-xs text-muted-foreground">{tx("ติดต่ออีกครั้งวันที่ — ไม่เลือก = ขึ้นในรายการพรุ่งนี้ต่อ")}</span>
+                  <PeriodNote date={nextTryOn} className="w-full" />
                 </div>
               )}
               <Button size="sm" onClick={save}><CheckIcon />  {tx("บันทึก")}</Button>

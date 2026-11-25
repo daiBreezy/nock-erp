@@ -17,6 +17,7 @@ import { useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { InfoTip } from "./info-tip"
+import { PeriodNote } from "@/components/app/period-note"
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return <Button variant="chip" size="inline" type="button" aria-pressed={on} onClick={onClick} className="px-2.5 py-1 text-xs">{children}</Button>
@@ -67,6 +68,7 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
             <div className="space-y-1">
               <Label>เรียนวันสุดท้าย <InfoTip text={`ยังเรียนได้ถึงวันนี้ · หลังจากนั้นจะเอาออกจากคาบตอนปิดการออก${running ? ` · แพ็กปัจจุบันหมด ${fmtDate(running)}` : ""}`} /></Label>
               <Input type="date" value={lastDate} onChange={(e) => setLastDate(e.target.value)} />
+              <PeriodNote date={lastDate} />
             </div>
             {siblings.length > 0 && (
               <div className="space-y-1.5">
@@ -247,6 +249,7 @@ export function CloseExitDialog({ stu, response, onClose }: { stu: Student; resp
         </DialogHeader>
         <div className="grid grid-cols-[8rem_1fr] items-center gap-2 text-sm">
           <Label>เรียนวันสุดท้าย</Label><Input type="date" value={lastDate} onChange={(e) => setLastDate(e.target.value)} />
+          <PeriodNote date={lastDate} className="col-span-2" />
         </div>
         <div className="space-y-1.5"><Label>เหตุผลหลัก *</Label>
           <div className="flex flex-wrap gap-1.5">{reasons.map((r) => <Chip key={r.id} on={reasonId === r.id} onClick={() => setReasonId(r.id)}>{r.label}</Chip>)}</div></div>

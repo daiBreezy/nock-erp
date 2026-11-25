@@ -53,7 +53,7 @@ export function LeadChildDialog({ lead, onClose }: { lead: Lead; onClose: () => 
   const from = toDateStr(now)
   const slots = useMemo(() => {
     if (!branch || mode === "none") return {}
-    return Object.fromEntries(subjects.map((subject) => [subject, findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to: addDays(from, 28), now })]))
+    return Object.fromEntries(subjects.map((subject) => [subject, findOfferSlots({ branch, staff, sessions, classes, holidays, subject, from, to: addDays(from, 28), now, skipPeriods: mode === "trial" })]))
   }, [branch, mode, subjects, staff, sessions, classes, holidays, from, now])
 
   if (!branch) return null

@@ -69,3 +69,15 @@ export function periodImpact(
 export const PERIOD_NOTICE_DAYS = 45
 export const daysUntilPeriod = (period: Pick<SpecialPeriod, "from">, today: DateStr) => Math.max(0, Math.round((Date.parse(period.from) - Date.parse(today)) / 86_400_000))
 export const shortNotice = (period: Pick<SpecialPeriod, "from">, today: DateStr) => daysUntilPeriod(period, today) < PERIOD_NOTICE_DAYS
+
+/**
+ * owner 2026-11-25 — Date pickers show Special Periods. Three levels by kind of date: BLOCK (a Trial appointment · a regular class's start date — the day
+ * can't be picked), WARN (selectable, with a teal notice: invoice start, leave, reschedule, follow-up …), NOT RELEVANT (payment / birth dates — nothing shown).
+ * Periods that are not Active yet are still SHOWN (so people know what is planned) but only an Active one blocks.
+ */
+export interface PeriodHit { period: SpecialPeriod; active: boolean }
+export function periodsCovering(periods: SpecialPeriod[] | undefined, date: DateStr): PeriodHit[] {
+  return (periods ?? []).filter((p) => p.from <= date && date <= p.to).map((period) => ({ period, active: period.active }))
+}
+/** the Active periods only — what actually stops regular classes (and blocks a Trial) on that day */
+export const activePeriodOn = (periods: SpecialPeriod[] | undefined, date: DateStr) => periodsCovering(periods, date).find((h) => h.active)?.period ?? null

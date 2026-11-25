@@ -60,4 +60,8 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "ไม่มี Credit ที่ยังไม่ได้เลือกวิธีใช้": { en: "No Credit is waiting for a choice", ja: "使い方未選択の Credit はありません" },
   "ใส่เหตุผลที่ยกเลิก Credit": { en: "Enter the reason for cancelling the Credit", ja: "Credit を取消す理由を入力してください" },
   "ไม่มี Credit ที่ยังเปิดอยู่": { en: "No open Credit", ja: "未処理の Credit はありません" },
+  "เลือกไม่ได้ คลาสปกติหยุดทั้งช่วง": { en: "cannot be picked — regular classes stop for the whole period", ja: "選択不可 — 通常クラスは期間中すべて休止" },
+  "คลาสปกติหยุด": { en: "regular classes are paused", ja: "通常クラスは休止" },
+  "ยังไม่เปิดใช้ (Inactive)": { en: "not switched on yet (Inactive)", ja: "未有効(Inactive)" },
+  "คลาสปกติหยุดในช่วงนี้ ตรวจกับผู้ปกครองก่อน": { en: "regular classes are paused in this period — check with the parent first", ja: "この期間は通常クラスが休止 — 先に保護者へ確認" },
 }

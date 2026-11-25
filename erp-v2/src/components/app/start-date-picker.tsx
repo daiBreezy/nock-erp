@@ -9,10 +9,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { fmtDate, parseDate, toDateStr } from "@/domain/dates"
-import type { DateStr, Holiday } from "@/domain/types"
+import { periodsCovering } from "@/domain/rules/period-impact"
+import type { DateStr, Holiday, SpecialPeriod } from "@/domain/types"
 import { tx, useUiLang } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { HUE, HUE_DOT } from "@/components/app/tags"
 
 const LOCALES = { th, en: enUS, ja } as const
 
@@ -21,8 +23,10 @@ const LOCALES = { th, en: enUS, ja } as const
  * light orange (pickable, but they need a reason — a retroactive invoice), company holidays have their own colour and
  * name themselves on hover. `closed` = the holidays that close THIS branch's brand (domain closesBranch).
  */
-export function StartDatePicker({ value, onChange, today, closed, className }: {
-  value: DateStr; onChange: (d: DateStr) => void; today: DateStr; closed: Pick<Holiday, "date" | "name">[]; className?: string
+export function StartDatePicker({ value, onChange, today, closed, periods, className }: {
+  value: DateStr; onChange: (d: DateStr) => void; today: DateStr; closed: Pick<Holiday, "date" | "name">[]
+  /** owner 2026-11-25: the branch's Special Periods (Active or not) — their days are teal with the period's name on hover; picking one is allowed with a notice */
+  periods?: SpecialPeriod[]; className?: string
 }) {
   const lang = useUiLang((s) => s.lang)
   const isMobile = useIsMobile()
@@ -30,6 +34,8 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
   const names = new Map<DateStr, string>()
   for (const h of closed) names.set(h.date, names.get(h.date) ? `${names.get(h.date)} · ${h.name}` : h.name)
   const holidayName = names.get(value)
+  const periodHere = periodsCovering(periods, value)
+  const periodNames = (d: DateStr) => periodsCovering(periods, d).map((h) => h.period.name).join(" · ")
   const past = value < today
   const pick = (d: Date) => { onChange(toDateStr(d)); setOpen(false) }
   const isSel = (d: Date) => toDateStr(d) === value
@@ -40,6 +46,7 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
         isToday: (d) => toDateStr(d) === today && !isSel(d),
         gone: (d) => toDateStr(d) < today && !isSel(d) && !names.has(toDateStr(d)),
         shut: (d) => names.has(toDateStr(d)) && !isSel(d),
+        special: (d) => !names.has(toDateStr(d)) && periodsCovering(periods, toDateStr(d)).length > 0 && !isSel(d),
       }}
       modifiersClassNames={{
         isToday: "[&_button]:font-bold [&_button]:ring-2 [&_button]:ring-primary [&_button]:ring-inset",
@@ -47,11 +54,20 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
         // eslint-disable-next-line no-restricted-syntax -- ds-exception: owner 2026-11-09: days already gone are orange text only
         gone: "[&_button]:text-orange-600 dark:[&_button]:text-orange-400",
         shut: "[&_button]:bg-warning-soft [&_button]:text-warning-ink",
+        // eslint-disable-next-line no-restricted-syntax -- ds-exception: owner 2026-11-25: Special Period days are teal everywhere (same hue as the calendar)
+        special: "[&_button]:bg-teal-100 [&_button]:text-teal-800 dark:[&_button]:bg-teal-950 dark:[&_button]:text-teal-200",
       }}
       components={{
         DayButton: (props) => {
           const name = names.get(toDateStr(props.day.date))
+          const period = periodNames(toDateStr(props.day.date))
           const btn = <CalendarDayButton locale={LOCALES[lang]} {...props} />
+          if (!name && period) return (
+            <HoverCard>
+              <HoverCardTrigger render={<span className="block" />}>{btn}</HoverCardTrigger>
+              <HoverCardContent className="w-auto max-w-56 px-3 py-2 text-xs"><b>{tx("ช่วงเวลาพิเศษ")}</b><br />{period}</HoverCardContent>
+            </HoverCard>
+          )
           if (!name) return btn
           return (
             <HoverCard>
@@ -69,7 +85,9 @@ export function StartDatePicker({ value, onChange, today, closed, className }: {
         {/* eslint-disable-next-line no-restricted-syntax -- ds-exception: same orange as the gone days (legend) */}
         <span className="flex items-center gap-1"><b className="w-3 text-center text-orange-600">1</b>{tx("ผ่านไปแล้ว — เลือกได้ แต่ต้องใส่เหตุผล")}</span>
         <span className="flex items-center gap-1"><i className="size-3 rounded-full bg-warning/40" />{tx("วันหยุดบริษัท")}</span>
+        {(periods?.length ?? 0) > 0 && <span className="flex items-center gap-1"><i className={cn("size-3 rounded-full", HUE_DOT.teal)} />{tx("ช่วงเวลาพิเศษ")}</span>}
       </div>
+      {periodHere.map(({ period, active }) => <p key={period.id} className={cn("rounded px-1.5 py-0.5", HUE.teal.chip)}>{tx("วันที่เลือกอยู่ในช่วงพิเศษ")} {period.name} — {active ? tx("คลาสปกติหยุดในช่วงนี้ ตรวจกับผู้ปกครองก่อน") : tx("ยังไม่เปิดใช้ (Inactive)")}</p>)}
       {holidayName && <p className="text-warning-ink">{tx("วันที่เลือกเป็นวันหยุดบริษัท — ระบบข้ามไปคาบถัดไปให้")}</p>}
     </div>
   )
