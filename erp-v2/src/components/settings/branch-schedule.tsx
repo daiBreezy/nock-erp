@@ -254,7 +254,7 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
           <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
             <span className={cn("block truncate font-medium", !p.active && "text-muted-foreground")}>{p.name || tx("(ไม่มีชื่อ)")}</span>
-            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{p.pauseCause === "other" ? tx(" · คลาสปกติหยุด (ไม่ยืดแพ็กเกจ)") : tx(" · คลาสปกติหยุด (ยืดแพ็กเกจ)")}</span>
+            <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{p.pauseCause === "other" ? tx(" · คลาสปกติหยุด (ไม่ยืดแพ็กเกจ)") : tx(" · คลาสปกติหยุด (รายชั่วโมงยืดวันจบ · รายสัปดาห์/เดือนได้ Credit)")}</span>
           </span>
         </Button>
         <Pill tone={status.tone}>{status.label}</Pill>

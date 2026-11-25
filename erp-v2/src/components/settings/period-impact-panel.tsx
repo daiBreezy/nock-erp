@@ -128,7 +128,7 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
           {nothing && <p className="rounded-xl bg-muted/40 p-3 text-center text-xs text-muted-foreground">{tx("ช่วงนี้ยังไม่กระทบนักเรียนคนใด")}</p>}
           {(show === "all" || show === "hourly") && group(tx("รายชั่วโมง"), tx("วันจบแพ็กเกจยืดออกไปเอง (ข้ามวันหยุดและช่วงพิเศษ) — แค่แจ้งผู้ปกครอง"), impact.hourly, "hourly")}
           {(show === "all" || show === "subscription") && group(tx("รายสัปดาห์ / รายเดือน"), impact.schoolCause ? tx("คาบที่หายจะเก็บเป็น Credit คาบ ให้ตกลงกับผู้ปกครองว่าจะ Refund หรือชดเชย (สร้างให้เองแล้ว — เลือกวิธีใช้ที่แผงนักเรียน › การเงิน · ใบที่ยังไม่จ่ายอาจแก้ยอดใบแทนและยกเลิก Credit)") : tx("เหตุอื่น — ไม่ใช่ความผิดของโรงเรียน ไม่เก็บ Credit"), impact.subscription, "subscription")}
-          {show === "all" && group(tx("ไม่มีแพ็กเกจรองรับ"), tx("ลงชื่อในคาบที่หยุดแต่ไม่มีแพ็กเกจครอบคลุม (เช่น คอร์สเครดิต) — ตรวจเป็นรายคน"), impact.uncovered, "uncovered")}
+          {show === "all" && group(tx("ยังไม่มีแพ็กเกจครอบคลุมช่วงนี้"), tx("แพ็กเกจเดิมจบก่อนช่วงนี้ (ยังไม่ได้ต่อ) หรือเป็นคอร์สเครดิต — ยังไม่มีเงินที่จ่ายสำหรับคาบเหล่านี้ ใบแจ้งหนี้รอบถัดไปต้องคิดโดยคำนึงถึงช่วงนี้ — ตรวจเป็นรายคน"), impact.uncovered, "uncovered")}
           {(show === "all" || show === "bookings") && impact.bookings.length > 0 && (
             <section className="space-y-1.5">
               <div><p className="text-sm font-semibold">{tx("Test / Trial / นัดเดี่ยว ในช่วงนี้")} ({impact.bookings.length})</p><p className="text-xs text-muted-foreground">{tx("ยังไม่ถูกพัก — Trial ไม่ควรอยู่ในช่วงนี้ ตรวจเป็นรายรายการ")}</p></div>

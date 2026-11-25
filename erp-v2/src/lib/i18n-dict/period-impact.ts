@@ -115,4 +115,7 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "สร้างใบลดหนี้ค่ารถ": { en: "Create the bus Credit Note", ja: "送迎代の貸方票を作成" },
   "ไม่พบช่วงพิเศษหรือนักเรียน": { en: "Special period or student not found", ja: "特別期間または生徒が見つかりません" },
   "ไม่มีเที่ยวรถที่เสียไปในช่วงนี้": { en: "No bus legs lost in this period", ja: "この期間に失われた送迎便はありません" },
+  "· คลาสปกติหยุด (รายชั่วโมงยืดวันจบ · รายสัปดาห์/เดือนได้ Credit)": { en: "· regular classes pause (hourly: end date moves · weekly/monthly: session Credit)", ja: "· 通常クラス休止(時間制: 終了日延長 · 週/月: コマ Credit)" },
+  "ยังไม่มีแพ็กเกจครอบคลุมช่วงนี้": { en: "No package covers this period yet", ja: "この期間をカバーするパックはまだありません" },
+  "แพ็กเกจเดิมจบก่อนช่วงนี้ (ยังไม่ได้ต่อ) หรือเป็นคอร์สเครดิต — ยังไม่มีเงินที่จ่ายสำหรับคาบเหล่านี้ ใบแจ้งหนี้รอบถัดไปต้องคิดโดยคำนึงถึงช่วงนี้ — ตรวจเป็นรายคน": { en: "The old package ends before this period (not renewed yet) or it is a credit course — nothing has been paid for these sessions; the next invoice must take this period into account — check one by one", ja: "現在のパックはこの期間の前に終了(未更新)またはクレジットコース — これらのコマの支払いはまだありません。次回請求はこの期間を考慮が必要 — 個別に確認" },
 }
