@@ -34,7 +34,7 @@ export function HeroTasks({ topics, title }: { topics: Topic[]; title: string })
   const total = open.reduce((n, t) => n + t.count, 0)
   return (
     <section className={cn("flex flex-col", DASH_BOX)}>
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-1 flex-col gap-4 lg:flex-row">
         {/* left: the total — icon anchors the box, the big number is "how much is on my plate today" */}
         <div className="flex shrink-0 flex-col border-b pb-3 lg:w-40 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
           <span className="mb-2 grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary"><ClipboardCheckIcon className="size-5" /></span>
@@ -49,7 +49,7 @@ export function HeroTasks({ topics, title }: { topics: Topic[]; title: string })
             <p className="text-sm text-muted-foreground">{tx("เคลียร์หมดแล้ว — ไม่มีงานค้าง")}</p>
           </div>
         ) : (
-          <div className="grid flex-1 grid-cols-2 gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-3">
+          <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-3">
             {open.map((t) => {
               const red = URGENT_KEYS.has(t.key) || !!t.urgent
               return (
