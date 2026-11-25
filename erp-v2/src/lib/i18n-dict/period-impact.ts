@@ -80,4 +80,7 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "กลุ่มรายสัปดาห์ / รายเดือน": { en: "Weekly / monthly group", ja: "週/月グループ" },
   "กลุ่มใบแจ้งหนี้ยังไม่จ่าย": { en: "Unpaid invoice group", ja: "請求書未払いグループ" },
   "ข้อความปิดท้าย": { en: "Closing text", ja: "結び文" },
+  "เริ่มอีก {0} วัน": { en: "starts in {0} days", ja: "あと {0} 日で開始" },
+  "ยังไม่เปิด": { en: "not switched on yet", ja: "未有効" },
+  "ช่วงพิเศษ": { en: "Special period", ja: "特別期間" },
 }

@@ -9,6 +9,8 @@ import Link from "next/link"
 import { AlertTriangleIcon, CheckIcon, ChevronRightIcon, ClipboardCheckIcon, SparklesIcon, UserSearchIcon } from "lucide-react"
 import { focusHref, type Topic } from "@/domain/rules/today"
 import { DASH_BOX } from "./box"
+import { CountdownRows } from "@/components/app/period-countdown"
+import type { PeriodCountdown } from "@/domain/rules/period-impact"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
@@ -72,18 +74,20 @@ export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?:
 }
 
 /** ⚠️ ต้องรู้ไว้ — alerts you should see even if they aren't yours to do. Compact, yellow-framed. */
-export function AlertBox({ topics }: { topics: Topic[] }) {
+export function AlertBox({ topics, periods, branchId }: { topics: Topic[]; /** owner 2026-11-25: Special Periods coming (countdown, gray → orange → red) */ periods?: PeriodCountdown[]; branchId?: string }) {
   const open = topics.filter((t) => t.count > 0)
+  const coming = periods ?? []
   return (
     <section className={cn("flex flex-col", DASH_BOX)}>
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
         <AlertTriangleIcon className="size-4 text-warning" /> {tx("ต้องรู้ไว้")}
-        {open.length > 0 && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{open.length}</span>}
+        {open.length + coming.length > 0 && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{open.length + coming.length}</span>}
       </h2>
-      {open.length === 0 ? (
+      {open.length === 0 && coming.length === 0 ? (
         <p className="flex flex-1 items-center justify-center py-6 text-center text-sm text-muted-foreground">{tx("ไม่มีเรื่องผิดปกติ")}</p>
       ) : (
         <ul className="space-y-0.5">
+          {branchId && <CountdownRows items={coming} branchId={branchId} />}
           {open.map((t) => {
             const red = URGENT_KEYS.has(t.key)
             return (

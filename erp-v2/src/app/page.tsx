@@ -29,6 +29,7 @@ import type { Session } from "@/domain/types"
 import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { usePeriodCountdown } from "@/components/app/period-countdown"
 import { tx, nm, sj } from "@/lib/i18n"
 
 type RangeKey = "today" | "week" | "month"
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const scope = useBranchScope()
   const inScope = (branchId: string) => scope.ids.includes(branchId)
   const me = useStore((s) => s.me())
+  const countdown = usePeriodCountdown()
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
@@ -251,7 +253,7 @@ export default function DashboardPage() {
           then คาบ (day timeline / week board) + ลีด-ขาย; the branch Pulse charts sit at the bottom. */}
       <div className="grid items-stretch gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2"><HeroTasks topics={heroTopics} aiLine={heroAi} title={heroTitle} /></div>
-        {branchView && <AlertBox topics={alertTopics} />}
+        {branchView && <AlertBox topics={alertTopics} periods={countdown.items} branchId={countdown.branchId} />}
       </div>
 
       <div className="grid items-stretch gap-4 lg:grid-cols-3">

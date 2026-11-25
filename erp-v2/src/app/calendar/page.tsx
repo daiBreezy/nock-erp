@@ -36,6 +36,7 @@ import { useStore } from "@/store/store"
 import { sessionKindLabel } from "@/domain/rules/forms"
 import { GradeChips } from "@/components/app/grade-chips"
 import { removedWithClass } from "@/domain/rules/scheduling"
+import { CountdownPills, usePeriodCountdown } from "@/components/app/period-countdown"
 
 /** "board" = "วัน" (default): two ways to look at days, switchable — the teacher × block table for the whole week, or
  *  the original single-day board (lanes by teacher/room, drag & drop) — owner 2026-09-30 */
@@ -62,6 +63,7 @@ const DAY_END = 22 * 60
 const mondayOf = (d: DateStr) => addDays(d, -((weekdayOf(d) + 6) % 7))
 
 function CalendarView() {
+  const countdown = usePeriodCountdown()
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
@@ -235,6 +237,8 @@ function CalendarView() {
           <span className="font-medium text-foreground">{fmtDate(today, { weekday: true, year: true })}</span> · {visible.filter((s) => !s.cancelled).length} คาบในช่วงนี้
           {conflicts.length > 0 && <Pill tone="red"><AlertTriangleIcon className="size-3" /> ชนกัน {conflicts.length} จุด</Pill>}
           {holidayDays.length > 0 && <Pill tone="amber"><PalmtreeIcon className="size-3" /> วันหยุด {holidayDays.length} วัน</Pill>}
+          {/* owner 2026-11-25: Special Period countdown — gray 60–45 days, orange under 45 (not switched on), red under 30 */}
+          <CountdownPills items={countdown.items} branchId={countdown.branchId} />
         </span>}
         actions={<>
           {/* owner 2026-11-13: the header buttons folded into one dropdown, like Billing */}

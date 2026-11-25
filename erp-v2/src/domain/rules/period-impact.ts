@@ -81,3 +81,22 @@ export function periodsCovering(periods: SpecialPeriod[] | undefined, date: Date
 }
 /** the Active periods only — what actually stops regular classes (and blocks a Trial) on that day */
 export const activePeriodOn = (periods: SpecialPeriod[] | undefined, date: DateStr) => periodsCovering(periods, date).find((h) => h.active)?.period ?? null
+
+/**
+ * owner 2026-11-25 — countdown to a Special Period on the Dashboard (ต้องรู้ไว้) and the Calendar sub-header. Only periods that have not started yet, within 60 days:
+ *   60–45 days ahead → gray (safe) · fewer than 45 days and still NOT switched on → orange · fewer than 30 days and still not on → red.
+ * A period that is already Active is "opened" — it stays gray (the Impact Center handles the rest).
+ */
+export const COUNTDOWN_DAYS = 60
+export type CountdownTone = "gray" | "orange" | "red"
+export interface PeriodCountdown { period: SpecialPeriod; days: number; opened: boolean; tone: CountdownTone }
+export function periodCountdown(periods: SpecialPeriod[] | undefined, today: DateStr): PeriodCountdown[] {
+  return (periods ?? [])
+    .filter((p) => p.from > today && daysUntilPeriod(p, today) <= COUNTDOWN_DAYS)
+    .map((period): PeriodCountdown => {
+      const days = daysUntilPeriod(period, today)
+      const opened = period.active
+      return { period, days, opened, tone: opened || days >= PERIOD_NOTICE_DAYS ? "gray" : days < 30 ? "red" : "orange" }
+    })
+    .sort((a, b) => a.days - b.days)
+}

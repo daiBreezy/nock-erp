@@ -63,3 +63,21 @@ describe("date pickers see Special Periods (owner 2026-11-25)", () => {
     expect(periodsCovering(periods, "2027-06-01")).toHaveLength(0)
   })
 })
+
+import { periodCountdown } from "./period-impact"
+describe("countdown colours (owner 2026-11-25)", () => {
+  const p = (from: string, active = false) => ({ id: from, name: "P", from, to: "2099-01-01", active }) as never
+  const today = "2026-11-25"
+  const tone = (from: string, active?: boolean) => periodCountdown([p(from, active)], today)[0]?.tone
+  it("gray while 45+ days away, orange under 45, red under 30 — when still not switched on", () => {
+    expect(tone("2027-01-24")).toBe("gray") // 60 days
+    expect(tone("2027-01-09")).toBe("gray") // 45 days
+    expect(tone("2027-01-08")).toBe("orange") // 44 days
+    expect(tone("2026-12-24")).toBe("red") // 29 days
+  })
+  it("a switched-on period stays gray; beyond 60 days or already started is not listed", () => {
+    expect(tone("2026-12-10", true)).toBe("gray")
+    expect(periodCountdown([p("2027-03-01")], today)).toHaveLength(0)
+    expect(periodCountdown([p("2026-11-20")], today)).toHaveLength(0)
+  })
+})
