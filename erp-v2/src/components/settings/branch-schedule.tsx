@@ -2,7 +2,7 @@
 
 import { Segmented } from "@/components/app/page-layout"
 import { useState } from "react"
-import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PencilIcon, PlusIcon, SunIcon, TrashIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PlusIcon, SunIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -10,11 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { fmtDate, nextWeekday, toDateStr, weekdayLong } from "@/domain/dates"
-import { blocksOn, hoursFor, isHoliday, periodClassesWithStudents, periodShrinkImpact } from "@/domain/rules/scheduling"
+import { fmtDate, toDateStr, weekdayLong } from "@/domain/dates"
+import { hoursFor, isHoliday, periodClassesWithStudents, periodShrinkImpact } from "@/domain/rules/scheduling"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { canEditBlocks } from "@/domain/rules/permissions"
-import { BlocksDialog } from "@/components/calendar/blocks-dialog"
 import { copyHours, everyDay, PRIORITY_LABEL, validateSpecialPeriods } from "@/domain/rules/settings"
 import type { Branch, OpenHours, PeriodPriority, SpecialPeriod, Weekday } from "@/domain/types"
 import { uid } from "@/data/seed"
@@ -109,53 +107,9 @@ export function SchedulingTab({ branch, holidaysOnly = false }: { branch: Branch
     <div className="space-y-4">
       <Segmented value={sub} onChange={setSub} options={tabs.map((t) => ({ value: t.id, label: t.label }))} />
       {sub === "operating" && <OperatingHours branch={branch} />}
-      {sub === "operating" && <ClassBlocksCard branch={branch} />}
       {sub === "special" && <SpecialPeriodsCard branch={branch} />}
       {sub === "holidays" && <HolidayPlanner branch={branch} />}
     </div>
-  )
-}
-
-/**
- * Class blocks (owner 2026-10-01): each branch, each weekday its own — edited through the same dialog as the teacher
- * board (this day only, or from a date on; copy Monday to Mon–Fri or Saturday to the weekend). Admin / Manager only.
- */
-function ClassBlocksCard({ branch }: { branch: Branch }) {
-  const today = toDateStr(useNow(60_000))
-  const me = useStore((s) => s.me())
-  const canEdit = canEditBlocks(me, branch.id)
-  const [editing, setEditing] = useState<string | null>(null)
-  // the plan in force for each weekday from today (special periods and one-off days aside)
-  const plain = { ...branch, specialPeriods: [], blockDays: {} }
-  const dayOf = (wd: Weekday) => nextWeekday(today, wd)
-  const oneOffs = Object.entries(branch.blockDays ?? {}).filter(([d]) => d >= today).sort(([a], [b]) => a.localeCompare(b))
-  const planned = (branch.blockPlans ?? []).filter((p) => p.from > today)
-  return (
-    <SettingsCard title={tx("ช่วงคลาส (แถวของตารางครู)")} hint={tx("แต่ละสาขา แต่ละวันตั้งเองได้ · ใช้ตอนสร้างคลาสแบบ ครู + ช่วงเวลา · แก้จากตารางครูได้ด้วย (ปุ่ม ตั้งช่วงเวลา ที่หัววัน)")}>
-      {editing && <BlocksDialog branch={branch} date={editing} scope="following" onClose={() => setEditing(null)} />}
-      <ul className="divide-y rounded-xl border">
-        {WEEK.map((wd) => {
-          const blocks = blocksOn(plain, dayOf(wd))
-          return (
-            <li key={wd} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-              <span className="w-24 font-medium">{weekdayLong(wd)}</span>
-              <span className="flex flex-1 flex-wrap gap-1">
-                {blocks.length ? blocks.map((b) => <span key={b.start} className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{b.start}–{b.end}</span>)
-                  : <span className="text-xs text-muted-foreground">{branch.hours[wd] ? tx("ไม่มีช่วง") : tx("สาขาปิด")}</span>}
-              </span>
-              {canEdit && <Button size="xs" variant="ghost" onClick={() => setEditing(dayOf(wd))}><PencilIcon />  {tx("แก้")}</Button>}
-            </li>
-          )
-        })}
-      </ul>
-      {(oneOffs.length > 0 || planned.length > 0) && (
-        <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-          {planned.map((p) => <p key={p.from}>{tx("เปลี่ยนตั้งแต่")} {fmtDate(p.from, { weekday: true })}  {tx("(ตั้งล่วงหน้าไว้)")}</p>)}
-          {oneOffs.map(([d, b]) => <p key={d}>{tx("เฉพาะ")} {fmtDate(d, { weekday: true })}: {b.map((x) => `${x.start}–${x.end}`).join(", ") || tx("ไม่มีช่วง")}</p>)}
-        </div>
-      )}
-      {!canEdit && <p className="mt-2 text-xs text-muted-foreground">{tx("แก้ได้เฉพาะ Admin / Manager ของสาขา")}</p>}
-    </SettingsCard>
   )
 }
 

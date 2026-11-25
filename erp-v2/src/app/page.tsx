@@ -1,5 +1,5 @@
 "use client"
-import { RolloverBanner } from "@/components/students/rollover-banner"
+import { RolloverDialog, useRolloverNotice } from "@/components/students/rollover-banner"
 import { useState } from "react"
 import { BanknoteIcon, CheckCircle2Icon, GraduationCapIcon, HistoryIcon, UserCheckIcon, UserSearchIcon, XCircleIcon } from "lucide-react"
 import { Page, PageHeader, RangeStepper, Segmented } from "@/components/app/page-layout"
@@ -51,6 +51,8 @@ export default function DashboardPage() {
   const inScope = (branchId: string) => scope.ids.includes(branchId)
   const me = useStore((s) => s.me())
   const countdown = usePeriodCountdown()
+  const rollover = useRolloverNotice(branch.id)
+  const [rolloverOpen, setRolloverOpen] = useState(false)
   const sessions = useStore((s) => s.sessions)
   const attendance = useStore((s) => s.attendance)
   const summaries = useStore((s) => s.summaries)
@@ -233,8 +235,8 @@ export default function DashboardPage() {
           {branchView && <ActivityButton items={recentActivity} today={today} />}
           {scope.select}
         </>} />
-      {/* owner 2026-11-19: yearly grade change reminder */}
-      <RolloverBanner branchId={branch.id} />
+      {/* owner 2026-11-19: yearly grade change reminder — owner 2026-11-25: a row in ต้องรู้ไว้ (the banner was in the way) */}
+      {rolloverOpen && <RolloverDialog branchId={branch.id} onClose={() => setRolloverOpen(false)} />}
 
       {branchView && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -253,7 +255,8 @@ export default function DashboardPage() {
           then คาบ (day timeline / week board) + ลีด-ขาย; the branch Pulse charts sit at the bottom. */}
       <div className="grid items-stretch gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2"><HeroTasks topics={heroTopics} aiLine={heroAi} title={heroTitle} /></div>
-        {branchView && <AlertBox topics={alertTopics} periods={countdown.items} branchId={countdown.branchId} />}
+        {branchView && <AlertBox topics={alertTopics} periods={countdown.items} branchId={countdown.branchId}
+          notices={rollover ? [{ key: "rollover", title: rollover.title, sub: rollover.sub, onClick: rollover.action ? () => setRolloverOpen(true) : undefined }] : []} />}
       </div>
 
       <div className="grid items-stretch gap-4 lg:grid-cols-3">

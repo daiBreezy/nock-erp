@@ -18,14 +18,14 @@ import { useStore } from "@/store/store"
 
 const MAX_LISTED = 200
 
-export function RolloverBanner({ branchId }: { branchId: ID }) {
+/** the notice itself (null = nothing to say) — the Students page shows it as a banner, the Dashboard as a row of ต้องรู้ไว้ (owner 2026-11-25: the banner was in the way) */
+export function useRolloverNotice(branchId: ID) {
   const me = useStore((s) => s.me())
   const branch = useStore((s) => s.branches.find((b) => b.id === branchId))
   const cfg = useStore((s) => s.system.gradeRollover)
   const done = useStore((s) => s.gradeRollovers)
   const students = useStore((s) => s.students)
   const today = toDateStr(useNow(60_000))
-  const [open, setOpen] = useState(false)
   if (!branch || !can(me, "student.manage")) return null
   const st = rolloverState(today, cfg, branch.brand, branchId, done)
   if (st.kind === "none") return null
@@ -33,15 +33,27 @@ export function RolloverBanner({ branchId }: { branchId: ID }) {
   if (!count) return null
   const auto = branch.gradeRolloverMode === "auto"
   const due = st.kind === "due"
+  return {
+    due, auto, count,
+    title: due ? `ถึงเวลาเลื่อนชั้นประจำปี ${st.year + 543} แล้ว` : `อีก ${st.daysLeft} วัน (${fmtDate(st.date)}) จะเลื่อนชั้นประจำปี`,
+    sub: `${count} คนจะขึ้นชั้นถัดไป · ${auto ? "สาขานี้ตั้งเป็น Auto — ระบบจะเลื่อนให้เองในวันนั้น" : "ต้องให้ Admin กดอนุมัติ"}`,
+    action: due ? (auto ? "เลื่อนเลย" : "ตรวจสอบและอนุมัติ") : null,
+  }
+}
+
+export function RolloverBanner({ branchId }: { branchId: ID }) {
+  const n = useRolloverNotice(branchId)
+  const [open, setOpen] = useState(false)
+  if (!n) return null
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-warning-soft px-4 py-3 text-sm text-warning-ink">
         <GraduationCapIcon className="size-5 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold">{due ? `ถึงเวลาเลื่อนชั้นประจำปี ${st.year + 543} แล้ว` : `อีก ${st.daysLeft} วัน (${fmtDate(st.date)}) จะเลื่อนชั้นประจำปี`}</p>
-          <p className="text-xs">{count} คนจะขึ้นชั้นถัดไป · {auto ? "สาขานี้ตั้งเป็น Auto — ระบบจะเลื่อนให้เองในวันนั้น" : "ต้องให้ Admin กดอนุมัติ"}</p>
+          <p className="font-semibold">{n.title}</p>
+          <p className="text-xs">{n.sub}</p>
         </div>
-        {due && <Button size="sm" onClick={() => setOpen(true)}>{auto ? "เลื่อนเลย" : "ตรวจสอบและอนุมัติ"}</Button>}
+        {n.action && <Button size="sm" onClick={() => setOpen(true)}>{n.action}</Button>}
       </div>
       {open && <RolloverDialog branchId={branchId} onClose={() => setOpen(false)} />}
     </>
@@ -49,7 +61,7 @@ export function RolloverBanner({ branchId }: { branchId: ID }) {
 }
 
 /** the list the Admin approves — grouped by grade, with every student tickable so one can be left out (repeated a year, skipped ahead) */
-function RolloverDialog({ branchId, onClose }: { branchId: ID; onClose: () => void }) {
+export function RolloverDialog({ branchId, onClose }: { branchId: ID; onClose: () => void }) {
   const students = useStore((s) => s.students)
   const apply = useStore((s) => s.applyGradeRollover)
   const plan = planRollover(students, branchId)

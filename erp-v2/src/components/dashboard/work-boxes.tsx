@@ -8,6 +8,7 @@
 import Link from "next/link"
 import { AlertTriangleIcon, CheckIcon, ChevronRightIcon, ClipboardCheckIcon, SparklesIcon, UserSearchIcon } from "lucide-react"
 import { focusHref, type Topic } from "@/domain/rules/today"
+import { Button } from "@/components/ui/button"
 import { DASH_BOX } from "./box"
 import { CountdownRows } from "@/components/app/period-countdown"
 import type { PeriodCountdown } from "@/domain/rules/period-impact"
@@ -74,19 +75,29 @@ export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?:
 }
 
 /** ⚠️ ต้องรู้ไว้ — alerts you should see even if they aren't yours to do. Compact, yellow-framed. */
-export function AlertBox({ topics, periods, branchId }: { topics: Topic[]; /** owner 2026-11-25: Special Periods coming (countdown, gray → orange → red) */ periods?: PeriodCountdown[]; branchId?: string }) {
+export function AlertBox({ topics, periods, branchId, notices }: { topics: Topic[]; /** owner 2026-11-25: one-off notices that are not counted topics (e.g. the yearly grade change) — a row each */ notices?: { key: string; title: string; sub?: string; onClick?: () => void }[]; /** owner 2026-11-25: Special Periods coming (countdown, gray → orange → red) */ periods?: PeriodCountdown[]; branchId?: string }) {
   const open = topics.filter((t) => t.count > 0)
   const coming = periods ?? []
+  const extra = notices ?? []
   return (
     <section className={cn("flex flex-col", DASH_BOX)}>
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
         <AlertTriangleIcon className="size-4 text-warning" /> {tx("ต้องรู้ไว้")}
-        {open.length + coming.length > 0 && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{open.length + coming.length}</span>}
+        {open.length + coming.length + extra.length > 0 && <span className="ml-auto text-xs text-muted-foreground tabular-nums">{open.length + coming.length + extra.length}</span>}
       </h2>
-      {open.length === 0 && coming.length === 0 ? (
+      {open.length === 0 && coming.length === 0 && extra.length === 0 ? (
         <p className="flex flex-1 items-center justify-center py-6 text-center text-sm text-muted-foreground">{tx("ไม่มีเรื่องผิดปกติ")}</p>
       ) : (
         <ul className="space-y-0.5">
+          {extra.map((n) => (
+            <li key={n.key}>
+              <Button variant="row" size="inline" type="button" onClick={n.onClick} className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-muted/60">
+                <span className="size-1.5 shrink-0 rounded-full bg-warning" />
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm">{n.title}</span>{n.sub && <span className="block truncate text-xs text-muted-foreground">{n.sub}</span>}</span>
+                <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+              </Button>
+            </li>
+          ))}
           {branchId && <CountdownRows items={coming} branchId={branchId} />}
           {open.map((t) => {
             const red = URGENT_KEYS.has(t.key)

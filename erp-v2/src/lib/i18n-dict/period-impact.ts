@@ -118,4 +118,5 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "· คลาสปกติหยุด (รายชั่วโมงยืดวันจบ · รายสัปดาห์/เดือนได้ Credit)": { en: "· regular classes pause (hourly: end date moves · weekly/monthly: session Credit)", ja: "· 通常クラス休止(時間制: 終了日延長 · 週/月: コマ Credit)" },
   "ยังไม่มีแพ็กเกจครอบคลุมช่วงนี้": { en: "No package covers this period yet", ja: "この期間をカバーするパックはまだありません" },
   "แพ็กเกจเดิมจบก่อนช่วงนี้ (ยังไม่ได้ต่อ) หรือเป็นคอร์สเครดิต — ยังไม่มีเงินที่จ่ายสำหรับคาบเหล่านี้ ใบแจ้งหนี้รอบถัดไปต้องคิดโดยคำนึงถึงช่วงนี้ — ตรวจเป็นรายคน": { en: "The old package ends before this period (not renewed yet) or it is a credit course — nothing has been paid for these sessions; the next invoice must take this period into account — check one by one", ja: "現在のパックはこの期間の前に終了(未更新)またはクレジットコース — これらのコマの支払いはまだありません。次回請求はこの期間を考慮が必要 — 個別に確認" },
+  "{0} คนจะขึ้นชั้นถัดไป · {1}": { en: "{0} students move up a grade · {1}", ja: "{0} 名が進級します · {1}" },
 }
