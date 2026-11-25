@@ -10,7 +10,7 @@ import { autoCredits } from "@/domain/rules/refunds"
 import { PackageBadge } from "@/components/app/package-badge"
 import { branchHasBus, busRate } from "@/domain/rules/settings"
 import { useState } from "react"
-import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, EyeIcon, HistoryIcon, MapPinIcon, PlusIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarIcon, CheckIcon, EyeIcon, HistoryIcon, MapPinIcon, PlusIcon, SunIcon, UserRoundSearchIcon, XIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -27,6 +27,7 @@ import type { Holiday, SpecialPeriod, AdvanceItem, BusExtraLine, BusLeg, CourseL
 import { isPartial } from "@/domain/rules/seats"
 import { SeatHours } from "@/components/app/seat-hours"
 import { CAPACITY, closesBranch } from "@/domain/rules/scheduling"
+import { HUE } from "@/components/app/tags"
 import { StartDatePicker } from "@/components/app/start-date-picker"
 import { Segmented } from "@/components/app/page-layout"
 import { uid } from "@/data/seed"
@@ -593,6 +594,11 @@ function CreditLineCard({ index, quote, entitlement, onRemove }: { index: number
   )
 }
 
+/** names of the Special Periods covering these dates */
+function periodNamesOn(periods: SpecialPeriod[] | undefined, dates: string[]) {
+  return dates.flatMap((d) => (periods ?? []).filter((p) => p.active && p.from <= d && d <= p.to).map((p) => p.name))
+}
+
 export function LineCard({ index, draft, quote, studentId, studentGrade, choices, overlapTo, today, closed, specialPeriods, onChange, onRemove }: {
   index: number; draft: LineDraft; quote?: LineQuote; studentId: string; studentGrade?: string; choices: { klass: Klass; warnings: string[] }[]; overlapTo?: string; today: string; closed: Holiday[]; specialPeriods?: SpecialPeriod[]
   onChange: (patch: Partial<LineDraft>) => void; onRemove: () => void
@@ -742,6 +748,12 @@ export function LineCard({ index, draft, quote, studentId, studentGrade, choices
             <span>{q.sessions.length} คาบ · {q.hours} ชม.</span>
             {q.skipped.length > 0 && <span className="text-muted-foreground">ข้ามวันหยุด {q.skipped.map((d) => fmtDate(d)).join(", ")}</span>}
           </div>
+          {/* owner 2026-11-25: the month falls inside an Active Special Period — the regular class does not meet, so those weeks are not billed */}
+          {q.periodSkipped.length > 0 && (
+            <p className={cn("px-3 py-1.5 text-xs", HUE.teal.chip)}>
+              <SunIcon className="mr-1 inline size-3" />ช่วงพิเศษ {[...new Set(periodNamesOn(specialPeriods, q.periodSkipped))].join(", ")} — คลาสปกติหยุด {q.periodSkipped.length} วัน ไม่คิดเงินสัปดาห์เหล่านั้น{q.total === 0 ? " (เดือนนี้คิด ฿0 — ถ้าผู้ปกครองต้องการเรียนช่วงนี้ ให้เลือกคอร์สของช่วงพิเศษ)" : ""}
+            </p>
+          )}
           <table className="w-full text-sm">
             <tbody>
               {q.periods.map((p) => (

@@ -1,7 +1,7 @@
 // Billing rules: one pricing function feeds Create, Edit, Detail and PDF (BL-2, BL-3, BL-4).
 
 import { addMonths, endOfMonth, fmtDate, fmtMoney, fromMinutes, monthKey, nextWeekday, addDays, toMinutes, weekdayOf } from "../dates"
-import type { AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, Payment, PriceUnit, Result, Role, Staff } from "../types"
+import type { SpecialPeriod, AdvanceItem, Branch, BusAddOn, Entitlement, Leftover, Student, Weekday, BusLeg, Course, CourseLine, DateStr, Fee, Holiday, ID, Invoice, Klass, Payment, PriceUnit, Result, Role, Staff } from "../types"
 import { purchaseOf } from "./course"
 import { seatTotal, seatWindows } from "./seats"
 import { requireForceRemark } from "./notifications"
@@ -40,6 +40,8 @@ export interface CourseQuote {
   slots: QuoteSlot[]
   /** dates skipped because of holidays */
   skipped: DateStr[]
+  /** owner 2026-11-25: dates a REGULAR class does not meet because a Special Period is Active — not billed (a monthly month fully inside one costs 0) */
+  periodSkipped: DateStr[]
   from: DateStr
   to: DateStr
   hours: number
@@ -52,7 +54,10 @@ export interface CourseQuote {
   carryOut: number
 }
 
-type QuoteClass = Pick<Klass, "id" | "weekday" | "minutes" | "branchId" | "start">
+/** the Active Special Period covering a date (a regular class does not meet then) — local copy so billing needs nothing from period-impact */
+const activePeriodOn = (periods: SpecialPeriod[] | undefined, d: DateStr) => (periods ?? []).find((p) => p.active && p.from <= d && d <= p.to)
+
+type QuoteClass = Pick<Klass, "id" | "weekday" | "minutes" | "branchId" | "start"> & { periodId?: Klass["periodId"] }
 
 /**
  * Where a week starts for pro-rating: the branch's first open day of that Mon–Sun week (open Mon–Fri → Monday,
@@ -68,16 +73,17 @@ export function weekKey(date: DateStr, openDays: Weekday[]): DateStr {
 }
 
 /** Every meeting of these classes from `from`, skipping holidays, in date + time order, until `stop` says enough. */
-function classSlots(klasses: QuoteClass[], from: DateStr, holidays: Holiday[], stop: (d: DateStr, taken: QuoteSlot[]) => boolean) {
-  const slots: QuoteSlot[] = [], skipped: DateStr[] = []
+function classSlots(klasses: QuoteClass[], from: DateStr, holidays: Holiday[], stop: (d: DateStr, taken: QuoteSlot[]) => boolean, periods?: SpecialPeriod[]) {
+  const slots: QuoteSlot[] = [], skipped: DateStr[] = [], periodSkipped: DateStr[] = []
   for (let d = from, guard = 0; guard < 3660 && !stop(d, slots); d = addDays(d, 1), guard++) {
     for (const k of [...klasses].sort((a, b) => a.start.localeCompare(b.start))) {
       if (weekdayOf(d) !== k.weekday) continue
       if (isHoliday(d, k.branchId, holidays)) skipped.push(d)
+      else if (!k.periodId && activePeriodOn(periods, d)) periodSkipped.push(d) // a regular class is stopped while a Special Period is Active
       else slots.push({ date: d, classId: k.id, start: k.start, minutes: k.minutes })
     }
   }
-  return { slots, skipped: [...new Set(skipped)] }
+  return { slots, skipped: [...new Set(skipped)], periodSkipped: [...new Set(periodSkipped)] }
 }
 
 export function quoteCourse(opts: {
@@ -94,6 +100,8 @@ export function quoteCourse(opts: {
   /** hour packs: free minutes from a bonus-hours promotion — added to what is bought, price unchanged */
   bonusMinutes?: number
   leftover?: Leftover
+  /** owner 2026-11-25: the branch's Special Periods — a regular class does not meet (and is not billed) on days an Active one covers */
+  specialPeriods?: SpecialPeriod[]
 }): Result<CourseQuote> {
   const { course, klasses, startDate, holidays } = opts
   if (!Number.isInteger(opts.periods) || opts.periods < 1) return { ok: false, error: "จำนวนงวดต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป" } // BL-5
@@ -104,7 +112,7 @@ export function quoteCourse(opts: {
   if (course.unit === "month") {
     // months count from the first real session, not the typed start date (E2E 2026-09-28)
     const to = endOfMonth(addMonths(first, opts.periods - 1))
-    const { slots, skipped } = classSlots(klasses, first, holidays, (d) => d > to)
+    const { slots, skipped, periodSkipped } = classSlots(klasses, first, holidays, (d) => d > to, opts.specialPeriods)
     const months = Array.from({ length: opts.periods }, (_, i) => monthKey(addMonths(first, i)))
     // each class week is billed in the month its week starts (a week starting 30 Sep belongs to September);
     // weeks that start before the first month count in the first month
@@ -115,21 +123,21 @@ export function quoteCourse(opts: {
       const factor = prorateFactor(weeks.length) // owner 2026-09-30: count weeks with class, not sessions
       return { month: m, sessions: inMonth.map((x) => x.date), weeks, factor, amount: Math.round(course.price * factor) }
     })
-    return done(slots, skipped, first, to, periods, 0, 0)
+    return done(slots, skipped, first, to, periods, 0, 0, periodSkipped)
   }
 
   // week packs: every session inside N weeks from the first session — any number of sessions (owner 2026-09-28)
   if (course.unit === "week") {
     const to = addDays(first, course.duration * 7 * opts.periods - 1)
-    const { slots, skipped } = classSlots(klasses, first, holidays, (d) => d > to)
-    return done(slots, skipped, first, to, [{ month: monthKey(first), sessions: slots.map((x) => x.date), factor: opts.periods, amount: course.price * opts.periods }], 0, 0)
+    const { slots, skipped, periodSkipped } = classSlots(klasses, first, holidays, (d) => d > to, opts.specialPeriods)
+    return done(slots, skipped, first, to, [{ month: monthKey(first), sessions: slots.map((x) => x.date), factor: opts.periods, amount: course.price * opts.periods }], 0, 0, periodSkipped)
   }
 
   // hour packs: whole sessions the minutes pay for, in real class order across every class, at each class's real
   // length (24 h at 1:30 = 16 sessions) · what doesn't fill the next session is the leftover (owner 2026-09-30)
   const bought = course.duration * 60 * opts.periods + (opts.carryIn ?? 0) + (opts.bonusMinutes ?? 0)
   // scan until the meetings found go past what was bought — the first one over is the "next session"
-  const { slots, skipped } = classSlots(klasses, first, holidays, (_, taken) => taken.reduce((a, x) => a + x.minutes, 0) > bought)
+  const { slots, skipped, periodSkipped } = classSlots(klasses, first, holidays, (_, taken) => taken.reduce((a, x) => a + x.minutes, 0) > bought, opts.specialPeriods)
   let used = 0
   const fit: QuoteSlot[] = []
   for (const x of slots) { if (used + x.minutes > bought) break; fit.push(x); used += x.minutes }
@@ -141,15 +149,16 @@ export function quoteCourse(opts: {
   const lastDate = paid[paid.length - 1]?.date
   return done(paid, skipped.filter((d) => !lastDate || d <= lastDate), first, to,
     [{ month: monthKey(first), sessions: paid.map((x) => x.date), factor: opts.periods, amount: course.price * opts.periods }],
-    leftoverMinutes, opts.leftover === "carry" ? leftoverMinutes : 0)
+    leftoverMinutes, opts.leftover === "carry" ? leftoverMinutes : 0, periodSkipped.filter((d) => !lastDate || d <= lastDate))
 
-  function done(s: QuoteSlot[], sk: DateStr[], from: DateStr, until: DateStr, periods: PeriodLine[], leftoverMinutes: number, carryOut: number): Result<CourseQuote> {
+  function done(s: QuoteSlot[], sk: DateStr[], from: DateStr, until: DateStr, periods: PeriodLine[], leftoverMinutes: number, carryOut: number, pSkipped: DateStr[] = []): Result<CourseQuote> {
     return {
       ok: true,
       value: {
         sessions: s.map((x) => x.date),
         slots: s,
         skipped: sk,
+        periodSkipped: pSkipped,
         from,
         to: until,
         hours: s.reduce((a, x) => a + x.minutes, 0) / 60, // BL-2: hours from real sessions × real duration
@@ -269,7 +278,7 @@ export function quoteLine(line: CourseLine, ctx: { branch: Branch; courses: Cour
   const bonus = course && purchase && promotions ? bestBonusHours(ctx.branch, purchase, line.startDate) : null
   let quote: CourseQuote | null = null
   if (course && klasses.length) {
-    const r = quoteCourse({ course, klasses, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays, openDays: openDaysOf(ctx.branch), carryIn: line.carryIn, bonusMinutes: bonus?.minutes, leftover: line.leftover })
+    const r = quoteCourse({ course, klasses, startDate: line.startDate, periods: line.periods, holidays: ctx.holidays, openDays: openDaysOf(ctx.branch), carryIn: line.carryIn, bonusMinutes: bonus?.minutes, leftover: line.leftover, specialPeriods: ctx.branch.specialPeriods })
     if (r.ok) quote = r.value
   }
   const amount = quote?.total ?? 0
