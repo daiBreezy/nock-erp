@@ -49,7 +49,6 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { InfoTip } from "@/components/app/info-tip"
-import { fmtSpan } from "@/lib/span"
 import { SpanTip } from "@/components/app/span-tip"
 
 /** Stages that now move by themselves (E2E 2026-09-28) — the sheet says what will move them instead of a button. */

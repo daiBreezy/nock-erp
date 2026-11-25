@@ -59,7 +59,6 @@ import { Empty } from "@/components/app/empty"
 import { CreditTag } from "./credit-tag"
 import { CreditCourseDialog } from "@/components/billing/credit-course-dialog"
 import { creditCourseOn, creditAgeDays, creditOwedTotal, creditsOwed, creditState, CREDIT_REMIND_DAYS, invoiceOfCredit } from "@/domain/rules/credit"
-import { fmtSpan } from "@/lib/span"
 import { SpanTip } from "@/components/app/span-tip"
 
 export { STATUS_PILL } from "./student-status"

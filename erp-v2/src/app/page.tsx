@@ -198,8 +198,6 @@ export default function DashboardPage() {
   const heroTitle = mineOnly ? tx("ต้องทำของฉัน") : range === "week" ? tx("ต้องทำสัปดาห์นี้") : tx("ต้องทำวันนี้")
   // owner 2026-11-10: the AI line is a "start here" for THIS box — scoped to the hero's own work, so its number lines
   // up with the box total (not the whole page). Highest-priority hero step first (dailyBrief already ranks them).
-  const heroStep = brief.steps.find((s) => HERO_KEYS.includes(s.key))
-  const heroAi = heroStep ? tx("เริ่มจาก “{0}” {1} รายการก่อน", [heroStep.title, heroStep.count]) : undefined
 
   // Week mode: the whole week's sessions as a 7-day board
   const weekSessions = branchSessions.filter((s) => R.inRange(s.date, weekRange) && (!mineOnly || s.teacherId === me.id))
@@ -254,7 +252,7 @@ export default function DashboardPage() {
       {/* owner 2026-11-10 (DASHBOARD.md): fixed boxes, DO on top / KNOW below. ต้องทำ (hero) + ⚠️ ต้องรู้ side by side;
           then คาบ (day timeline / week board) + ลีด-ขาย; the branch Pulse charts sit at the bottom. */}
       <div className="grid items-stretch gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2"><HeroTasks topics={heroTopics} aiLine={heroAi} title={heroTitle} /></div>
+        <div className="lg:col-span-2"><HeroTasks topics={heroTopics} title={heroTitle} /></div>
         {branchView && <AlertBox topics={alertTopics} periods={countdown.items} branchId={countdown.branchId}
           notices={rollover ? [{ key: "rollover", title: rollover.title, sub: rollover.sub, onClick: rollover.action ? () => setRolloverOpen(true) : undefined }] : []} />}
       </div>

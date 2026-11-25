@@ -20,7 +20,6 @@ import { useEntitlements, useNow } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { fmtSpan } from "@/lib/span"
 import { SpanTip } from "@/components/app/span-tip"
 
 type Show = "all" | "hourly" | "subscription" | "bookings" | "bus"

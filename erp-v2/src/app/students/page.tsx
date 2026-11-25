@@ -37,8 +37,6 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "@/lib/toast"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
-import { fmtSpan } from "@/lib/span"
-import { tx } from "@/lib/i18n"
 import { SpanTip } from "@/components/app/span-tip"
 
 export default function StudentsPage() {
@@ -54,6 +52,8 @@ export default function StudentsPage() {
   const rollovers = useRolloverNotices(scope.ids)
   const branchList = useStore((s) => s.branches)
   const rollCount = rollovers.reduce((a, n) => a + n.count, 0)
+  // owner 2026-11-25: when it can be approved the words are a link right in the card — the first branch that is due
+  const dueRoll = rollovers.find((n) => n.due && !n.auto)
   const [rolloverOpen, setRolloverOpen] = useState<string | null>(null)
   // owner 2026-11-25: this page lists CUSTOMERS only — a Lead (not paid yet) lives in the CRM
   const leadSet = useLeadSets()
@@ -254,7 +254,7 @@ export default function StudentsPage() {
         <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.attention} tone="amber" emphasis={!!kpi.attention || rollCount > 0}
           // owner 2026-11-25: the yearly grade change lives here (it was a banner above the page) — the approval is in the "เพิ่ม / ส่งออก" menu
           info={rollovers.length > 0 ? rollovers.map((n) => `${typeof n.title === "string" ? n.title : ""} ${n.sub}`.trim()).join(" · ") : undefined}
-          sub={<>แจ้งออก {kpi.exiting}{" · "}ไม่ผูกครอบครัว {kpi.noFamily}{rollCount > 0 && <>{" · "}เลื่อนชั้น {rollCount}</>}</>}
+          sub={<>แจ้งออก {kpi.exiting}{" · "}ไม่ผูกครอบครัว {kpi.noFamily}{rollCount > 0 && <>{" · "}{dueRoll ? <span role="link" tabIndex={0} className="font-medium text-primary underline underline-offset-2" title="กดเพื่อตรวจสอบและอนุมัติเลื่อนชั้น" onClick={(e) => { e.stopPropagation(); setRolloverOpen(dueRoll.branchId) }} onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setRolloverOpen(dueRoll.branchId) } }}>เลื่อนชั้น {rollCount} ›</span> : <>เลื่อนชั้น {rollCount}</>}</>}</>}
           onClick={() => { setStatus(""); setNoFamily(noFamily === "attention" ? "" : "attention") }} active={noFamily === "attention"} />
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" />}

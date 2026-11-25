@@ -29,7 +29,7 @@ export const pick = (topics: Topic[], keys: string[]) => keys.map((k) => topics.
  * ranking and the box reads calm. Urgent work keeps a red number + "· ด่วน N" so it never hides. AI line sits thin
  * at the bottom as "start here".
  */
-export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?: string; title: string }) {
+export function HeroTasks({ topics, title }: { topics: Topic[]; title: string }) {
   const open = topics.filter((t) => t.count > 0).sort((a, b) => (b.urgent ?? 0) - (a.urgent ?? 0) || b.count - a.count)
   const total = open.reduce((n, t) => n + t.count, 0)
   return (
@@ -64,12 +64,6 @@ export function HeroTasks({ topics, aiLine, title }: { topics: Topic[]; aiLine?:
           </div>
         )}
       </div>
-      {aiLine && open.length > 0 && (
-        <div className="mt-3 flex items-start gap-2 rounded-xl bg-info-soft/60 px-3 py-2 text-sm text-info-ink">
-          <SparklesIcon className="mt-0.5 size-4 shrink-0 text-info" />
-          <span className="min-w-0">{aiLine}</span>
-        </div>
-      )}
     </section>
   )
 }

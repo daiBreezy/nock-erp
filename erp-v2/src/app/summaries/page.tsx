@@ -31,8 +31,6 @@ import { report } from "@/lib/feedback"
 import { useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 import { Empty } from "@/components/app/empty"
-import { fmtSpan } from "@/lib/span"
-import { tx } from "@/lib/i18n"
 import { SpanTip } from "@/components/app/span-tip"
 
 // owner 2026-10-13: six statuses, in the order the work moves — "not written" and "draft" are no longer one pile

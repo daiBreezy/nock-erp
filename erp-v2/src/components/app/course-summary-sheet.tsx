@@ -31,8 +31,6 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "@/lib/toast"
 import { Empty } from "@/components/app/empty"
-import { fmtSpan } from "@/lib/span"
-import { tx } from "@/lib/i18n"
 import { SpanTip } from "@/components/app/span-tip"
 
 const FIELD_MAX = 250

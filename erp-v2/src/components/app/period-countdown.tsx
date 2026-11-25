@@ -5,6 +5,7 @@ import { useState } from "react"
 import { ChevronRightIcon, SunIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SpanTip } from "@/components/app/span-tip"
+import { HUE } from "@/components/app/tags"
 import { PeriodImpactPanel, usePeriodImpact } from "@/components/settings/period-impact-panel"
 import { toDateStr } from "@/domain/dates"
 import { periodCountdown, type CountdownTone, type PeriodCountdown } from "@/domain/rules/period-impact"
@@ -48,7 +49,6 @@ function CountdownRow({ c, branchId }: { c: PeriodCountdown; branchId: string })
     <li>
       <Button variant="row" size="inline" type="button" onClick={() => setOpen(true)} className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-muted/60">
         <span className={cn("size-1.5 shrink-0 rounded-full", TONE[c.tone].dot)} />
-        <SunIcon className={cn("size-3.5 shrink-0", TONE[c.tone].text)} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm">{tx("ช่วงพิเศษ")} <CountdownLabel c={c} /></span>
           {impact.students.length > 0 && <span className="block truncate text-xs text-muted-foreground">{tx("ผลกระทบ {0} คน", [impact.students.length])}{unsent > 0 ? ` · ${tx("ยังไม่ส่งข้อความ {0} บ้าน", [unsent])}` : ""}</span>}
@@ -69,7 +69,7 @@ export function CountdownPills({ items, branchId }: { items: PeriodCountdown[]; 
   return (
     <>
       {items.map((c) => (
-        <Link key={c.period.id} href={`/settings/branches/${branchId}`} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", TONE[c.tone].chip)}>
+        <Link key={c.period.id} href={`/settings/branches/${branchId}`} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", c.opened ? HUE.teal.chip : TONE[c.tone].chip)}>
           <SunIcon className="size-3" /> <CountdownLabel c={c} />
         </Link>
       ))}

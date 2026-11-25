@@ -15,8 +15,6 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { SearchBox } from "@/components/app/page-layout"
-import { fmtSpan } from "@/lib/span"
-import { tx } from "@/lib/i18n"
 import { SpanTip } from "@/components/app/span-tip"
 
 /**

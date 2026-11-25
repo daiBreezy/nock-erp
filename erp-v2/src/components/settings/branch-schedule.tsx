@@ -31,7 +31,6 @@ import { HolidayPlanner } from "./holiday-planner"
 import { tx } from "@/lib/i18n"
 import { NativeSelect } from "@/components/app/native-select"
 import { Empty } from "@/components/app/empty"
-import { fmtSpan } from "@/lib/span"
 import { SpanTip } from "@/components/app/span-tip"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]

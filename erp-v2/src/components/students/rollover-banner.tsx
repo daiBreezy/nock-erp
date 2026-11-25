@@ -15,8 +15,6 @@ import type { Branch, ID, Student } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { useStore } from "@/store/store"
-import { fmtSpan } from "@/lib/span"
-import { tx } from "@/lib/i18n"
 import { SpanTip } from "@/components/app/span-tip"
 
 const MAX_LISTED = 200

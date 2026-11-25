@@ -142,4 +142,5 @@ export const PERIOD_IMPACT: Record<string, Entry> = {
   "รอติดต่อมา {0} ว": { en: "waiting {0}d to be contacted", ja: "連絡待ち {0}日" },
   "ติดต่อล่าสุด {0} ว ก่อน": { en: "last contact {0}d ago", ja: "最終連絡 {0}日前" },
   "เลื่อนชั้น": { en: "Grade change", ja: "進級" },
+  "กดเพื่อตรวจสอบและอนุมัติเลื่อนชั้น": { en: "Click to review and approve the grade change", ja: "クリックして進級を確認・承認" },
 }

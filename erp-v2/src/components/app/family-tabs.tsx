@@ -26,7 +26,6 @@ import { useEntitlements, useNow } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
-import { fmtSpan } from "@/lib/span"
 import { SpanTip } from "@/components/app/span-tip"
 
 /** owner 2026-11-20: a DROPDOWN (not a segmented control) — "everyone" + one entry per child; only when the family has more than one child */

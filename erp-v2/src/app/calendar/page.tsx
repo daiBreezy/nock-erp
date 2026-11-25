@@ -1,7 +1,6 @@
 "use client"
 
 import { staffAt } from "@/domain/rules/permissions"
-import { PeriodBanner } from "@/components/app/period-banner"
 import { RangeStepper, Page, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
 import { createContext, Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -24,11 +23,11 @@ import { MoveDialog } from "@/components/calendar/move-dialog"
 import { WeekTeacherBoard } from "@/components/calendar/week-teacher-board"
 import type { CardData } from "@/components/calendar/class-card"
 import { Button } from "@/components/ui/button"
-import { addDays, dayShort, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
+import { addDays, dayShort, daysBetween, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
 import { HUE } from "@/components/app/tags"
 import { tx } from "@/lib/i18n"
-import { findConflicts, isHoliday, periodsIn, periodsOn, sessionState, WORK_LABEL, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
+import { findConflicts, isHoliday, periodsOn, sessionState, WORK_LABEL, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
 import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -63,7 +62,7 @@ const DAY_END = 22 * 60
 const mondayOf = (d: DateStr) => addDays(d, -((weekdayOf(d) + 6) % 7))
 
 function CalendarView() {
-  const countdown = usePeriodCountdown()
+  const countdown = usePeriodCountdown({ includeRunning: true })
   const now = useNow()
   const today = toDateStr(now)
   const branch = useBranch()
@@ -296,9 +295,6 @@ function CalendarView() {
       </div>
 
       {/* card states: click one to highlight only those cards */}
-      {/* special periods (e.g. Summer) in the visible range — hours differ from normal while they last */}
-      {periodsIn(branch, range.from, range.to).map((p) => <PeriodBanner key={p.id} period={p} />)}
-
       {conflicts.length > 0 && (
         <details data-focus="conflict" className="rounded-lg border border-danger/30 bg-danger-soft/60 px-3 py-2 text-sm text-danger-ink">
           <summary className="cursor-pointer font-medium">พบคาบที่ชนกัน {conflicts.length} จุด — กดเพื่อดู</summary>
@@ -534,8 +530,10 @@ function WeekView({ from, sessions, onDay, today, hideEmpty, ...ctx }: CardCtx &
 function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from: DateStr; month: string; sessions: Session[]; onDay: (d: DateStr) => void; today: DateStr; conflictIds: Set<string> }) {
   const branch = useBranch()
   const holidays = useStore((s) => s.holidays)
-  const days = Array.from({ length: 42 }, (_, i) => addDays(from, i))
-  // owner 2026-10-15: the month fills the screen — six equal rows, no empty space underneath
+  // owner 2026-11-25: only the weeks the month really has (4–6) — no extra row of the next month; owner 2026-10-15: the rows still stretch to fill the screen, no empty space underneath
+  const first = parseDate(`${month}-01`)
+  const weeks = Math.ceil((daysBetween(from, toDateStr(first)) + new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()) / 7)
+  const days = Array.from({ length: weeks * 7 }, (_, i) => addDays(from, i))
   const [box, fill] = useFillHeight<HTMLDivElement>()
   return (
     <div ref={box} className="flex flex-col overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-foreground/5" style={fill ? { minHeight: fill } : undefined}>
