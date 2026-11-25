@@ -15,6 +15,8 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { SearchBox } from "@/components/app/page-layout"
+import { fmtSpan } from "@/lib/span"
+import { tx } from "@/lib/i18n"
 
 /**
  * Renewal for many students at once (owner 2026-11-05): the admin talks to the parents in the Inbox; for everyone who
@@ -70,7 +72,7 @@ export function RenewalDraftsDialog({ branchIds, onClose, onCreated }: { branchI
                 {s && <GradeCell grade={s.grade} tone={gradeTone(s.grade)} />}
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">{inv.lines.map((l) => courses.find((c) => c.id === l.courseId)?.name).filter(Boolean).join(", ")}{err && <span className="block text-xs text-danger">{err}</span>}</span>
                 <span className={cn("shrink-0 text-xs tabular-nums", left < 0 ? "text-danger" : left <= 14 ? "text-warning" : "text-muted-foreground")}>
-                  {left < 0 ? `หมดแล้ว ${fmtDate(end)}` : `จบ ${fmtDate(end)} (อีก ${left} วัน)`}
+                  {left < 0 ? `หมดแล้ว ${fmtDate(end)}` : `จบ ${fmtDate(end)} (${tx("อีก {0}", [fmtSpan(left)])})`}
                 </span>
                 <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">เริ่ม {fmtDate(addDays(end, 1) > today ? addDays(end, 1) : today)}</span>
               </label>

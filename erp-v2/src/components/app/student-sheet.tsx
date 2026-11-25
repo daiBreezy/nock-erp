@@ -59,6 +59,7 @@ import { Empty } from "@/components/app/empty"
 import { CreditTag } from "./credit-tag"
 import { CreditCourseDialog } from "@/components/billing/credit-course-dialog"
 import { creditCourseOn, creditAgeDays, creditOwedTotal, creditsOwed, creditState, CREDIT_REMIND_DAYS, invoiceOfCredit } from "@/domain/rules/credit"
+import { fmtSpan } from "@/lib/span"
 
 export { STATUS_PILL } from "./student-status"
 
@@ -317,7 +318,7 @@ function packageProgress(e: Entitlement, sessions: Session[], attendance: { sess
   }
   const total = Math.max(1, daysBetween(e.from, e.to) + 1)
   const left = Math.max(0, daysBetween(today, e.to))
-  return { ratio: Math.min(1, (total - left) / total), label: e.to < today ? `หมดแล้ว ${fmtDate(e.to)}` : `เหลือ ${left} วัน · ถึง ${fmtDate(e.to)}`, low: left <= 7 }
+  return { ratio: Math.min(1, (total - left) / total), label: e.to < today ? `หมดแล้ว ${fmtDate(e.to)}` : `${tx("เหลือ {0}", [fmtSpan(left)])} · ถึง ${fmtDate(e.to)}`, low: left <= 7 }
 }
 
 /** one running package of a student — the SAME row in the student's Overview and in the family's Overview (owner 2026-11-20) */
@@ -351,7 +352,7 @@ const rawTo = useStore((s) => s.entitlements.find((x) => x.id === e.id)?.to)
               <>
                 <span><span className="text-muted-foreground">{tx("เหลือ")} </span><span className="font-medium tabular-nums">{left} {tx("คาบ")}</span><span className="text-muted-foreground tabular-nums"> · {leftHours} {tx("ชม.")}</span></span>
                 <span><span className="text-muted-foreground">{tx("จบ")} </span><span className="font-medium">{fmtDate(e.to, { year: true })}</span></span>
-                <span className={cn("tabular-nums", daysLeftTone(daysLeft))}>{tx("อีก {0} วัน", [daysLeft])}</span>
+                <span className={cn("tabular-nums", daysLeftTone(daysLeft))}>{tx("อีก {0}", [fmtSpan(daysLeft)])}</span>
               </>
             )}
             {extended && <Pill tone="special" title={`เดิมจบ ${fmtDate(rawTo!, { year: true })}`}>เลื่อนวันจบจากการลา</Pill>}

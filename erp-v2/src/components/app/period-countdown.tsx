@@ -11,6 +11,7 @@ import { useNow } from "@/lib/hooks"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { fmtSpan } from "@/lib/span"
 
 /** the current branch's upcoming Special Periods with their colour (owner 2026-11-25): gray 60–45 days · orange under 45 and not switched on · red under 30 */
 export function usePeriodCountdown(opts?: { includeRunning?: boolean }): { items: PeriodCountdown[]; branchId: string } {
@@ -28,7 +29,7 @@ const TONE: Record<CountdownTone, { text: string; dot: string; chip: string }> =
   red: { text: "text-danger", dot: "bg-danger", chip: "bg-danger-soft text-danger" },
 }
 
-export const countdownText = (c: PeriodCountdown) => `${c.period.name} · ${c.running ? tx("กำลังอยู่ในช่วงนี้") : tx("เริ่มอีก {0} วัน", [c.days])}${c.opened ? "" : ` · ${tx("ยังไม่เปิด")}`}`
+export const countdownText = (c: PeriodCountdown) => `${c.period.name} · ${c.running ? tx("กำลังอยู่ในช่วงนี้") : tx("เริ่มอีก {0}", [fmtSpan(c.days)])}${c.opened ? "" : ` · ${tx("ยังไม่เปิด")}`}`
 
 /**
  * Dashboard › ต้องรู้ไว้ — one row per period. owner 2026-11-25: the Impact Center is serious and takes a long time to work through, so it lives here too: the row says how many

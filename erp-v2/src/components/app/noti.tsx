@@ -14,6 +14,7 @@ import { agoLabel } from "@/domain/dates"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { usePeekOpen } from "./noti-peek-state"
+import { fmtSpan } from "@/lib/span"
 
 export type NotiKind = "exit" | "leave" | "return" | "bus" | "home" | "message" | "note" | "info"
 // `tone` = the round icon chip · `card` = the whole card (tinted bg + coloured border + thick left accent) so each
@@ -54,9 +55,9 @@ export function notiAgo(at: number) {
     case "minutes": return tx("{0} นาทีที่แล้ว", [a.n])
     case "clock": return a.clock!
     case "yesterday": return tx("เมื่อวาน")
-    case "days": return tx("{0} วันที่แล้ว", [a.n])
-    case "months": return a.n === 1 ? tx("1 เดือนที่แล้ว") : tx("{0} เดือนที่แล้ว", [a.n])
-    case "years": return a.n === 1 ? tx("1 ปีที่แล้ว") : tx("{0} ปีที่แล้ว", [a.n])
+    case "days": return tx("{0}ที่แล้ว", [fmtSpan(a.n)])
+    case "months": return tx("{0}ที่แล้ว", [tx("{0} ด", [a.n])])
+    case "years": return tx("{0}ที่แล้ว", [tx("{0} ป", [a.n])])
   }
 }
 

@@ -37,6 +37,8 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "@/lib/toast"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
+import { fmtSpan } from "@/lib/span"
+import { tx } from "@/lib/i18n"
 
 export default function StudentsPage() {
   const branch = useBranch()
@@ -205,7 +207,7 @@ export default function StudentsPage() {
         <span className="block leading-tight">
           {fmtDate(main.to)}
           {main.to < today ? <span className="block text-xs font-normal text-muted-foreground">หมดแล้ว</span>
-            : days <= 7 && <span className={cn("block text-xs font-medium", days <= 3 ? "text-danger" : "text-warning")}>{`เหลือ ${days} วัน`}</span>}
+            : days <= 7 && <span className={cn("block text-xs font-medium", days <= 3 ? "text-danger" : "text-warning")}>{tx("เหลือ {0}", [fmtSpan(days)])}</span>}
         </span>
       )
     }, className: (r) => cn("tabular-nums", ended(r) ? "text-muted-foreground" : "text-foreground") },

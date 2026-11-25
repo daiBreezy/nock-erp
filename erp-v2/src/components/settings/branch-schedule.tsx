@@ -31,6 +31,7 @@ import { HolidayPlanner } from "./holiday-planner"
 import { tx } from "@/lib/i18n"
 import { NativeSelect } from "@/components/app/native-select"
 import { Empty } from "@/components/app/empty"
+import { fmtSpan } from "@/lib/span"
 
 const WEEK: Weekday[] = [1, 2, 3, 4, 5, 6, 0]
 
@@ -198,7 +199,7 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
   const status = p.to < today ? { tone: "gray" as const, label: tx("ผ่านไปแล้ว") }
     : p.from <= today ? (p.active ? { tone: "green" as const, label: tx("ใช้อยู่ตอนนี้") } : { tone: "gray" as const, label: tx("ปิดใช้งาน") })
     // owner 2026-11-25: the status counts down — gray (≥ 45 days) · orange (< 45) · red (< 30) while not switched on; opened = blue
-    : { tone: p.active ? ("blue" as const) : cd?.tone === "red" ? ("red" as const) : cd?.tone === "orange" ? ("amber" as const) : ("gray" as const), label: `${p.active ? tx("กำลังจะถึง") : tx("ยังไม่เปิด")} · ${tx("อีก {0} วัน", [days])}` }
+    : { tone: p.active ? ("blue" as const) : cd?.tone === "red" ? ("red" as const) : cd?.tone === "orange" ? ("amber" as const) : ("gray" as const), label: `${p.active ? tx("กำลังจะถึง") : tx("ยังไม่เปิด")} · ${tx("อีก {0}", [fmtSpan(days)])}` }
   const fmt = (h: OpenHours | null) => (h ? `${h.open}–${h.close}` : tx("ปิด"))
   const summary = periodHours(p)
   const [impactOpen, setImpactOpen] = useState(false)

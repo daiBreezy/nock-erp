@@ -49,6 +49,7 @@ import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { InfoTip } from "@/components/app/info-tip"
+import { fmtSpan } from "@/lib/span"
 
 /** Stages that now move by themselves (E2E 2026-09-28) — the sheet says what will move them instead of a button. */
 const AUTO_HINT: Partial<Record<LeadStage, string>> = {
@@ -517,7 +518,7 @@ function LeadSteps({ lead, assessments, canManage, now, contact, subs, subsReady
           {canManage && leadOpen && !past && pend.length === 0 && <NextStepForm lead={lead} type={key} {...next} subs={subs} subsReady={subsReady} />}
           {none && (current && lead.scheduledAt ? (() => {
             const due = scheduleInfo(lead.scheduledAt, now)
-            return <p className={cn(due.overdue ? "font-medium text-danger" : "")}>นัด {fmtDateTime(lead.scheduledAt)} · {due.overdue ? `เลยนัด ${-due.daysLeft} วัน` : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : `อีก ${due.daysLeft} วัน`}</p>
+            return <p className={cn(due.overdue ? "font-medium text-danger" : "")}>นัด {fmtDateTime(lead.scheduledAt)} · {due.overdue ? tx("เลยนัด {0}", [fmtSpan(-due.daysLeft)]) : due.daysLeft === 0 ? "วันนี้" : due.daysLeft === 1 ? "พรุ่งนี้" : tx("อีก {0}", [fmtSpan(due.daysLeft)])}</p>
           })() : <p className="text-muted-foreground">{current ? "ยังไม่ได้นัด — ส่งฟอร์มจากเมนู ⋯" : (key === "test" ? "ไม่ได้สอบวัดระดับ" : "ไม่ได้ทดลองเรียน")}</p>)}
         </div>
       )
