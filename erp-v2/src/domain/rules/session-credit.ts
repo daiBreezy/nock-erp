@@ -106,3 +106,32 @@ export function invoiceStateFor(studentId: ID, courseId: ID, invoices: Pick<Invo
   if (latest.status === "paid") return "paid"
   return latest.status === "sent" || latest.status === "approved" ? "unpaid" : "draft"
 }
+
+/**
+ * owner 2026-11-25: Refund / discount-next-payment carry REAL money through the existing Credit Note (ใบลดหนี้, mode refund | credit): it comes off the PAID invoice
+ * that bought the package (line of the same course), then follows the normal approval + transfer-back in Billing. Credits are grouped one note per invoice.
+ * Returns the notes to make, or the reason one cannot be made (the invoice is not paid yet → reduce the invoice or cancel the credit instead).
+ */
+export interface CreditNotePlan { invoiceId: ID; studentId: ID; courseId: ID; lineId: ID; label: string; amount: number; creditIds: ID[] }
+export function planCreditNotes(
+  credits: SessionCredit[],
+  ents: Pick<Entitlement, "id" | "invoiceId">[],
+  invoices: Pick<Invoice, "id" | "status" | "number" | "lines">[],
+  courseName: (id: ID) => string,
+): { ok: true; plans: CreditNotePlan[] } | { ok: false; error: string } {
+  const byKey = new Map<string, CreditNotePlan>()
+  for (const c of credits) {
+    const invId = ents.find((e) => e.id === c.entitlementId)?.invoiceId
+    const inv = invoices.find((i) => i.id === invId)
+    if (!inv) return { ok: false, error: `${courseName(c.courseId)}: ไม่พบใบแจ้งหนี้ที่ซื้อแพ็กเกจนี้ — ทำ Refund/ส่วนลดอัตโนมัติไม่ได้` }
+    if (inv.status !== "paid") return { ok: false, error: `${courseName(c.courseId)}: ใบ ${inv.number ?? "ร่าง"} ยังไม่ชำระครบ — แก้ยอดใบแทนแล้วยกเลิก Credit` }
+    const line = inv.lines.find((l) => l.courseId === c.courseId)
+    if (!line) return { ok: false, error: `${courseName(c.courseId)}: ใบ ${inv.number ?? ""} ไม่มีรายการของคอร์สนี้` }
+    const k = `${inv.id}|${line.id}`
+    const p = byKey.get(k) ?? { invoiceId: inv.id, studentId: c.studentId, courseId: c.courseId, lineId: line.id, label: courseName(c.courseId), amount: 0, creditIds: [] }
+    p.amount += c.value
+    p.creditIds.push(c.id)
+    byKey.set(k, p)
+  }
+  return { ok: true, plans: [...byKey.values()] }
+}

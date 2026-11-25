@@ -3115,7 +3115,27 @@ export const useStore = create<Store>()(
         const hit = s.sessionCredits.filter((c) => ids.includes(c.id) && c.status === "open")
         if (!hit.length) return fail("ไม่มี Credit ที่ยังไม่ได้เลือกวิธีใช้")
         const at = s.now().toISOString()
-        set({ sessionCredits: s.sessionCredits.map((c) => (hit.some((h) => h.id === c.id) ? { ...c, status: "settled", settle: { mode, at, by: s.userId, note: note?.trim() || undefined, otherCourse: mode === "makeup" && otherCourse ? true : undefined } } : c)) })
+        const noteTxt = note?.trim() || undefined
+        // owner 2026-11-25: Refund / discount carry real money — a Credit Note off the paid invoice (approval + transfer-back follow the normal Billing flow)
+        const noteOf = new Map<ID, ID>()
+        if (mode === "refund" || mode === "discount") {
+          const plan = SCredit.planCreditNotes(hit, s.entitlements, s.invoices, (id) => s.courses.find((c) => c.id === id)?.name ?? "คอร์ส")
+          if (!plan.ok) return fail(plan.error)
+          // check every note first so a failure leaves nothing half-done
+          for (const p of plan.plans) {
+            const inv = s.invoices.find((x) => x.id === p.invoiceId)!
+            const ctx = ctxOf(s, inv.branchId)
+            const items = [{ key: `line:${p.lineId}`, label: p.label, courseId: p.courseId, amount: p.amount }]
+            const err = Refund.validateCreditNote({ invoiceId: inv.id, mode: mode === "refund" ? "refund" : "credit", items, reasons: ["โรงเรียนหยุดคาบ (ช่วงเวลาพิเศษ) — Credit คาบ"], remark: noteTxt ?? "" }, inv, Refund.refundableItems(inv, Bill.invoiceTotals(inv, ctx), s.creditNotes), s.creditNotes)
+            if (err) return fail(`${p.label}: ${err}`)
+          }
+          for (const p of plan.plans) {
+            const r = get().createCreditNote({ invoiceId: p.invoiceId, mode: mode === "refund" ? "refund" : "credit", items: [{ key: `line:${p.lineId}`, label: p.label, courseId: p.courseId, amount: p.amount }], reasons: ["โรงเรียนหยุดคาบ (ช่วงเวลาพิเศษ) — Credit คาบ"], remark: noteTxt ?? "" })
+            if (!r.ok) return r
+            p.creditIds.forEach((cid) => noteOf.set(cid, r.value.id))
+          }
+        }
+        set({ sessionCredits: get().sessionCredits.map((c) => (hit.some((h) => h.id === c.id) ? { ...c, status: "settled", settle: { mode, at, by: s.userId, note: noteTxt, creditNoteId: noteOf.get(c.id), otherCourse: mode === "makeup" && otherCourse ? true : undefined } } : c)) })
         return OK
       },
       revokeSessionCredits: (ids, reason) => {
@@ -3167,7 +3187,9 @@ export const useStore = create<Store>()(
         const cn = s.creditNotes.find((x) => x.id === id)!
         if (cn.status !== "pending_approval") return fail("ยกเลิกได้เฉพาะใบลดหนี้ที่ยังไม่อนุมัติ")
         if (!reason.trim()) return fail("กรอกเหตุผลการยกเลิก")
-        set({ creditNotes: s.creditNotes.map((x) => (x.id === id ? { ...x, status: "void", voidReason: reason.trim() } : x)) })
+        set({ creditNotes: s.creditNotes.map((x) => (x.id === id ? { ...x, status: "void", voidReason: reason.trim() } : x)),
+          // a Credit Note made from session credits goes back to waiting for a choice
+          sessionCredits: (s.sessionCredits ?? []).map((c) => (c.settle?.creditNoteId === id ? { ...c, status: "open" as const, settle: undefined } : c)) })
         log("billing", [cn.studentId], "ยกเลิกใบลดหนี้", `${cn.number} · ${reason.trim()}`)
         return OK
       },

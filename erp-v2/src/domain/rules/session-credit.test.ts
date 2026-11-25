@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Course, Entitlement, Klass, Session, SpecialPeriod } from "../types"
-import { classWeeksInMonth, creditValue, invoiceStateFor, syncPeriodCredits } from "./session-credit"
+import { classWeeksInMonth, creditValue, invoiceStateFor, planCreditNotes, syncPeriodCredits } from "./session-credit"
 
 const klass = (id: string, weekday: number) => ({ id, weekday }) as Klass
 const monday = 1, thursday = 4
@@ -58,5 +58,18 @@ describe("invoiceStateFor", () => {
     expect(invoiceStateFor("s1", "c1", [inv("paid", "2026-10-01"), inv("sent", "2026-11-01")])).toBe("unpaid")
     expect(invoiceStateFor("s1", "c1", [inv("paid", "2026-11-01")])).toBe("paid")
     expect(invoiceStateFor("s1", "c1", [inv("void", "2026-11-01")])).toBe("none")
+  })
+})
+
+describe("planCreditNotes", () => {
+  const cr = (id: string, value: number) => ({ id, studentId: "s1", entitlementId: "e1", courseId: "c1", value }) as never
+  const inv = (status: string) => ({ id: "i1", status, number: "INV-1", lines: [{ id: "l1", courseId: "c1" }] }) as never
+  it("one note per invoice line, amounts added up", () => {
+    const r = planCreditNotes([cr("a", 500), cr("b", 500)], [{ id: "e1", invoiceId: "i1" }], [inv("paid")], () => "Eng Fun")
+    expect(r).toMatchObject({ ok: true, plans: [{ invoiceId: "i1", lineId: "l1", amount: 1000, creditIds: ["a", "b"] }] })
+  })
+  it("an unpaid invoice cannot carry money — says to reduce the invoice instead", () => {
+    const r = planCreditNotes([cr("a", 500)], [{ id: "e1", invoiceId: "i1" }], [inv("sent")], () => "Eng Fun")
+    expect(r.ok).toBe(false)
   })
 })

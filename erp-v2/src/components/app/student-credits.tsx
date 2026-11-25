@@ -25,6 +25,7 @@ export const SETTLE_LABEL: Record<CreditSettle, string> = { refund: "Refund (ค
 export function SessionCreditsCard({ kids }: { kids: Student[] }) {
   const all = useStore((s) => s.sessionCredits ?? [])
   const courses = useStore((s) => s.courses)
+  const notes = useStore((s) => s.creditNotes)
   const me = useStore((s) => s.me())
   const settle = useStore((s) => s.settleSessionCredits)
   const revoke = useStore((s) => s.revokeSessionCredits)
@@ -55,7 +56,7 @@ export function SessionCreditsCard({ kids }: { kids: Student[] }) {
             {c.status === "open" && canAct && <Checkbox checked={pick.has(c.id)} onCheckedChange={() => toggle(c.id)} aria-label={tx("เลือก Credit นี้")} />}
             <span className="min-w-0 flex-1 truncate">{kidName(c)}{courses.find((x) => x.id === c.courseId)?.name ?? "—"}<span className="ml-1.5 text-xs text-muted-foreground">{fmtDate(c.date, { weekday: true })}</span></span>
             <span className="tabular-nums">{fmtMoney(c.value)}</span>
-            {c.status === "settled" && <Pill tone="green">{tx(SETTLE_LABEL[c.settle!.mode])}</Pill>}
+            {c.status === "settled" && <Pill tone="green">{tx(SETTLE_LABEL[c.settle!.mode])}{c.settle!.creditNoteId && ` · ${notes.find((n) => n.id === c.settle!.creditNoteId)?.number ?? ""}`}</Pill>}
           </li>
         ))}
       </ul>
@@ -76,7 +77,7 @@ export function SessionCreditsCard({ kids }: { kids: Student[] }) {
             <Button size="xs" variant="ghost" onClick={() => { if (report(revoke([...pick], note), tx("ยกเลิก Credit แล้ว"))) done() }}>{tx("ยกเลิก Credit (ต้องใส่เหตุผล)")}</Button>
             <Button size="xs" onClick={() => { if (report(settle([...pick], mode, note, other), tx("บันทึกการเลือกแล้ว"))) done() }}>{tx("บันทึกการเลือก")}</Button>
           </div>
-          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรกบันทึกการเลือกเท่านั้น — การคืนเงิน / จองคาบชดเชย / หักส่วนลดในใบถัดไป ยังทำเองที่ Billing และปฏิทิน")}</p>
+          <p className="text-2xs text-muted-foreground">{tx("Refund และส่วนลดสร้างใบลดหนี้จากใบที่จ่ายแล้วให้เอง (ไปอนุมัติ/โอนคืนที่ Billing › ใบลดหนี้) · ใบที่ยังไม่จ่ายให้แก้ยอดใบแล้วยกเลิก Credit · ชดเชยคาบบันทึกการเลือกเท่านั้น ต้องจองคาบเองที่ปฏิทิน")}</p>
         </div>
       )}
     </section>
