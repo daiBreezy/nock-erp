@@ -201,7 +201,7 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
   return (
     <div className={cn(!p.active && "bg-muted/30")}>
       <div className="flex flex-wrap items-center gap-2 py-3">
-        <Button variant="row" size="inline" onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={open}>
+        <Button variant="row" size="inline" onClick={() => setOpen(!open)} className="order-1 flex min-w-0 flex-1 basis-[calc(100%-3rem)] items-center gap-2 text-left sm:basis-0" aria-expanded={open}>
           <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
           <PriorityIcon priority={p.priority} dim={!p.active} />
           <span className="min-w-0">
@@ -209,9 +209,9 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
             <span className="block text-xs text-muted-foreground">{fmtDate(p.from, { year: true })} – {fmtDate(p.to, { year: true })} · {summary}  {tx("· คลาสพิเศษ")} {classCount}  {tx("คลาส")}{tx(" · คลาสปกติหยุด")}</span>
           </span>
         </Button>
-        <Pill tone={status.tone}>{status.label}</Pill>
-        {saved && p.to >= today && <Button size="xs" variant="outline" onClick={() => setImpactOpen(true)}><SunIcon /> {tx("ผลกระทบ")} ({impact.students.length})</Button>}
-        <Switch size="sm" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label={tx("เปิดใช้งานช่วงนี้")} title={p.active ? "Active" : "Inactive"} />
+        <Pill tone={status.tone} className="order-3 ml-6 sm:order-2 sm:ml-0">{status.label}</Pill>
+        {saved && p.to >= today && <Button size="xs" variant="outline" className="order-4 sm:order-3" onClick={() => setImpactOpen(true)}><SunIcon /> {tx("ผลกระทบ")} ({impact.students.length})</Button>}
+        <Switch size="sm" className="order-2 sm:order-4" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label={tx("เปิดใช้งานช่วงนี้")} title={p.active ? "Active" : "Inactive"} />
       </div>
       {impactOpen && <PeriodImpactPanel period={p} branchId={branchId} open onClose={() => setImpactOpen(false)} />}
       {open && (
