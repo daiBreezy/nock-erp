@@ -105,4 +105,5 @@ export const FORM_HUB: Record<string, Entry> = {
   "ยังไม่มีนักเรียน": { en: "No students yet", ja: "生徒はまだいません" },
   "ผลสอบเฉลี่ย": { en: "Exam average", ja: "試験平均" },
   "% เฉลี่ยของการสอบล่าสุดที่กรอกไว้ (ลูกศร = เทียบครั้งก่อน) — ดูรายวิชาในแท็บ ผลสอบ ของนักเรียน": { en: "Average % of the newest exam entered (arrow = against the previous one) — see each subject in the student's Exam results tab", ja: "入力済みの最新試験の平均%(矢印=前回比)— 科目別は生徒の「試験結果」タブで" },
+  "ช่วงพิเศษ": { en: "Special period", ja: "特別期間" },
 }

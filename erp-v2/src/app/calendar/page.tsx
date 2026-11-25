@@ -5,7 +5,7 @@ import { PeriodBanner } from "@/components/app/period-banner"
 import { RangeStepper, Page, PageHeader, Toolbar, Segmented } from "@/components/app/page-layout"
 import { createContext, Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangleIcon, CalendarDaysIcon, ChevronDownIcon, ClipboardListIcon, PalmtreeIcon, FoldVerticalIcon, PlusIcon, Settings2Icon, UnfoldVerticalIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, CalendarDaysIcon, ChevronDownIcon, ClipboardListIcon, PalmtreeIcon, FoldVerticalIcon, PlusIcon, Settings2Icon, UnfoldVerticalIcon, UsersIcon, SunIcon } from "lucide-react"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { BlocksDialog } from "@/components/calendar/blocks-dialog"
@@ -26,7 +26,9 @@ import type { CardData } from "@/components/calendar/class-card"
 import { Button } from "@/components/ui/button"
 import { addDays, dayShort, endTime, fmtDate, fmtMonth, fromMinutes, parseDate, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
 import { can } from "@/domain/rules/permissions"
-import { findConflicts, isHoliday, periodsIn, sessionState, WORK_LABEL, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
+import { HUE } from "@/components/app/tags"
+import { tx } from "@/lib/i18n"
+import { findConflicts, isHoliday, periodsIn, periodsOn, sessionState, WORK_LABEL, workState, type MoveTarget, type WorkState } from "@/domain/rules/scheduling"
 import type { DateStr, Session } from "@/domain/types"
 import { useBranch, useLookup, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -467,7 +469,7 @@ function Column({ date, sessions, ctx, onSlot, maxCols = 3, onMore }: { date: Da
           <div className="absolute inset-x-0 bottom-0 bg-muted/60" style={{ top: ((toMinutes(hours.close) - DAY_START) / 60) * HOUR_PX }} />
         </>
       )}
-      {holiday && <div className="absolute inset-x-1 top-1 rounded bg-warning-soft px-1 text-2xs text-warning-ink">{holiday.name}</div>}
+      {holiday && <div className="absolute inset-x-1 top-1 rounded bg-danger-soft px-1 text-2xs text-danger-ink">{holiday.name}</div>}
       {sessions.map((s) => {
         const p = pos.get(s.id)!
         const top = ((toMinutes(s.start) - DAY_START) / 60) * HOUR_PX
@@ -541,18 +543,23 @@ function MonthView({ from, month, sessions, onDay, today, conflictIds }: { from:
           const list = sessions.filter((s) => s.date === d && !s.cancelled).sort((a, b) => a.start.localeCompare(b.start))
           const hol = isHoliday(d, branch.id, holidays)
           const conflict = list.some((s) => conflictIds.has(s.id))
+          const special = periodsOn(branch, d)[0]
           return (
-            <Button variant="ghost" size="inline" key={d} onClick={() => onDay(d)} className={cn("flex min-h-24 flex-col justify-start border-t border-l p-1.5 text-left hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-warning-soft/50")}>
-              <div className="flex items-center gap-1 text-xs">
-                <span className={cn("grid size-5 place-items-center rounded-full", d === today && "bg-primary text-primary-foreground")}>{parseDate(d).getDate()}</span>
-                {conflict && <span className="size-2 rounded-full bg-danger" title="มีคาบชนกัน" />}
-                {hol && <span className="truncate text-2xs text-warning-ink">{hol.name}</span>}
+            // owner 2026-11-25: a real GRID — straight cells with grid lines, day number AND classes aligned left; a holiday / special-period day carries its icon (holiday red, special period teal)
+            <Button variant="ghost" size="inline" key={d} onClick={() => onDay(d)}
+              style={!hol && special ? { backgroundColor: `${HUE.teal.hex}14` } : undefined}
+              className={cn("flex min-h-24 flex-col items-start justify-start gap-0 rounded-none border-t border-l border-border p-1.5 text-left hover:bg-muted/60", d.slice(0, 7) !== month && "bg-muted/30 text-muted-foreground", hol && "bg-danger-soft/50")}>
+              <div className="flex w-full min-w-0 items-center gap-1 text-xs">
+                <span className={cn("grid size-5 shrink-0 place-items-center rounded-full", d === today && "bg-primary text-primary-foreground")}>{parseDate(d).getDate()}</span>
+                {conflict && <span className="size-2 shrink-0 rounded-full bg-danger" title="มีคาบชนกัน" />}
+                {hol && <span className="flex min-w-0 items-center gap-1 text-2xs text-danger-ink" title={hol.name}><PalmtreeIcon className="size-3 shrink-0" /><span className="truncate">{hol.name}</span></span>}
+                {special && <span className="flex min-w-0 items-center gap-1 text-2xs" style={{ color: HUE.teal.hex }} title={`${tx("ช่วงพิเศษ")} ${special.name}`}><SunIcon className="size-3 shrink-0" />{!hol && <span className="truncate">{special.name}</span>}</span>}
               </div>
-              <div className="mt-1 space-y-0.5">
+              <div className="mt-1 w-full space-y-0.5">
                 {list.slice(0, 3).map((s) => (
-                  <div key={s.id} className={cn("truncate rounded bg-info-soft/50 px-1 text-2xs", !s.teacherId && "bg-warning-soft")}>{s.start} {s.subject}</div>
+                  <div key={s.id} className={cn("w-full truncate rounded bg-info-soft/50 px-1 text-left text-2xs", !s.teacherId && "bg-warning-soft")}>{s.start} {s.subject}</div>
                 ))}
-                {list.length > 3 && <div className="text-2xs text-muted-foreground">+{list.length - 3} คาบ</div>}
+                {list.length > 3 && <div className="text-left text-2xs text-muted-foreground">+{list.length - 3} คาบ</div>}
               </div>
             </Button>
           )
