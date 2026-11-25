@@ -8,7 +8,7 @@ import { EnrollReviewDialog } from "@/components/crm/enroll-review"
 import { fmtDateTime, fmtMoney } from "@/domain/dates"
 import * as Bill from "@/domain/rules/billing"
 import { enrollFormReadiness, enrollInvoiceChoices } from "@/domain/rules/form-hub"
-import type { EnrollSubmission, Family, ID, Lead, Student } from "@/domain/types"
+import type { EnrollSubmission, Family, ID } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { fetchEnrollSubmissions, sendEnrollToChat } from "@/lib/forms"
 import { tx } from "@/lib/i18n"
@@ -20,24 +20,16 @@ import { useStore } from "@/store/store"
  * retype it) · what the parent still has to fill · what comes back into the ERP · the forms already sent / answered — and the send
  * button with the invoice (or the whole family set) that travels in the same link. First form on the shared "form in the panel" frame.
  */
-export function EnrollFormCard({ family, lead }: { family?: Family; lead?: Lead }) {
+export function EnrollFormCard({ family }: { family: Family }) {
   const students = useStore((s) => s.students)
   const invoices = useStore((s) => s.invoices)
   const branches = useStore((s) => s.branches)
   const courses = useStore((s) => s.courses)
   const classes = useStore((s) => s.classes)
   const holidays = useStore((s) => s.holidays)
-  const conv = useStore((s) => s.conversations.find((c) => (family ? c.familyId === family.id : c.leadId === lead?.id) || (!family && !!lead?.lineUserId && c.id === `line_${lead.lineUserId}`)))
-  // a Lead has no family yet: its contact is the one parent, its children are the Students already made for it (else the kids typed on the Lead)
-  const kids = useMemo(() => {
-    if (family) return students.filter((x) => x.familyId === family.id && !x.archived)
-    if (!lead) return []
-    const ids = new Set([lead.trialStudentId, lead.convertedStudentId, ...(lead.kids ?? []).map((k) => k.studentId)].filter(Boolean) as ID[])
-    const real = students.filter((x) => ids.has(x.id) && !x.archived)
-    const typed = (lead.kids ?? []).filter((k) => !k.studentId)
-    return [...real, ...typed.map((k) => ({ id: k.id, nickname: k.name, name: k.name, grade: k.grade, targetSchools: k.targetSchools }) as Pick<Student, "id" | "nickname" | "name" | "grade" | "targetSchools">)] as Student[]
-  }, [students, family, lead])
-  const ctx = useMemo(() => family ?? { parents: lead ? [{ name: lead.name, phone: lead.phone, lineLinked: !!lead.lineUserId, primary: true }] : [] }, [family, lead])
+  const conv = useStore((s) => s.conversations.find((c) => c.familyId === family.id))
+  const kids = useMemo(() => students.filter((x) => x.familyId === family.id && !x.archived), [students, family])
+  const ctx = family
   const ready = useMemo(() => enrollFormReadiness(ctx, kids), [ctx, kids])
   const choices = useMemo(() => enrollInvoiceChoices(invoices, new Set(kids.filter((k) => students.some((x) => x.id === k.id)).map((k) => k.id))), [invoices, kids, students])
   const [pick, setPick] = useState<string | null>(null)
@@ -45,8 +37,8 @@ export function EnrollFormCard({ family, lead }: { family?: Family; lead?: Lead 
   const [busy, setBusy] = useState(false)
   const [subs, setSubs] = useState<EnrollSubmission[]>([])
   const [review, setReview] = useState<EnrollSubmission | null>(null)
-  const load = () => { void fetchEnrollSubmissions().then((xs) => setSubs(xs.filter((x) => (!!conv && x.conversationId === conv.id) || (!!lead && x.leadId === lead.id)).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)))).catch(() => undefined) }
-  useEffect(load, [conv?.id, lead?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const load = () => { void fetchEnrollSubmissions().then((xs) => setSubs(xs.filter((x) => !!conv && x.conversationId === conv.id).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)))).catch(() => undefined) }
+  useEffect(load, [conv?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalOf = (ids: ID[]) => ids.reduce((a, id) => {
     const i = invoices.find((x) => x.id === id); const b = i && branches.find((x) => x.id === i.branchId)
