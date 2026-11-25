@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { daysUntilPeriod, periodCountdown } from "@/domain/rules/period-impact"
 import { PeriodMessageEditor } from "@/components/settings/period-message-editor"
 import { PeriodImpactPanel, usePeriodImpact } from "@/components/settings/period-impact-panel"
 import { periodHours } from "@/components/app/period-banner"
@@ -140,9 +141,9 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
   }
   const doIt = (a: NonNullable<typeof ask>) => a.kind === "off" ? update(a.p.id, { active: false }) : setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== a.p.id) })
   return (
-    <SettingsCard bare title={tx("ช่วงเวลาพิเศษ ({0})", [b.specialPeriods.length])}
+    <SettingsCard bare hintAsInfo title={tx("ช่วงเวลาพิเศษ ({0})", [b.specialPeriods.length])}
       hint={tx("ช่วงวันที่ที่โรงเรียนเปิด-ปิดไม่เหมือนปกติ เช่น Summer เปิด 08:00–22:00 ทุกวัน — ระหว่างช่วงนี้ระบบใช้เวลาของช่วงแทนเวลาปกติ (ตอนสร้างคลาส/ย้ายคาบ/ฟอร์ม Trial) · วันปิดทั้งวันใส่ที่แท็บวันหยุด")}
-      action={<Button size="xs" variant="outline" onClick={add}><PlusIcon />  {tx("เพิ่มช่วง")}</Button>}>
+      action={<Button size="sm" onClick={add}><PlusIcon />  {tx("เพิ่มช่วง")}</Button>}>
       {list.length === 0 && <Empty>{tx("ยังไม่มีช่วงเวลาพิเศษ")}</Empty>}
       <div className={cn("divide-y", list.length > 0 && "rounded-xl border px-3")}>
         {list.map((p) => (
@@ -192,7 +193,12 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
 function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, classCount, onChange, onRemove }: { p: SpecialPeriod; branchId: string; saved: boolean; normal: Branch["hours"]; today: string; startOpen: boolean; classCount: number; onChange: (patch: Partial<SpecialPeriod>) => void; onRemove: () => void }) {
   const [open, setOpen] = useState(startOpen)
   const [all, setAll] = useState<OpenHours>({ open: "08:00", close: "22:00" })
-  const status = !p.active ? { tone: "gray" as const, label: tx("ปิดใช้งาน") } : p.to < today ? { tone: "gray" as const, label: tx("ผ่านไปแล้ว") } : p.from <= today ? { tone: "green" as const, label: tx("ใช้อยู่ตอนนี้") } : { tone: "blue" as const, label: tx("กำลังจะถึง") }
+  const days = daysUntilPeriod(p, today)
+  const cd = p.from > today ? periodCountdown([p], today)[0] : undefined
+  const status = p.to < today ? { tone: "gray" as const, label: tx("ผ่านไปแล้ว") }
+    : p.from <= today ? (p.active ? { tone: "green" as const, label: tx("ใช้อยู่ตอนนี้") } : { tone: "gray" as const, label: tx("ปิดใช้งาน") })
+    // owner 2026-11-25: the status counts down — gray (≥ 45 days) · orange (< 45) · red (< 30) while not switched on; opened = blue
+    : { tone: p.active ? ("blue" as const) : cd?.tone === "red" ? ("red" as const) : cd?.tone === "orange" ? ("amber" as const) : ("gray" as const), label: `${p.active ? tx("กำลังจะถึง") : tx("ยังไม่เปิด")} · ${tx("อีก {0} วัน", [days])}` }
   const fmt = (h: OpenHours | null) => (h ? `${h.open}–${h.close}` : tx("ปิด"))
   const summary = periodHours(p)
   const [impactOpen, setImpactOpen] = useState(false)
@@ -216,14 +222,8 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
       {impactOpen && <PeriodImpactPanel period={p} branchId={branchId} open onClose={() => setImpactOpen(false)} />}
       {open && (
         <div className="space-y-3 pb-3">
-          <div className="flex flex-wrap items-end gap-2">
-            <Field label={tx("ชื่อช่วง")} className="min-w-40 flex-1"><Input value={p.name} onChange={(e) => onChange({ name: e.target.value })} placeholder={tx("เช่น Summer")} /></Field>
-            <Field label={tx("ช่วงวันที่")}><DateRangePicker plain from={p.from} to={p.to} onChange={(r) => onChange({ from: r.from, to: r.to })} /></Field>
-          </div>
-          <Field label={tx("Memo ใบแจ้งหนี้ + ใบเสร็จ ของช่วงนี้")}>
-            <Textarea rows={2} value={p.invoiceMemo ?? ""} onChange={(e) => onChange({ invoiceMemo: e.target.value })} placeholder={tx("เช่น ค่าเรียน Summer ชำระครั้งเดียว ไม่คืนเงินหลังเริ่มเรียน")} />
-            <p className="mt-0.5 text-xs text-muted-foreground">{tx("พิมพ์แทน Memo ของแบรนด์ เฉพาะใบที่มีคอร์สของช่วงนี้ (คอร์สที่ผูกกับช่วงนี้ หรือคลาสพิเศษของช่วงนี้) — ออกใบก่อนช่วงเริ่มก็ใช้ Memo นี้ · เว้นว่าง = ใช้ Memo ของแบรนด์")}</p>
-          </Field>
+          <Field label={tx("ชื่อช่วง")}><Input value={p.name} onChange={(e) => onChange({ name: e.target.value })} placeholder={tx("เช่น Summer")} /></Field>
+          <Field label={tx("ช่วงวันที่")}><DateRangePicker plain from={p.from} to={p.to} onChange={(r) => onChange({ from: r.from, to: r.to })} /></Field>
           <div>
             <Button size="sm" variant="outline" onClick={() => setMsgOpen(true)}><MessageSquareTextIcon /> {tx("ข้อความถึงผู้ปกครอง")}</Button>
             <Dialog open={msgOpen} onOpenChange={setMsgOpen}>
@@ -237,6 +237,10 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
               </DialogContent>
             </Dialog>
           </div>
+          <Field label={tx("Memo ใบแจ้งหนี้ + ใบเสร็จ ของช่วงนี้")} hint={tx("พิมพ์แทน Memo ของแบรนด์ เฉพาะใบที่มีคอร์สของช่วงนี้ (คอร์สที่ผูกกับช่วงนี้ หรือคลาสพิเศษของช่วงนี้) — ออกใบก่อนช่วงเริ่มก็ใช้ Memo นี้ · เว้นว่าง = ใช้ Memo ของแบรนด์")}>
+            <Textarea rows={2} value={p.invoiceMemo ?? ""} onChange={(e) => onChange({ invoiceMemo: e.target.value })} placeholder={tx("เช่น ค่าเรียน Summer ชำระครั้งเดียว ไม่คืนเงินหลังเริ่มเรียน")} />
+          </Field>
+          <div className="space-y-3 border-t pt-3">
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-2 text-sm">
             
             {tx("เปิดทุกวัน")}
@@ -252,6 +256,7 @@ function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, cla
                 {fmt(p.hours[d]) !== fmt(normal[d]) && <span className="text-2xs text-muted-foreground">{tx("ปกติ")} {fmt(normal[d])}</span>}
               </div>
             ))}
+          </div>
           </div>
           <div className="flex justify-end border-t pt-2"><Button size="sm" variant="ghost" className="text-danger" onClick={onRemove}><TrashIcon /> {tx("ลบช่วงนี้")}</Button></div>
         </div>

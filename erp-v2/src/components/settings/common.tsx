@@ -1,5 +1,6 @@
 "use client"
 
+import { InfoTip } from "@/components/app/info-tip"
 import { useState, type ReactNode } from "react"
 import { CheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -9,13 +10,13 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { tx } from "@/lib/i18n"
 
-export function SettingsCard({ title, hint, action, children, className, bare }: { title: string; hint?: string; action?: ReactNode; children?: ReactNode; className?: string; /** no card around it — the content brings its own frame (owner 2026-11-25: the Special Periods list) */ bare?: boolean }) {
+export function SettingsCard({ title, hint, action, children, className, bare, hintAsInfo }: { title: string; hint?: string; action?: ReactNode; children?: ReactNode; className?: string; /** the hint lives in an ⓘ beside the title instead of a grey line (owner 2026-11-25) */ hintAsInfo?: boolean; /** no card around it — the content brings its own frame (owner 2026-11-25: the Special Periods list) */ bare?: boolean }) {
   return (
     <section className={cn(!bare && "rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5", className)}>
       <div className={cn("flex items-start gap-2", children && "mb-3")}>
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold">{title}</h2>
-          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+          <h2 className="font-semibold">{title}{hint && hintAsInfo && <InfoTip text={hint} className="-my-1 ml-1" />}</h2>
+          {hint && !hintAsInfo && <p className="text-xs text-muted-foreground">{hint}</p>}
         </div>
         {action}
       </div>
