@@ -27,7 +27,12 @@ export interface ParentClass {
   bus: { pickup: boolean; dropoff: boolean } | null
   cancelled: boolean
   cancelReason?: string
+  /** owner 2026-11-25: stopped by a Special Period (name) — shown as a faded row "หยุดช่วงพิเศษ", not hidden */
+  period?: string
 }
+
+/** owner 2026-11-25: a Special Period the parent should know about — active, running or coming within PARENT_PERIOD_AHEAD days */
+export interface ParentPeriod { id: ID; name: string; from: DateStr; to: DateStr; /** this child's sessions it stops (child level only) */ paused?: number }
 
 /** สรุปจบคอร์ส as the parent sees it in LINE (owner 2026-10-14) — only once the school has sent it */
 export interface ParentCourseSummary {
@@ -57,6 +62,8 @@ export interface ParentChild {
   branchName: string
   brand: Branch["brand"]
   upcoming: ParentClass[]
+  /** Special Periods of this child's branch, with how many of this child's sessions they stop */
+  periods: ParentPeriod[]
   attendance: { courseId?: ID; date: DateStr; start: TimeStr; subjects: string[]; status: Attendance["status"] }[]
   summaries: { courseId?: ID; date: DateStr; subjects: string[]; teacher: string; text: string; detail?: string }[]
   /** the courses this child has classes / history in — the filter chips */
@@ -83,6 +90,8 @@ export interface ParentView {
   brand?: Brand
   lineUserIds: string[]
   children: ParentChild[]
+  /** owner 2026-11-25: every Special Period touching the family (home page strip) */
+  periods: ParentPeriod[]
   generatedAt: string
   /** reasons a parent can pick on แจ้งลาออก (owner 2026-10-14) — the same list the office closes an exit with */
   exitReasons?: { id: ID; label: string; en?: string; ja?: string }[]
@@ -96,6 +105,7 @@ export interface ParentView {
 
 export const PARENT_DAYS_AHEAD = 30
 export const PARENT_HISTORY = 20
+export const PARENT_PERIOD_AHEAD = 60
 
 export interface ParentCtx {
   students: Student[]; branches: Branch[]; sessions: Session[]; classes: Klass[]; staff: Staff[]; attendance: Attendance[]
@@ -130,6 +140,13 @@ export function busDaysOf(studentId: ID, invoices: Invoice[], addOns: BusAddOn[]
   return out
 }
 
+/** the family's Special Periods once each (two children in one branch share one), `paused` summed over the children */
+function familyPeriods(children: { periods: ParentPeriod[] }[]): ParentPeriod[] {
+  const by = new Map<ID, ParentPeriod>()
+  for (const c of children) for (const p of c.periods) { const cur = by.get(p.id); by.set(p.id, cur ? { ...cur, paused: (cur.paused ?? 0) + (p.paused ?? 0) } : { ...p }) }
+  return [...by.values()].sort((a, b) => a.from.localeCompare(b.from))
+}
+
 export function parentView(family: Family, ctx: ParentCtx): ParentView {
   const today = toDateStr(ctx.now)
   const horizon = addDays(today, PARENT_DAYS_AHEAD)
@@ -152,7 +169,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
       return i < 0 ? undefined : { n: i + 1, total: list.length }
     }
     const upcoming = mine
-      .filter((s) => s.date >= today && s.date <= horizon && !s.pausedBy && (sessionState(s, ctx.now) !== "closed"))
+      .filter((s) => s.date >= today && s.date <= horizon && (s.pausedBy || sessionState(s, ctx.now) !== "closed"))
       .filter((s) => !(s.cancelled && s.date < today))
       .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
       .map((s) => ({
@@ -161,8 +178,13 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
         teachers: teachersOf(s).map(teacher).filter(Boolean),
         room: branch?.rooms.find((r) => r.id === s.roomId)?.name ?? null,
         bus: bus.get(s.date) ?? null,
-        cancelled: s.cancelled, cancelReason: s.cancelled ? s.cancelReason : undefined,
+        cancelled: s.cancelled, cancelReason: s.cancelled && !s.pausedBy ? s.cancelReason : undefined,
+        period: s.pausedBy ? branch?.specialPeriods.find((p) => p.id === s.pausedBy)?.name ?? "" : undefined,
       }))
+    const periodsOf = (b: typeof branch): ParentPeriod[] => (b?.specialPeriods ?? [])
+      .filter((p) => p.active && p.to >= today && p.from <= addDays(today, PARENT_PERIOD_AHEAD))
+      .sort((x, y) => x.from.localeCompare(y.from))
+      .map((p) => ({ id: p.id, name: p.name, from: p.from, to: p.to, paused: mine.filter((x) => x.pausedBy === p.id && x.date >= today).length }))
     const byId = new Map(mine.map((s) => [s.id, s]))
     const attendance = ctx.attendance
       .filter((a) => a.studentId === stu.id && byId.has(a.sessionId))
@@ -221,7 +243,7 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     const left = stu.archived ? { since: stu.exit?.lastDate ?? stu.archived.at.slice(0, 10) } : undefined
     return {
       id: stu.id, nickname: stu.nickname, name: stu.name, nameEn: stu.nameEn, nicknameEn: stu.nicknameEn, grade: stu.grade,
-      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", bus: branchHasBus(branch), upcoming, attendance, summaries, courses, packages, busDays, courseSummaries,
+      branchName: branch?.name ?? "", brand: branch?.brand ?? "nockacademy", bus: branchHasBus(branch), upcoming, periods: periodsOf(branch), attendance, summaries, courses, packages, busDays, courseSummaries,
       // a child who left: history only — no classes ahead, no packages, no bus
       ...(left ? { left, upcoming: [], packages: [], busDays: [] } : {}),
     }
@@ -233,6 +255,6 @@ export function parentView(family: Family, ctx: ParentCtx): ParentView {
     paid: ctx.invoices.some((i) => kids.some((k) => k.id === i.studentId) && i.status !== "void" && (i.status === "paid" || i.payments.some((x) => x.confirmedBy))),
     catalogToken: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.catalogLink?.token,
     brand: ctx.branches.find((b) => b.id === kids[0]?.branchId)?.brand,
-    children, generatedAt: ctx.now.toISOString(), exitReasons: ctx.exitReasons,
+    children, periods: familyPeriods(children), generatedAt: ctx.now.toISOString(), exitReasons: ctx.exitReasons,
   }
 }

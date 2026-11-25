@@ -9,8 +9,9 @@ import { DICT as FORM_DICT } from "@/app/liff/form/i18n"
 import { addressPartsOf } from "@/domain/rules/address"
 import type { AddressDraft } from "@/components/people/person-fields"
 import type { HomePin } from "@/domain/types"
-import { ArrowLeftIcon, BookOpenIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CalendarCheckIcon, TargetIcon, ThumbsUpIcon, ChevronRightIcon, DoorOpenIcon, UserIcon } from "lucide-react"
-import type { ParentChild, ParentCourseSummary, ParentView } from "@/domain/rules/parent-view"
+import { ArrowLeftIcon, BookOpenIcon, SunIcon, EllipsisIcon, LayoutDashboardIcon, ChevronDownIcon, CalendarOffIcon, LoaderCircleIcon, BusIcon, MapPinHouseIcon, CalendarDaysIcon, CalendarCheckIcon, TargetIcon, ThumbsUpIcon, ChevronRightIcon, DoorOpenIcon, UserIcon } from "lucide-react"
+import type { ParentChild, ParentCourseSummary, ParentPeriod, ParentView } from "@/domain/rules/parent-view"
+import { HUE } from "@/components/app/tags"
 import { progressForSubject } from "@/domain/rules/summaries"
 import { InfoTip } from "@/components/app/info-tip"
 import { FilterChipGroup } from "@/components/app/filter-chip-group"
@@ -53,6 +54,7 @@ const DICT = {
     busAdd: "ขอเพิ่ม", busCancel: "ยกเลิก", busCost: "รอบที่ขอเพิ่มคิดค่ารถในใบแจ้งหนี้รอบถัดไป · ยกเลิกรอบที่จ่ายแล้วไม่คืนเงิน", trips: (n: number) => `${n} เที่ยว`,
     adult: "ผู้ปกครอง", adultGo: "ผู้ปกครองไปด้วย", adultNote: "ผู้ปกครองนั่งรถไปด้วยได้ ไม่คิดค่ารถ (ใช้ 1 ที่นั่ง)",
     hours: (m: number) => `${m / 60 % 1 ? (m / 60).toFixed(1) : m / 60} ชม.`, more: "อื่นๆ", language: "ภาษา", statDone: "เรียนแล้ว", statPresent: "มา", statLeave: "ลา", statLeft: "เหลือ", overview: "ภาพรวม", classesHeld: "คลาสที่เรียนอยู่", everyDay: (d: string) => `ทุก ${d}`, openSchedule: "ดูตารางเรียน", noCourses: "ยังไม่มีคอร์สที่เรียนอยู่", students: (n: number) => `${n} คน`, nextShort: "ถัดไป",
+    periodTitle: "ช่วงพิเศษ", periodRule: "คลาสปกติหยุดในช่วงนี้", periodSoon: (d: number) => `เริ่มอีก ${d} วัน`, periodNow: "กำลังอยู่ในช่วงนี้", periodPaused: (n: number) => `คาบที่หยุด ${n} คาบ`, periodRow: "หยุดช่วงพิเศษ",
     doneOf: "เรียนแล้ว / ทั้งหมด", leftN: (n: number) => `เหลือ ${n} คาบ`, catalog: "Catalog", catalogOff: "ยังไม่มีแคตตาล็อกของสาขานี้ — ถามแอดมินได้เลยค่ะ", pastTab: "ผ่านไปแล้ว", seq: (n: number, t: number) => `คาบที่ ${n}/${t}`, noSummaryYet: "ครูยังไม่ได้ส่งสรุปของคาบนี้", chipLeave: "แจ้งลา", chipBus: "ขอรถรับ-ส่ง",
     study: "การเรียน", all: "ทั้งหมด", upcomingH: "คาบที่จะถึง", pastH: "คาบที่ผ่านมา", manage: "แจ้งลา / รถรับ-ส่ง", leaveThis: "แจ้งลาคาบนี้", waiting: "รอแอดมิน", leaveSent: "แจ้งลาแล้ว", busSent: "ขอรถแล้ว", ridesOf: "รถรับ-ส่งของวันนั้น", pickAny: "เลือกสิ่งที่ต้องการแจ้ง", showAll: "ดูทั้งหมด", hide: "ซ่อน",
   },
@@ -75,6 +77,7 @@ const DICT = {
     busAdd: "Add", busCancel: "Cancel", busCost: "Extra rides are charged on the next invoice · paid rides you cancel aren't refunded", trips: (n: number) => `${n} ride${n > 1 ? "s" : ""}`,
     adult: "Parent", adultGo: "Parent rides along", adultNote: "A parent can ride along for free (takes 1 seat)",
     hours: (m: number) => `${m / 60 % 1 ? (m / 60).toFixed(1) : m / 60} h`, more: "More", language: "Language", statDone: "Done", statPresent: "Present", statLeave: "Leave", statLeft: "Left", overview: "Overview", classesHeld: "Weekly classes", everyDay: (d: string) => `Every ${d}`, openSchedule: "Open schedule", noCourses: "No courses yet", students: (n: number) => `${n} children`, nextShort: "Next",
+    periodTitle: "Special period", periodRule: "Regular classes pause in this period", periodSoon: (d: number) => `Starts in ${d} days`, periodNow: "Happening now", periodPaused: (n: number) => `${n} classes paused`, periodRow: "Paused · special period",
     doneOf: "Done / total classes", leftN: (n: number) => `${n} left`, catalog: "Catalog", catalogOff: "No catalog for this branch yet — please ask our staff", pastTab: "Past", seq: (n: number, t: number) => `Class ${n}/${t}`, noSummaryYet: "No summary sent for this class yet", chipLeave: "Absence", chipBus: "Bus",
     study: "Learning", all: "All", upcomingH: "Upcoming classes", pastH: "Past classes", manage: "Absence / bus", leaveThis: "Report absence for this class", waiting: "Waiting", leaveSent: "Absence sent", busSent: "Bus asked", ridesOf: "Bus on that day", pickAny: "Pick what to send", showAll: "Show all", hide: "Hide",
   },
@@ -97,6 +100,7 @@ const DICT = {
     busAdd: "追加", busCancel: "キャンセル", busCost: "追加分は次回の請求書に加算・支払い済みの便のキャンセルは返金なし", trips: (n: number) => `${n}便`,
     adult: "保護者", adultGo: "保護者も同乗", adultNote: "保護者の同乗は無料です（1席使用）",
     hours: (m: number) => `${m / 60 % 1 ? (m / 60).toFixed(1) : m / 60}時間`, more: "その他", language: "言語", statDone: "受講", statPresent: "出席", statLeave: "欠席", statLeft: "残り", overview: "概要", classesHeld: "通っているクラス", everyDay: (d: string) => `毎週${d}`, openSchedule: "時間割を見る", noCourses: "受講中のコースはありません", students: (n: number) => `${n}名`, nextShort: "次回",
+    periodTitle: "特別期間", periodRule: "この期間は通常クラスが休止します", periodSoon: (d: number) => `あと${d}日で開始`, periodNow: "実施中", periodPaused: (n: number) => `休止中の授業 ${n}回`, periodRow: "休止・特別期間",
     doneOf: "受講済み / 全体", leftN: (n: number) => `残り${n}回`, catalog: "Catalog", catalogOff: "この校舎のカタログはまだありません — スタッフにお尋ねください", pastTab: "終了", seq: (n: number, t: number) => `第${n}回/${t}`, noSummaryYet: "この授業のレポートはまだ送られていません", chipLeave: "欠席", chipBus: "送迎",
     study: "学習", all: "すべて", upcomingH: "これからの授業", pastH: "これまでの授業", manage: "欠席／送迎", leaveThis: "この授業を欠席する", waiting: "確認待ち", leaveSent: "欠席連絡済み", busSent: "送迎依頼済み", ridesOf: "その日の送迎", pickAny: "連絡する内容を選択", showAll: "すべて表示", hide: "閉じる",
   },
@@ -245,6 +249,8 @@ export function ParentApp({ view, lang: initialLang, today, framed, openCourseSu
             <span className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">{t.homeBannerBtn}</span>
           </Button>
         )}
+        {paid && !csId && cur === "overview" && <PeriodStrip periods={view.periods ?? []} t={t} lang={lang} today={today} />}
+        {paid && !csId && cur === "study" && <PeriodStrip periods={(childId ? child?.periods : view.periods) ?? []} t={t} lang={lang} today={today} child={!!childId} />}
         {!child ? null : cur === "overview" ? <Overview view={childId ? { ...view, children: view.children.filter((c) => c.id === childId) } : view} t={t} lang={lang} today={today} dayLabel={dayLabel} nick={nick} onDrill={drill} />
           : cur === "study"
           ? <Study key={childId} today={today} course={course} setCourse={setCourse} kids={kids} nick={nick} t={t} lang={lang} dayLabel={dayLabel} csId={csId} setCsId={setCsId} onRequest={onRequest} requests={requests} onReturn={() => setTab("request")} />
@@ -276,6 +282,26 @@ function Chip({ on, onClick, children, disabled, state }: { on?: boolean; onClic
           : on ? "border-primary bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted/50")}>
       {children}
     </Button>
+  )
+}
+
+/** owner 2026-11-25: Special Period strip — on the home page (every period touching the family) and on a child's schedule (with how many of THEIR classes it stops). Teal like the school calendar. */
+function PeriodStrip({ periods, t, lang, today, child }: { periods: ParentPeriod[]; t: T; lang: FormLang; today: string; child?: boolean }) {
+  if (periods.length === 0) return null
+  const days = (d: string) => Math.max(0, Math.round((Date.parse(d) - Date.parse(today)) / 86_400_000))
+  return (
+    <div className="space-y-2">
+      {periods.map((p) => (
+        <div key={p.id} className={cn("flex items-start gap-3 rounded-lg p-3 text-sm", HUE.teal.chip)}>
+          <SunIcon className="mt-0.5 size-5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">{t.periodTitle} · {p.name}</p>
+            <p className="text-xs">{fmtDay(p.from, lang)} – {fmtDay(p.to, lang)} · {p.from > today ? t.periodSoon(days(p.from)) : t.periodNow}</p>
+            <p className="text-xs">{t.periodRule}{child && (p.paused ?? 0) > 0 ? ` · ${t.periodPaused(p.paused ?? 0)}` : ""}</p>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -528,7 +554,9 @@ function ClassCard({ dayText, isToday, c, first, child, t, hasBus, tag, onReques
         <span className="min-w-0 flex-1">
           <span className={cn("line-clamp-2 text-sm font-medium break-words", c.cancelled && "line-through")}>{c.subjects.join(" + ")}</span>
           {tag && <span className="block truncate text-xs text-muted-foreground">{tag}</span>}
-          {c.cancelled && <span className="block text-xs font-medium text-danger">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>}
+          {c.cancelled && (c.period !== undefined
+            ? <span className="block text-xs font-medium text-muted-foreground">{t.periodRow}{c.period ? ` · ${c.period}` : ""}</span>
+            : <span className="block text-xs font-medium text-danger">{t.cancelled}{c.cancelReason ? ` · ${c.cancelReason}` : ""}</span>)}
           {leaveWaiting || busWaiting ? (
             <span className="mt-1 flex flex-wrap gap-1">
               {leaveWaiting && <Pill tone="amber">{t.leaveSent} · {t.waiting}</Pill>}

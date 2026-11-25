@@ -2532,6 +2532,14 @@ describe("parent app v1 (owner 2026-10-09)", () => {
     expect(c.attendance).toHaveLength(1)
     expect(v.lineUserIds).toEqual(["U1"])
   })
+  it("owner 2026-11-25: a session a Special Period stops stays in the list (faded, with the period's name) and the family sees the period", () => {
+    const withPeriod = { ...branch, specialPeriods: [{ id: "p1", name: "Summer", from: "2026-10-12", to: "2026-10-25", active: true }, { id: "p2", name: "Later", from: "2027-03-01", to: "2027-03-20", active: true }] } as never
+    const paused = ses("soon", "2026-10-12", { cancelled: true, pausedBy: "p1" } as never)
+    const v = parentView(fam, { ...base, branches: [withPeriod], sessions: [paused], attendance: [], summaries: [] })
+    expect(v.children[0].upcoming[0]).toMatchObject({ sessionId: "soon", cancelled: true, period: "Summer" })
+    expect(v.periods.map((p) => p.name)).toEqual(["Summer"]) // "Later" is more than 60 days away
+    expect(v.children[0].periods[0].paused).toBe(1)
+  })
   it("a child who left stays (history only) so the family can look back and ask to return (owner 2026-10-14)", () => {
     const gone = { ...kid, archived: { at: "2026-10-01T00:00:00Z", by: "u", reason: "x" }, exit: { status: "closed", lastDate: "2026-09-30", sentAt: "", sentBy: "u" } } as unknown as Student
     const sessions = [ses("past", "2026-09-28"), ses("soon", "2026-10-12")]
