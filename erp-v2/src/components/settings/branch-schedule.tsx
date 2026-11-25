@@ -2,7 +2,7 @@
 
 import { Segmented } from "@/components/app/page-layout"
 import { useState } from "react"
-import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronsDownIcon, ChevronsUpIcon, ChevronUpIcon, PencilIcon, PlusIcon, SunIcon, TrashIcon } from "lucide-react"
 import { Pill } from "@/components/app/badges"
 import { Field } from "@/components/app/student-form"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,7 @@ import { report } from "@/lib/feedback"
 import { useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
+import { PeriodImpactPanel, usePeriodImpact } from "@/components/settings/period-impact-panel"
 import { periodHours } from "@/components/app/period-banner"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
 import { HolidayPlanner } from "./holiday-planner"
@@ -193,7 +194,7 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
       {list.length === 0 && <Empty>{tx("ยังไม่มีช่วงเวลาพิเศษ")}</Empty>}
       <div className="space-y-3">
         {list.map((p) => (
-          <SpecialPeriodEditor key={p.id} p={p} normal={b.hours} today={today} startOpen={!branch.specialPeriods.some((x) => x.id === p.id)}
+          <SpecialPeriodEditor key={p.id} p={p} branchId={branch.id} saved={branch.specialPeriods.some((x) => x.id === p.id)} normal={b.hours} today={today} startOpen={!branch.specialPeriods.some((x) => x.id === p.id)}
             classCount={classes.filter((k) => k.periodId === p.id && k.active).length}
             onChange={(patch) => (patch.active === false ? guarded(p, "off", () => update(p.id, patch)) : update(p.id, patch))}
             onRemove={() => guarded(p, "remove", () => setB({ ...b, specialPeriods: b.specialPeriods.filter((x) => x.id !== p.id) }))} />
@@ -236,12 +237,14 @@ function SpecialPeriodsCard({ branch }: { branch: Branch }) {
 }
 
 /** Collapsed by default (a one-line summary) so a list of yearly periods stays tidy; new ones open expanded. */
-function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange, onRemove }: { p: SpecialPeriod; normal: Branch["hours"]; today: string; startOpen: boolean; classCount: number; onChange: (patch: Partial<SpecialPeriod>) => void; onRemove: () => void }) {
+function SpecialPeriodEditor({ p, branchId, saved, normal, today, startOpen, classCount, onChange, onRemove }: { p: SpecialPeriod; branchId: string; saved: boolean; normal: Branch["hours"]; today: string; startOpen: boolean; classCount: number; onChange: (patch: Partial<SpecialPeriod>) => void; onRemove: () => void }) {
   const [open, setOpen] = useState(startOpen)
   const [all, setAll] = useState<OpenHours>({ open: "08:00", close: "22:00" })
   const status = !p.active ? { tone: "gray" as const, label: tx("ปิดใช้งาน") } : p.to < today ? { tone: "gray" as const, label: tx("ผ่านไปแล้ว") } : p.from <= today ? { tone: "green" as const, label: tx("ใช้อยู่ตอนนี้") } : { tone: "blue" as const, label: tx("กำลังจะถึง") }
   const fmt = (h: OpenHours | null) => (h ? `${h.open}–${h.close}` : tx("ปิด"))
   const summary = periodHours(p)
+  const [impactOpen, setImpactOpen] = useState(false)
+  const impact = usePeriodImpact(p, branchId)
   return (
     <div className={cn("rounded-2xl border", !p.active && "bg-muted/30")}>
       <div className="flex flex-wrap items-center gap-2 p-3">
@@ -254,12 +257,14 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
           </span>
         </Button>
         <Pill tone={status.tone}>{status.label}</Pill>
+        {saved && p.to >= today && <Button size="xs" variant="outline" onClick={() => setImpactOpen(true)}><SunIcon /> {tx("ผลกระทบ")} ({impact.students.length})</Button>}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Switch size="sm" checked={p.active} onCheckedChange={(v) => onChange({ active: v })} aria-label={tx("เปิดใช้งานช่วงนี้")} />
           {p.active ? "Active" : "Inactive"}
         </label>
         <Button size="icon-sm" variant="ghost" aria-label={tx("ลบช่วง")} onClick={onRemove}><TrashIcon /></Button>
       </div>
+      {impactOpen && <PeriodImpactPanel period={p} branchId={branchId} open onClose={() => setImpactOpen(false)} />}
       {open && (
         <div className="space-y-3 border-t p-3">
           <div className="flex flex-wrap items-end gap-2">
@@ -276,7 +281,7 @@ function SpecialPeriodEditor({ p, normal, today, startOpen, classCount, onChange
             <div className="space-y-1 rounded-xl bg-muted/40 p-2">
                 <p className="text-xs font-medium">{tx("สาเหตุที่หยุด")}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {([["school", tx("เหตุจากโรงเรียน"), tx("โรงเรียนปิดเอง → ยืดแพ็กเกจให้นักเรียนทุกคนในคาบที่หยุด")], ["other", tx("เหตุอื่น"), tx("ไม่ยืดแพ็กเกจ")]] as const).map(([v, t, d]) => (
+                  {([["school", tx("เหตุจากโรงเรียน"), tx("โรงเรียนปิดเอง → รายชั่วโมงยืดวันจบให้ · รายสัปดาห์/เดือนได้ Credit คาบ")], ["other", tx("เหตุอื่น"), tx("ไม่ยืดแพ็กเกจ")]] as const).map(([v, t, d]) => (
                     <Button variant="ghost" size="inline" key={v} type="button" aria-pressed={(p.pauseCause ?? "school") === v} onClick={() => onChange({ pauseCause: v })}
                       className={cn("rounded-xl border bg-background px-3 py-1.5 text-left text-sm", (p.pauseCause ?? "school") === v ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/50")}>
                       {t}<span className="block text-xs font-normal text-muted-foreground">{d}</span>

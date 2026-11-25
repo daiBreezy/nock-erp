@@ -1,0 +1,33 @@
+import type { Entry } from "./index"
+
+// owner 2026-11-25: Special Period Impact Center
+export const PERIOD_IMPACT: Record<string, Entry> = {
+  "ผลกระทบ": { en: "Impact", ja: "影響" },
+  "หาย {0} คาบ": { en: "{0} sessions lost", ja: "{0} コマ消失" },
+  "ไม่มีแพ็กเกจรองรับคาบนี้": { en: "No package covers this session", ja: "このコマをカバーするパックなし" },
+  "เริ่มแล้ว": { en: "Started", ja: "開始済み" },
+  "อีก {0} วันเริ่ม": { en: "Starts in {0} days", ja: "開始まであと {0} 日" },
+  "เหลือน้อยกว่า {0} วันก่อนเริ่ม — อาจมีผลกระทบกับคาบเรียนของนักเรียน ตรวจรายการด้านล่างแล้วรีบจัดการให้เรียบร้อย": { en: "Less than {0} days before it starts — students' sessions may be affected. Check the list below and handle it quickly", ja: "開始まで {0} 日未満 — 生徒の授業に影響する可能性があります。下のリストを確認して早急に対応してください" },
+  "ช่วงนี้ยังเป็น Inactive — นี่คือผลกระทบ “ถ้าเปิดใช้” (ยังไม่มีคาบถูกพัก)": { en: "This period is Inactive — this is the impact “if switched on” (no session is paused yet)", ja: "この期間は Inactive — 「有効にした場合」の影響です(まだ休止中のコマはありません)" },
+  "คาบที่หยุด": { en: "Sessions paused", ja: "休止コマ" },
+  "นักเรียนที่กระทบ": { en: "Students affected", ja: "影響を受ける生徒" },
+  "รายชั่วโมง": { en: "Hourly", ja: "時間制" },
+  "สัปดาห์/เดือน": { en: "Weekly / monthly", ja: "週/月" },
+  "แสดง": { en: "Show", ja: "表示" },
+  "Test/Trial": { en: "Test/Trial", ja: "Test/Trial" },
+  "ช่วงนี้ยังไม่กระทบนักเรียนคนใด": { en: "No student is affected by this period yet", ja: "この期間で影響を受ける生徒はまだいません" },
+  "วันจบแพ็กเกจยืดออกไปเอง (ข้ามวันหยุดและช่วงพิเศษ) — แค่แจ้งผู้ปกครอง": { en: "Package end dates extend by themselves (skipping holidays and special periods) — just tell the parents", ja: "パックの終了日は自動で延長されます(休日・特別期間を除く)— 保護者へ連絡のみ" },
+  "รายสัปดาห์ / รายเดือน": { en: "Weekly / monthly", ja: "週/月パック" },
+  "คาบที่หายจะเก็บเป็น Credit คาบ ให้ตกลงกับผู้ปกครองว่าจะ Refund หรือชดเชย (ระบบ Credit ยังไม่เปิด)": { en: "Lost sessions become session Credit — agree with the parent on a refund or make-up (Credit is not live yet)", ja: "失われたコマはコマ Credit として保管 — 返金か振替かを保護者と決定(Credit は未実装)" },
+  "เหตุอื่น — ไม่ใช่ความผิดของโรงเรียน ไม่เก็บ Credit": { en: "Other cause — not the school's fault, no Credit", ja: "その他の理由 — 学校都合ではないため Credit なし" },
+  "ไม่มีแพ็กเกจรองรับ": { en: "No covering package", ja: "カバーするパックなし" },
+  "ลงชื่อในคาบที่หยุดแต่ไม่มีแพ็กเกจครอบคลุม (เช่น คอร์สเครดิต) — ตรวจเป็นรายคน": { en: "Enrolled in a paused session without a covering package (e.g. credit course) — check one by one", ja: "休止コマに登録済みだがパックなし(例: クレジットコース)— 個別に確認" },
+  "Test / Trial / นัดเดี่ยว ในช่วงนี้": { en: "Test / Trial / one-off bookings in this period", ja: "この期間の Test / Trial / 単発予約" },
+  "ยังไม่ถูกพัก — Trial ไม่ควรอยู่ในช่วงนี้ ตรวจเป็นรายรายการ": { en: "Not paused — Trial should not fall in this period, check each one", ja: "休止されません — Trial はこの期間に入れない方針、1件ずつ確認" },
+  "เวอร์ชันแรก — ยังไม่รวม: ใบแจ้งหนี้ที่ยังไม่จ่าย · เที่ยวรถรับส่ง · ข้อความถึงผู้ปกครอง": { en: "First version — not included yet: unpaid invoices · bus trips · messages to parents", ja: "初版 — 未対応: 未払い請求書・送迎便・保護者へのメッセージ" },
+  "โรงเรียนปิดเอง → รายชั่วโมงยืดวันจบให้ · รายสัปดาห์/เดือนได้ Credit คาบ": { en: "The school closes → hourly packages get a later end date · weekly/monthly get session Credit", ja: "学校都合の休講 → 時間制は終了日を延長・週/月は コマ Credit" },
+  "⚠ {0}: เหลือ {1} วันก่อนเริ่ม (น้อยกว่า {2} วัน) — อาจมีผลกระทบกับคาบเรียนของนักเรียน ตรวจสอบที่ ตั้งค่า › ช่วงเวลาพิเศษ › ผลกระทบ แล้วรีบจัดการให้เรียบร้อย": { en: "⚠ {0}: {1} days before it starts (under {2} days) — students' sessions may be affected. Check Settings › Special periods › Impact and handle it quickly", ja: "⚠ {0}: 開始まで {1} 日({2} 日未満)— 生徒の授業に影響する可能性があります。設定 › 特別期間 › 影響 で確認し早急に対応してください" },
+  "{0}: ประกาศล่วงหน้า {1} วัน — ตรวจผลกระทบที่ ตั้งค่า › ช่วงเวลาพิเศษ › ผลกระทบ เพื่อเตรียมก่อนออกใบแจ้งหนี้รอบถัดไป": { en: "{0}: announced {1} days ahead — check Settings › Special periods › Impact before the next invoice round", ja: "{0}: {1} 日前に告知 — 次回の請求前に 設定 › 特別期間 › 影響 を確認してください" },
+  "เปิดช่วงใหม่": { en: "New period opened", ja: "新しい期間を開始" },
+  "เปิดช่วงพิเศษกระชั้น — อาจกระทบคาบเรียนของนักเรียน ตรวจที่ศูนย์ผลกระทบ": { en: "Special period opened at short notice — students' sessions may be affected, check the Impact Center", ja: "特別期間が直前に開始 — 授業に影響の可能性、影響センターで確認" },
+}

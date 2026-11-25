@@ -19,6 +19,7 @@ import * as Les from "@/domain/rules/lessons"
 export type SummaryLesson = { bookId?: ID; topicId?: ID; detail?: string; level?: number; subjectLevels?: Record<string, number> }
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
+import { daysUntilPeriod, PERIOD_NOTICE_DAYS, shortNotice } from "@/domain/rules/period-impact"
 import { can, canDeactivateStaff, canEditBlocks, canEditLead, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
 import * as CN from "@/domain/rules/calendar-notes"
@@ -1494,10 +1495,20 @@ export const useStore = create<Store>()(
         const filled = Sch.fillPeriodClasses(s.sessions, s.classes, b, s.holidays, toDateStr(s.now()), () => uid("se"))
         const sync = Sch.syncPeriodSessions([...s.sessions, ...filled], s.classes, b, toDateStr(s.now()))
         set({ branches: s.branches.map((x) => (x.id === b.id ? b : x)), sessions: sync.sessions })
-        if (sync.paused || sync.restored || filled.length) {
+        // owner 2026-11-25: whoever handles a period is Admin and up (anyone of them) — they hear about it, with how much notice there was (≥ 45 days so the next monthly
+        // invoice round can adapt). Short notice is only a warning, never a block: "check the Impact Center and handle it quickly".
+        const today = toDateStr(s.now())
+        const before = s.branches.find((x) => x.id === b.id)!
+        const opened = b.specialPeriods.filter((p) => p.active && p.to >= today && !before.specialPeriods.some((o) => o.id === p.id && o.active && o.from === p.from && o.to === p.to))
+        if (sync.paused || sync.restored || filled.length || opened.length) {
           const what = [filled.length && `เพิ่มคาบคลาสพิเศษ ${filled.length} คาบ`, sync.paused && `หยุด ${sync.paused} คาบ`, sync.restored && `กลับมาเรียน ${sync.restored} คาบ`].filter(Boolean).join(" · ")
-          set({ notifications: [Notif.notify({ id: uid("no"), at: s.now(), kind: "info", title: "ช่วงเวลาพิเศษเปลี่ยน", body: `${b.name} · ${what}`, fromId: s.userId, audience: { roles: Notif.ALL_ROLES, branchId: b.id } }), ...get().notifications] })
-          toast.info(`ช่วงเวลาพิเศษ: ${what}`)
+          const notice = opened.map((p) => (shortNotice(p, today)
+            ? `⚠ ${p.name}: เหลือ ${daysUntilPeriod(p, today)} วันก่อนเริ่ม (น้อยกว่า ${PERIOD_NOTICE_DAYS} วัน) — อาจมีผลกระทบกับคาบเรียนของนักเรียน ตรวจสอบที่ ตั้งค่า › ช่วงเวลาพิเศษ › ผลกระทบ แล้วรีบจัดการให้เรียบร้อย`
+            : `${p.name}: ประกาศล่วงหน้า ${daysUntilPeriod(p, today)} วัน — ตรวจผลกระทบที่ ตั้งค่า › ช่วงเวลาพิเศษ › ผลกระทบ เพื่อเตรียมก่อนออกใบแจ้งหนี้รอบถัดไป`)).join("\n")
+          const urgent = opened.some((p) => shortNotice(p, today))
+          set({ notifications: [Notif.notify({ id: uid("no"), at: s.now(), kind: urgent ? "holiday_impact" : "info", title: "ช่วงเวลาพิเศษเปลี่ยน", body: [`${b.name} · ${what || "เปิดช่วงใหม่"}`, notice].filter(Boolean).join("\n"), fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: b.id } }), ...get().notifications] })
+          if (what) toast.info(`ช่วงเวลาพิเศษ: ${what}`)
+          if (urgent) toast.warning("เปิดช่วงพิเศษกระชั้น — อาจกระทบคาบเรียนของนักเรียน ตรวจที่ศูนย์ผลกระทบ")
         }
         return OK
       },
