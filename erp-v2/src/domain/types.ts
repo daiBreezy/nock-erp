@@ -1506,6 +1506,32 @@ export interface BusAddOn {
   createdAt: string
 }
 
+/**
+ * owner 2026-11-25: Session Credit — one weekly / monthly session the SCHOOL stopped (Special Period). Made by itself while the period is Active, one row per
+ * paused session per package. `value` = money for that one session (see session-credit.ts). Admin later records what the parent chose (`settle`);
+ * a credit whose session comes back (period shortened / switched off) is revoked by itself — unless it was already settled.
+ */
+export type CreditSettle = "refund" | "makeup" | "discount"
+export interface SessionCredit {
+  id: ID
+  branchId: ID
+  studentId: ID
+  entitlementId: ID
+  courseId: ID
+  /** the paused session this credit stands for */
+  sessionId: ID
+  periodId: ID
+  /** date of the lost session */
+  date: DateStr
+  /** baht for this one session */
+  value: number
+  status: "open" | "settled" | "revoked"
+  settle?: { mode: CreditSettle; at: string; by: ID; note?: string; /** make-up may use another course of the student (Admin's optional choice) */ otherCourse?: boolean }
+  /** why a credit was revoked (period changed · invoice adjusted by hand …) */
+  revokedReason?: string
+  createdAt: string
+}
+
 /** Refund (owner 2026-09-30): a paid invoice is never edited — a Credit Note cancels part of it.
  *  refund = money goes back (recorded with the account it left from) · credit = kept as credit for the same
  *  student + course, taken off their next invoice automatically. */

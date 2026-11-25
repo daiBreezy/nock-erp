@@ -9,7 +9,8 @@ import { Kpi } from "@/components/app/kpi"
 import { KpiRow, Segmented } from "@/components/app/page-layout"
 import { Pill } from "@/components/app/badges"
 import { StudentSheet } from "@/components/app/student-sheet"
-import { fmtDate, toDateStr } from "@/domain/dates"
+import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
+import { creditTotal, invoiceStateFor } from "@/domain/rules/session-credit"
 import { daysUntilPeriod, PERIOD_NOTICE_DAYS, periodImpact, shortNotice, type ImpactStudent } from "@/domain/rules/period-impact"
 import type { ID, SpecialPeriod } from "@/domain/types"
 import { useNow } from "@/lib/hooks"
@@ -37,6 +38,8 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
   const impact = usePeriodImpact(period, branchId)
   const students = useStore((s) => s.students)
   const courses = useStore((s) => s.courses)
+  const invoices = useStore((s) => s.invoices)
+  const credits = useStore((s) => s.sessionCredits ?? [])
   const today = toDateStr(useNow(60_000))
   const [show, setShow] = useState<Show>("all")
   const [studentOpen, setStudentOpen] = useState<ID | null>(null)
@@ -44,6 +47,17 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
   const days = daysUntilPeriod(period, today)
   const short = period.active && period.to >= today && shortNotice(period, today)
 
+  const MoneyPills = ({ studentId, courseId }: { studentId: ID; courseId?: ID }) => {
+    const st = courseId ? invoiceStateFor(studentId, courseId, invoices) : "none"
+    const mine = credits.filter((c) => c.periodId === period.id && c.studentId === studentId && c.status !== "revoked")
+    const open = mine.filter((c) => c.status === "open")
+    return (
+      <>
+        {st !== "none" && <Pill tone={st === "paid" ? "green" : st === "unpaid" ? "amber" : "gray"}>{st === "paid" ? tx("จ่ายแล้ว") : st === "unpaid" ? tx("ใบค้างจ่าย") : tx("ใบยังเป็นร่าง")}</Pill>}
+        {mine.length > 0 && <Pill tone="blue">{open.length ? tx("Credit {0} คาบ · {1}", [open.length, fmtMoney(creditTotal(open).money)]) : tx("เลือกวิธีใช้แล้ว")}</Pill>}
+      </>
+    )
+  }
   const row = (r: ImpactStudent, unit: string) => {
     const st = who(r.studentId)
     return (
@@ -53,6 +67,7 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
             <span className="block truncate font-medium">{st?.nickname ?? "—"}{st?.grade && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{st.grade}</span>}</span>
             <span className="block truncate text-xs text-muted-foreground">{r.packages.map((p) => courses.find((c) => c.id === p.courseId)?.name ?? "คอร์ส").join(" · ") || tx("ไม่มีแพ็กเกจรองรับคาบนี้")}</span>
           </span>
+          {unit === "subscription" && <MoneyPills studentId={r.studentId} courseId={r.packages[0]?.courseId} />}
           <Pill tone="amber">{tx("หาย {0} คาบ", [r.packages.reduce((a, p) => a + p.lost, 0) || r.sessions.length])}</Pill>
           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
         </Button>
@@ -102,7 +117,7 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
           ]} />
           {nothing && <p className="rounded-xl bg-muted/40 p-3 text-center text-xs text-muted-foreground">{tx("ช่วงนี้ยังไม่กระทบนักเรียนคนใด")}</p>}
           {(show === "all" || show === "hourly") && group(tx("รายชั่วโมง"), tx("วันจบแพ็กเกจยืดออกไปเอง (ข้ามวันหยุดและช่วงพิเศษ) — แค่แจ้งผู้ปกครอง"), impact.hourly, "hourly")}
-          {(show === "all" || show === "subscription") && group(tx("รายสัปดาห์ / รายเดือน"), impact.schoolCause ? tx("คาบที่หายจะเก็บเป็น Credit คาบ ให้ตกลงกับผู้ปกครองว่าจะ Refund หรือชดเชย (ระบบ Credit ยังไม่เปิด)") : tx("เหตุอื่น — ไม่ใช่ความผิดของโรงเรียน ไม่เก็บ Credit"), impact.subscription, "subscription")}
+          {(show === "all" || show === "subscription") && group(tx("รายสัปดาห์ / รายเดือน"), impact.schoolCause ? tx("คาบที่หายจะเก็บเป็น Credit คาบ ให้ตกลงกับผู้ปกครองว่าจะ Refund หรือชดเชย (สร้างให้เองแล้ว — เลือกวิธีใช้ที่แผงนักเรียน › การเงิน · ใบที่ยังไม่จ่ายอาจแก้ยอดใบแทนและยกเลิก Credit)") : tx("เหตุอื่น — ไม่ใช่ความผิดของโรงเรียน ไม่เก็บ Credit"), impact.subscription, "subscription")}
           {show === "all" && group(tx("ไม่มีแพ็กเกจรองรับ"), tx("ลงชื่อในคาบที่หยุดแต่ไม่มีแพ็กเกจครอบคลุม (เช่น คอร์สเครดิต) — ตรวจเป็นรายคน"), impact.uncovered, "uncovered")}
           {(show === "all" || show === "bookings") && impact.bookings.length > 0 && (
             <section className="space-y-1.5">
@@ -117,7 +132,7 @@ export function PeriodImpactPanel({ period, branchId, open, onClose }: { period:
               </ul>
             </section>
           )}
-          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรก — ยังไม่รวม: ใบแจ้งหนี้ที่ยังไม่จ่าย · เที่ยวรถรับส่ง · ข้อความถึงผู้ปกครอง")}</p>
+          <p className="text-2xs text-muted-foreground">{tx("เวอร์ชันแรก — ยังไม่รวม: เที่ยวรถรับส่ง · ข้อความถึงผู้ปกครอง")}</p>
         </PanelBody>
         <PanelFooter><Button variant="ghost" className="ml-auto" onClick={onClose}>{tx("ปิด")}</Button></PanelFooter>
       </EntityPanel>

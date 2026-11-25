@@ -1,6 +1,7 @@
 "use client"
 
 import { StudentExams } from "@/components/exams/student-exams"
+import { SessionCreditsCard } from "./student-credits"
 import { StudentStatusPill } from "@/components/app/student-status-pill"
 import { familyDisplay } from "@/domain/rules/people"
 import * as People from "@/domain/rules/people"
@@ -726,6 +727,7 @@ export function StudentBilling({ kids, toolbar }: { kids: Student[]; /** extra c
   ]
   return (
     <div className="space-y-3">
+      <SessionCreditsCard kids={kids} />
       <div className="flex items-center gap-2">
         {/* owner 2026-11-20: the sentence under the tab became one ⓘ — "tap a row" is obvious, the auto-enroll rule is worth one hover */}
         <InfoTip text="จ่ายครบแล้วระบบเพิ่มเข้าคลาสให้อัตโนมัติ · กดแถวเพื่อเปิดใบแจ้งหนี้" />

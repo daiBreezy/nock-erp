@@ -19,6 +19,7 @@ import * as Les from "@/domain/rules/lessons"
 export type SummaryLesson = { bookId?: ID; topicId?: ID; detail?: string; level?: number; subjectLevels?: Record<string, number> }
 import * as CRM from "@/domain/rules/crm"
 import * as Inbox from "@/domain/rules/inbox"
+import * as SCredit from "@/domain/rules/session-credit"
 import { daysUntilPeriod, PERIOD_NOTICE_DAYS, shortNotice } from "@/domain/rules/period-impact"
 import { can, canDeactivateStaff, canEditBlocks, canEditLead, inBranch, OFFICE_ROLES, require as requirePerm, staffAt } from "@/domain/rules/permissions"
 import * as Sch from "@/domain/rules/scheduling"
@@ -48,7 +49,7 @@ import type { BankAccountEntry, SystemLogEntry, HomePin, CustomFormResponse, For
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
-import type { ChatMessageMeta, CourseLine, CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, ReceiptMerge, ExamResult, ExamScore, ExamTerm, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr, BusLegKind } from "@/domain/types"
+import type { ChatMessageMeta, CourseLine, CalendarNoteKind, ClassMove, ParentRequest, DevTicket, DevTicketStatus, NockAnswer, NockQuestion, Role, SurveyCampaign, SurveyResponse, EnrollSubmission, ContactChannel, ContactResult, LossReason, Assessment, AttendanceStatus, Entitlement, Branch, BusAddOn, ClassBlock, CourseSummary, CreditNote, CreditSettle, SessionCredit, SpecialPeriod, LessonBook, LessonTopic, Seat, ChatMessage, Conversation, Course, DateStr, Family, FormSubmission, Holiday, ID, Invoice, Klass, Lead, LeadStage, LessonSummary, LineDelivery, LogCategory, ReceiptMerge, ExamResult, ExamScore, ExamTerm, Result, Session, Staff, Student, SystemConfig, BusTrip, BusZone, TimeStr, BusLegKind } from "@/domain/types"
 
 export interface UIState {
   userId: ID
@@ -332,6 +333,10 @@ type Store = DB & UIState & {
   /** refund / credit on a paid invoice — the invoice itself never changes */
   createCreditNote: (input: Pick<CreditNote, "invoiceId" | "mode" | "items" | "reasons" | "remark" | "stopFrom">) => Result<CreditNote>
   approveCreditNote: (id: ID, forceRemark?: string) => Result
+  /** owner 2026-11-25: Admin records what the parent chose for open session credits (Refund / make-up / discount next payment) */
+  settleSessionCredits: (ids: ID[], mode: CreditSettle, note?: string, otherCourse?: boolean) => Result
+  /** cancel open session credits by hand (e.g. the unpaid invoice was reduced instead) */
+  revokeSessionCredits: (ids: ID[], reason: string) => Result
   voidCreditNote: (id: ID, reason: string) => Result
   recordRefund: (id: ID, r: { fromAccount: string; date: DateStr; reference: string; slip?: string; remark?: string }) => Result
   recordPayment: (id: ID, p: { amount: number; method: "transfer" | "cash"; reference: string; slip?: string; paidOn?: DateStr; remark?: string }) => Result
@@ -1495,6 +1500,20 @@ export const useStore = create<Store>()(
         const filled = Sch.fillPeriodClasses(s.sessions, s.classes, b, s.holidays, toDateStr(s.now()), () => uid("se"))
         const sync = Sch.syncPeriodSessions([...s.sessions, ...filled], s.classes, b, toDateStr(s.now()))
         set({ branches: s.branches.map((x) => (x.id === b.id ? b : x)), sessions: sync.sessions })
+        // owner 2026-11-25: weekly / monthly students get a Credit for every session the school stops — made by itself, taken back by itself when the session returns
+        const creditNow = s.now().toISOString()
+        const periodIds = [...new Set([...b.specialPeriods.map((p) => p.id), ...(s.sessionCredits ?? []).filter((c) => c.branchId === b.id).map((c) => c.periodId)])]
+        let ledger = s.sessionCredits ?? []
+        let creditMade = 0
+        const creditFlagged: SessionCredit[] = []
+        for (const pid of periodIds) {
+          const period = b.specialPeriods.find((p) => p.id === pid) ?? ({ id: pid, active: false, pauseCause: "school" } as SpecialPeriod)
+          const r = SCredit.syncPeriodCredits(ledger, period, { sessions: sync.sessions, entitlements: s.entitlements, courses: s.courses, classes: s.classes }, () => uid("cr"), creditNow)
+          ledger = r.credits; creditMade += r.created; creditFlagged.push(...r.flagged)
+        }
+        if (ledger !== (s.sessionCredits ?? [])) set({ sessionCredits: ledger })
+        if (creditMade) toast.info(`สร้าง Credit คาบให้นักเรียนรายสัปดาห์/เดือน ${creditMade} คาบ`)
+        if (creditFlagged.length) set({ notifications: [Notif.notify({ id: uid("no"), at: s.now(), kind: "holiday_impact", title: "Credit ที่ใช้ไปแล้ว แต่คาบกลับมาเรียน", body: `${b.name} · ${creditFlagged.length} Credit ถูกเลือกวิธีใช้ไปแล้ว (Refund/ชดเชย/ส่วนลด) แต่คาบกลับมาเรียนตามปกติ — ตรวจและตัดสินใจเอง`, fromId: s.userId, audience: { roles: OFFICE_ROLES, branchId: b.id } }), ...get().notifications] })
         // owner 2026-11-25: whoever handles a period is Admin and up (anyone of them) — they hear about it, with how much notice there was (≥ 45 days so the next monthly
         // invoice round can adapt). Short notice is only a warning, never a block: "check the Impact Center and handle it quickly".
         const today = toDateStr(s.now())
@@ -3089,6 +3108,26 @@ export const useStore = create<Store>()(
         return { ok: true, value: cn }
       },
 
+      settleSessionCredits: (ids, mode, note, otherCourse) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const hit = s.sessionCredits.filter((c) => ids.includes(c.id) && c.status === "open")
+        if (!hit.length) return fail("ไม่มี Credit ที่ยังไม่ได้เลือกวิธีใช้")
+        const at = s.now().toISOString()
+        set({ sessionCredits: s.sessionCredits.map((c) => (hit.some((h) => h.id === c.id) ? { ...c, status: "settled", settle: { mode, at, by: s.userId, note: note?.trim() || undefined, otherCourse: mode === "makeup" && otherCourse ? true : undefined } } : c)) })
+        return OK
+      },
+      revokeSessionCredits: (ids, reason) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        if (!reason.trim()) return fail("ใส่เหตุผลที่ยกเลิก Credit")
+        const hit = s.sessionCredits.filter((c) => ids.includes(c.id) && c.status === "open")
+        if (!hit.length) return fail("ไม่มี Credit ที่ยังเปิดอยู่")
+        set({ sessionCredits: s.sessionCredits.map((c) => (hit.some((h) => h.id === c.id) ? { ...c, status: "revoked", revokedReason: reason.trim() } : c)) })
+        return OK
+      },
       approveCreditNote: (id, forceRemark) => {
         const s = get()
         const cn = s.creditNotes.find((x) => x.id === id)!
@@ -4470,8 +4509,8 @@ export const useStore = create<Store>()(
       skipHydration: true,
       onRehydrateStorage: () => () => idb.enableWrites(),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 130, // 130: system audit log (systemLogs) · 129: invoices keep the bank account they had when sent / paid (bankSnapshot) · 128: demo pay slips on every transfer (kept data, `slip` added) · 127: the Nockacademy main account carries its saved QR image · 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
-      migrate: (old, from) => withSystemLogs(Bank.withBankSnapshots(withDemoSlips(withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store))))))),
+      version: 131, // 131: session credits (sessionCredits) · // 130: system audit log (systemLogs) · 129: invoices keep the bank account they had when sent / paid (bankSnapshot) · 128: demo pay slips on every transfer (kept data, `slip` added) · 127: the Nockacademy main account carries its saved QR image · 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      migrate: (old, from) => withSessionCredits(withSystemLogs(Bank.withBankSnapshots(withDemoSlips(withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store)))))))),
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },
@@ -4524,6 +4563,10 @@ function withExamDemo(s: Store): Store {
 /** saved data from before the payment QR: every branch gets the sample PromptPay ID (the company tax ID — replace it in Settings › Bank); nothing else changes */
 /** owner 2026-11-24: saved data from before the central Bank Accounts — one account per business type is made from the branches as they are
  *  (the QR stays on the Nockacademy account only) and sent back to the branches */
+function withSessionCredits(s: Store): Store {
+  return s.sessionCredits ? s : { ...s, sessionCredits: [] }
+}
+
 function withSystemLogs(s: Store): Store {
   return s.systemLogs ? s : { ...s, systemLogs: [] }
 }

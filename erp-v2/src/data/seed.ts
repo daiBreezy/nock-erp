@@ -15,7 +15,7 @@ import { buildExamDemo } from "./exam-demo"
 import type { CustomFormResponse, ExamResult, FormDef, SystemLogEntry } from "@/domain/types"
 import type {
   CalendarNote,
-  Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
+  Assessment, AppNotification, Attendance, DevTicket, NockQuestion, Branch, BusAddOn, DayBlocks, ChatMessage, CourseSummary, CreditNote, SessionCredit, LessonBook, LessonTopic, Conversation, Course, Entitlement, Family, Holiday, Invoice, Klass, Lead, LessonSummary,
   ActivityLog, PriceRow, Session, StudentNote, Staff, Student, StudentLeave, SurveyCampaign, SurveyImprove, SurveyReason, SurveyResponse, SystemConfig, Weekday, BusTrip } from "@/domain/types"
 
 export interface DB {
@@ -47,6 +47,7 @@ export interface DB {
   notifications: AppNotification[]
   /** owner 2026-11-24: system-level audit trail (Bank Account created / edited / deleted …) — the Log page is not built yet */
   systemLogs: SystemLogEntry[]
+  sessionCredits: SessionCredit[]
   system: SystemConfig
   notes: StudentNote[]
   /** Note Calendar (owner 2026-10-15) — notes on students in classes, apart from the student's Note tab */
@@ -813,7 +814,7 @@ export function buildSeed(now = new Date()): DB {
   const bankAccounts = defaultBankAccounts(branches)
   system.bankAccounts = bankAccounts
   const withBank = applyBankAccounts(branches, bankAccounts).branches
-  return { branches: withBank, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, examResults: buildExamDemo({ branches: withBank, students }, now), invoices: withBankSnapshots({ invoices: withDemoSlips({ invoices }).invoices, branches: withBank }).invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], systemLogs: [] as SystemLogEntry[], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
+  return { branches: withBank, staff, holidays, courses, classes, sessions, attendance, summaries, courseSummaries, nockQuestions, devTickets, families, students, entitlements, leaves, examResults: buildExamDemo({ branches: withBank, students }, now), invoices: withBankSnapshots({ invoices: withDemoSlips({ invoices }).invoices, branches: withBank }).invoices, busAddOns, creditNotes: [] as CreditNote[], lessonBooks, lessonTopics, leads, conversations, messages, notifications: [], systemLogs: [] as SystemLogEntry[], sessionCredits: [] as SessionCredit[], system, notes, calendarNotes, busTrips: [] as BusTrip[], logs, assessments, surveyCampaigns, surveyResponses, formDefs, formResponses }
 }
 
 /**
