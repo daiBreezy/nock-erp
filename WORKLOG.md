@@ -2459,3 +2459,9 @@ commit 2857eb6 · tests 529 ผ่าน ยกเว้น `i18n-coverage` (9 �
 - Checklist: เสร็จ 6 ข้อ (รอบ "ฟอร์มในแผง + Lead/Customer + ผลสอบ") + ค้าง 5 ข้อ (ส่งใหม่ผ่านหน้าจอ · picker เห็น Lead · ฟอร์มอื่นเข้าโครงกลาง · รีดีไซน์ Dashboard · Bank Account) · คำแปลอังกฤษครบ (features-en test ผ่าน)
 - เก็บกวาด: `EnrollFormCard` เหลือ prop `family` อย่างเดียว (ลบ `lead` ที่ไม่ใช้)
 - ตรวจแล้ว: tsc/eslint/vitest ผ่าน · แท็บ ผลสอบ ในแผงนักเรียนเปิดได้ (ตัวเลือกปี/ครั้ง + ปุ่มกรอก + empty state)
+
+## 2026-11-26 — ตัวเลือกนักเรียน/ครอบครัวไม่ปน Lead
+- `CustomerPicker` มี prop `customersOnly` (ค่าเริ่มต้น true): แถว นักเรียน/ครอบครัว ที่ยังเป็น Lead (`useLeadSets`) ไม่โผล่ — แถว Lead เป็นตัวแทน · ใช้กับ Inbox (ผูกแชท/กลุ่ม) · ค้นหารวม ⌘K · เลือกครอบครัวในฟอร์มนักเรียน · เพิ่มนักเรียนในคลาส
+- **Billing สร้างใบ ปิด** (`customersOnly={false}`): เด็กของ Lead ออกใบแจ้งหนี้ได้ (เป็นทางที่ Lead กลายเป็น Customer)
+- `ReferrerPicker` ไม่แนะนำครอบครัวที่ยังเป็น Lead เป็นผู้แนะนำ
+- ไม่แตะ `StudentSearch` ในแผงคาบ (เด็ก Lead เข้าคาบ Test/Trial ได้ถูกต้อง)

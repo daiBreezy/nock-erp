@@ -276,7 +276,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
             <Button type="button" variant="outline" className="w-full justify-start" onClick={() => setPicking(true)}><UserRoundSearchIcon /> เลือกนักเรียน / Lead</Button>
           )}
           {picking && (
-            <CustomerPicker kinds={["student", "lead"]} title="เลือกลูกค้า" onClose={() => setPicking(false)}
+            <CustomerPicker kinds={["student", "lead"]} customersOnly={false} title="เลือกลูกค้า" onClose={() => setPicking(false)}
               onConfirm={(row) => {
                 if (row.kind === "lead") {
                   // a lead gets its student + family now; it becomes "ลงทะเบียนแล้ว" when this invoice is paid

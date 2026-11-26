@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CUSTOMER_KIND_LABEL, customerRows, filterCustomers, type CustomerKind, type CustomerRow, type CustomerSort } from "@/domain/rules/customers"
 import type { ID } from "@/domain/types"
-import { useBranch } from "@/lib/hooks"
+import { useBranch, useLeadSets } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { Pill } from "./badges"
@@ -20,12 +20,14 @@ import { SearchBox } from "./page-layout"
  * Only one page of rows is rendered, so it stays usable with 100,000 records.
  */
 export function CustomerPicker({
-  kinds, title = "เลือกลูกค้า", onConfirm, onClose, initialKinds, excludeIds,
+  kinds, title = "เลือกลูกค้า", onConfirm, onClose, initialKinds, excludeIds, customersOnly = true,
 }: {
   kinds: CustomerKind[]
   title?: string
   initialKinds?: CustomerKind[]
   excludeIds?: ID[]
+  /** owner 2026-11-26: a student / family that is still a Lead is not listed as a Customer (the Lead row stands for it). Billing turns this off: a Lead's child can be invoiced. */
+  customersOnly?: boolean
   onConfirm: (row: CustomerRow) => void
   onClose: () => void
 }) {
@@ -33,6 +35,7 @@ export function CustomerPicker({
   const students = useStore((s) => s.students)
   const families = useStore((s) => s.families)
   const leads = useStore((s) => s.leads)
+  const leadSet = useLeadSets()
   const [q, setQ] = useState("")
   const [on, setOn] = useState<CustomerKind[]>(initialKinds ?? kinds)
   const [grade, setGrade] = useState("")
@@ -41,8 +44,9 @@ export function CustomerPicker({
 
   const all = useMemo(() => {
     const rows = customerRows({ students: students.filter((s) => s.branchId === branch.id), families, leads: leads.filter((l) => l.branchId === branch.id) }, kinds)
-    return excludeIds?.length ? rows.filter((r) => !excludeIds.includes(r.id)) : rows
-  }, [students, families, leads, branch.id, kinds, excludeIds])
+    const visible = customersOnly ? rows.filter((r) => !(r.kind === "student" && leadSet.studentIds.has(r.id)) && !(r.kind === "family" && leadSet.familyIds.has(r.id))) : rows
+    return excludeIds?.length ? visible.filter((r) => !excludeIds.includes(r.id)) : visible
+  }, [students, families, leads, branch.id, kinds, excludeIds, customersOnly, leadSet])
   const rows = useMemo(() => filterCustomers(all, { q, kinds: on, grade, sort, gradeOrder: branch.grades }), [all, q, on, grade, sort, branch.grades])
   const page = usePage(rows, 30)
   const toggle = (k: CustomerKind) => setOn((cur) => (cur.includes(k) ? (cur.length > 1 ? cur.filter((x) => x !== k) : cur) : [...cur, k]))

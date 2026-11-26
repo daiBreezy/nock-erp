@@ -10,10 +10,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { suggestReferrers } from "@/domain/rules/referral"
 import type { ID } from "@/domain/types"
+import { useLeadSets } from "@/lib/hooks"
 import { useStore } from "@/store/store"
 
 export function ReferrerPicker({ text, exceptFamilyId, value, onChange }: { text: string; exceptFamilyId?: ID; value: ID | null; onChange: (id: ID | null) => void }) {
-  const families = useStore((s) => s.families)
+  const allFamilies = useStore((s) => s.families)
+  const leadSet = useLeadSets()
+  const families = allFamilies.filter((f) => !leadSet.familyIds.has(f.id)) // a referrer is an existing Customer, never a Lead (owner 2026-11-26)
   const students = useStore((s) => s.students)
   const [q, setQ] = useState("")
   const words = (q || text).trim()
