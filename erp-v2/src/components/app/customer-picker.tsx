@@ -49,7 +49,6 @@ export function CustomerPicker({
   }, [students, families, leads, branch.id, kinds, excludeIds, customersOnly, leadSet])
   const rows = useMemo(() => filterCustomers(all, { q, kinds: on, grade, sort, gradeOrder: branch.grades }), [all, q, on, grade, sort, branch.grades])
   const page = usePage(rows, 30)
-  const toggle = (k: CustomerKind) => setOn((cur) => (cur.includes(k) ? (cur.length > 1 ? cur.filter((x) => x !== k) : cur) : [...cur, k]))
   const filtered = q || grade || on.length !== kinds.length
 
   return (
@@ -61,12 +60,10 @@ export function CustomerPicker({
         </DialogHeader>
         <SearchBox value={q} onChange={(v) => { setQ(v); page.setPage(0) }} placeholder="ค้นหาชื่อ / ชื่อเล่น / ครอบครัว / เบอร์" block autoFocus />
         <div className="flex flex-wrap items-center gap-1.5">
-          {kinds.length > 1 && kinds.map((k) => (
-            <Button variant="chip" size="inline" key={k} type="button" aria-pressed={on.includes(k)} onClick={() => { toggle(k); page.setPage(0) }}
-              className="h-8 px-2.5 text-sm">
-              {on.includes(k) && <CheckIcon className="size-3.5" />}{CUSTOMER_KIND_LABEL[k]}
-            </Button>
-          ))}
+          {kinds.length > 1 && (
+            <NativeSelect className="h-8 w-32" value={on.length === kinds.length ? "" : on[0]} onChange={(e) => { setOn(e.target.value ? [e.target.value as CustomerKind] : kinds); page.setPage(0) }} placeholder="ทุกประเภท"
+              options={kinds.map((k) => ({ value: k, label: CUSTOMER_KIND_LABEL[k] }))} />
+          )}
           <NativeSelect className="h-8 w-28" value={grade} onChange={(e) => { setGrade(e.target.value); page.setPage(0) }} placeholder="ทุกชั้น" options={branch.grades.map((g) => ({ value: g, label: g }))} />
           <NativeSelect className="h-8 w-32" value={sort} onChange={(e) => setSort(e.target.value as CustomerSort)} options={[{ value: "name", label: "เรียงตามชื่อ" }, { value: "grade", label: "เรียงตามชั้น" }, { value: "recent", label: "เพิ่มล่าสุด" }]} />
           {filtered && <Button variant="link" size="inline" type="button" className="ml-auto text-sm text-primary" onClick={() => { setQ(""); setGrade(""); setOn(kinds); page.setPage(0) }}>ล้างทั้งหมด</Button>}
