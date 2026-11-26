@@ -910,6 +910,7 @@ export const FEATURE_EN: Record<string, string> = {
   "ต้องคุยหน้าตาที่อยากได้ก่อนเริ่ม": "We need to talk about the look you want before starting",
   "Bank Account ใน System › การเงิน (ต่อสาขา/NA/LI + อัปโหลด QR) — จอดไว้": "Bank Account in System › Finance (per branch/NA/LI + QR upload) — parked",
   "ตอนนี้ QR บนใบแจ้งหนี้ใช้เฉพาะ NA": "For now the QR on invoices is used for NA only",
+  "ตัวเลือกนักเรียน/ครอบครัว (Inbox · ค้นหารวม · ฟอร์มนักเรียน · คลาส · ผู้แนะนำ) ไม่โชว์นักเรียน/ครอบครัวที่ยังเป็น Lead · Billing สร้างใบยังเลือกเด็ก Lead ได้": "Student/family pickers (Inbox · global search · student form · class · referrer) no longer list students/families that are still Leads · Billing create-invoice can still pick a Lead's child",
 }
 
 /** the text in the chosen UI language (Thai is the source; English and Japanese show the English) */
