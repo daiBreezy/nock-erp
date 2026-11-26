@@ -1,6 +1,6 @@
 "use client"
 
-import { familyDisplay } from "@/domain/rules/people"
+import { familyDisplay, familyThai } from "@/domain/rules/people"
 import { useEffect, useState } from "react"
 import { ChevronDownIcon, CopyIcon, DoorOpenIcon, ExternalLinkIcon, RefreshCwIcon, SendIcon, StarIcon, UndoIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -134,7 +134,7 @@ function useExitFormSender(stu: Student) {
   const system = useStore((s) => s.system)
   return (ids: ID[], lastDate: string) => sendExitForm({
     branchId: branch.id, branchName: branch.name, brand: branch.brand, lang: system.preferences.language, conversationId: conv?.id ?? null,
-    familyName: fam?.name ?? stu.nickname, lastDate,
+    familyName: fam ? familyThai(fam.name) : stu.nickname, lastDate,
     students: ids.map((id) => students.find((x) => x.id === id)!).map((x) => ({ id: x.id, nickname: x.nickname, grade: x.grade })),
     reasons: Loss.reasonsForStudent(system.lossReasons).map(({ id, label, en, ja }) => ({ id, label, en, ja })),
   })
@@ -255,7 +255,7 @@ export function CloseExitDialog({ stu, response, onClose }: { stu: Student; resp
           <div className="flex flex-wrap gap-1.5">{reasons.map((r) => <Chip key={r.id} on={reasonId === r.id} onClick={() => setReasonId(r.id)}>{r.label}</Chip>)}</div></div>
         <div className="space-y-1.5"><Label>เหตุผลอื่น</Label>
           <div className="flex flex-wrap gap-1.5">{reasons.filter((r) => r.id !== reasonId).map((r) => <Chip key={r.id} on={others.includes(r.id)} onClick={() => setOthers((o) => (o.includes(r.id) ? o.filter((x) => x !== r.id) : [...o, r.id]))}>{r.label}</Chip>)}</div></div>
-        <div className="space-y-1.5"><Label>เงินที่เหลือในแพ็ก <InfoTip text="คืนเงิน / เก็บเป็นเครดิต = ออกใบลดหนี้จากใบแจ้งหนี้ของนักเรียน (แท็บ Billing)" /></Label>
+        <div className="space-y-1.5"><Label>เงินที่เหลือในแพ็ก <InfoTip text="คืนเงิน / เก็บเป็นเครดิต · ออกใบลดหนี้จากใบแจ้งหนี้ของนักเรียน (แท็บ Billing)" /></Label>
           <div className="flex flex-wrap gap-1.5">{([["none", "ไม่มี / ใช้หมดแล้ว"], ["refund", "คืนเงิน"], ["credit", "เก็บเป็นเครดิต"]] as const).map(([k, l]) => <Chip key={k} on={money === k} onClick={() => setMoney(k)}>{l}</Chip>)}</div>
 </div>
         <div className="space-y-1"><Label>หมายเหตุ{reasonId === "lr_other" && !a?.comment ? " *" : ""}</Label><Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น คุยทางโทรศัพท์ คุณแม่บอกว่า…" /></div>

@@ -28,7 +28,7 @@ export type Permission =
   | "inbox.manage"
   /** branch holidays: create own + choose which company holidays the branch closes on (Admin/Manager and up) */
   | "holiday.manage"
-  /** Reports (owner 2026-10-01): Director / Area Manager / Manager — not Admin, not teachers */
+  /** Reports (owner 2026-10-01; opened 2026-11-26): every office / teaching role can open Reports — what each sees is limited by BRANCH (Director / Super Admin all; Area Manager the branches they hold; Manager / Admin / Teacher their own) and a Teacher sees only their own Teacher Performance */
   | "reports.view"
   /** เรื่องถึง Dev (owner 2026-10-13): see and answer every staff ticket — the Developer role */
   | "dev.manage"
@@ -57,9 +57,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   manager: MANAGER,
   // Admin sees the day-to-day CRM pipeline but not the executive Dashboard (matches Reports gate)
   // owner 2026-10-09 (G3): Admin and up may export students
-  admin: ["calendar.view", "class.manage", "session.manage", "student.move", "exam.record", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "student.export", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage", "holiday.manage"],
+  admin: ["calendar.view", "class.manage", "session.manage", "student.move", "exam.record", "attendance.mark", "attendance.leave_override", "summary.approve", "student.view", "student.manage", "student.export", "family.manage", "staff.view", "course.manage", "billing.view", "billing.manage", "billing.approve", "lead.manage", "inbox.manage", "holiday.manage", "reports.view"],
   // G2/G3: no billing at all (owner 2026-09-26: teachers never create invoices), no export
-  teacher: ["calendar.view", "student.move", "exam.record", "attendance.mark", "summary.write", "student.view", "staff.view"],
+  teacher: ["calendar.view", "student.move", "exam.record", "attendance.mark", "summary.write", "student.view", "staff.view", "reports.view"],
   // owner 2026-10-19: drivers use the driver app (a link), not the ERP
   driver: [],
 }

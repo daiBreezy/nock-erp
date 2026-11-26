@@ -217,7 +217,7 @@ export function SalesTaxDialog({ open, onOpenChange, onOpenInvoice }: { open?: b
         </div>
         <DialogFooter className="shrink-0 flex-row flex-wrap items-center gap-2 border-t p-4 px-6">
           {tab === "sets"
-            ? <span className="mr-auto text-sm">{sets.length} ชุด <InfoTip text="1 ชุด = ใบแจ้งหนี้ → สลิปโอนเงิน → ใบเสร็จ ใน PDF เดียว (เลือกช่วงตามวันที่เงินเข้า)" /></span>
+            ? <span className="mr-auto text-sm">{sets.length} ชุด <InfoTip text="1 ชุด = ใบแจ้งหนี้ → สลิปโอนเงิน → ใบเสร็จ · รวมใน PDF เดียว · เลือกช่วงตามวันที่เงินเข้า" /></span>
             : <span className="mr-auto text-sm">รวม <b className="tabular-nums">{fmtMoney(totals.total)}</b>{totals.byBusiness.map((b) => <span key={b.business} className="ml-2 text-xs text-muted-foreground">{BUSINESS_LABEL[b.business]} {fmtMoney(b.amount)}</span>)}</span>}
           {!canSend && <InfoTip text="ดูตัวอย่างได้ทุกคนที่เห็นเมนูนี้ · ดาวน์โหลด / แชร์ได้เฉพาะ Director / Super Admin" />}
           {tab === "tax" ? (

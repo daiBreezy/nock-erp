@@ -2,7 +2,8 @@
 
 import { ExamProgress } from "@/components/reports/exam-progress"
 import { KpiRow, Page, PageHeader, Segmented, Tabs } from "@/components/app/page-layout"
-import { Kpi, KpiGroup, abbreviate } from "@/components/app/kpi"
+import { Kpi, KpiGroup, abbreviate, compactNum } from "@/components/app/kpi"
+import { TipFacts } from "@/components/app/info-tip"
 import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
@@ -20,7 +21,7 @@ import { ReportFilterBar, compareOf, initialFilter, spanName, type FilterState }
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { endTime, fmtDate, fmtMoney, monthShort, toDateStr, weekdayShort, yearOf } from "@/domain/dates"
-import { can, canCompareBranches, crossBranch, reportBranchIds } from "@/domain/rules/permissions"
+import { can, canCompareBranches, crossBranch, OFFICE_ROLES, reportBranchIds } from "@/domain/rules/permissions"
 import { BUSINESS_SHORT, resolveFilter, type CompareChoice, type FlowEntry, type FlowExit, type stockFlow, scopeBranchIds, type SchoolGroup, type SchoolRow, schoolsByGroup } from "@/domain/rules/reports"
 import { LEAD_SOURCE_LABEL } from "@/domain/rules/crm"
 import { subjectAbbr } from "@/domain/rules/settings"
@@ -56,9 +57,29 @@ export default function ReportsPage() {
   return <Suspense><Reports /></Suspense>
 }
 
+/** the ⓘ of the year's estimate: the title, the total, then the two parts it is made of — one idea per line (owner 2026-11-26) */
+function ForecastTip({ title, actual, coming, total }: { title: string; actual: number; coming: number; total: number }) {
+  return <TipFacts title={title} value={fmtNum(total)}
+    formula={{ labels: tx("รายได้จริงสะสมถึงวันนี้ + คาดว่าจะเข้าอีก"), values: `${fmtNum(actual)} + ${fmtNum(coming)}` }}
+    measure={tx("คาดว่าจะเข้าอีก = ต่อคอร์ส + ใบแจ้งหนี้รอจ่าย + นักเรียนใหม่ ถึงสิ้นปี")} />
+}
+
+/**
+ * owner 2026-11-26: the revenue number with the forecast after it ("2,012,980 / 2,320,630"). In a small card (container width, not the
+ * screen's) both shorten — Million with 2 decimals, Thousand with 1 ("2.01M / 2.32M") — so it never wraps to a second line.
+ */
+function RevenueValue({ revenue, forecast }: { revenue: number; forecast: number | null }) {
+  return (
+    <span className="block @container">
+      <span className="hidden @[15rem]:inline" title={compactNum(revenue)}>{fmtNum(revenue)}{forecast !== null && <span className="ml-1.5 text-sm font-medium text-primary" title={tx("คาดการณ์ทั้งปี")}>/ {fmtNum(forecast)}</span>}</span>
+      <span className="@[15rem]:hidden" title={fmtNum(revenue)}>{compactNum(revenue)}{forecast !== null && <span className="ml-1 text-sm font-medium text-primary" title={`${tx("คาดการณ์ทั้งปี")} ${fmtNum(forecast)}`}>/ {compactNum(forecast)}</span>}</span>
+    </span>
+  )
+}
+
 /**
  * Reports R1 (owner 2026-10-01): Overview + Revenue + Students. Director sees every branch and compares them,
- * Area Manager the branches of their area, Manager only their own branch (no comparison). Admin / teachers: no access.
+ * Area Manager the branches of their area, Manager / Admin / Teacher only their own branch (no comparison). Everyone may open it (owner 2026-11-26).
  */
 function Reports() {
   const params = useSearchParams()
@@ -111,8 +132,17 @@ function Reports() {
   const scopeOptions = buildScopeOptions(allowedBranches, allowed.length === branches.length).filter((o) => o.value !== "all")
   const scopeLabel = scopeOptions.find((o) => o.value === scope)?.label ?? scopeOptions[0]?.label ?? ""
   const showCompare = compare && branchIds.length > 1
+  // the year's forecast for the revenue card: real so far + still expected (only the running year has one)
+  const forecastParts = useMemo(() => {
+    if (!d.isCurrentYear) return null
+    const cur = Number(d.today.slice(5, 7)) - 1
+    const actual = d.monthly.thisYear.reduce<number>((a, v) => a + (v ?? 0), 0)
+    const coming = d.forecast.byMonth.reduce((a, x, m) => a + (x && m >= cur ? x.total : 0), 0)
+    return { actual, coming, total: actual + coming }
+  }, [d])
+  const forecastYear = forecastParts?.total ?? null
 
-  if (!can(me, "reports.view")) return <Empty>{tx("Reports ดูได้เฉพาะ Director / Area Manager / Manager")}</Empty>
+  if (!can(me, "reports.view")) return <Empty>{tx("บทบาทนี้ไม่ได้ใช้ Reports")}</Empty>
 
   const exportXlsx = async () => {
     try {
@@ -140,7 +170,11 @@ function Reports() {
 
       {/* headline numbers */}
       <KpiRow>
-        <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])} value={fmtNum(d.kpi.revenue)} sub={<><Delta value={d.kpi.revenueChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>} />
+        {/* owner 2026-11-26: the Forecast sits right after the revenue number (no extra line, no label) — what it is lives behind the ⓘ */}
+        <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])}
+          value={<RevenueValue revenue={d.kpi.revenue} forecast={forecastYear} />}
+          sub={<><Delta value={d.kpi.revenueChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>}
+          info={forecastParts ? <ForecastTip title={tx("คาดการณ์ทั้งปี")} {...forecastParts} /> : undefined} />
         <Kpi icon={UsersIcon} label={d.asOf === d.today ? tx("นักเรียน Active") : tx("นักเรียน Active · {0}", [fmtDate(d.asOf)])} value={fmtNum(d.kpi.active)} sub={<><DeltaCount value={d.kpi.activeChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>}
           info={tx("ลาพักยาว (Pause) {0} คน", [d.kpi.paused])} />
         <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><DeltaPts value={d.kpi.attendanceChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span> <InfoTip className="size-4 align-top" text={tx("อัตราเข้าเรียน = มา ÷ (มา + ลา)")} /></>} />
@@ -1126,7 +1160,9 @@ function AttendanceTab({ d, compare, cmp, onOpen }: { d: ReportData; compare: bo
   return (
     <div className="space-y-4">
       <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Kpi variant="tonal" label={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)} tone="red" info={<>{tx("ข้อมูลการเข้าเรียนเริ่ม")} {fmtDate(a.since, { year: true })} {tx("(คาบแรกในระบบ) · อัตรา = มา ÷ (มา + ลา) · เขียว = 80% ขึ้นไป · แดง = ต่ำกว่า 80%")}</>} emphasis={!!(a.total.rate !== null && a.total.rate < 0.8)} sub={dPts(cmp, ok, a.total.rate, a.prev.total.rate)} />
+        <Kpi variant="tonal" label={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)} tone="red" info={<TipFacts title={tx("อัตราเข้าเรียน")} value={fmtPct(a.total.rate)}
+          rows={[{ label: tx("เขียว"), value: tx("80% ขึ้นไป") }, { label: tx("แดง"), value: tx("ต่ำกว่า 80%") }, { label: tx("ข้อมูลเริ่ม"), value: `${fmtDate(a.since, { year: true })} ${tx("(คาบแรกในระบบ)")}` }]}
+          measure={tx("มา ÷ (มา + ลา)")} />} emphasis={!!(a.total.rate !== null && a.total.rate < 0.8)} sub={dPts(cmp, ok, a.total.rate, a.prev.total.rate)} />
         <Kpi variant="tonal" label={tx("มา")} value={fmtNum(a.total.present)} tone="emerald" emphasis sub={dCount(cmp, ok, a.total.present, a.prev.total.present)} />
         <Kpi variant="tonal" label={tx("ลา")} value={fmtNum(a.total.leave)} tone="amber" emphasis sub={dCount(cmp, ok, a.total.leave, a.prev.total.leave, true)} info={<>{tx("ไม่หักโควตา")} {a.noQuota}</>} />
         <Kpi variant="tonal" label={tx("คาบยกเลิก")} value={fmtNum(a.cancelled.total)} sub={dCount(cmp, ok, a.cancelled.total, a.prev.cancelled.total, true)} info={<>{tx("นักเรียนได้รับผล")} {a.cancelled.students}</>} />
@@ -1181,8 +1217,12 @@ function AttendanceTab({ d, compare, cmp, onOpen }: { d: ReportData; compare: bo
 const hrs = (min: number) => tx("{0} ชม.", [(min / 60).toLocaleString("th-TH", { maximumFractionDigits: 1 })])
 
 const SHOW_TEACHER_HEALTH = false
+const SHOW_MEMBERS_CONVERSION = false
 
 function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
+  // owner 2026-11-26: a Teacher (no office role) sees only their own Teacher Performance
+  const me = useStore((s) => s.me())
+  const teacherOnly = !me.roles.some((r) => OFFICE_ROLES.includes(r))
   const members = <Panel title="Members Conversion rate" hint={tx("Admin / ครูที่ดูแล Lead — ดูแลกี่ราย สมัครกี่ราย (ตามผู้ดูแลของ Lead) · Lead ที่เข้ามาในช่วงนี้")}><MembersConversion d={d} /></Panel>
   const o = d.operations
   const [onlyPartTime, setOnlyPartTime] = useState(false)
@@ -1194,15 +1234,17 @@ function OperationsTab({ d, compare }: { d: ReportData; compare: boolean }) {
   return (
     <div className="space-y-4">
       <KpiGroup className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Kpi variant="tonal" label={tx("ครูที่สอนในช่วงนี้")} value={fmtNum(o.teachers.filter((t) => t.sessions).length)} info={<>{tx("นับเฉพาะคาบที่สอนจบแล้ว ตั้งแต่")} {fmtDate(o.since, { year: true })} {tx("(คาบแรกในระบบ) · ชั่วโมงสอนของครูหลัก ใช้คิดค่าสอน Part-time")}</>} />
+        <Kpi variant="tonal" label={tx("ครูที่สอนในช่วงนี้")} value={fmtNum(o.teachers.filter((t) => t.sessions).length)} info={<TipFacts title={tx("ครูที่สอนในช่วงนี้")} value={fmtNum(o.teachers.filter((t) => t.sessions).length)}
+          rows={[{ label: tx("นับเฉพาะ"), value: tx("คาบที่สอนจบแล้ว") }, { label: tx("ตั้งแต่"), value: `${fmtDate(o.since, { year: true })} ${tx("(คาบแรกในระบบ)")}` }]}
+          measure={tx("ชั่วโมงสอนของครูหลัก ใช้คิดค่าสอน Part-time")} />} />
         <Kpi variant="tonal" label={tx("ชั่วโมงสอนรวม")} value={hrs(o.teachers.reduce((a, t) => a + t.minutes, 0))} />
         <Kpi variant="tonal" label={tx("ชั่วโมง Part-time")} value={hrs(partTimeMin)} tone="special" emphasis />
         <Kpi variant="tonal" label={tx("งานค้างของครู")} value={fmtNum(o.teachers.reduce((a, t) => a + t.unmarked + t.summariesPending, 0))} sub={<span>{tx("เช็คชื่อ + สรุปการเรียน")}</span>} />
       </KpiGroup>
-      {/* owner 2026-10-21: moved here from the overview's lead section */}
-      {members}
+      {/* owner 2026-10-21: moved here from the overview's lead section · owner 2026-11-26: HIDDEN for now (kept — switch SHOW_MEMBERS_CONVERSION on to bring it back) */}
+      {SHOW_MEMBERS_CONVERSION && members}
       {/* owner 2026-11-19: Teacher Health hidden for now (kept below, switch SHOW_TEACHER_HEALTH on to bring it back); Teacher Performance (mock) replaces it */}
-      <TeacherPerformance teachers={o.teachers.flatMap((t) => (t.staff ? [t.staff] : []))} today={d.today} />
+      <TeacherPerformance mine={teacherOnly} teachers={teacherOnly ? [me] : o.teachers.flatMap((t) => (t.staff ? [t.staff] : []))} today={d.today} />
       {SHOW_TEACHER_HEALTH && (
       <Panel title={tx("สุขภาพครู (Teacher Health)")} hint={tx("เรียงตามชั่วโมงสอน")}
         action={<label className="flex items-center gap-1.5 text-xs text-muted-foreground"><Checkbox checked={onlyPartTime} onCheckedChange={(v) => setOnlyPartTime(v === true)} />  {tx("เฉพาะ Part-time")}</label>}>
@@ -1284,8 +1326,9 @@ function RevenueMonthsPanel({ d }: { d: ReportData }) {
               <>
                 <Kpi variant="tonal" label={tx("จริงสะสมปีนี้")} value={fmtShort(actualYtd)} />
                 <Kpi variant="tonal" label={tx("+ คาดว่าจะเข้าอีก")} value={fmtShort(coming)} tone="primary" emphasis
-                  info={tx("ต่อคอร์ส + ใบแจ้งหนี้รอจ่าย + นักเรียนใหม่ตามอัตรา 3 เดือนล่าสุด ({0} คน/เดือน ≈ {1}/เดือน)", [Math.round(f.newAvg.students), fmtShort(f.newAvg.perMonth)])} />
-                <Kpi variant="tonal" label={tx("= ประมาณการทั้งปี")} value={fmtShort(actualYtd + coming)} />
+                  info={tx("ต่อคอร์ส · ใบแจ้งหนี้รอจ่าย · นักเรียนใหม่ตามอัตรา 3 เดือนล่าสุด ({0} คน/เดือน ≈ {1}/เดือน)", [Math.round(f.newAvg.students), fmtShort(f.newAvg.perMonth)])} />
+                <Kpi variant="tonal" label={tx("= ประมาณการทั้งปี")} value={fmtShort(actualYtd + coming)}
+                  info={<ForecastTip title={tx("ประมาณการทั้งปี")} actual={actualYtd} coming={coming} total={actualYtd + coming} />} />
               </>
             ) : (
               <>

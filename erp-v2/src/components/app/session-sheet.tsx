@@ -4,28 +4,30 @@ import { tx } from "@/lib/i18n"
 import { SeatHours } from "@/components/app/seat-hours"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { staffAt } from "@/domain/rules/permissions"
+import { familyDisplay } from "@/domain/rules/people"
 import { ForceApprove } from "./force-approve"
-import { useEffect, useMemo, useState } from "react"
+import { Tabs, Segmented } from "./page-layout"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangleIcon, BanIcon, CalendarClockIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockFadingIcon, EllipsisVerticalIcon, FlameIcon,
   GraduationCapIcon, LogOutIcon, PencilIcon, SendIcon, StarIcon, Trash2Icon, UserMinusIcon, UserPlusIcon, UsersRoundIcon, XIcon,
   RotateCcwIcon,
-  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon, BusIcon, ChevronDownIcon } from "lucide-react"
+  CalendarDaysIcon, Clock3Icon, DoorOpenIcon, UserIcon, UsersIcon, HistoryIcon, BusIcon, ChevronDownIcon, LinkIcon, UnlinkIcon, NotebookPenIcon, BookOpenIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { LongLeaveFields } from "@/components/app/leave-dialog"
+import { CountStepper, LongLeaveFields } from "@/components/app/leave-dialog"
 import { BusAddOns } from "@/components/billing/bus-addons"
 import { branchHasBus } from "@/domain/rules/settings"
 import { addDays, endTime, fmtDate, fmtDateTime, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import * as Att from "@/domain/rules/attendance"
-import { isDefaultPresent } from "@/domain/rules/attendance"
+import { isEffectivelyPresent } from "@/domain/rules/attendance"
 import * as Seats from "@/domain/rules/seats"
 import { CalendarNotes } from "@/components/calendar/calendar-notes-ui"
 import { LeaveReasonPicker } from "@/components/app/leave-reason"
@@ -58,7 +60,7 @@ import { StudentPanelContent } from "./student-sheet"
 import { avatarTone, gradeTone, initial } from "./subject-color"
 import { TeacherPicker } from "./teacher-picker"
 import { type MoveScope } from "@/domain/rules/scheduling"
-import { InfoTip } from "./info-tip"
+import { InfoTip, TipFacts } from "./info-tip"
 import { Empty } from "@/components/app/empty"
 import { PeriodNote } from "@/components/app/period-note"
 
@@ -103,7 +105,6 @@ function Body({ id, onClose, onOpenStudent }: { id: ID; onClose: () => void; onO
   const staff = useStore((st) => st.staff)
   const attendance = useStore((st) => st.attendance)
   const leaves = useStore((st) => st.leaves)
-  const markAtt = useStore((st) => st.mark)
   const summaries = useStore((st) => st.summaries)
   const me = useStore((st) => st.me())
   const save = useStore((st) => st.saveSummary)
@@ -140,13 +141,7 @@ function Body({ id, onClose, onOpenStudent }: { id: ID; onClose: () => void; onO
   const cap = classCapacity(klass)
 
   // summaries: text lives here so several students can be submitted in one go
-  const present = s.studentIds.filter((sid) => attendance.find((x) => x.sessionId === s.id && x.studentId === sid)?.status === "present")
-  // owner 2026-11-19: Attendance defaults to มา for everyone not marked yet (never touches a leave / an existing mark)
-  const defaultPresent = s.studentIds.filter((sid) => isDefaultPresent(s, sid, attendance, leaves, now) && !viewOnly && !Sum.sessionLocked(s.id, summaries))
-  const saveDefaults = () => {
-    const fails = defaultPresent.map((sid) => markAtt(s.id, sid, "present")).filter((r) => !r.ok)
-    report(fails.length ? fails[0] : { ok: true, value: undefined }, `บันทึกเช็คชื่อ ${defaultPresent.length - fails.length} คน: มา`)
-  }
+  const present = s.studentIds.filter((sid) => isEffectivelyPresent(s, sid, attendance, leaves))
   const summaryOf = (sid: ID) => summaries.find((x) => x.sessionId === s.id && x.studentId === sid)
   const textOf = (sid: ID) => drafts[sid] ?? summaryOf(sid)?.text ?? ""
   const submittable = present.filter((sid) => { const st = summaryOf(sid)?.status; return !viewOnly && hasEnded(s, now) && (!st || st === "draft" || st === "changes_requested") && textOf(sid).trim() })
@@ -265,22 +260,16 @@ function Body({ id, onClose, onOpenStudent }: { id: ID; onClose: () => void; onO
             {/* owner 2026-11-20: ONE sticky bar (there were three stacked: a hint line, "select many", "save the default มา") — the left says what is
                 going on, the right holds the one thing to do: ticked → send / approve those summaries · else unsaved default มา → save the check-in.
                 The "not time yet" hint became the ⓘ. */}
-            {(selectable.length > 0 || defaultPresent.length > 0) && (
+            {selectable.length > 0 && (
               <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-b bg-background px-4 py-3 text-sm sm:-mx-5 sm:px-5">
-                {selectable.length > 0 && <Checkbox checked={sel.length === selectable.length} onCheckedChange={(v) => setPicked(v ? new Set(selectable) : new Set())} />}
-                <span className="text-muted-foreground">{sel.length ? `เลือก ${sel.length} คน` : defaultPresent.length > 0 ? `ตั้งเป็น "มา" ไว้ให้ ${defaultPresent.length} คน — ยังไม่ได้บันทึก` : "เลือกสรุปหลายคนพร้อมกัน"}</span>
+                <Checkbox checked={sel.length === selectable.length} onCheckedChange={(v) => setPicked(v ? new Set(selectable) : new Set())} />
+                <span className="text-muted-foreground">{sel.length ? `เลือก ${sel.length} คน` : "เลือกสรุปหลายคนพร้อมกัน"}</span>
                 {state === "upcoming" && <InfoTip text="ยังไม่ถึงเวลาเรียน — เช็คชื่อ เขียนสรุป ลา หรือย้ายคาบ เตรียมไว้ล่วงหน้าได้เลย" />}
                 <span className="ml-auto flex gap-1.5">
-                  {sel.length > 0 || defaultPresent.length === 0 ? (
-                    <>
-                      <Button variant="outline" disabled={toSubmit.length === 0} onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({toSubmit.length})</Button>
-                      <Button variant="outline" disabled={toApprove.length === 0} onClick={approveMany}><CheckIcon /> อนุมัติ ({toApprove.length})</Button>
-                      {/* shown only when some summary is already approved — "ส่งผู้ปกครอง" is the one filled button, as on each student's own card */}
-                      {sendable.length > 0 && <Button disabled={toSend.length === 0} onClick={sendMany}><SendIcon /> ส่งผู้ปกครอง ({toSend.length})</Button>}
-                    </>
-                  ) : (
-                    <Button onClick={saveDefaults}><CheckIcon /> บันทึกเช็คชื่อ</Button>
-                  )}
+                  <Button variant="outline" disabled={toSubmit.length === 0} onClick={submitMany}><SendIcon /> ส่งอนุมัติ ({toSubmit.length})</Button>
+                  <Button variant="outline" disabled={toApprove.length === 0} onClick={approveMany}><CheckIcon /> อนุมัติ ({toApprove.length})</Button>
+                  {/* shown only when some summary is already approved — "ส่งผู้ปกครอง" is the one filled button, as on each student's own card */}
+                  {sendable.length > 0 && <Button disabled={toSend.length === 0} onClick={sendMany}><SendIcon /> ส่งผู้ปกครอง ({toSend.length})</Button>}
                 </span>
               </div>
             )}
@@ -402,14 +391,13 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
   const courses = useStore((st) => st.courses)
   const assessments = useStore((st) => st.assessments)
   const me = useStore((st) => st.me())
-  const mark = useStore((st) => st.mark)
-  const clearMark = useStore((st) => st.clearMark)
   const entitlements = useEntitlements()
   const now = useNow(10_000)
   const L = useLookup()
   const [open, setOpen] = useState<"reschedule" | "remove" | "seat" | "leave" | null>(null)
   const [otherSession, setOtherSession] = useState<ID | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const sidePanel = useSidePanel()
 
   const stu = L.student(sid)
@@ -457,15 +445,9 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
   const partial = Seats.isPartial(seat, s.minutes)
   // sub-content lines up under the name on desktop; on phones it runs full-width (no indent)
   const indent = showCheck ? "sm:pl-[5.25rem]" : "sm:pl-14"
-  // the three actions share one full-width row (wide targets even at 36px tall); desktop keeps them inline
-  // owner 2026-11-13: colour only on the picked one (มา green · ลา red) in the white pill; the rest stay grey
-  // owner 2026-11-13: solid colour fill on the picked pill (white text) — the lighter track (bg-muted/60) keeps it from
-  // getting lost; ย้ายวัน stays neutral white, it's an action not a state
-  const pill = "h-7 min-w-12 flex-1 rounded-full border-0 px-3 text-sm text-muted-foreground transition hover:text-foreground hover:bg-transparent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none data-[on=true]:bg-card data-[on=true]:font-semibold data-[on=true]:shadow-sm"
-  // owner 2026-11-19: not marked yet → มา is already picked (faded) — tapping it saves it
-  const defaultOn = !a && !movedTo && canMarkHere && isDefaultPresent(s, sid, attendance, leaves, now)
-  const markAs = (status: "present" | "absent" | "leave") =>
-    a?.status === status ? report(clearMark(s.id, sid), `ล้างการเช็คชื่อ ${stu?.nickname}`) : report(mark(s.id, sid, status), `${stu?.nickname}: ${status === "present" ? "มา" : status === "absent" ? "ขาด" : "ลา"}`)
+  // owner 2026-11-26: everyone is มา unless set otherwise — no save step. Going back from ลา/ขาด changes the quota and the
+  // package end, so it asks first (ลา → the same leave dialog, which shows the effect and has "ยกเลิกการลา")
+  const here = !movedTo && Att.isEffectivelyPresent(s, sid, attendance, leaves)
 
   return (
     <li className={cn("space-y-3", onLongLeave && "opacity-60")}>
@@ -505,23 +487,26 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
               })()}
           </p>
         </div>
-        {/* มา · ลา (หักโควตา / ไม่หักโควตา) — no "ขาด" (owner 2026-09-30) ·
-            phones: wraps to its own full-width row (order-last) so the buttons never run off the edge */}
-        <span className="order-last inline-flex h-9 w-full shrink-0 items-center rounded-full bg-muted/60 p-1 sm:order-none sm:w-auto">
-          <Button variant="ghost" size="inline" type="button" data-on={a?.status === "present" || defaultOn} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "present", now).ok} onClick={() => markAs("present")}
-            className={pill + " data-[on=true]:bg-success data-[on=true]:text-white" + (defaultOn ? " data-[on=true]:opacity-50" : "")}>มา</Button>
-          {!isTest && <Button variant="ghost" size="inline" type="button" data-on={a?.status === "leave"} disabled={!!movedTo || !canMarkHere || !Att.canMark(s, "leave", now).ok} onClick={() => setOpen("leave")}
-            title="ลา — เลือกหักโควตา / ไม่หักโควตา และจำนวนคาบ" className={pill + " data-[on=true]:bg-danger data-[on=true]:text-white"}>{a?.status === "leave" && a.noQuota ? "ลา*" : "ลา"}</Button>}
-        </span>
+        {/* owner 2026-11-26: no มา/ลา pill — everyone is มา by default; the status chip shows only who is NOT coming (tap = open the leave).
+            ลา lives in ⋯ with the other actions. Summary opens its own panel. */}
+        {a?.status === "leave" && !movedTo && (
+          <Button variant="ghost" size="inline" type="button" disabled={!canMarkHere} onClick={() => setOpen("leave")} title="ลา — กดเพื่อแก้การลา / ยกเลิกการลา" className="shrink-0 self-start sm:mt-2.5">
+            <Pill tone="amber">{a.noQuota ? "ลา*" : "ลา"}</Pill>
+          </Button>
+        )}
         {/* per-student ⋮ — teachers get it too (profile / re-schedule); managers also get seat + remove.
             44px trigger on phones so it's easy to tap (owner 2026-11-02) */}
         {!movedTo && (canManage || mine) && !locked && !s.cancelled ? (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" className="size-9 shrink-0 self-start sm:size-8" aria-label={`จัดการ ${stu?.nickname}`} />}><EllipsisVerticalIcon /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuItem onClick={() => onOpenStudent(sid)}><UserIcon /> เปิดโปรไฟล์นักเรียน</DropdownMenuItem>
-              {!isTest && pastSummaries.length > 0 && <DropdownMenuItem onClick={() => setHistoryOpen(true)}><HistoryIcon /> {`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</DropdownMenuItem>}
+              {/* owner 2026-11-26: grouped — what happens to this class (ลา · ย้ายคาบ · เวลาเรียน) / who (โปรไฟล์ · ประวัติสรุป) / remove */}
               {/* owner 2026-11-20: ย้ายวัน and ย้ายคาบ were the same action — it lives only here, in ⋮ (also for a Test / Trial) */}
+              {!isTest && canMarkHere && (
+                <DropdownMenuItem onClick={() => setOpen("leave")}>
+                  <BanIcon /><span className="flex flex-col"><span>{a?.status === "leave" ? "แก้การลา / ยกเลิกการลา" : "ลา"}</span><span className="text-xs text-muted-foreground">หักโควตา หรือ ลาพักยาว ไม่หักโควตา</span></span>
+                </DropdownMenuItem>
+              )}
               {canMove && (
                 <DropdownMenuItem disabled={locked || !!a} onClick={() => setOpen("reschedule")}>
                   <CalendarClockIcon /><span className="flex flex-col"><span>ย้ายคาบ (Re-schedule)</span><span className="text-xs text-muted-foreground">ครั้งเดียว (สัปดาห์นี้ / หน้า) หรือถาวร</span></span>
@@ -532,6 +517,9 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
                   <ClockFadingIcon /><span className="flex flex-col"><span>เวลาเรียนของ{stu?.nickname}</span><span className="text-xs text-muted-foreground">เรียนแค่บางชั่วโมง (คาบนี้ / ทุกคาบ)</span></span>
                 </DropdownMenuItem>
               )}
+              {((!isTest && canMarkHere) || canMove || (canManage && !isTest)) && <DropdownMenuSeparator />}
+              <DropdownMenuItem onClick={() => onOpenStudent(sid)}><UserIcon /> เปิดโปรไฟล์นักเรียน</DropdownMenuItem>
+              {!isTest && pastSummaries.length > 0 && <DropdownMenuItem onClick={() => setHistoryOpen(true)}><HistoryIcon /> {`ประวัติสรุป ${pastSummaries.length} ครั้ง`}</DropdownMenuItem>}
               {(canManage || mine) && <><DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={() => setOpen("remove")}><UserMinusIcon /> {canManage ? "เอาออกจากคลาส" : "เอาออกจากคาบนี้"}</DropdownMenuItem></>}
             </DropdownMenuContent>
@@ -544,7 +532,38 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
       ) : (
         <>
       {/* Note on its own full-width line under the student — extra top gap so a tap can't land on the attendance bar above (owner 2026-11-02) */}
-      <div className={cn(indent, "pt-1")}><CalendarNotes s={s} studentId={sid} canEdit={canManage || mine} /></div>
+      <div className={cn(indent, "pt-1")}>
+        <CalendarNotes s={s} studentId={sid} canEdit={canManage || mine} hideAdd={summaryOpen}
+          before={!summaryOpen && here && !isTest && branchUsesSummary(s.branchId) ? (() => { const sm = summaries.find((x) => x.sessionId === s.id && x.studentId === sid); return sm ? <SummaryPreview summary={sm} /> : null })() : null}
+          extra={here && !isTest && !summaryOpen && branchUsesSummary(s.branchId) && (() => {
+            const sm = summaries.find((x) => x.sessionId === s.id && x.studentId === sid)
+            // owner 2026-11-26: Summary is a button like "+ Note" — opening it hides "+ Note" (and writing a Note hides this);
+            // the status is its own chip beside it, not inside it
+            return (
+              <span className="inline-flex items-center gap-2">
+                <Button variant="outline" type="button" aria-expanded={summaryOpen} onClick={() => setSummaryOpen((o) => !o)} title="Lesson Summary / Student Summary"
+                  className={cn("h-9 gap-1.5 px-4", summaryOpen && "bg-muted")}>
+                  <NotebookPenIcon />Summary
+                </Button>
+                {sm?.text.trim() && <Pill tone={sm.status === "sent" && !Sum.keptOnly(sm) ? "blue" : sm.status === "approved" ? "green" : sm.status === "submitted" ? "amber" : sm.status === "changes_requested" ? "red" : "gray"}>{Sum.summaryLabel(sm)}</Pill>}
+              </span>
+            )
+          })()} />
+      </div>
+      {summaryOpen && here && !isTest && (
+        <div className={cn(showCheck ? "sm:ml-[4.5rem]" : "sm:ml-[2.75rem]", "space-y-4 rounded-2xl bg-muted/30 p-3")}>
+          {/* owner 2026-11-26: a header — "Summary" on the left, a close icon on the right (closing drops what was not saved) */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">Summary</span>
+            <Button variant="ghost" size="icon" type="button" aria-label="ปิด Summary" title="ปิด (ไม่บันทึกที่ยังไม่ได้ Save)" className="-mr-1 size-8 text-muted-foreground"
+              onClick={() => { setText(summaries.find((x) => x.sessionId === s.id && x.studentId === sid)?.text ?? ""); setSummaryOpen(false) }}><XIcon /></Button>
+          </div>
+          <LessonPart key={`${s.id}|${sid}|${summaries.find((x) => x.sessionId === s.id && x.studentId === sid)?.lessonLink ?? ""}`} session={s} studentId={sid} canEdit={canManage || mine} />
+          <div className="border-t pt-3">
+            <SummaryInline key={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)?.id ?? "new"} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} historyCount={pastSummaries.length} onHistory={() => setHistoryOpen(true)} />
+          </div>
+        </div>
+      )}
 
       {classMove && (
         <p className={cn(indent, "flex flex-wrap items-center gap-x-2 text-xs text-info")}>
@@ -564,13 +583,6 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
         </p>
       )}
       {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} /></div>}
-      {a?.status === "present" && !isTest && branchUsesSummary(s.branchId) && (
-        <div className={cn(indent)}>
-          {/* owner Row 48: past-summary history lives on the summary's CTA row (icon button) */}
-          <SummaryInline key={lessonKey(summaries.find((x) => x.sessionId === s.id && x.studentId === sid))} session={s} sessionId={s.id} studentId={sid} summary={summaries.find((x) => x.sessionId === s.id && x.studentId === sid)} viewOnly={viewOnly} text={text} setText={setText} historyCount={pastSummaries.length} onHistory={() => setHistoryOpen(true)} />
-        </div>
-      )}
-
         </>
       )}
 
@@ -676,18 +688,47 @@ export function StudentSessionMenu({ s, studentId }: { s: Session; studentId: ID
 }
 
 // re-read Book / Topic / Detail when "Summary Template" (or anyone) changes them on the saved summary
-const lessonKey = (x?: LessonSummary) => `${x?.id ?? "new"}|${x?.bookId ?? ""}|${x?.topicId ?? ""}|${x?.detail ?? ""}`
 
 /**
  * Leave (owner 2026-09-30): no-show = leave, the admin decides the kind — uses the quota, or not (still extends the
  * package) — and for how many sessions. Editable any time: fewer sessions = back early, more = longer leave.
  */
+/** owner 2026-11-26: who the leave is for + how much of their leave quota is already used — the same card under the switch of both leave tabs */
+function LeaveStudentInfo({ studentId, used, total, unlimited, hasPackage }: { studentId: ID; used: number; total: number; unlimited: boolean; hasPackage: boolean }) {
+  const stu = useStore((st) => st.students.find((x) => x.id === studentId))
+  const family = useStore((st) => st.families.find((f) => f.id === stu?.familyId))
+  if (!stu) return null
+  // owner 2026-11-24: a family is ALWAYS shown as "[name] Family"; owner 2026-11-26: only the nickname + grade and the family — no full name, no school
+  const more = family ? familyDisplay(family.name) : ""
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5">
+      <div className="flex min-w-0 items-center gap-3">
+        {stu.photo
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={stu.photo} alt="" className="size-11 shrink-0 rounded-full object-cover" />
+          : <span className="grid size-11 shrink-0 place-items-center rounded-full bg-muted text-base font-semibold text-muted-foreground">{initial(stu.nickname)}</span>}
+        <div className="min-w-0 space-y-0.5">
+          <p className="flex min-w-0 items-center gap-2 text-sm"><span className="truncate font-semibold">{stu.nickname}</span>{stu.grade && <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-2xs font-semibold text-muted-foreground">{stu.grade}</span>}</p>
+          {more && <p className="truncate text-xs text-muted-foreground">{more}</p>}
+        </div>
+      </div>
+      {/* owner 2026-11-26: just the number (used / total) — what it means is behind the ⓘ */}
+      <p className="flex shrink-0 items-center gap-1 text-base font-semibold">
+        {unlimited ? tx("ไม่จำกัด") : hasPackage ? `${used}/${total}` : "—"}
+        <InfoTip text={<TipFacts title={tx("โควตาลา")} value={`${used}/${total}`} rows={[{ label: tx("ใช้ไปแล้ว"), value: used }, { label: tx("โควตาทั้งหมด"), value: total }]} measure={tx("แพ็กเกจที่ใช้คาบนี้ · นับเฉพาะลาแบบหักโควตา ไม่รวมลาพักยาว")} />} />
+      </p>
+    </div>
+  )
+}
+
 function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onClose: () => void }) {
   const attendance = useStore((st) => st.attendance)
   const sessions = useStore((st) => st.sessions)
   const rawEnts = useStore((st) => st.entitlements)
   const allClassesForLeave = useStore((st) => st.classes)
   const markLeave = useStore((st) => st.markLeave)
+  const markLeavePicked = useStore((st) => st.markLeavePicked)
+  const now = useNow(60_000)
   const saveLongLeave = useStore((st) => st.saveStudentLeave)
   const me = useStore((st) => st.me())
   const L = useLookup()
@@ -701,10 +742,22 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
   const [noQuota, setNoQuota] = useState(cur?.status === "leave" ? !!cur.noQuota : false)
   const [countText, setCountText] = useState(String(group.length || 1))
   const count = Number(countText)
+  // owner 2026-11-26: a quota leave is either a RUN ("ลาต่อเนื่อง": n sessions in a row) or sessions the teacher PICKS ("เลือกคาบเอง": 1, 4, 12 …)
+  const groupSorted = group.map((a) => byId.get(a.sessionId)!).filter(Boolean).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+  const [pickMode, setPickMode] = useState(() => {
+    if (group.length < 2 || !groupSorted[0]?.classId) return false
+    const ids = Att.leaveRunSessions(studentId, groupSorted[0], sessions, rawEnts.find((e) => e.studentId === studentId)?.classIds ?? [groupSorted[0].classId], group.length).map((x) => x.id)
+    return ids.join() !== groupSorted.map((x) => x.id).join()
+  })
+  const [picked, setPicked] = useState<Set<ID>>(() => new Set(group.length ? group.map((a) => a.sessionId) : [s.id]))
   const ok = Number.isInteger(count) && count >= 1 && count <= 60
   const ent = Att.coveringEntitlement(studentId, start, rawEnts)
   const classIds = ent?.classIds.length ? ent.classIds : start.classId ? [start.classId] : []
   const run = ok ? (start.classId ? Att.leaveRunSessions(studentId, start, sessions, classIds, count) : [start]) : []
+  // every session still to come (or running) that this student attends in the package's classes — the list to pick from
+  const pickable = sessions
+    .filter((x) => !x.cancelled && x.studentIds.includes(studentId) && !!x.classId && classIds.includes(x.classId) && sessionState(x, now) !== "closed")
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
   // quota left, not counting this leave's own sessions
   const unlimited = ent ? Att.leaveUnlimited(ent, allClassesForLeave) : false
   const quota = ent ? Att.leaveQuota(ent) : 0
@@ -712,6 +765,11 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
   const usedElsewhere = ent ? attendance.filter((a) => a.studentId === studentId && a.status === "leave" && !a.noQuota && !groupIds.has(a.sessionId) && byId.get(a.sessionId) && Att.packageCovers(ent, byId.get(a.sessionId)!)).length : 0
   // Liclass: no quota — an hour pack stretches for every leave, a week / month pack never does
   const left = unlimited ? (ent?.kind === "sessions" ? Infinity : 0) : Math.max(0, quota - usedElsewhere)
+  // owner 2026-11-26: a quota leave can only use the quota THIS student still has (no package = no quota; nothing is capped when leave is unlimited)
+  const capped = !unlimited
+  const maxCount = capped ? Math.min(60, left) : 60
+  const pickedCount = [...picked].filter((id) => pickable.some((x) => x.id === id)).length
+  const okSave = pickMode ? pickedCount >= 1 && (!capped || pickedCount <= left) : ok && count <= maxCount && !(capped && left < 1)
   // owner 2026-10-12: "ลาไม่หักโควตา" IS ลาพักยาว — one record on the student (date range, from this session to the last
   // one picked), the same as ⋯ › ลาพักยาว: shows on the student's card, status Inactive meanwhile, every package extended
   const longOk = Att.canSaveLeave(me, longFrom, longTo, reason)
@@ -723,47 +781,106 @@ function LeaveDialog({ s, studentId, onClose }: { s: Session; studentId: ID; onC
       onClose()
       return
     }
+    if (n && pickMode) {
+      if (report(markLeavePicked(s.id, studentId, [...picked].filter((id) => pickable.some((x) => x.id === id)), false), (v) => `บันทึกการลาแล้ว · ${v.marked} คาบ`)) onClose()
+      return
+    }
     if (report(markLeave(s.id, studentId, { count: n, noQuota: false }), n ? (v) => `บันทึกการลาแล้ว · ${v.marked} คาบ` : "ยกเลิกการลาแล้ว")) onClose()
   }
+  // quota already deducted for this package (this student's own leave group counts too) vs the quota in total
+  const usedNow = usedElsewhere + group.filter((a) => !a.noQuota).length
+  const studentInfo = <LeaveStudentInfo studentId={studentId} used={usedNow} total={quota} unlimited={unlimited} hasPackage={!!ent} />
+  const modeHint = noQuota
+    ? "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"
+    : ent ? (unlimited ? (ent.kind === "sessions" ? "ลาได้ไม่จำกัด · ยืดวันจบให้ทุกครั้ง" : "ลาได้ไม่จำกัด · แพ็กเกจรายสัปดาห์/เดือนไม่ยืดวันจบ") : `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา`) : "ไม่มีแพ็กเกจที่ใช้คาบนี้"
+  const blocked = capped && left < 1
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="lg:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{group.length ? "แก้การลา" : "ลา"} · {L.student(studentId)?.nickname}</DialogTitle>
-          <DialogDescription>เริ่ม {fmtDate(start.date, { weekday: true })} {start.start} · {group.length ? `ตอนนี้ลา ${group.length} คาบ — ลดจำนวน = กลับมาเรียนก่อน, เพิ่ม = ลาต่อ` : "ไม่มา = ลา เลือกแบบตามดุลพินิจ"}</DialogDescription>
+      {/* owner 2026-11-26: the DS dialog — Header · Body · Bottom (CTA), each its own band */}
+      <DialogContent showCloseButton={false} className="flex max-h-[94vh] flex-col gap-0 overflow-hidden p-0 lg:max-w-lg">
+        {/* owner 2026-11-26: Header = the activity ("ลา"), Sub header = at most 2 lines with the key point — the rest sits behind ⓘ;
+            the close button is centred between the header's top and bottom */}
+        <DialogHeader className="flex-row items-center gap-3 px-6 py-4">
+          <div className="min-w-0 flex-1 space-y-1">
+            <DialogTitle>{group.length ? "แก้การลา" : "ลา"}</DialogTitle>
+            <DialogDescription className="line-clamp-2">
+              {group.length ? tx("ตอนนี้ลา {0} คาบ", [group.length]) : tx("เลือกประเภทการลาที่ต้องการ")}
+              <InfoTip className="ml-1 align-middle" text={`${L.student(studentId)?.nickname ?? ""} · ${tx("เริ่ม")} ${fmtDate(start.date, { weekday: true })} ${start.start} · ${group.length ? tx("ลดจำนวน = กลับมาเรียนก่อน, เพิ่ม = ลาต่อ") : tx("ไม่มา = ลา เลือกแบบตามดุลพินิจ")}`} />
+            </DialogDescription>
+          </div>
+          <DialogClose render={<Button variant="ghost" size="icon-sm" className="shrink-0 bg-secondary" aria-label="ปิด" />}><XIcon /></DialogClose>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-2">
-          {([[false, "ลา · หักโควตา", ent ? (unlimited ? (ent.kind === "sessions" ? "ลาได้ไม่จำกัด · ยืดวันจบให้ทุกครั้ง" : "ลาได้ไม่จำกัด · แพ็กเกจรายสัปดาห์/เดือนไม่ยืดวันจบ") : `เหลือโควตา ${left}/${quota} · ยืดวันจบตามโควตา`) : "ไม่มีแพ็กเกจที่ใช้คาบนี้"], [true, "ลาพักยาว · ไม่หักโควตา", "ทุกวิชาในช่วงนี้ · ยืดวันจบทุกคอร์ส · ดูได้ที่หน้านักเรียน"]] as const).map(([k, label, hint]) => (
-            <Button variant="ghost" size="inline" key={label} type="button" aria-pressed={noQuota === k} onClick={() => setNoQuota(k)}
-              className={cn("rounded-xl border p-2.5 text-left", noQuota === k ? "border-warning bg-warning-soft/40" : "hover:bg-muted/50")}>
-              <p className="flex items-center gap-1 text-sm font-medium">{label}<InfoTip text={hint} /></p>
-            </Button>
-          ))}
+        {/* owner 2026-11-26: the type of leave is a Tab menu (the DS underline tabs), not a segmented switch */}
+        <Tabs<"quota" | "long"> value={noQuota ? "long" : "quota"} onChange={(v) => setNoQuota(v === "long")} className="px-6"
+          options={[{ value: "quota", label: "ลา · หักโควตา", title: modeHint }, { value: "long", label: "ลาพักยาว · ไม่หักโควตา", title: modeHint }]} />
+        {/* a FIXED body height — both tabs are the same size, the dialog never jumps when switching */}
+        <div className="h-[30rem] max-h-[70vh] space-y-4 overflow-y-auto px-6 py-4">
+          {/* owner 2026-10-12: ลาพักยาว here = the same form as the student's ⋯ › ลาพักยาว (LongLeaveFields) */}
+          {noQuota ? (
+            <LongLeaveFields studentId={studentId} from={longFrom} to={longTo} reason={reason} afterSwitch={studentInfo}
+              onChange={(v) => { if (v.from !== undefined) setLongFrom(v.from); if (v.to !== undefined) setLongTo(v.to); if (v.reason !== undefined) setReason(v.reason) }} />
+          ) : (
+            <>
+              {/* owner 2026-11-26: two ways to take a quota leave — in a row, or sessions picked by hand */}
+              <Segmented<"count" | "pick"> value={pickMode ? "pick" : "count"} onChange={(v) => setPickMode(v === "pick")} label="วิธีเลือกคาบที่ลา"
+                options={[{ value: "count", label: "ลาต่อเนื่อง", title: "ลาติดกันตั้งแต่คาบนี้ — ระบุจำนวนคาบ" }, { value: "pick", label: "เลือกคาบเอง", title: "ติ๊กเลือกคาบที่จะลา ข้ามคาบได้ เช่น คาบ 1, 4, 12" }]} />
+              {studentInfo}
+              {/* the quota facts on the left, the field (or the count picked) on the right */}
+              <div className={cn("flex items-center justify-between gap-4 rounded-xl px-3 py-2.5", blocked ? "bg-warning-soft/50 text-warning-ink" : "bg-muted/40")}>
+                <div className="min-w-0 space-y-0.5 text-xs">
+                  {unlimited ? <p className="font-medium">{tx("ลาได้ไม่จำกัด")}</p>
+                    : !ent ? <><p className="font-medium">{tx("ยังไม่มีแพ็กเกจที่ใช้คาบนี้")}</p><p>{tx("ไม่มีโควตาให้หัก — เลือก “ลาพักยาว · ไม่หักโควตา” แทน")}</p></>
+                    : <><p className="font-medium">{tx("โควตาลา {0} คาบ", [quota])}</p><p className={blocked ? "" : "text-muted-foreground"}>{tx("ใช้ไปแล้ว {0} · เหลือใช้ได้ {1}", [usedElsewhere, left])}{blocked && <> — {tx("หมดแล้ว เลือก “ลาพักยาว · ไม่หักโควตา” แทน")}</>}</p></>}
+                </div>
+                {pickMode ? (
+                  <p className="shrink-0 text-sm font-medium">{tx("เลือก {0} คาบ", [pickedCount])}</p>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-2 text-sm">
+                    <CountStepper value={countText} max={maxCount} disabled={blocked} invalid={!ok} onChange={setCountText} />
+                    <span>{tx("คาบ")}</span>
+                  </div>
+                )}
+              </div>
+              {/* a FIXED height — the list used to grow / shrink with the count and made the dialog jump on every change */}
+              {pickMode ? (
+                <ul className="h-48 space-y-0.5 overflow-y-auto rounded-xl bg-muted/40 p-1.5 text-xs">
+                  {pickable.length === 0 && <li className="p-1.5 text-muted-foreground">{tx("ไม่มีคาบให้ลา")}</li>}
+                  {pickable.map((x, i) => {
+                    // already on leave from another entry — shown ticked + locked, so nothing is taken twice
+                    const already = !groupIds.has(x.id) && attendance.some((a) => a.studentId === studentId && a.sessionId === x.id && a.status === "leave")
+                    const on = already || picked.has(x.id)
+                    const full = already || (capped && !on && pickedCount >= left)
+                    return (
+                      <li key={x.id}>
+                        <label className={cn("flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-muted/60", full && "cursor-not-allowed opacity-50")}>
+                          <Checkbox checked={on} disabled={full || blocked || already} onCheckedChange={(v) => setPicked((cur) => { const n = new Set(cur); if (v) n.add(x.id); else n.delete(x.id); return n })} />
+                          <span className="w-6 shrink-0 text-muted-foreground">#{i + 1}</span>
+                          <span className="min-w-0 flex-1 truncate">{fmtDate(x.date, { weekday: true })} {x.start} · {x.subject}</span>
+                          <span className={cn("shrink-0", on && !already ? "text-success" : "text-muted-foreground")}>{already ? tx("ลาแล้ว") : on ? (unlimited ? "ยืดวันจบ" : "ใช้โควตา · ยืดวันจบ") : ""}</span>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <ul className="h-48 space-y-1 overflow-y-auto rounded-xl bg-muted/40 p-2 text-xs">
+                  {run.length === 0 && <li className="text-muted-foreground">{ok ? "ไม่มีคาบให้ลา" : "ใส่จำนวนคาบ 1–60"}</li>}
+                  {run.map((x, i) => (
+                    <li key={x.id} className="flex justify-between">
+                      <span>{fmtDate(x.date, { weekday: true })} {x.start} · {x.subject}</span>
+                      <span className={i < left ? "text-success" : "text-muted-foreground"}>{i < left ? (unlimited ? "ยืดวันจบ" : "ใช้โควตา · ยืดวันจบ") : unlimited ? "ไม่ยืดแพ็กเกจ" : "เกินโควตา · ไม่ชดเชย"}</span>
+                    </li>
+                  ))}
+                  {ok && run.length < count && <li className="text-muted-foreground">มีคาบให้ลาแค่ {run.length} คาบในตาราง</li>}
+                </ul>
+              )}
+            </>
+          )}
         </div>
-        {/* owner 2026-10-12: ลาพักยาว here = the same form as the student's ⋯ › ลาพักยาว (LongLeaveFields) */}
-        {noQuota ? (
-          <LongLeaveFields studentId={studentId} from={longFrom} to={longTo} reason={reason}
-            onChange={(v) => { if (v.from !== undefined) setLongFrom(v.from); if (v.to !== undefined) setLongTo(v.to); if (v.reason !== undefined) setReason(v.reason) }} />
-        ) : (
-          <label className="flex items-center gap-2 text-sm">
-            จำนวน <Input type="number" min={1} max={60} className="h-9 w-20" value={countText} onChange={(e) => setCountText(e.target.value)} aria-invalid={!ok} /> คาบ
-          </label>
-        )}
-        {!noQuota && run.length > 0 && (
-          <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl bg-muted/40 p-2 text-xs">
-            {run.map((x, i) => (
-              <li key={x.id} className="flex justify-between">
-                <span>{fmtDate(x.date, { weekday: true })} {x.start} · {x.subject}</span>
-                <span className={noQuota || i < left ? "text-success" : "text-muted-foreground"}>{noQuota ? "ยืดวันจบ" : i < left ? (unlimited ? "ยืดวันจบ" : "ใช้โควตา · ยืดวันจบ") : unlimited ? "ไม่ยืดแพ็กเกจ" : "เกินโควตา · ไม่ชดเชย"}</span>
-              </li>
-            ))}
-            {ok && run.length < count && <li className="text-muted-foreground">มีคาบให้ลาแค่ {run.length} คาบในตาราง</li>}
-          </ul>
-        )}
-        <DialogFooter className="items-center">
+        <DialogFooter className="items-center border-t px-6 py-4">
           {group.length > 0 && <Button variant="ghost" className="mr-auto text-danger" onClick={() => save(0)}>ยกเลิกการลา (มาเรียน)</Button>}
           <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-          <Button disabled={noQuota ? !longOk.ok : !ok} title={noQuota && !longOk.ok ? longOk.error : undefined} onClick={() => save(noQuota ? 1 : count)}>บันทึก</Button>
+          <Button disabled={noQuota ? !longOk.ok : !okSave} title={noQuota && !longOk.ok ? longOk.error : undefined} onClick={() => save(noQuota ? 1 : count)}>บันทึก</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1168,50 +1285,195 @@ function DeleteDialog({ s, canCancel, onClose, onDone }: { s: Session; canCancel
 }
 
 /** Summary right under a present student (owner 2026-09-29) — text is owned by the dialog for multi-select submit */
+/**
+ * owner 2026-11-26: what the row shows once the Summary card is closed — the same quiet style as a Note: the lesson (book · topic ·
+ * detail) and the Student Summary text, at most 3 lines with "อ่านเพิ่มเติม" / "ย่อ".
+ */
+function SummaryPreview({ summary }: { summary: LessonSummary }) {
+  const books = useStore((st) => st.lessonBooks)
+  const topics = useStore((st) => st.lessonTopics)
+  const [expanded, setExpanded] = useState(false)
+  const [overflow, setOverflow] = useState(false)
+  const ref = useRef<HTMLParagraphElement>(null)
+  const text = summary.text.trim()
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el && !expanded) setOverflow(el.scrollHeight > el.clientHeight + 1)
+  }, [text, expanded])
+  const lesson = [books.find((b) => b.id === summary.bookId)?.name, topics.find((t) => t.id === summary.topicId)?.name].filter(Boolean).join(" · ")
+  if (!lesson && !summary.detail?.trim() && !text) return null
+  // owner 2026-11-26: one soft block, each part stacked as Header over Body (no side-by-side); always starts collapsed (3 lines)
+  return (
+    <div className="space-y-2.5 rounded-xl bg-muted/40 px-3 py-2.5 text-xs leading-relaxed">
+      {(lesson || summary.detail?.trim()) && (
+        <div className="space-y-0.5">
+          <p className="font-medium text-muted-foreground">Lesson</p>
+          <p className="min-w-0 text-foreground/90">{lesson}{lesson && summary.detail?.trim() ? " · " : ""}{summary.detail?.trim()}</p>
+        </div>
+      )}
+      {text && (
+        <div className="space-y-0.5">
+          <p className="font-medium text-muted-foreground">Student</p>
+          <p ref={ref} className={cn("min-w-0 whitespace-pre-wrap text-foreground/90", !expanded && "line-clamp-3")}>{text}</p>
+          {(overflow || expanded) && (
+            <Button variant="link" size="inline" type="button" className="text-xs text-muted-foreground underline" onClick={() => setExpanded((v) => !v)}>{expanded ? "ย่อ" : "อ่านเพิ่มเติม"}</Button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** owner 2026-11-26: "ใช้กับ N คน" — a popup list (tick one, several, or all) for sharing a Lesson / Student Summary with the other students */
+function LinkPicker({ studentId, candidates, linked, setLinked, disabled, noteOf, blocked }: {
+  studentId: ID; candidates: ID[]; linked: Set<ID>; setLinked: (s: Set<ID>) => void; disabled?: boolean
+  /** a small remark behind a name (e.g. "มีบันทึกอยู่แล้ว") */
+  noteOf?: (sid: ID) => string | undefined
+  /** can't be ticked (e.g. its summary is already approved / sent) */
+  blocked?: (sid: ID) => string | undefined
+}) {
+  const L = useLookup()
+  const open = candidates.filter((sid) => !blocked?.(sid))
+  const allOn = open.length > 0 && open.every((sid) => linked.has(sid))
+  const toggle = (sid: ID) => { const n = new Set(linked); if (n.has(sid)) n.delete(sid); else n.add(sid); n.add(studentId); setLinked(n) }
+  if (candidates.length === 0) return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="outline" type="button" disabled={disabled} className="h-9 gap-1.5 px-3" />}>
+        <UsersRoundIcon /> {tx("ใช้กับ {0} คน", [linked.size])} <ChevronDownIcon />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuCheckboxItem checked={allOn} onCheckedChange={(v) => setLinked(new Set(v ? [studentId, ...open] : [studentId]))}>{tx("ทั้งหมด ({0})", [open.length + 1])}</DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem checked disabled>{L.student(studentId)?.nickname} · {tx("คนนี้")}</DropdownMenuCheckboxItem>
+        {candidates.map((sid) => {
+          const why = blocked?.(sid)
+          const note = noteOf?.(sid)
+          return (
+            <DropdownMenuCheckboxItem key={sid} checked={linked.has(sid)} disabled={!!why} onCheckedChange={() => toggle(sid)}>
+              <span className="flex flex-col"><span>{L.student(sid)?.nickname}</span>{(why || note) && <span className={cn("text-2xs font-normal", why ? "text-muted-foreground" : "text-warning")}>{why ?? note}</span>}</span>
+            </DropdownMenuCheckboxItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
+ * owner 2026-11-26 — Lesson Summary: what was taught (Book / Topic / Detail). It is the class's memory, so it is editable at any
+ * time (never locked by approval) and needs no approval. Written once for one student, it can be LINKED to other students of the
+ * session; editing it changes everyone linked. Unlink = that student keeps a copy and edits it on their own.
+ */
+function LessonPart({ session, studentId, canEdit }: { session: Session; studentId: ID; canEdit: boolean }) {
+  const books = useStore((st) => st.lessonBooks)
+  const topics = useStore((st) => st.lessonTopics)
+  const summaries = useStore((st) => st.summaries)
+  const sessions = useStore((st) => st.sessions)
+  const attendance = useStore((st) => st.attendance)
+  const leaves = useStore((st) => st.leaves)
+  const addBook = useStore((st) => st.addLessonBook)
+  const addTopic = useStore((st) => st.addLessonTopic)
+  const saveLesson = useStore((st) => st.saveLesson)
+  const unlinkLesson = useStore((st) => st.unlinkLesson)
+  const mine = summaries.find((x) => x.sessionId === session.id && x.studentId === studentId)
+  const group = mine?.lessonLink ? summaries.filter((x) => x.sessionId === session.id && x.lessonLink === mine.lessonLink).map((x) => x.studentId) : [studentId]
+  const [lesson, setLesson] = useState<SummaryLesson>(() => mine?.bookId || mine?.topicId || mine?.detail
+    ? { bookId: mine.bookId, topicId: mine.topicId, detail: mine.detail ?? "" }
+    : { ...Les.suggestLesson(studentId, summaries, new Map(sessions.map((x) => [x.id, x.date])), topics), detail: "" })
+  const [linked, setLinked] = useState<Set<ID>>(() => new Set(group))
+  // owner 2026-11-26: once saved it shows as a Preview (what was taught) — "แก้ไข" reopens the form; nothing saved yet opens straight into the form
+  const hasSaved = !!(mine?.bookId || mine?.topicId || mine?.detail?.trim())
+  const [editing, setEditing] = useState(!hasSaved)
+  const [managing, setManaging] = useState<"book" | "topic" | null>(null)
+  const candidates = session.studentIds.filter((sid) => sid !== studentId && Att.isEffectivelyPresent(session, sid, attendance, leaves))
+  const hasContent = (sid: ID) => { const x = summaries.find((y) => y.sessionId === session.id && y.studentId === sid); return !!(x && (x.bookId || x.topicId || x.detail?.trim())) }
+  const overwrites = [...linked].filter((sid) => sid !== studentId && !group.includes(sid) && hasContent(sid)).length
+  const branchBooks = Les.booksOf(session.branchId, books)
+  const bookTopics = lesson.bookId ? Les.topicsOf(lesson.bookId, topics) : []
+  const save = () => { if (report(saveLesson(session.id, studentId, lesson, [...linked, studentId]), `บันทึก Lesson Summary แล้ว${linked.size > 1 ? ` · ใช้ร่วมกัน ${linked.size} คน` : ""}`)) setEditing(false) }
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="font-medium">Lesson Summary</span>
+        <Pill tone="gray" title="บันทึกว่าสอนอะไร — ไม่ต้องอนุมัติ แก้ได้ทุกเวลา">แก้ได้เสมอ</Pill>
+        {group.length > 1 && <Pill tone="blue"><LinkIcon className="size-3" /> ใช้ร่วมกับ {group.length - 1} คน</Pill>}
+      </div>
+      {!editing ? (
+        // owner 2026-11-26: แก้ไข sits on the same line as the content, at the end
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-0.5 text-sm">
+            {(mine?.bookId || mine?.topicId) && <p className="flex items-center gap-1.5"><BookOpenIcon className="size-3.5 shrink-0 text-muted-foreground" />{books.find((b) => b.id === mine.bookId)?.name ?? "—"}{mine.topicId && ` · ${topics.find((t) => t.id === mine.topicId)?.name ?? ""}`}</p>}
+            {mine?.detail && <p className="text-muted-foreground">{mine.detail}</p>}
+          </div>
+          {canEdit && <Button variant="outline" type="button" className="h-8 shrink-0" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>}
+        </div>
+      ) : (
+        <>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <CatalogCombo label="Book · หนังสือ" items={branchBooks} value={lesson.bookId} placeholder="Book · เลือก/พิมพ์ชื่อหนังสือ" disabled={!canEdit}
+          onChange={(bookId) => setLesson((l) => ({ ...l, bookId, topicId: undefined }))}
+          onCreate={(name) => addBook(session.branchId, name)} onManage={() => setManaging("book")} />
+        <CatalogCombo label="Lesson Topic · บทเรียน" items={bookTopics} value={lesson.topicId} disabled={!canEdit || !lesson.bookId} placeholder={lesson.bookId ? "Lesson Topic · เลือก/พิมพ์บทเรียน" : "Lesson Topic · เลือกหนังสือก่อน"}
+          onChange={(topicId) => setLesson((l) => ({ ...l, topicId }))}
+          onCreate={(name) => addTopic(lesson.bookId!, name)} onManage={() => setManaging("topic")} />
+      </div>
+      <Input style={{ fontSize: "0.875rem" }} className="h-9 rounded-3xl border-transparent bg-input/50" disabled={!canEdit} value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="Lesson Detail · เช่น หน้า 12–15 แบบฝึกหัด 2.1" aria-label="Lesson Detail" />
+      <div className="flex flex-wrap items-center gap-2">
+        <LinkPicker studentId={studentId} candidates={candidates} linked={linked} setLinked={setLinked} disabled={!canEdit} noteOf={(sid) => (!group.includes(sid) && hasContent(sid) ? "มีบันทึกอยู่แล้ว" : undefined)} />
+        {group.length > 1 && canEdit && (
+          <Button variant="ghost" type="button" className="h-9" title="แยกคนนี้ออกจากกลุ่ม — เก็บเนื้อหาไว้เป็นของตัวเอง แล้วแก้แยกได้"
+            onClick={() => { if (report(unlinkLesson(session.id, studentId), "แยกออกจากกลุ่มแล้ว — แก้แยกได้")) setLinked(new Set([studentId])) }}>
+            <UnlinkIcon /> แยกออกจากกลุ่ม
+          </Button>
+        )}
+        <span className="ml-auto flex gap-1.5">
+          {hasSaved && <Button variant="outline" type="button" className="h-9" onClick={() => { setEditing(false); setLesson({ bookId: mine?.bookId, topicId: mine?.topicId, detail: mine?.detail ?? "" }); setLinked(new Set(group)) }}>ยกเลิก</Button>}
+          <Button className="h-9" disabled={!canEdit} onClick={save}>Save</Button>
+        </span>
+      </div>
+        </>
+      )}
+      {overwrites > 0 && <p className="text-2xs text-warning">จะเขียนทับหนังสือ / บทเรียนที่ {overwrites} คนบันทึกไว้แล้ว</p>}
+      {managing && <CatalogManager kind={managing} items={managing === "book" ? branchBooks : bookTopics} onClose={() => setManaging(null)} />}
+    </div>
+  )
+}
+
 function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text, setText, historyCount = 0, onHistory }: { session: Session; sessionId: ID; studentId: ID; summary?: LessonSummary; viewOnly: boolean; text: string; setText: (t: string) => void; historyCount?: number; onHistory?: () => void }) {
   const now = useNow(60_000)
-  const due = Sum.sendDeadline(session, now)
   const me = useStore((s) => s.me())
   const staff = useStore((s) => s.staff)
-  const save = useStore((s) => s.saveSummary)
   const approve = useStore((s) => s.approveSummary)
   const requestChanges = useStore((s) => s.requestSummaryChanges)
   const send = useStore((s) => s.sendSummary)
-  const [confirmApply, setConfirmApply] = useState<null | { withText: boolean; overwrites: number }>(null)
   const [note, setNote] = useState("")
   const [asking, setAsking] = useState(false)
-  // Book / Topic / Lesson Detail (owner 2026-09-30) — a new summary starts where this student left off
-  const books = useStore((s) => s.lessonBooks)
-  const topics = useStore((s) => s.lessonTopics)
-  const allSummaries = useStore((s) => s.summaries)
-  const allSessions = useStore((s) => s.sessions)
-  const addBook = useStore((s) => s.addLessonBook)
-  const addTopic = useStore((s) => s.addLessonTopic)
-  const applyLesson = useStore((s) => s.applyLessonToSession)
-  const [lesson, setLesson] = useState<SummaryLesson>(() => summary?.bookId || summary?.detail
-    ? { bookId: summary.bookId, topicId: summary.topicId, detail: summary.detail ?? "", level: summary.level, subjectLevels: summary.subjectLevels }
-    : { ...Les.suggestLesson(studentId, allSummaries, new Map(allSessions.map((x) => [x.id, x.date])), topics), detail: "", level: summary?.level, subjectLevels: summary?.subjectLevels })
-  const [managing, setManaging] = useState<"book" | "topic" | null>(null)
-  const attendance = useStore((s) => s.attendance)
-  const presentIds = new Set(attendance.filter((a) => a.sessionId === sessionId && a.status === "present").map((a) => a.studentId))
-  const summaryOf = (sid: ID) => allSummaries.find((x) => x.sessionId === sessionId && x.studentId === sid)
-  const editableOf = (sid: ID) => { const x = summaryOf(sid); return !x || x.status === "draft" || x.status === "changes_requested" }
-  // owner 2026-11-20: "use for everyone" is a button of the SESSION, shown once — on the first present student whose summary is still open (not on all five rows)
-  const targets = [...presentIds].filter(editableOf)
-  const firstOpenSid = session.studentIds.find((sid) => presentIds.has(sid) && editableOf(sid))
-  const showApplyAll = targets.length > 1 && studentId === firstOpenSid
-  const hasLesson = !!(lesson.bookId || lesson.topicId || lesson.detail?.trim())
-  const overwrites = targets.filter((sid) => { if (sid === studentId) return false; const x = summaryOf(sid); return !!x && !!(x.text.trim() || x.bookId || x.topicId || x.detail?.trim()) }).length
-  const applyAll = (withText: boolean) => report(applyLesson(sessionId, lesson, withText ? text : undefined), (v) => (withText ? `ใช้สรุปนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้` : `ใช้หนังสือ/บทเรียนนี้กับ ${v.count} คนที่มาเรียนแล้ว — แก้รายคนได้`))
-  const askApplyAll = (withText: boolean) => (overwrites > 0 ? setConfirmApply({ withText, overwrites }) : applyAll(withText))
-  const branchBooks = Les.booksOf(session.branchId, books)
-  const bookTopics = lesson.bookId ? Les.topicsOf(lesson.bookId, topics) : []
+  // owner 2026-11-26: the Student Summary can be shared with other students too (same link / unlink idea as the Lesson Summary)
+  const allSummaries = useStore((st) => st.summaries)
+  const attendance = useStore((st) => st.attendance)
+  const leaves = useStore((st) => st.leaves)
+  const saveShared = useStore((st) => st.saveSummaryShared)
+  const unlinkStudent = useStore((st) => st.unlinkStudentSummary)
+  const smOf = (sid: ID) => allSummaries.find((x) => x.sessionId === sessionId && x.studentId === sid)
+  const group = summary?.studentLink ? allSummaries.filter((x) => x.sessionId === sessionId && x.studentLink === summary.studentLink).map((x) => x.studentId) : [studentId]
+  const [linked, setLinked] = useState<Set<ID>>(() => new Set(group))
+  const candidates = session.studentIds.filter((sid) => sid !== studentId && Att.isEffectivelyPresent(session, sid, attendance, leaves))
+  const lockedWhy = (sid: ID) => { const st = smOf(sid)?.status; return st === "submitted" ? "รออนุมัติ — ใช้ร่วมไม่ได้" : st === "approved" || st === "sent" ? "อนุมัติ/ส่งแล้ว — ใช้ร่วมไม่ได้" : undefined }
+  const saveText = (submit: boolean) => {
+    const r = saveShared(sessionId, studentId, text, submit, [...linked].filter((sid) => sid === studentId || !lockedWhy(sid)))
+    if (!r.ok) return report(r, "")
+    report(r, (v) => `${submit ? "ส่งให้ผู้อนุมัติแล้ว" : "บันทึกร่างแล้ว"}${linked.size > 1 ? ` · ใช้ร่วมกัน ${linked.size - v.skipped} คน` : ""}`)
+    return true
+  }
+  // owner 2026-11-26: a record that only carries the Lesson Summary (no feedback written yet) is not a Student Summary yet
+  const written = summary && (summary.text.trim() || summary.status !== "draft") ? summary : undefined
   const status = summary?.status
   const editable = !viewOnly && (!status || status === "draft" || status === "changes_requested")
   // owner 2026-11-13: once there's something saved, the form collapses to a one-glance Preview (saves space in a long
   // list) — "แก้ไข" reopens it. A brand-new summary (nothing saved yet) has nothing to preview, so it opens straight
   // into the form. Re-collapses itself after the next Save Draft.
-  const hasSaved = !!(summary && (summary.text.trim() || summary.bookId || summary.topicId || summary.detail?.trim()))
+  const hasSaved = !!summary?.text.trim()
   const [forceOpen, setForceOpen] = useState(false)
   const showForm = editable && (forceOpen || !hasSaved)
   const lastChange = summary?.history.findLast((h) => h.action === "request_changes")
@@ -1224,75 +1486,38 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
       {/* narrow: title+status over the due/editor line · wide (room enough): one row, info left and right */}
       <div className="space-y-0.5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:space-y-0">
         <div className="flex items-center gap-2 text-xs">
-          <span className="font-medium">สรุปการเรียน</span>
-          <Pill tone={tone}>{Sum.summaryLabel(summary)}</Pill>
+          <span className="font-medium">Student Summary</span>
+          <Pill tone={tone}>{Sum.summaryLabel(written)}</Pill>
         </div>
         {/* owner 2026-11-04: editor stamp first, the send-deadline LAST — so the deadline's colour/width never shifts the stamp out of line */}
         <div className="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
-          {summary && <span>{who(summary.lastEditorId)} · {fmtDateTime(summary.history[summary.history.length - 1]?.at ?? new Date().toISOString())}</span>}
-          {status !== "sent" && (
-            <span className={cn(due.overdue ? "font-medium text-danger" : due.daysLeft <= 2 && "text-warning")}>
-              {due.overdue ? `เลยกำหนดส่ง ${-due.daysLeft} วัน` : `ส่งภายใน ${fmtDate(due.deadline, { weekday: true })}`}
-            </span>
-          )}
+          {written && <span>{who(written.lastEditorId)} · {fmtDateTime(written.history[written.history.length - 1]?.at ?? new Date().toISOString())}</span>}
         </div>
       </div>
       {status === "changes_requested" && lastChange?.note && <p className="mb-1.5 rounded-md bg-danger-soft/60 p-2 text-xs text-danger-ink">ขอแก้: {lastChange.note}</p>}
       {showForm ? (
         <div className="space-y-2 pt-1">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <CatalogCombo label="Book · หนังสือ" items={branchBooks} value={lesson.bookId} placeholder="Book · เลือก/พิมพ์ชื่อหนังสือ"
-              onChange={(bookId) => setLesson((l) => ({ ...l, bookId, topicId: undefined }))}
-              onCreate={(name) => addBook(session.branchId, name)} onManage={() => setManaging("book")} />
-            <CatalogCombo label="Lesson Topic · บทเรียน" items={bookTopics} value={lesson.topicId} disabled={!lesson.bookId} placeholder={lesson.bookId ? "Lesson Topic · เลือก/พิมพ์บทเรียน" : "Lesson Topic · เลือกหนังสือก่อน"}
-              onChange={(topicId) => setLesson((l) => ({ ...l, topicId }))}
-              onCreate={(name) => addTopic(lesson.bookId!, name)} onManage={() => setManaging("topic")} />
-          </div>
-          <Input style={{ fontSize: "0.875rem" }} className="h-9 rounded-3xl border-transparent bg-input/50" value={lesson.detail ?? ""} onChange={(e) => setLesson((l) => ({ ...l, detail: e.target.value }))} placeholder="Lesson Detail · เช่น หน้า 12–15 แบบฝึกหัด 2.1" aria-label="Lesson Detail" />
-          {/* same lesson for the whole class in one tap — anyone different is edited on their own row (owner 2026-09-30). One menu button, once per session (owner 2026-11-20) */}
-          {showApplyAll && (
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button size="xs" variant="outline" type="button" disabled={!hasLesson && !text.trim()} title={hasLesson || text.trim() ? undefined : "กรอกหนังสือ / บทเรียน / รายละเอียดก่อน จึงใช้กับทุกคนได้"} />}>
-                <UsersRoundIcon /> {tx("ใช้กับทุกคน ({0})", [targets.length])} <ChevronDownIcon />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuItem disabled={!hasLesson} onClick={() => askApplyAll(false)}><span className="flex flex-col"><span>หนังสือ / บทเรียน / รายละเอียด</span><span className="text-xs text-muted-foreground">ไม่แตะข้อความสรุปของแต่ละคน</span></span></DropdownMenuItem>
-                <DropdownMenuItem disabled={!text.trim()} onClick={() => askApplyAll(true)}><span className="flex flex-col"><span>รวมข้อความสรุปด้วย</span><span className="text-xs text-muted-foreground">เมื่อทุกคนเรียนเหมือนกัน</span></span></DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {confirmApply && (
-            <Dialog open onOpenChange={(o) => !o && setConfirmApply(null)}>
-              <DialogContent className="lg:max-w-sm">
-                <DialogHeader>
-                  <DialogTitle>ใช้กับทุกคน — เขียนทับสรุปที่ร่างไว้?</DialogTitle>
-                  <DialogDescription>{tx("{0} คนมีสรุปที่ร่างไว้แล้ว จะถูกแทนที่ด้วยของคนนี้ (ที่ส่งอนุมัติไปแล้วไม่ถูกแตะ)", [confirmApply.overwrites])}</DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="ghost" onClick={() => setConfirmApply(null)}>ยกเลิก</Button>
-                  <Button onClick={() => { applyAll(confirmApply.withText); setConfirmApply(null) }}>เขียนทับ</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
           <Textarea style={{ fontSize: "0.875rem" }} className="rounded-2xl border-transparent bg-input/50" value={text} onChange={(e) => setText(e.target.value)} placeholder="Feedback Summary · พัฒนาการ / สิ่งที่ทำได้ดี / สิ่งที่ต้องฝึกเพิ่ม" rows={3} aria-label="Feedback Summary" />
           {/* owner 2026-11-02: the 1–5 "understanding" picker removed from the quick inline summary */}
           {!hasEnded(session, now) && <p className="text-2xs text-muted-foreground">ส่งอนุมัติได้หลังคาบเรียนจบ — ระหว่างนี้บันทึกร่างไว้ก่อนได้</p>}
         </div>
       ) : (
         <div className="space-y-0.5 text-sm">
-          {(summary?.bookId || summary?.topicId) && <p className="text-xs text-muted-foreground">📚 {books.find((b) => b.id === summary.bookId)?.name ?? "—"}{summary.topicId && ` · ${topics.find((t) => t.id === summary.topicId)?.name ?? ""}`}</p>}
-          {summary?.detail && <p className="text-xs text-muted-foreground">📝 {summary.detail}</p>}
           {summary?.subjectLevels && Object.keys(summary.subjectLevels).length > 0
             ? <p className="text-xs text-muted-foreground">ความเข้าใจ {Object.entries(summary.subjectLevels).map(([k, v]) => `${k} ${v}/5`).join(" · ")}</p>
             : summary?.level && <p className="text-xs text-muted-foreground">ความเข้าใจ {summary.level}/5 · {LEVEL_LABEL[summary.level]}</p>}
           <p className="whitespace-pre-wrap">{summary?.text || "ยังไม่มีสรุป"}</p>
         </div>
       )}
-      {managing && <CatalogManager kind={managing} items={managing === "book" ? branchBooks : bookTopics} onClose={() => setManaging(null)} />}
       <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
         {showForm ? (
           <>
+            <LinkPicker studentId={studentId} candidates={candidates} linked={linked} setLinked={setLinked} blocked={lockedWhy}
+              noteOf={(sid) => (!group.includes(sid) && smOf(sid)?.text.trim() && smOf(sid)?.text !== text ? "มีสรุปอยู่แล้ว (จะเขียนทับ)" : undefined)} />
+            {group.length > 1 && (
+              <Button variant="ghost" type="button" className="h-9" title="แยกคนนี้ออกจากกลุ่ม — เก็บข้อความไว้เป็นของตัวเอง แล้วแก้แยกได้"
+                onClick={() => { if (report(unlinkStudent(sessionId, studentId), "แยกออกจากกลุ่มแล้ว — แก้แยกได้")) setLinked(new Set([studentId])) }}><UnlinkIcon /> แยกออกจากกลุ่ม</Button>
+            )}
             {/* history hugs the left gutter · Save only as wide as it needs · Send fills to the right gutter */}
             {historyCount > 0 && onHistory && (
               <Button variant="ghost" size="icon" aria-label={`ประวัติสรุป ${historyCount} ครั้ง`} title={`ประวัติสรุป ${historyCount} ครั้ง`}
@@ -1300,9 +1525,9 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
                 <HistoryIcon className="size-4" />
               </Button>
             )}
-            <Button variant="outline" className="shrink-0" onClick={() => { if (report(save(sessionId, studentId, text, false, lesson), "บันทึกร่างแล้ว")) setForceOpen(false) }}>Save Draft</Button>
+            <Button variant="outline" className="ml-auto shrink-0" onClick={() => { if (saveText(false)) setForceOpen(false) }}>Save Draft</Button>
             {/* owner 2026-11-02: can only submit once the class has ended — draft before that */}
-            <Button disabled={!text.trim() || !hasEnded(session, now)} title={!hasEnded(session, now) ? "ส่งได้หลังคาบเรียนจบแล้ว" : undefined} onClick={() => report(save(sessionId, studentId, text, true, lesson), "ส่งให้ผู้อนุมัติแล้ว")}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
+            <Button disabled={!text.trim() || !hasEnded(session, now)} title={!hasEnded(session, now) ? "ส่งได้หลังคาบเรียนจบแล้ว" : undefined} onClick={() => saveText(true)}><SendIcon /> {status === "changes_requested" ? "ส่งอีกครั้ง" : "ส่งอนุมัติ"}</Button>
           </>
         ) : editable && (
           // owner 2026-11-13: collapsed Preview — เขียน/บันทึกไว้แล้ว, "แก้ไข" reopens the form
@@ -1313,8 +1538,9 @@ function SummaryInline({ session, sessionId, studentId, summary, viewOnly, text,
                 <HistoryIcon className="size-4" />
               </Button>
             )}
+            {/* owner 2026-11-26: แก้ไข on the same line as the history icon */}
             <Button variant="outline" onClick={() => setForceOpen(true)}><PencilIcon /> แก้ไข</Button>
-          </>
+            </>
         )}
         {status === "submitted" && can(me, "summary.approve") && summary && !Sum.canApprove(summary, me).ok && (
           <>

@@ -64,7 +64,7 @@ function OperatingHours({ branch }: { branch: Branch }) {
 
   return (
     <div className="space-y-4">
-      <SettingsCard title={tx("พรีวิว")} hint={tx("เลือกวันที่เพื่อดูว่าสาขาเปิดกี่โมงในวันนั้นจริงๆ (รวมวันหยุด/ช่วงเวลาพิเศษ)")}>
+      <SettingsCard title={tx("พรีวิว")} hint={tx("เลือกวันที่เพื่อดูเวลาเปิดสาขาจริงในวันนั้น · รวมวันหยุด / ช่วงเวลาพิเศษ")}>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Input type="date" className="w-44" value={preview} onChange={(e) => setPreview(e.target.value || today)} />
           <span>{fmtDate(preview, { weekday: true, year: true })}</span>

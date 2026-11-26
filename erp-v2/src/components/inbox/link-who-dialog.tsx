@@ -6,7 +6,7 @@ import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { PARENT_RELATIONS, parentIndexOfAccount } from "@/domain/rules/people"
+import { PARENT_RELATIONS, parentIndexOfAccount, familyDisplay } from "@/domain/rules/people"
 import type { Conversation, Family, LinkWho } from "@/domain/types"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -30,7 +30,7 @@ export function LinkWhoDialog({ conversation, family, onConfirm, onClose }: { co
       <DialogContent className="lg:max-w-sm">
         <DialogHeader>
           <DialogTitle>{tx("แชท LINE นี้คือใคร?")}</DialogTitle>
-          <DialogDescription>{tx("ครอบครัว {0} ผูกได้หลายบัญชี LINE (พ่อ · แม่ · ญาติ) — เลือกว่าบัญชีนี้เป็นของใคร", [family.name])}</DialogDescription>
+          <DialogDescription>{tx("{0} ผูกได้หลายบัญชี LINE (พ่อ · แม่ · ญาติ) — เลือกว่าบัญชีนี้เป็นของใคร", [familyDisplay(family.name)])}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
           {family.parents.map((p, i) => (

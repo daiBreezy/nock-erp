@@ -1,3 +1,4 @@
+import { familyDisplay } from "../domain/rules/people"
 import type { Conversation, Family } from "../domain/types"
 
 /** A reseed (persist version bump) rebuilds the demo data — but a family linked to a real LINE chat stays linked,
@@ -32,7 +33,7 @@ export function restoreLinks<T extends { families: Family[]; conversations: Conv
   const taken = new Set(db.families.map((f) => f.lineUserId).filter(Boolean))
   // same family, same LINE account, but the server holds a newer name (every rename is pushed up at once) → take the server's name,
   // so a stale browser never shows the sample name again and never pushes it back over the real one
-  const renamed = new Map(links.filter((l) => l.familyName?.trim()).map((l) => [`${l.familyId}|${l.lineUserId}`, l.familyName!.trim()]))
+  const renamed = new Map(links.filter((l) => l.familyName?.trim()).map((l) => [`${l.familyId}|${l.lineUserId}`, familyDisplay(l.familyName!.trim())]))
   const renames = db.families.filter((f) => f.lineUserId && renamed.has(`${f.id}|${f.lineUserId}`) && renamed.get(`${f.id}|${f.lineUserId}`) !== f.name)
   if (renames.length) {
     const nm = new Map(renames.map((f) => [f.id, renamed.get(`${f.id}|${f.lineUserId}`)!]))
@@ -43,7 +44,7 @@ export function restoreLinks<T extends { families: Family[]; conversations: Conv
   if (!back.length) return { ...db, restored: renames.length }
   const byFam = new Map(back.map((l) => [l.familyId, l.lineUserId]))
   // the name the office gave the family travels with the link — a restore must not bring the sample name back (owner 2026-11-06: "ต้องเห็นเป็น Breezy")
-  const nameOf = new Map(back.filter((l) => l.familyName?.trim()).map((l) => [l.familyId, l.familyName!.trim()]))
+  const nameOf = new Map(back.filter((l) => l.familyName?.trim()).map((l) => [l.familyId, familyDisplay(l.familyName!.trim())]))
   const byConv = new Map(back.map((l) => [`line_${l.lineUserId}`, l.familyId]))
   const families = db.families.map((f) => (byFam.has(f.id) ? { ...f, name: nameOf.get(f.id) ?? f.name, lineUserId: byFam.get(f.id), parents: f.parents.map((p, i) => (i === 0 ? { ...p, lineLinked: true } : p)) } : f))
   const conversations = db.conversations.map((c) => {

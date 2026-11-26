@@ -1,4 +1,5 @@
 import { addDays, toDateStr } from "../domain/dates"
+import { familyCore } from "../domain/rules/people"
 import { entitlementRounds } from "../domain/rules/summaries"
 import { sampleCourseTexts, sampleSessionNote } from "../data/course-sample-texts"
 import type { Attendance, Branch, Course, CourseSummary, Entitlement, Family, Invoice, Klass, LessonSummary, Session, Student } from "../domain/types"
@@ -27,7 +28,7 @@ export function withLinkedFamilyDemo<T extends Db>(db: T, now = new Date()): T {
     const second = pool.find((k) => k.weekday !== first.weekday && k.subject !== first.subject) ?? pool.find((k) => k.weekday !== first.weekday)
     const picked = [first, ...(second ? [second] : [])]
     const sid = `stu_demo_${fam.id}`
-    const surname = fam.parents[0]?.name.split(" ").slice(1).join(" ") || fam.name.replace(/^ครอบครัว/, "")
+    const surname = fam.parents[0]?.name.split(" ").slice(1).join(" ") || familyCore(fam.name)
     const liclass = branch.brand === "liclass"
     const child: Student = {
       id: sid, familyId: fam.id, branchId: branch.id, name: `ด.ญ. ใบเฟิร์น ${surname}`.trim(), nickname: "ใบเฟิร์น", nicknameEn: "Fern", nameEn: "Fern",

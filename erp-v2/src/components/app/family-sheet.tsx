@@ -28,7 +28,7 @@ import { FamilyInfoTab } from "@/components/app/family-info-tab"
 import { EnrollFormCard } from "@/components/forms/enroll-form-card"
 import { toDateStr } from "@/domain/dates"
 import { studentState } from "@/domain/rules/attendance"
-import { birthdaysToday, mainLineAccount, familyDisplay } from "@/domain/rules/people"
+import { birthdaysToday, mainLineAccount, familyDisplay, familyCore } from "@/domain/rules/people"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useEntitlements, useNow } from "@/lib/hooks"
 import type { ID } from "@/domain/types"
@@ -102,7 +102,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                 {/* owner 2026-11-20: like the Inbox chat header — the type is a quiet grey word under the name, not a pill */}
                 {/* owner 2026-11-20: the thumb belongs in the Header — like the student and the lead: thumb · name · one quiet line (type · children · main parent) */}
                 <div className="flex items-center gap-3 pr-10">
-                  <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(f.id))}>{initial(f.name.replace(/^ครอบครัว/, "") || f.name)}</span>
+                  <span className={cn("grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold", avatarTone(f.id))}>{initial(familyCore(f.name))}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <SheetTitle className="truncate text-lg">{/* owner 2026-11-24: always "[name] Family" — no Thai "ครอบครัว" prefix */}{familyDisplay(f.name)}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>

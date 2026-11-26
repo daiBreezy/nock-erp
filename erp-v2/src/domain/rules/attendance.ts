@@ -285,3 +285,17 @@ export function isDefaultPresent(s: Session, studentId: ID, attendance: Attendan
   if (activeLeave(studentId, s.date, leaves)) return false
   return canMark(s, "present", now).ok
 }
+
+/** owner 2026-11-26: nobody "saves" attendance any more — everyone is present unless the teacher set a leave / absence.
+ *  A stored mark wins; otherwise present unless the session is cancelled, the student moved out, or is on a long leave. */
+export function isEffectivelyPresent(s: Session, studentId: ID, attendance: Attendance[], leaves: StudentLeave[]): boolean {
+  const mark = attendance.find((a) => a.sessionId === s.id && a.studentId === studentId)
+  if (mark) return mark.status === "present"
+  if (s.cancelled || s.rescheduledOut?.some((m) => m.studentId === studentId)) return false
+  return !activeLeave(studentId, s.date, leaves)
+}
+
+/** Students of an ended session nobody marked → written as present (quota is used once the class is Past). */
+export function unsettledPresent(s: Session, attendance: Attendance[], leaves: StudentLeave[]): ID[] {
+  return s.studentIds.filter((sid) => !attendance.some((a) => a.sessionId === s.id && a.studentId === sid) && isEffectivelyPresent(s, sid, attendance, leaves))
+}

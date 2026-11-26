@@ -17,7 +17,6 @@ import * as Att from "@/domain/rules/attendance"
 import { canApprove } from "@/domain/rules/billing"
 import { isUnread, visibleTo, type MessageTarget } from "@/domain/rules/notifications"
 import { can, ROLE_LABEL, seesAllSessions } from "@/domain/rules/permissions"
-import { workState } from "@/domain/rules/scheduling"
 import { useBranch, useEntitlements, useNow, useQueryState } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
@@ -67,11 +66,6 @@ export default function NotificationsPage() {
 
   const alerts: Alert[] = []
   const recent = s.sessions.filter((x) => x.branchId === branch.id && x.date >= addDays(today, -14) && x.date <= today && (!mineOnly || x.teacherId === me.id))
-  const w = recent.map((x) => ({ x, w: workState(x, now, s.attendance, s.summaries) }))
-  const needAtt = w.filter((r) => r.w.state === "needs_attendance")
-  const needSum = w.filter((r) => r.w.state === "needs_summary")
-  if (needAtt.length) alerts.push({ topic: "teaching", key: "att", icon: ClipboardListIcon, tone: "text-danger", title: `ยังไม่เช็คชื่อ ${needAtt.length} คาบ`, detail: needAtt.slice(0, 3).map((r) => `${fmtDate(r.x.date)} ${r.x.start} ${r.x.subject}`).join(" · "), href: "/sessions" })
-  if (needSum.length) alerts.push({ topic: "teaching", key: "sum", icon: NotebookPenIcon, tone: "text-warning", title: `รอเขียนสรุป ${needSum.length} คาบ`, detail: "สรุปที่ยังไม่ส่งอนุมัติ", href: "/summaries" })
   if (can(me, "summary.approve")) {
     const n = s.summaries.filter((x) => x.status === "submitted" && x.authorId !== me.id && recent.some((r) => r.id === x.sessionId)).length
     if (n) alerts.push({ topic: "approval", key: "sa", icon: NotebookPenIcon, tone: "text-info", title: `สรุปรออนุมัติ ${n} รายการ`, detail: "อนุมัติแล้วส่งผู้ปกครองได้", href: "/summaries" })

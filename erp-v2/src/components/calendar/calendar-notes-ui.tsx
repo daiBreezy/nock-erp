@@ -3,7 +3,7 @@
 // Note Calendar UI (owner 2026-10-15) — the editor is shared by the calendar board and the session panel, where the
 // notes can be added, edited and deleted too ("จัดการ Note จากตรงนี้ได้ด้วย").
 import { useRef, useState } from "react"
-import { CheckIcon, EllipsisIcon, PencilLineIcon, PinIcon, PlusIcon, StickyNoteIcon, Trash2Icon } from "lucide-react"
+import { CheckIcon, EllipsisIcon, PencilLineIcon, PinIcon, PlusIcon, StickyNoteIcon, Trash2Icon, XIcon } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { calendarNotesFor, CALENDAR_NOTE_MAX, NOTE_KIND_LABEL } from "@/domain/rules/calendar-notes"
 import type { CalendarNoteKind, ID, Session } from "@/domain/types"
@@ -41,8 +41,11 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
           className={cn("grid size-7 shrink-0 place-items-center rounded-full disabled:opacity-40", pinned ? "bg-primary/10 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
           <PinIcon className="size-3.5" />
         </Button>
-        <Button variant="ghost" size="inline" type="button" onClick={() => { done.current = true; (onDelete ?? (() => onDone("", kind)))() }} aria-label="ลบ Note" title={onDelete ? "ลบ Note" : "ไม่บันทึก"}
-          className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></Button>
+        {/* owner 2026-11-26: an explicit ยกเลิก — closes the field and keeps / throws away nothing new */}
+        <Button variant="ghost" size="inline" type="button" onClick={() => { done.current = true; onDone(initialText, initialKind) }} aria-label="ยกเลิก" title="ยกเลิก"
+          className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"><XIcon className="size-3.5" /></Button>
+        {onDelete && <Button variant="ghost" size="inline" type="button" onClick={() => { done.current = true; onDelete() }} aria-label="ลบ Note" title="ลบ Note"
+          className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-soft/60 hover:text-danger"><Trash2Icon className="size-3.5" /></Button>}
         <Button variant="ghost" size="icon-md" type="button" onClick={() => finish(text)} aria-label="บันทึก Note" className="shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"><CheckIcon className="size-3.5" /></Button>
       </div>
     </div>
@@ -50,7 +53,15 @@ export function NoteEditor({ text: initialText = "", kind: initialKind, canPerma
 }
 
 /** one student's Note Calendar in a session — the panel version: list + ⋯ (edit / delete) + "Note" to add */
-export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId: ID; canEdit: boolean }) {
+export function CalendarNotes({ s, studentId, canEdit, extra, hideAdd, before }: {
+  s: Session; studentId: ID; canEdit: boolean
+  /** owner 2026-11-26: sits beside "+ Note" (the Summary button) — hidden while a note is being written / edited */
+  extra?: React.ReactNode
+  /** "+ Note" itself is hidden (the Summary is open) */
+  hideAdd?: boolean
+  /** owner 2026-11-26: the Summary preview — shown under the notes, above the buttons */
+  before?: React.ReactNode
+}) {
   const notes = calendarNotesFor(s, studentId, useStore((st) => st.calendarNotes))
   const add = useStore((st) => st.addCalendarNote)
   const edit = useStore((st) => st.editCalendarNote)
@@ -59,7 +70,9 @@ export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId
   const [editing, setEditing] = useState<ID | null>(null)
   const canPermanent = !!s.classId
   return (
-    <div className="space-y-0.5">
+    // owner 2026-11-26: one even gap (8px) between the notes, the Summary preview and the buttons — no margins on the children
+    <div className="flex flex-col gap-2">
+      {notes.length > 0 && <div className="space-y-0.5">
       {notes.map((n) => editing === n.id ? (
         <NoteEditor key={n.id} text={n.text} kind={n.kind} canPermanent={canPermanent || n.kind === "permanent"}
           onDelete={() => { setEditing(null); report(del(n.id, s.id), "ลบ Note แล้ว") }}
@@ -81,13 +94,20 @@ export function CalendarNotes({ s, studentId, canEdit }: { s: Session; studentId
           )}
         </div>
       ))}
+      </div>}
+      {before}
       {adding ? (
         <NoteEditor kind="temporary" canPermanent={canPermanent}
           onDone={(text, kind) => { setAdding(false); if (text) report(add(s.id, studentId, text, kind), `บันทึก Note ${NOTE_KIND_LABEL[kind]}แล้ว`) }} />
-      ) : canEdit && (
-        <Button variant="dashed" size="inline" type="button" onClick={() => setAdding(true)} className="inline-flex h-9 items-center gap-1 rounded-full border border-dashed px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground sm:h-auto sm:border-0 sm:px-0 sm:text-xs sm:italic">
-          <PlusIcon className="size-4 sm:size-3" />Note
-        </Button>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {canEdit && !hideAdd && !editing && (
+            <Button variant="outline" type="button" onClick={() => setAdding(true)} className="h-9 gap-1.5 px-4">
+              <PlusIcon />Note
+            </Button>
+          )}
+          {!editing && extra}
+        </div>
       )}
     </div>
   )

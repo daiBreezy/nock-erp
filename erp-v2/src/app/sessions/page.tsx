@@ -5,7 +5,7 @@ import { usePeriod } from "@/components/app/period-control"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { staffAt } from "@/domain/rules/permissions"
 import { useState } from "react"
-import { CalendarDaysIcon, CircleCheckIcon, ClipboardCheckIcon, PenLineIcon } from "lucide-react"
+import { CalendarClockIcon, CalendarDaysIcon, CircleCheckIcon, PlayIcon } from "lucide-react"
 import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { matchesQuery } from "@/domain/rules/people"
 import { Kpi } from "@/components/app/kpi"
@@ -65,12 +65,12 @@ export default function SessionsPage() {
   const pick = (w: WorkState) => setWork(work === w ? null : w)
 
   return (
-    <ListPage branch={scope.select} title="คาบเรียน & เช็คชื่อ" description="คาบที่ต้องเช็คชื่อและเขียนสรุป — กดคาบเพื่อเปิดทำงาน"
+    <ListPage branch={scope.select} title="คาบเรียน" description="ทุกคนมีสถานะ “มา” โดยปริยาย — กดคาบเพื่อดู ตั้งลา/ย้าย หรือเขียนสรุป"
       kpis={<>
         <Kpi icon={CalendarDaysIcon} label="คาบในช่วงนี้" value={withState.filter(({ w }) => w.state !== "cancelled").length} onClick={() => setWork(null)} />
-        <Kpi icon={ClipboardCheckIcon} label="รอเช็คชื่อ" value={counts.needs_attendance ?? 0} tone="red" emphasis={!!(counts.needs_attendance)} onClick={() => pick("needs_attendance")} active={work === "needs_attendance"} />
-        <Kpi icon={PenLineIcon} label="รอสรุป" value={counts.needs_summary ?? 0} tone="amber" emphasis={!!(counts.needs_summary)} onClick={() => pick("needs_summary")} active={work === "needs_summary"} />
-        <Kpi icon={CircleCheckIcon} label="เสร็จแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
+        <Kpi icon={PlayIcon} label="กำลังเรียน" value={counts.live ?? 0} tone="emerald" onClick={() => pick("live")} active={work === "live"} />
+        <Kpi icon={CalendarClockIcon} label="รอเริ่ม" value={counts.scheduled ?? 0} onClick={() => pick("scheduled")} active={work === "scheduled"} />
+        <Kpi icon={CircleCheckIcon} label="จบแล้ว" value={counts.done ?? 0} tone="emerald" onClick={() => pick("done")} active={work === "done"} />
       </>}
       period={period.control}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาคลาส / ครู / นักเรียน" />}
@@ -96,7 +96,7 @@ export default function SessionsPage() {
               // owner 2026-11-04: a teacher's own sessions stand out from the rest of the branch's
               const mine = s.teacherId === me.id || s.coTeacherIds.includes(me.id)
               return (
-                <SessionLine key={s.id} s={s} onOpen={() => setOpenId(s.id)} focus={w.state === "needs_attendance" ? "unmarked" : undefined}
+                <SessionLine key={s.id} s={s} onOpen={() => setOpenId(s.id)}
                   className={cn(mine && "bg-primary/[0.04]")}
                   title={<>{mine && <span className="mr-1.5 rounded-full bg-primary/15 px-1.5 py-px align-middle text-2xs font-semibold text-primary">ฉัน</span>}{classes.find((k) => k.id === s.classId)?.name ?? s.subject}<KindChip s={s} klass={classes.find((k) => k.id === s.classId)} className="ml-2" />{scope.multi && <span className="ml-2 align-middle"><BranchCode code={scope.code(s.branchId)} /></span>}</>}
                   sub={<><span className={cn(mine ? "font-medium text-primary" : t.missing && "text-warning")}>{t.label}</span> · {L.room(s.roomId)} · {s.studentIds.length} คน</>}

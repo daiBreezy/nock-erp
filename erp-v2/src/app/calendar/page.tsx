@@ -361,8 +361,6 @@ function SessionCard({ s, conflictIds, now, onOpen, classes, compact, canMove, d
         "relative h-full w-full overflow-hidden rounded-md border px-1.5 py-1 pl-2.5 text-left text-xs shadow-sm transition hover:shadow-md",
         live ? c.strong : c.soft,
         w.state === "done" && "opacity-60 saturate-50",
-        w.state === "needs_attendance" && "ring-2 ring-danger",
-        w.state === "needs_summary" && "ring-2 ring-warning",
         s.cancelled && "line-through opacity-50 grayscale",
         conflict && "outline-2 outline-red-600 outline-dashed",
         dim?.(s) && "opacity-25",

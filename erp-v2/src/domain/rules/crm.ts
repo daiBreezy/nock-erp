@@ -1,5 +1,6 @@
 // CRM lead pipeline (Phase 2 rebuild). Spec ref: new-erp/js/crm.js (stage list + grouping).
 
+import { familyDisplay } from "./people"
 import { daysBetween, fmtDate, toDateStr } from "../dates"
 import type { Archived, TargetSchool, CourseWish, LeadKid, DateStr, TimeStr, Weekday, Family, FormSubmission, ID, Lead, LeadStage, Result, Student } from "../types"
 
@@ -221,7 +222,7 @@ export function siblingLead(f: Family, input: { id: ID; branchId: ID; childGrade
     id: input.id, branchId: input.branchId, name: parent?.name ?? f.name, childGrade: input.childGrade, subject: input.subject,
     source: f.sources?.[0] ?? "line", stage: "contacting", assigneeId: input.by, phone: parent?.phone ?? "", lineId: parent?.lineId ?? "",
     lineUserId: f.lineUserId, createdAt: input.now, convertedStudentId: null,
-    notes: [{ at: input.now, by: input.by, text: `ลูกอีกคนของ${f.name} — ส่งฟอร์ม Test / Trial จาก Inbox` }],
+    notes: [{ at: input.now, by: input.by, text: `ลูกอีกคนของ${familyDisplay(f.name)} — ส่งฟอร์ม Test / Trial จาก Inbox` }],
   }
 }
 
@@ -305,7 +306,7 @@ export interface ArchiveEntry { kind: "lead_lost" | "customer_exit"; type: "lead
 export function archiveBox(d: { leads: (Pick<Lead, "id" | "name" | "stage" | "archived" | "lost" | "archiveReason" | "createdAt">)[]; families: { id: string; name: string; archived?: Archived }[]; students: { id: string; name: string; archived?: Archived }[] }): ArchiveEntry[] {
   const out: ArchiveEntry[] = []
   for (const l of d.leads) { const a = archivedOf(l); if (a) out.push({ kind: a.kind ?? "lead_lost", type: "lead", id: l.id, name: l.name, at: a.at, by: a.by, reason: a.reason }) }
-  for (const f of d.families) if (f.archived) out.push({ kind: f.archived.kind ?? "customer_exit", type: "family", id: f.id, name: f.name, at: f.archived.at, by: f.archived.by, reason: f.archived.reason })
+  for (const f of d.families) if (f.archived) out.push({ kind: f.archived.kind ?? "customer_exit", type: "family", id: f.id, name: familyDisplay(f.name), at: f.archived.at, by: f.archived.by, reason: f.archived.reason })
   for (const s of d.students) if (s.archived) out.push({ kind: s.archived.kind ?? "customer_exit", type: "student", id: s.id, name: s.name, at: s.archived.at, by: s.archived.by, reason: s.archived.reason })
   return out.sort((a, b) => b.at.localeCompare(a.at))
 }

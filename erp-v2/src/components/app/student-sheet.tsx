@@ -459,7 +459,7 @@ function Overview({ stu, ents, today, status, onNotRenewing, onHistory, onEditLe
       {/* owner 2026-10-12: only once a long leave exists — new ones are added from ⋯ › ลาพักยาว in the bottom bar */}
       {myLeaves.length > 0 && (
       <section className="rounded-3xl bg-card p-4 shadow-sm ring-1 ring-foreground/5">
-        <p className="mb-2 flex items-center gap-1 font-semibold">ลาพักยาว (ไม่หักโควตา) <InfoTip text="ช่วงที่ลาพักยาว สถานะจะเป็น Inactive อัตโนมัติ และวันจบคอร์สเลื่อนออกไปให้" /></p>
+        <p className="mb-2 flex items-center gap-1 font-semibold">ลาพักยาว (ไม่หักโควตา) <InfoTip text="ช่วงลาพักยาว · สถานะเป็น Inactive อัตโนมัติ · วันจบคอร์สเลื่อนออกไปให้" /></p>
         {(
           <ul className="divide-y rounded-2xl border">
             {myLeaves.map((l) => (

@@ -35,6 +35,7 @@ import * as Sum from "@/domain/rules/summaries"
 import * as Ref from "@/domain/rules/referral"
 import * as Rollover from "@/domain/rules/rollover"
 import * as People from "@/domain/rules/people"
+import { withFamilyNames } from "./family-names"
 import * as Forms from "@/domain/rules/forms"
 import * as CourseR from "@/domain/rules/course"
 import * as Neg from "@/domain/rules/negative"
@@ -46,7 +47,7 @@ import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as FB from "@/domain/rules/form-builder"
-import type { BankAccountEntry, SystemLogEntry, HomePin, CustomFormResponse, FormDef, GradeRolloverRecord, Brand, LinkWho } from "@/domain/types"
+import type { Attendance, BankAccountEntry, SystemLogEntry, HomePin, CustomFormResponse, FormDef, GradeRolloverRecord, Brand, LinkWho } from "@/domain/types"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
@@ -176,6 +177,8 @@ type Store = DB & UIState & {
 
   /** leave: noQuota = "ลาไม่หักโควตา" (still extends the package) */
   mark: (sessionId: ID, studentId: ID, status: AttendanceStatus, opts?: { noQuota?: boolean }) => Result
+  /** owner 2026-11-26: a session that has ended → everyone nobody marked is written as present (no "save attendance" step) */
+  settleAttendance: () => void
   /** the teacher is on leave: a substitute takes the session, or (no substitute) it is cancelled and every student's
    *  package runs one class longer */
   teacherLeave: (sessionId: ID, input: { reason: string; substituteId: ID | null }) => Result<{ extended: number }>
@@ -184,6 +187,9 @@ type Store = DB & UIState & {
   /** leave for N sessions from this one (or the group this session belongs to) — count 0 clears the group.
    *  Editable any time: fewer = came back early, more = longer leave. Closed sessions keep their marks. */
   markLeave: (sessionId: ID, studentId: ID, input: { count: number; noQuota: boolean }) => Result<{ marked: number }>
+  /** owner 2026-11-26: leave on sessions the teacher PICKS (not a run from one session) — e.g. 1, 4 and 12. `sessionId` is the session the
+   *  dialog opened from (its leave group, if any, is replaced by exactly these sessions). Closed sessions are never touched. */
+  markLeavePicked: (sessionId: ID, studentId: ID, pickedIds: ID[], noQuota?: boolean) => Result<{ marked: number }>
   clearMark: (sessionId: ID, studentId: ID) => Result
   /** present but only part of the time (came 1 of 2 hours) — null = their usual part */
   setAttendedMinutes: (sessionId: ID, studentId: ID, minutes: number | null) => Result
@@ -229,6 +235,16 @@ type Store = DB & UIState & {
   /** "Summary Template": the same Book / Topic / Lesson Detail for every student present in the session (feedback stays per student) */
   /** `text` set = the Feedback Summary goes to everyone too (owner 2026-11-13: "use this summary for the whole class") */
   applyLessonToSession: (sessionId: ID, lesson: SummaryLesson, text?: string) => Result<{ count: number }>
+  /** owner 2026-11-26: Lesson Summary — writes Book / Topic / Detail for `linkedIds` (always includes `studentId`) as one linked group.
+   *  Editable at any time (never locked by approval / sending — it is the class's memory, not a message to parents). Anyone of the
+   *  group's earlier members left out of `linkedIds` is unlinked and keeps a copy. */
+  saveLesson: (sessionId: ID, studentId: ID, lesson: SummaryLesson, linkedIds: ID[]) => Result
+  /** this student leaves the linked group but keeps the same content, to be edited on their own */
+  unlinkLesson: (sessionId: ID, studentId: ID) => Result
+  /** owner 2026-11-26: Student Summary text written once and LINKED to other students — saves this student's (and submits it when `submit`),
+   *  the others get the same text as a draft; one already approved / sent is skipped. Returns how many were skipped. */
+  saveSummaryShared: (sessionId: ID, studentId: ID, text: string, submit: boolean, linkedIds: ID[]) => Result<{ skipped: number }>
+  unlinkStudentSummary: (sessionId: ID, studentId: ID) => Result
   /** Book / Topic catalog — typed once, picked by everyone in the branch; same name (any case/spacing) = the existing one */
   addLessonBook: (branchId: ID, name: string) => Result<LessonBook>
   addLessonTopic: (bookId: ID, name: string) => Result<LessonTopic>
@@ -797,7 +813,7 @@ export const useStore = create<Store>()(
       return {
       // owner 2026-10-20 ("เที่ยวรถ หายไปไหนหมด"): a browser with nothing saved yet starts with the same demo as a reset /
       // an upgrade — before, only those added the vans, drivers and bus riders, so a fresh tab showed no trips at all
-      ...withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(buildSeed()))) as unknown as Store),
+      ...withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(buildSeed()))) as unknown as Store)),
       userId: "u_nock",
       branchId: "br_thl",
       clockOffset: 0,
@@ -856,8 +872,8 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      resetData: () => set({ ...withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(get(), buildSeed())))) as unknown as Store), clockOffset: 0 }),
-      restartAsVisitor: (lineUserId) => set({ ...withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(withoutLineLink(get(), lineUserId), buildSeed())))) as unknown as Store), clockOffset: 0 }),
+      resetData: () => set({ ...withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(get(), buildSeed())))) as unknown as Store)), clockOffset: 0 }),
+      restartAsVisitor: (lineUserId) => set({ ...withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(withoutLineLink(get(), lineUserId), buildSeed())))) as unknown as Store)), clockOffset: 0 }),
 
       // ---------------- classes & sessions ----------------
       createClass: (d) => {
@@ -1191,7 +1207,7 @@ export const useStore = create<Store>()(
         const fam = s.families.find((x) => x.id === id)
         if (!fam) return fail("ไม่พบครอบครัว")
         set({ families: s.families.map((x) => (x.id === id ? { ...x, archived: { at: s.now().toISOString(), by: s.userId, reason: reason.trim() } } : x)) })
-        log("profile", [], "เก็บครอบครัวเข้าคลัง", `${fam.name} · ${reason.trim()}`)
+        log("profile", [], "เก็บครอบครัวเข้าคลัง", `${People.familyDisplay(fam.name)} · ${reason.trim()}`)
         return OK
       },
 
@@ -1213,7 +1229,7 @@ export const useStore = create<Store>()(
         const blocked = Neg.canDeleteFamily(id, s.students)
         if (blocked) return fail(blocked)
         set({ families: s.families.filter((x) => x.id !== id) })
-        log("profile", [], "ลบครอบครัว", fam.name)
+        log("profile", [], "ลบครอบครัว", People.familyDisplay(fam.name))
         return OK
       },
 
@@ -2149,6 +2165,47 @@ export const useStore = create<Store>()(
         return { ok: true, value: { marked: added.length } }
       },
 
+      markLeavePicked: (sessionId, studentId, pickedIds, noQuota = false) => {
+        const s = get()
+        const me = s.me()
+        if (!can(me, "attendance.mark")) return fail("คุณไม่มีสิทธิ์เช็คชื่อ")
+        if (pickedIds.length > 60) return fail("เลือกได้ไม่เกิน 60 คาบ")
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se) return fail("ไม่พบคาบเรียน")
+        const now = s.now()
+        const cur = s.attendance.find((a) => a.sessionId === sessionId && a.studentId === studentId)
+        const groupId = cur?.leaveGroup ?? uid("lv")
+        const byId = new Map(s.sessions.map((x) => [x.id, x]))
+        const run = [...new Set(pickedIds)].map((id) => byId.get(id)).filter((x): x is Session => !!x && !x.cancelled && x.studentIds.includes(studentId))
+          .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
+        const runIds = new Set(run.map((x) => x.id))
+        const closed = (id: ID) => { const x = byId.get(id); return !x || x.cancelled || Sch.sessionState(x, now) === "closed" }
+        const beforeEnds = resolvedFor(studentId)
+        const keep = s.attendance.filter((a) => !(a.studentId === studentId && ((cur?.leaveGroup && a.leaveGroup === cur.leaveGroup && !closed(a.sessionId)) || (runIds.has(a.sessionId) && a.status === "leave"))))
+        const taken = new Set(keep.filter((a) => a.studentId === studentId).map((a) => a.sessionId))
+        const added = run.filter((x) => !taken.has(x.id) && !closed(x.id)).map((x) => ({ sessionId: x.id, studentId, status: "leave" as const, markedBy: me.id, markedAt: now.toISOString(), noQuota: noQuota || undefined, leaveGroup: groupId }))
+        set({ attendance: [...keep, ...added] })
+        syncMakeUp(studentId, beforeEnds)
+        log("attendance", [studentId], cur?.leaveGroup ? "แก้การลา" : "ลา", `เลือกเอง ${added.length} คาบ · ${noQuota ? "ไม่หักโควตา" : "หักโควตา"}`)
+        return { ok: true, value: { marked: added.length } }
+      },
+
+      settleAttendance: () => {
+        const st = get()
+        const now = st.now()
+        const add: Attendance[] = []
+        for (const se of st.sessions) {
+          if (se.cancelled || !Sch.hasEnded(se, now)) continue
+          for (const sid of Att.unsettledPresent(se, st.attendance, st.leaves)) add.push({ sessionId: se.id, studentId: sid, status: "present", markedBy: "system", markedAt: now.toISOString() })
+        }
+        if (!add.length) return
+        set({ attendance: [...st.attendance, ...add] })
+        // the child of a test / trial moves the lead on, same as a hand-made "มา" mark did
+        for (const a of add) {
+          const asm = Forms.assessmentIn(a.sessionId, a.studentId, get().assessments)
+          if (asm && Forms.allAssessmentsAttended(asm.leadId, asm.type, get().assessments, get().attendance)) advanceLead(asm.leadId, Forms.ATTENDED_STAGE[asm.type])
+        }
+      },
       mark: (sessionId, studentId, status, opts) => {
         const s = get()
         const me = s.me()
@@ -2482,6 +2539,84 @@ export const useStore = create<Store>()(
         return { ok: true, value: { moved } }
       },
 
+      saveLesson: (sessionId, studentId, lesson, linkedIds) => {
+        const s = get()
+        const me = s.me()
+        if (!can(me, "summary.write") && !can(me, "summary.approve")) return fail("คุณไม่มีสิทธิ์เขียนสรุป")
+        const se = s.sessions.find((x) => x.id === sessionId)
+        if (!se) return fail("ไม่พบคาบ")
+        if (!can(me, "session.manage") && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เขียนสรุปได้เฉพาะคาบที่คุณสอน")
+        const at = s.now().toISOString()
+        const L = { bookId: lesson.bookId || undefined, topicId: lesson.topicId || undefined, detail: lesson.detail?.trim() || undefined }
+        const ids = [...new Set([studentId, ...linkedIds])]
+        const cur = s.summaries.find((x) => x.sessionId === sessionId && x.studentId === studentId)
+        const oldLink = cur?.lessonLink
+        const link = ids.length > 1 ? (oldLink ?? uid("ll")) : undefined
+        let summaries = s.summaries.map((x) => {
+          if (x.sessionId !== sessionId) return x
+          if (ids.includes(x.studentId)) return { ...x, ...L, lessonLink: link }
+          if (oldLink && x.lessonLink === oldLink) return { ...x, lessonLink: undefined } // left out → keeps its copy
+          return x
+        })
+        for (const sid of ids) {
+          if (summaries.some((x) => x.sessionId === sessionId && x.studentId === sid)) continue
+          summaries = [...summaries, { id: uid("sm"), sessionId, studentId: sid, ...L, lessonLink: link, text: "", status: "draft", authorId: me.id, lastEditorId: me.id, history: [{ at, by: me.id, action: "write" }] }]
+        }
+        // a group of one is no group
+        const size = new Map<ID, number>()
+        summaries.forEach((x) => x.sessionId === sessionId && x.lessonLink && size.set(x.lessonLink, (size.get(x.lessonLink) ?? 0) + 1))
+        set({ summaries: summaries.map((x) => (x.sessionId === sessionId && x.lessonLink && (size.get(x.lessonLink) ?? 0) < 2 ? { ...x, lessonLink: undefined } : x)) })
+        return OK
+      },
+
+      unlinkLesson: (sessionId, studentId) => {
+        const s = get()
+        const cur = s.summaries.find((x) => x.sessionId === sessionId && x.studentId === studentId)
+        if (!cur?.lessonLink) return OK
+        const link = cur.lessonLink
+        const left = s.summaries.filter((x) => x.sessionId === sessionId && x.lessonLink === link && x.studentId !== studentId).length
+        set({ summaries: s.summaries.map((x) => (x.sessionId === sessionId && (x.studentId === studentId || (left < 2 && x.lessonLink === link)) && x.lessonLink === link ? { ...x, lessonLink: undefined } : x)) })
+        return OK
+      },
+
+      saveSummaryShared: (sessionId, studentId, text, submit, linkedIds) => {
+        const first = get().saveSummary(sessionId, studentId, text, submit)
+        if (!first.ok) return first
+        const ids = [...new Set([studentId, ...linkedIds])]
+        let skipped = 0
+        for (const sid of ids) {
+          if (sid === studentId) continue
+          const r = get().saveSummary(sessionId, sid, text, false)
+          if (!r.ok) skipped++
+        }
+        const s = get()
+        const cur = s.summaries.find((x) => x.sessionId === sessionId && x.studentId === studentId)
+        const oldLink = cur?.studentLink
+        const done = new Set(ids.filter((sid) => { const x = s.summaries.find((y) => y.sessionId === sessionId && y.studentId === sid); return sid === studentId || x?.text === text }))
+        const link = done.size > 1 ? (oldLink ?? uid("sl")) : undefined
+        let summaries = s.summaries.map((x) => {
+          if (x.sessionId !== sessionId) return x
+          if (done.has(x.studentId)) return { ...x, studentLink: link }
+          if (oldLink && x.studentLink === oldLink) return { ...x, studentLink: undefined }
+          return x
+        })
+        const size = new Map<ID, number>()
+        summaries.forEach((x) => x.sessionId === sessionId && x.studentLink && size.set(x.studentLink, (size.get(x.studentLink) ?? 0) + 1))
+        summaries = summaries.map((x) => (x.sessionId === sessionId && x.studentLink && (size.get(x.studentLink) ?? 0) < 2 ? { ...x, studentLink: undefined } : x))
+        set({ summaries })
+        return { ok: true, value: { skipped } }
+      },
+
+      unlinkStudentSummary: (sessionId, studentId) => {
+        const s = get()
+        const cur = s.summaries.find((x) => x.sessionId === sessionId && x.studentId === studentId)
+        if (!cur?.studentLink) return OK
+        const link = cur.studentLink
+        const left = s.summaries.filter((x) => x.sessionId === sessionId && x.studentLink === link && x.studentId !== studentId).length
+        set({ summaries: s.summaries.map((x) => (x.sessionId === sessionId && x.studentLink === link && (x.studentId === studentId || left < 2) ? { ...x, studentLink: undefined } : x)) })
+        return OK
+      },
+
       saveSummary: (sessionId, studentId, text, submit, lesson) => {
         const s = get()
         const me = s.me()
@@ -2495,7 +2630,7 @@ export const useStore = create<Store>()(
         if (!can(me, "session.manage") && se && se.teacherId !== me.id && !se.coTeacherIds.includes(me.id)) return fail("เขียนสรุปได้เฉพาะคาบที่คุณสอน")
         // owner 2026-11-02: draft any time, but a summary can only be submitted once the session has ended; a session
         // whose summary already reached parents is locked.
-        if (se && Sum.sessionLocked(sessionId, s.summaries)) return fail("คาบนี้ส่งสรุปให้ผู้ปกครองแล้ว แก้ไขไม่ได้")
+        // owner 2026-11-26: Student Summaries are independent — only the one already approved / sent is locked (canEdit above)
         if (submit && se && !Sch.hasEnded(se, s.now())) return fail("ส่งสรุปได้หลังคาบเรียนจบแล้ว — ระหว่างนี้บันทึกร่างไว้ก่อนได้")
         const at = s.now().toISOString()
         const L = lesson ? { bookId: lesson.bookId || undefined, topicId: lesson.topicId || undefined, detail: lesson.detail?.trim() || undefined, level: lesson.level && lesson.level >= 1 && lesson.level <= 5 ? Math.round(lesson.level) : undefined,
@@ -4152,7 +4287,7 @@ export const useStore = create<Store>()(
           if (!r.ok) return fail(`สร้างนักเรียนแล้ว แต่ร่างใบแจ้งหนี้ไม่ผ่าน: ${r.error} — เปิดหน้า Billing สร้างเองได้`)
           made.push(r.value.id)
         }
-        if (students.length) log("profile", students.map((x) => x.id), "สมัครทันที", `จากฟอร์มสมัครเรียน · ${family.name}`)
+        if (students.length) log("profile", students.map((x) => x.id), "สมัครทันที", `จากฟอร์มสมัครเรียน · ${People.familyDisplay(family.name)}`)
         return { ok: true, value: { studentIds: stuIds, invoiceIds: made } }
       },
 
@@ -4623,8 +4758,8 @@ export const useStore = create<Store>()(
       skipHydration: true,
       onRehydrateStorage: () => () => idb.enableWrites(),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 132, // 132: Special Period parent messages (periodSent) · 131: session credits (sessionCredits) · // 130: system audit log (systemLogs) · 129: invoices keep the bank account they had when sent / paid (bankSnapshot) · 128: demo pay slips on every transfer (kept data, `slip` added) · 127: the Nockacademy main account carries its saved QR image · 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
-      migrate: (old, from) => withPeriodSent(withSessionCredits(withSystemLogs(Bank.withBankSnapshots(withDemoSlips(withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store))))))))),
+      version: 133, // 133: families are stored as "[name] Family" (withFamilyNames, saved data renamed in place) · // 132: Special Period parent messages (periodSent) · 131: session credits (sessionCredits) · // 130: system audit log (systemLogs) · 129: invoices keep the bank account they had when sent / paid (bankSnapshot) · 128: demo pay slips on every transfer (kept data, `slip` added) · 127: the Nockacademy main account carries its saved QR image · 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      migrate: (old, from) => withFamilyNames(withPeriodSent(withSessionCredits(withSystemLogs(Bank.withBankSnapshots(withDemoSlips(withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store)))))))))),
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },

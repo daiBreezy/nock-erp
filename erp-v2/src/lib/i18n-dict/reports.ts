@@ -18,7 +18,7 @@ export const REPORTS: Record<string, Entry> = {
   "= ประมาณการทั้งปี": { en: "= full-year estimate", ja: "＝ 通期見込み" },
   "ปี {0} เทียบปีที่แล้ว · ลายทาง = คาดการณ์ (ต่อคอร์ส {1} + ใบที่รอจ่าย + นักเรียนใหม่ตามอัตราเดิม)": { en: "{0} vs last year · striped = forecast (renewals {1} + unpaid invoices + new students at the recent pace)", ja: "{0}年 前年比 · 斜線＝予測（継続率 {1}＋未払い請求＋直近ペースの新規生徒）" },
   "ปี {0} เทียบปีที่แล้ว · คาดการณ์ = ต่อคอร์สตามอัตรา 6 เดือนล่าสุด {1} + ใบแจ้งหนี้ที่ส่งแล้วรอจ่าย {2} ใบ + นักเรียนใหม่ตามอัตรา 3 เดือนล่าสุด": { en: "{0} vs last year · forecast = renewals at the last 6 months' rate {1} + {2} sent invoices awaiting payment + new students at the last 3 months' pace", ja: "{0}年 前年比 · 予測＝直近6か月の継続率 {1} ＋ 支払い待ち請求 {2}件 ＋ 直近3か月ペースの新規生徒" },
-  "ต่อคอร์ส + ใบแจ้งหนี้รอจ่าย + นักเรียนใหม่ตามอัตรา 3 เดือนล่าสุด ({0} คน/เดือน ≈ {1}/เดือน)": { en: "renewals + unpaid invoices + new students at the last 3 months' pace ({0}/month ≈ {1}/month)", ja: "継続 ＋ 未払い請求 ＋ 直近3か月ペースの新規生徒（月{0}人 ≈ 月{1}）" },
+  "ต่อคอร์ส · ใบแจ้งหนี้รอจ่าย · นักเรียนใหม่ตามอัตรา 3 เดือนล่าสุด ({0} คน/เดือน ≈ {1}/เดือน)": { en: "renewals · unpaid invoices · new students at the last 3 months' pace ({0}/month ≈ {1}/month)", ja: "継続 · 未払い請求 · 直近3か月ペースの新規生徒（月{0}人 ≈ 月{1}）" },
   "ต่อคอร์ส {0} + ใบรอจ่าย {1} + นักเรียนใหม่ {2}": { en: "renewals {0} + unpaid invoices {1} + new students {2}", ja: "継続 {0} ＋ 未払い請求 {1} ＋ 新規生徒 {2}" },
   "นักเรียนใหม่ (คาดการณ์)": { en: "New students (forecast)", ja: "新規生徒（予測）" },
   // owner 2026-11-18: Year · Period · Compare

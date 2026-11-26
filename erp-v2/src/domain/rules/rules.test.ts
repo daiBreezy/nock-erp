@@ -37,7 +37,9 @@ import * as Loss from "./loss"
 import * as Survey from "./survey"
 import { courseSummaryMessage, formLinkMessage, summaryMessage } from "./messages"
 import { awardFor, pointsByTeacher, suggestReferrers } from "./referral"
-import { isDefaultPresent } from "./attendance"
+import { isDefaultPresent, isEffectivelyPresent, unsettledPresent } from "./attendance"
+import { withFamilyNames } from "@/store/family-names"
+import { familyThai, familyCore } from "./people"
 import { ROLE_PERMISSIONS } from "./permissions"
 import { applyRollover, nextGrade, rolloverDate, rolloverState } from "./rollover"
 import { transferConflicts } from "./people"
@@ -401,16 +403,14 @@ describe("drag & drop, co-teachers, card state", () => {
     expect(findConflicts([a, b], branch, [teacher]).some((c) => c.kind === "teacher")).toBe(true)
   })
 
-  it("card state: รอเริ่ม → กำลังเรียน → รอเช็คชื่อ → รอสรุป → เสร็จแล้ว", () => {
+  it("card state (owner 2026-11-26): รอเริ่ม → กำลังเรียน → จบแล้ว · ไม่มี 'รอเช็คชื่อ/รอสรุป/ค้าง' อีก", () => {
     const [s] = generateSessions(klass({ studentIds: ["a", "b"] }), [], id)
     const after = new Date(2026, 8, 29, 12, 0)
     expect(workState(s, new Date(2026, 8, 29, 9, 0), [], []).state).toBe("scheduled")
     expect(workState(s, new Date(2026, 8, 29, 10, 30), [], []).state).toBe("live")
-    expect(workState(s, after, [], []).state).toBe("needs_attendance")
-    const att: Attendance[] = ["a", "b"].map((st) => ({ sessionId: s.id, studentId: st, status: "present", markedBy: "t1", markedAt: "" }))
-    expect(workState(s, after, att, [{ sessionId: s.id, studentId: "a", status: "submitted" }]).state).toBe("needs_summary")
-    expect(workState(s, after, att, ["a", "b"].map((st) => ({ sessionId: s.id, studentId: st, status: "approved" }))).state).toBe("done")
-    expect(workState(s, new Date(2026, 8, 30, 9, 0), [], []).overdue).toBe(true)
+    expect(workState(s, after, [], []).state).toBe("done") // nobody marked, no summary → still just Past
+    expect(workState(s, new Date(2026, 8, 30, 9, 0), [], []).state).toBe("done")
+    expect(workState({ ...s, cancelled: true }, after, [], []).state).toBe("cancelled")
   })
 })
 
@@ -970,7 +970,7 @@ describe("end-to-end loop gaps", () => {
 
   it("converting a lead keeps the parent: family named after the child's surname, lead is primary parent, LINE carries over", () => {
     const f = familyFromLead({ name: "คุณสมชาย ใจดี", phone: "0895551212", lineUserId: "U1" }, { studentName: "ด.ช. ภูมิ ใจดี" }, "f1")
-    expect(f.name).toBe("ครอบครัวใจดี")
+    expect(f.name).toBe("ใจดี Family")
     expect(f.parents).toEqual([{ name: "คุณสมชาย ใจดี", phone: "0895551212", lineLinked: true, primary: true }])
     expect(f.lineUserId).toBe("U1")
     expect(validateFamily(f)).toEqual([])
@@ -2960,14 +2960,16 @@ describe("Form and admin panel collect the same fields (owner 2026-10-15)", () =
     expect(joinName({ first: " สุดา ", last: "ใจดี " })).toBe("สุดา ใจดี")
   })
   it("the family is named after the main parent's surname unless someone typed a name", () => {
-    expect(familyNameFor("", "ใจดี")).toBe("ครอบครัวใจดี")
-    expect(familyNameFor("บ้านสวน", "ใจดี")).toBe("บ้านสวน")
+    expect(familyNameFor("", "ใจดี")).toBe("ใจดี Family") // owner 2026-11-26: stored as "[name] Family"
+    expect(familyNameFor("บ้านสวน", "ใจดี")).toBe("บ้านสวน Family")
+    expect(familyNameFor("ครอบครัวใจดี", "x")).toBe("ใจดี Family") // a typed Thai word is normalised
+    expect(familyNameFor("ใจดี Family", "x")).toBe("ใจดี Family")
     expect(familyNameFor(undefined, "")).toBe("")
     const parents = [{ name: "สมชาย มั่นคง", phone: "0811111111" }, { name: "สุดา ใจดี", phone: "0822222222", primary: true, nameEn: "Suda Jaidee" }]
     const f = familyFromSubmission("ภูมิ รักเรียน", parents, {}, undefined, "f1")
-    expect(f.name).toBe("ครอบครัวใจดี") // the primary parent's surname, not the child's
+    expect(f.name).toBe("ใจดี Family") // the primary parent's surname, not the child's
     expect(f.parents[1].nameEn).toBe("Suda Jaidee")
-    expect(familyFromSubmission("ภูมิ รักเรียน", parents, { name: "บ้านใจดี", nameEn: "Jaidee" }, undefined, "f1")).toMatchObject({ name: "บ้านใจดี", nameEn: "Jaidee" })
+    expect(familyFromSubmission("ภูมิ รักเรียน", parents, { name: "บ้านใจดี", nameEn: "Jaidee" }, undefined, "f1")).toMatchObject({ name: "บ้านใจดี Family", nameEn: "Jaidee" })
   })
   it("the optional extras (English names, gender, school code) reach the student on file", () => {
     const sub = { parents: [], studentName: "ภูมิ ใจดี", studentNameEn: "Phum Jaidee", studentNicknameEn: "Phum", studentGender: "male", studentSchool: "สาธิต", studentSchoolId: "1010", studentGrade: "ป.5" } as unknown as FormSubmission
@@ -3946,12 +3948,12 @@ describe("mergeSameCourse (owner 2026-11-20)", () => {
 describe("Liclass brand switches (owner 2026-11-23, Shibasan)", () => {
   const ses = { id: "s1", branchId: "L", classId: "k", date: "2026-10-06", start: "09:00", minutes: 60, studentIds: ["a"], cancelled: false } as unknown as Session
   const att = [{ id: "x", sessionId: "s1", studentId: "a", status: "present" }] as unknown as Attendance[]
-  it("no lesson summary → a past, marked Liclass session is done (Nock Academy waits for the summary)", () => {
+  it("a past session is done for every brand — summaries are optional (owner 2026-11-26)", () => {
     const now = new Date("2026-10-07T12:00:00")
     setBranchBrands([{ id: "L", brand: "liclass" }])
     expect(workState(ses, now, att, []).state).toBe("done")
     setBranchBrands([{ id: "L", brand: "nockacademy" }])
-    expect(workState(ses, now, att, []).state).toBe("needs_summary")
+    expect(workState(ses, now, att, []).state).toBe("done")
     setBranchBrands([])
   })
   it("no leave quota: hour pack stretches for every leave, week / month pack never does", () => {
@@ -4146,5 +4148,35 @@ describe("a package pushed out by a school pause never ends inside the special p
     // without the branches (old behaviour) it would have landed on the paused Wed 2 Dec
     const [old] = resolveEntsP([e], [], { sessions: [paused], attendance: [], classes: [klass], holidays: [] })
     expect(old.to).toBe("2026-12-02")
+  })
+})
+
+describe("Everyone is present unless set otherwise (owner 2026-11-26)", () => {
+  const se = { id: "s1", date: "2026-11-10", start: "10:00", minutes: 60, studentIds: ["a", "b", "c", "d"], cancelled: false } as unknown as Session
+  const att = [{ sessionId: "s1", studentId: "b", status: "leave" }] as Attendance[]
+  const leaves = [{ studentId: "c", from: "2026-11-01", to: "2026-11-30", reason: "x" }] as unknown as StudentLeave[]
+  it("present with no mark at all — even before the class starts", () => {
+    expect(isEffectivelyPresent(se, "a", att, leaves)).toBe(true)
+    expect(isEffectivelyPresent(se, "b", att, leaves)).toBe(false) // leave mark wins
+    expect(isEffectivelyPresent(se, "c", att, leaves)).toBe(false) // long leave
+    expect(isEffectivelyPresent({ ...se, cancelled: true }, "a", att, leaves)).toBe(false)
+    expect(isEffectivelyPresent({ ...se, rescheduledOut: [{ studentId: "a", toSessionId: "s2" }] } as unknown as Session, "a", att, leaves)).toBe(false)
+  })
+  it("a Past session writes present only for the unmarked who are not on leave", () => {
+    expect(unsettledPresent(se, att, leaves)).toEqual(["a", "d"])
+  })
+})
+
+describe("Family names are stored as '[name] Family' (owner 2026-11-26)", () => {
+  it("withFamilyNames renames old data in place and the linked chat follows", () => {
+    const out = withFamilyNames({ families: [{ id: "a", name: "ครอบครัวสมใจ" }, { id: "b", name: "ทองดี Family" }], conversations: [{ familyId: "a", name: "ครอบครัวสมใจ" }, { familyId: null, name: "LINE คนอื่น" }] })
+    expect(out.families.map((f) => f.name)).toEqual(["สมใจ Family", "ทองดี Family"])
+    expect(out.conversations?.map((c) => c.name)).toEqual(["สมใจ Family", "LINE คนอื่น"])
+    expect(withFamilyNames(out)).toEqual(out) // safe to run again
+  })
+  it("parent-facing Thai keeps the familiar word", () => {
+    expect(familyThai("สมใจ Family")).toBe("ครอบครัวสมใจ")
+    expect(familyThai("ครอบครัวสมใจ")).toBe("ครอบครัวสมใจ")
+    expect(familyCore("สมใจ Family")).toBe("สมใจ")
   })
 })

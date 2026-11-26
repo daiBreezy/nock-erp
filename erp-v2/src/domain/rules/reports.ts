@@ -14,6 +14,7 @@ import type { Assessment, Attendance, Branch, Course, CreditNote, DateStr, Entit
 import { receiptDate } from "./documents"
 import * as Loss from "./loss"
 import type { InvoiceTotals } from "./billing"
+import { familyDisplay } from "./people"
 
 /** Need Attention texts are Thai with {0} slots; the UI passes a translator (TH / EN / JP chip) */
 export type Tr = (th: string, vars?: (string | number)[]) => string
@@ -348,7 +349,7 @@ export function packageBySubject(rows: RevenueRow[], r: Range) {
 /** Top families by money paid in the period — tenure counts from their first paid invoice ever. */
 export function topFamilies(rows: RevenueRow[], r: Range, ctx: { students: Pick<Student, "id" | "nickname" | "familyId">[]; families: Pick<Family, "id" | "name">[]; today: DateStr }) {
   const keyOf = (sid: ID) => { const s = ctx.students.find((x) => x.id === sid); return s?.familyId ?? `stu:${sid}` }
-  const nameOf = (key: string) => key.startsWith("stu:") ? (ctx.students.find((x) => x.id === key.slice(4))?.nickname ?? "—") : (ctx.families.find((f) => f.id === key)?.name ?? "—")
+  const nameOf = (key: string) => key.startsWith("stu:") ? (ctx.students.find((x) => x.id === key.slice(4))?.nickname ?? "—") : (familyDisplay(ctx.families.find((f) => f.id === key)?.name ?? "—"))
   const first = new Map<string, DateStr>()
   for (const x of rows) if (!x.credit) { const k = keyOf(x.studentId); if (!first.has(k) || x.date < first.get(k)!) first.set(k, x.date) }
   const by = new Map<string, { amount: number; invoices: number; kids: Set<ID> }>()

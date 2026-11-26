@@ -1,6 +1,7 @@
 "use client"
 
 import { Panel, Empty, InfoTip, fmtNum, fmtPct } from "@/components/reports/charts"
+import { TipFacts } from "@/components/app/info-tip"
 import { monthShort, yearOf } from "@/domain/dates"
 import type { Staff } from "@/domain/types"
 import { pointsByTeacher } from "@/domain/rules/referral"
@@ -74,13 +75,74 @@ function Frac({ a, b, r }: { a: number; b: number; r: number | null }) {
   )
 }
 
-const Head = ({ tip, children }: { tip: string; children: React.ReactNode }) => <span className="inline-flex items-center gap-1">{children}<InfoTip text={tip} splitTitle /></span>
+const Head = ({ tip, children }: { tip: React.ReactNode; children: React.ReactNode }) => <span className="inline-flex items-center gap-1">{children}<InfoTip text={tip} splitTitle={typeof tip === "string"} /></span>
 
-export function TeacherPerformance({ teachers, today }: { teachers: Staff[]; today: string }) {
+/** owner 2026-11-26: the ⓘ of "Lead → Test/Trial": the title, the %, the two counts it is made of — one line each. Without a row (a table header) the counts are described, not numbered. */
+function leadTip(r?: { tests: number; leads: number }) {
+  return <TipFacts title="Lead → Test/Trial" value={r ? fmtPct(rate(r.tests, r.leads)) : undefined}
+    rows={[{ label: tx("Lead ทั้งหมดที่ดูแล"), value: r ? r.leads : tx("ทั้งหมด") }, { label: tx("ผ่าน Test/Trial"), value: r ? r.tests : tx("ที่ผ่าน") }]}
+    measure={tx("ผ่าน Test/Trial ÷ Lead ทั้งหมด · Test กับ Trial นับรวมกัน")} />
+}
+function convTip(r?: { enrolled: number; tests: number }) {
+  return <TipFacts title="Conversion Rate" value={r ? fmtPct(rate(r.enrolled, r.tests)) : undefined}
+    rows={[{ label: "Test/Trial", value: r ? r.tests : tx("ที่ผ่าน") }, { label: "Enrollment", value: r ? r.enrolled : tx("ที่สมัครเรียนจริง") }]}
+    measure={tx("Test/Trial → Enrollment · สมัครเรียนจริง ÷ ผ่าน Test/Trial")} />
+}
+
+/** one plain row of the teacher's own figures: label on the left, value (+ % / note) on the right */
+function Stat({ label, short, value, pct, note, tip, bad, valueClass }: { label: string; /** the abbreviation — used only when the row is squeezed (container width), the full name otherwise */ short?: string; value: string; pct?: number | null; note?: string; tip?: React.ReactNode; bad?: boolean; valueClass?: string }) {
+  return (
+    <div className="@container flex items-baseline justify-between gap-3 border-b py-2.5 text-sm last:border-b-0 sm:[&:nth-last-child(2):nth-child(odd)]:border-b-0">
+      <dt className="flex items-center gap-1 text-muted-foreground">
+        {/* owner 2026-11-26: the full name while there is room; the short form only when the row is squeezed */}
+        {short ? <><span className="@[22rem]:hidden">{short}</span><span className="hidden @[22rem]:inline">{label}</span></> : label}
+        {tip && <InfoTip text={tip} splitTitle={typeof tip === "string"} />}
+      </dt>
+      <dd className="flex items-baseline gap-2 tabular-nums">
+        {/* owner 2026-11-26: the sub info (%, count) first, the main number LAST — it sits on the right edge */}
+        {pct !== undefined && <span className={cn("w-10 text-right text-xs", bad ? "text-danger" : tone(pct))}>{fmtPct(pct)}</span>}
+        {note && <span className="text-xs text-muted-foreground">{note}</span>}
+        <span className={cn("min-w-10 text-right text-base font-semibold", valueClass)}>{value}</span>
+      </dd>
+    </div>
+  )
+}
+
+export function TeacherPerformance({ teachers, today, mine }: { teachers: Staff[]; today: string
+  /** owner 2026-11-26: a Teacher sees only THEIR OWN numbers (never another teacher's) — a card of figures instead of a table of teachers */
+  mine?: boolean }) {
   // owner 2026-11-19: Referral points are real now (1 point per referred family that paid, shared by the referrer's teachers) — added on top of the mock figure
   const awards = useStore((s) => s.referralAwards)
   const real = pointsByTeacher(awards)
   const rows = teachers.map((t) => { const m = mockTeacher(t, today); return { ...m, referrals: m.referrals + (real.get(t.id) ?? 0) } }).sort((a, b) => b.tenureDays - a.tenureDays)
+  if (mine) {
+    const r = rows[0]
+    return (
+      <Panel title={tx("Teacher Performance")} sub={tx("ของคุณ")} hint={tx("แสดงเฉพาะตัวเลขของคุณ ไม่เห็นของครูท่านอื่น · ข้อมูลจำลอง — ยังไม่ต่อข้อมูลจริง")}>
+        {r ? (
+          <div className="space-y-3">
+            <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+              <span className="text-base font-semibold">{nm(r.name)}</span>
+              <span className="text-muted-foreground">{tx("เริ่มงาน")} <Slots parts={startParts(r.since)} widths={["w-4", "w-8", "w-4"]} aligns={["right", "left", "right"]} /></span>
+              <span className="text-muted-foreground">{tx("อายุงาน")} <Slots parts={tenureParts(r.since, today)} widths={["w-6", "w-7"]} /></span>
+            </p>
+            {/* owner 2026-11-26: plain rows (label · value), not KPI cards — quiet, two columns */}
+            <dl className="grid gap-x-10 sm:grid-cols-2">
+              <Stat label="Lead → Test/Trial" value={`${r.tests}/${r.leads}`} pct={rate(r.tests, r.leads)} tip={leadTip(r)} />
+              <Stat label="Conversion Rate" short="Conversion" value={`${r.enrolled}/${r.tests}`} pct={rate(r.enrolled, r.tests)} tip={convTip(r)} />
+              <Stat label={tx("นักเรียน")} value={fmtNum(r.students)} />
+              <Stat label={tx("คอร์ส")} value={fmtNum(r.courses)} />
+              <Stat label="Churn" value={fmtNum(r.churned)} pct={rate(r.churned, r.students)} bad={(rate(r.churned, r.students) ?? 0) > 0.15} />
+              <Stat label="Referral Enrollments" short="Ref" value={r.referrals ? (Number.isInteger(r.referrals) ? String(r.referrals) : r.referrals.toFixed(2)) : "—"}
+                tip={tx("Referral Enrollments · ผู้ปกครองใหม่กรอก Ref ID ของผู้แนะนำตอนสมัคร")} />
+              <Stat label="Academic Improvement (ACI)" short="ACI" value={r.aci.toFixed(1)} note={`(${r.aciN})`} valueClass={r.aci >= 8.5 ? "text-success" : r.aci < 7 ? "text-danger" : ""}
+                tip={tx("Academic Improvement (ACI) · เฉลี่ยคะแนน NPS (0–10) ที่ผู้ปกครองให้ ตัวเลขในวงเล็บ = จำนวนคนที่ตอบ")} />
+            </dl>
+          </div>
+        ) : <Empty />}
+      </Panel>
+    )
+  }
   return (
     <Panel title={tx("Teacher Performance")} hint={tx("เรียงตามอายุงาน (นานสุดอยู่บน) · ข้อมูลจำลอง — ยังไม่ต่อข้อมูลจริง")}>
       {rows.length ? (
@@ -93,8 +155,8 @@ export function TeacherPerformance({ teachers, today }: { teachers: Staff[]; tod
                 <th className="text-left font-normal">{tx("ครู")}</th>
                 <th className="text-right font-normal">{tx("เริ่มงาน")}</th>
                 <th className="text-right font-normal">{tx("อายุงาน")}</th>
-                <th className="whitespace-nowrap text-right font-normal">Lead → Test/Trial</th>
-                <th className="text-right font-normal"><Head tip={tx("Conversion Rate = Test/Trial → Enrollment · จำนวนที่สมัครจริง ÷ จำนวน Test/Trial ของครูคนนี้")}>Conversion</Head></th>
+                <th className="whitespace-nowrap text-right font-normal"><Head tip={leadTip()}>Lead → Test/Trial</Head></th>
+                <th className="text-right font-normal"><Head tip={convTip()}>Conversion</Head></th>
                 <th className="text-right font-normal">{tx("นักเรียน")}</th>
                 <th className="text-right font-normal">{tx("คอร์ส")}</th>
                 <th className="text-right font-normal">Churn</th>

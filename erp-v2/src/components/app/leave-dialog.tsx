@@ -14,6 +14,8 @@ import { useStore } from "@/store/store"
 import { Field } from "./student-form"
 import { Segmented } from "./page-layout"
 import { PeriodNote } from "@/components/app/period-note"
+import { MinusIcon, PlusIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 /** Create / edit a student-level, date-range "ลาพักยาว ไม่หักโควตา" record — editable any time, always re-notifies. */
 export function LeaveDialog({ studentId, leave, onClose }: { studentId: ID; leave?: StudentLeave; onClose: () => void }) {
@@ -50,13 +52,33 @@ export function LeaveDialog({ studentId, leave, onClose }: { studentId: ID; leav
 }
 
 /**
+ * owner 2026-11-26: ONE field for "how many sessions" — "−" at its left edge, "+" at its right, the number centred (used by both leave tabs).
+ * `value` is the text so a half-typed number is allowed; `max` caps what + and typing can reach.
+ */
+export function CountStepper({ value, onChange, max = 60, disabled, invalid, className }: { value: string; onChange: (text: string) => void; max?: number; disabled?: boolean; invalid?: boolean; className?: string }) {
+  const n = Number(value)
+  const valid = Number.isInteger(n) && n >= 1 && n <= max
+  const set = (x: number) => onChange(String(Math.max(1, Math.min(max, x))))
+  return (
+    <div className={cn("flex h-9 w-28 items-center rounded-3xl bg-background px-0.5 ring-1 ring-border focus-within:ring-2 focus-within:ring-ring/40", (invalid ?? !valid) && "ring-destructive/40", className)}>
+      <Button variant="ghost" size="icon-sm" type="button" aria-label="ลดจำนวนคาบ" className="shrink-0 rounded-full" disabled={disabled || !valid || n <= 1} onClick={() => set(n - 1)}><MinusIcon /></Button>
+      <Input type="number" min={1} max={max} className="h-7 min-w-0 flex-1 border-0 bg-transparent px-0 text-center shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" value={value} disabled={disabled}
+        onChange={(e) => { const x = Number(e.target.value); onChange(e.target.value === "" || !Number.isFinite(x) ? e.target.value : String(Math.min(max, x))) }} aria-invalid={invalid ?? !valid} aria-label="จำนวนคาบ" />
+      <Button variant="ghost" size="icon-sm" type="button" aria-label="เพิ่มจำนวนคาบ" className="shrink-0 rounded-full" disabled={disabled || !valid || n >= max} onClick={() => set(n + 1)}><PlusIcon /></Button>
+    </div>
+  )
+}
+
+/**
  * The ลาพักยาว fields — the ONE look wherever a long leave is recorded (owner 2026-10-12: student ⋯ › ลาพักยาว and the
  * session's ลา › ลาพักยาว are the same thing, so they show the same form). Two ways to say how long, pick one:
  *  - เลือกคาบ: from a day, the next N sessions of this student (any subject) — the end date follows the last one
  *  - ช่วงวันที่: from – to
  * Either way it is saved as one date range.
  */
-export function LongLeaveFields({ studentId, from, to, reason, onChange, error }: { studentId: ID; from: string; to: string; reason: string; onChange: (v: { from?: string; to?: string; reason?: string }) => void; error?: string }) {
+export function LongLeaveFields({ studentId, from, to, reason, onChange, error, afterSwitch }: { studentId: ID; from: string; to: string; reason: string; onChange: (v: { from?: string; to?: string; reason?: string }) => void; error?: string
+  /** owner 2026-11-26: sits right under the "เลือกคาบ / ช่วงวันที่" switch (the leave dialog puts the student's course there) */
+  afterSwitch?: React.ReactNode }) {
   const sessions = useStore((s) => s.sessions)
   // an existing leave (a real range) opens on its dates; a new one on "เลือกคาบ"
   const [mode, setMode] = useState<"sessions" | "dates">(from === to ? "sessions" : "dates")
@@ -80,11 +102,12 @@ export function LongLeaveFields({ studentId, from, to, reason, onChange, error }
     <div className="space-y-3">
       <Segmented label="วิธีเลือก" value={mode} onChange={(m) => { setMode(m); if (m === "sessions" && countOk) syncTo(from, count) }}
         options={[{ value: "sessions", label: "เลือกคาบ" }, { value: "dates", label: "ช่วงวันที่" }]} />
+      {afterSwitch}
       {mode === "sessions" ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="เริ่มลา *"><Input type="date" value={from} onChange={(e) => { onChange({ from: e.target.value }); if (countOk) syncTo(e.target.value, count) }} /></Field>
-            <Field label="จำนวนคาบ *"><Input type="number" min={1} max={60} value={countText} aria-invalid={!countOk} onChange={(e) => { setCountText(e.target.value); const n = Number(e.target.value); if (Number.isInteger(n) && n >= 1 && n <= 60) syncTo(from, n) }} /></Field>
+            <Field label="จำนวนคาบ *"><CountStepper className="w-full" value={countText} invalid={!countOk} onChange={(t) => { setCountText(t); const n = Number(t); if (Number.isInteger(n) && n >= 1 && n <= 60) syncTo(from, n) }} /></Field>
           </div>
           <PeriodNote date={from} />
           <SessionList sessions={run} more={countOk && run.length < count ? `มีคาบในตารางแค่ ${run.length} คาบ` : undefined}

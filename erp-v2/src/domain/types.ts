@@ -617,6 +617,12 @@ export interface LessonSummary {
   topicId?: ID
   /** Lesson Detail — what was covered (e.g. pages, exercises) */
   detail?: string
+  /** owner 2026-11-26: Lesson Summary (book / topic / detail) shared with the other students of the SAME session that carry the same
+   *  link id — edit once, everyone linked gets it. Unlink = the student keeps a copy and edits on their own. */
+  lessonLink?: ID
+  /** owner 2026-11-26: same idea for the Student Summary text — students of this session sharing one feedback text (each is still
+   *  submitted / approved / sent on its own; a locked one is skipped when the shared text changes) */
+  studentLink?: ID
   /** owner 2026-10-14: the teacher's 1–5 "ความเข้าใจวันนี้" — what the Course Summary progress chart is drawn from */
   level?: number
   /** owner 2026-10-14: a Bundle session (several subjects) rates each subject on its own; `level` = their average */

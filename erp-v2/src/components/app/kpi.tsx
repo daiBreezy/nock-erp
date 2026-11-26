@@ -40,12 +40,19 @@ const KPI_INK: Record<KpiTone, string> = {
   sky: "text-info-ink",
 }
 
-/** Design System › Kpi: phones show 100,000+ as K and 1,000,000+ as M (1.25M) — the font never shrinks */
-export function abbreviate(n: number): string | null {
+/**
+ * Design System › Kpi: a number in a small space is shortened (owner 2026-11-26): Million ALWAYS with 2 decimals ("2.01M", "1.00M"),
+ * Thousand with 1 decimal ("637.3K"). Phones shorten from 100,000 up (the full value stays in the tooltip).
+ */
+export function compactNum(n: number): string {
   const a = Math.abs(n)
-  if (a >= 1_000_000) return `${+(n / 1_000_000).toFixed(2)}M`
-  if (a >= 100_000) return `${Math.round(n / 1_000)}K`
-  return null
+  const k = (a / 1_000).toFixed(1)
+  if (a >= 1_000_000 || k === "1000.0") return `${(n / 1_000_000).toFixed(2)}M`
+  if (a >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString("en-US", { maximumFractionDigits: 2 })
+}
+export function abbreviate(n: number): string | null {
+  return Math.abs(n) >= 100_000 ? compactNum(n) : null
 }
 
 /** a number for a KPI: full from 640px up, abbreviated on phones (the full value stays in the tooltip) */

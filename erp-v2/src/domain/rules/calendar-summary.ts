@@ -2,11 +2,11 @@
 // subjects — plus every problem the admin has to deal with, so nothing is found out on the day.
 import type { Attendance, Branch, Course, Holiday, ID, Klass, Session, Staff, TimeStr, Weekday } from "../types"
 import { weekdayOf } from "../dates"
-import { classCapacity, isHoliday, sessionState, slotProblem, subjectsOf, teachersOf, workState, type Conflict } from "./scheduling"
+import { classCapacity, isHoliday, sessionState, slotProblem, subjectsOf, teachersOf, type Conflict } from "./scheduling"
 
 export type SummaryIssueKind =
   | "conflict" | "no_teacher" | "teacher_gone" | "no_room" | "on_holiday" | "closed_day" | "outside_hours"
-  | "no_students" | "over_capacity" | "teacher_leave" | "needs_attendance" | "needs_summary" | "cancelled"
+  | "no_students" | "over_capacity" | "teacher_leave" | "cancelled"
 
 export interface SummaryIssue {
   kind: SummaryIssueKind
@@ -48,7 +48,7 @@ export interface CalendarSummary {
   rows: SummaryClassRow[]
 }
 
-const ORDER: SummaryIssueKind[] = ["conflict", "no_teacher", "teacher_gone", "closed_day", "on_holiday", "no_room", "over_capacity", "outside_hours", "no_students", "needs_attendance", "needs_summary", "teacher_leave", "cancelled"]
+const ORDER: SummaryIssueKind[] = ["conflict", "no_teacher", "teacher_gone", "closed_day", "on_holiday", "no_room", "over_capacity", "outside_hours", "no_students", "teacher_leave", "cancelled"]
 
 export function calendarSummary(range: Session[], ctx: {
   branch: Branch; classes: Klass[]; staff: Staff[]; holidays: Holiday[]; conflicts: Conflict[]
@@ -78,11 +78,6 @@ export function calendarSummary(range: Session[], ctx: {
     if (!s.studentIds.length && k?.kind === "learning") add("no_students", s.id)
     if (k && s.studentIds.length > classCapacity(k)) add("over_capacity", s.id)
   }
-  for (const s of live) {
-    const w = workState(s, ctx.now, ctx.attendance, ctx.summaries).state
-    if (w === "needs_attendance") add("needs_attendance", s.id)
-    if (w === "needs_summary") add("needs_summary", s.id)
-  }
   for (const s of range.filter((x) => x.cancelled && sessionState(x, ctx.now) === "cancelled")) {
     if (s.teacherLeave && !s.teacherLeave.substituteId) add("teacher_leave", s.id)
     else if (!s.pausedBy) add("cancelled", s.id)
@@ -98,8 +93,6 @@ export function calendarSummary(range: Session[], ctx: {
     over_capacity: ["amber", "นักเรียนเกินจำนวนที่แนะนำ", "แยกคาบหรือเปลี่ยนเป็นคลาสกลุ่ม"],
     outside_hours: ["amber", "คาบนอกเวลาเปิด", "ยืนยันเวลา หรือแจ้งทีมที่ต้องอยู่ต่อ"],
     no_students: ["amber", "คาบที่ยังไม่มีนักเรียน", "เพิ่มนักเรียน หรือยกเลิกคาบ"],
-    needs_attendance: ["amber", "รอเช็คชื่อ", "ให้ครูเช็คชื่อคาบที่จบแล้ว"],
-    needs_summary: ["amber", "รอสรุปการเรียน", "ให้ครูเขียนสรุป"],
     teacher_leave: ["info", "ครูลา — คาบถูกยกเลิก", "นัดเรียนชดเชย (แพ็กเกจยืดให้แล้ว)"],
     cancelled: ["info", "คาบที่ยกเลิก", "เช็คว่าแจ้งผู้ปกครองแล้ว"],
   }

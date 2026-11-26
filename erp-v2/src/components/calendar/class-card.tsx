@@ -50,8 +50,6 @@ export function ClassCard({ s, d }: { s: Session; d: CardData }) {
         live ? c.strong : c.soft,
         w.state === "done" && "opacity-60 saturate-50",
         w.state === "cancelled" && "opacity-50 grayscale",
-        w.state === "needs_attendance" && "ring-2 ring-danger",
-        w.state === "needs_summary" && "ring-2 ring-warning",
         conflicts && "outline-2 outline-offset-1 outline-red-600 outline-dashed",
         d.dim(s) && "opacity-25",
         canDrag && "active:cursor-grabbing",

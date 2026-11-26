@@ -42,6 +42,7 @@ import { BusMap } from "./bus-map"
 import { Section } from "./section"
 import { CreditTag } from "@/components/app/credit-tag"
 import { creditAgeDays, creditsAvailable } from "@/domain/rules/credit"
+import { familyDisplay } from "@/domain/rules/people"
 
 export type LineDraft = { id: string; courseId: string; classIds: string[]; startDate: string; periodsText: string; overlapRemark: string; backdateRemark?: string; leftover?: Leftover; seats?: Record<string, Seat>; creditId?: string }
 
@@ -289,7 +290,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
           )}
           {student && (
             <p className="text-xs text-muted-foreground">
-              {family ? `${family.name} · ${family.parents.find((p) => p.primary)?.name}` : "ยังไม่ผูกครอบครัว"}
+              {family ? `${familyDisplay(family.name)} · ${family.parents.find((p) => p.primary)?.name}` : "ยังไม่ผูกครอบครัว"}
               {family && !family.parents.some((p) => p.lineLinked) && <span className="text-warning"> · ยังไม่ผูก LINE</span>}
             </p>
           )}

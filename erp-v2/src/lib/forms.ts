@@ -9,6 +9,7 @@ import * as FB from "@/domain/rules/form-builder"
 import { buildCatalog } from "@/domain/rules/catalog"
 import { addDays } from "@/domain/dates"
 import { branchHasBus } from "@/domain/rules/settings"
+import { familyThai } from "@/domain/rules/people"
 import * as Bill from "@/domain/rules/billing"
 import { notAnswered, surveyRecipients, surveyWindow } from "@/domain/rules/survey"
 import type { CatalogToken, CustomFormToken, FormDef, Brand, EnrollSubmission, EnrollToken, ExitResponse, ExitToken, SurveyCampaign, SurveyToken, FormLang, FormOfferSlot, FormPrefill, FormSubjectOffer, FormSubmission, FormToken, FormType, ID, Result, EnrollClassOffer, EnrollInvoiceSnap, EnrollPlan } from "@/domain/types"
@@ -188,7 +189,7 @@ export async function sendYearlySurvey(year: number, from: string, to: string): 
     const branch = s.branches.find((b) => b.id === kids[0].branchId)!
     const conv = s.conversations.find((c) => c.familyId === family.id)
     return {
-      campaignId, year, familyId: family.id, familyName: family.name, branchId: branch.id, branchName: branch.name, brand: branch.brand, lang: s.system.preferences.language,
+      campaignId, year, familyId: family.id, familyName: familyThai(family.name), branchId: branch.id, branchName: branch.name, brand: branch.brand, lang: s.system.preferences.language,
       usesBus: kids.some((k) => k.usesBus), conversationId: conv?.id ?? null, expiresAt,
       children: kids.map((k) => {
         const mine = s.classes.filter((c) => c.studentIds.includes(k.id))

@@ -88,12 +88,10 @@ export default function DashboardPage() {
 
   // ---------- the work, as topics (owner 2026-10-07): one row per kind of work, the list itself lives on its page ----------
   const mine = (s: Session) => !mineOnly || s.teacherId === me.id
-  const unmarked = branchSessions.filter((s) => s.date >= addDays(today, -29) && s.date <= today && mine(s) && workState(s, now, attendance, summaries).state === "needs_attendance").length
   // same 7 days and scope as the Summaries page opens with, so the count there matches
   const summaryRows = branchSessions
     .filter((s) => s.date >= addDays(today, -6) && s.date <= today && mine(s))
     .flatMap((s) => attendance.filter((a) => a.sessionId === s.id && a.status === "present").map((a) => summaries.find((x) => x.sessionId === s.id && x.studentId === a.studentId)))
-  const toWrite = summaryRows.filter((sm) => !sm || sm.status === "draft" || sm.status === "changes_requested").length
   const toApprove = summaryRows.filter((sm) => sm?.status === "submitted" && sm.authorId !== me.id && sm.lastEditorId !== me.id).length
   const invoicesToApprove = invoices.filter((i) => canApproveInvoice(i, me).ok).length
 
@@ -162,8 +160,6 @@ export default function DashboardPage() {
   }, tx, { keepZero: true }) : []
 
   const topics: Topic[] = [
-    { key: "unmarked", group: "today", title: tx("ยังไม่เช็คชื่อ"), detail: tx("คาบที่จบแล้วใน 30 วัน"), count: unmarked, href: `/sessions?period=custom&from=${addDays(today, -29)}&to=${today}&work=needs_attendance` },
-    { key: "summary_write", group: "today", title: tx("สรุปการเรียนยังไม่ได้เขียน"), detail: tx("7 วันล่าสุด รวมที่ถูกขอแก้"), count: toWrite, href: `/summaries?sent=0&period=custom&from=${addDays(today, -6)}&to=${today}` },
     ...(can(me, "summary.approve") ? [{ key: "summary_approve", group: "today" as const, title: tx("สรุปการเรียนรออนุมัติ"), detail: tx("ครูส่งมาแล้ว รอคุณตรวจ"), count: toApprove, href: "/summaries?bucket=submitted" }] : []),
     ...(can(me, "billing.approve") ? [{ key: "invoice_approve", group: "today" as const, title: tx("ใบแจ้งหนี้รออนุมัติ"), detail: tx("อนุมัติแล้วจึงส่งผู้ปกครองได้"), count: invoicesToApprove, href: "/billing?filter=pending_approval" }] : []),
     ...(!mineOnly ? [

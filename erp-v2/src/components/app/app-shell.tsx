@@ -114,6 +114,8 @@ function Shell({ children }: { children: ReactNode }) {
   const currentGroup = current && NAV.find((g) => g.items.includes(current))?.group
   const allowed = !current || canAny(me, current.perm)
   const now = useNow(30_000)
+  // owner 2026-11-26: a class that has ended → everyone nobody marked is present (no "save attendance" step)
+  useEffect(() => { useStore.getState().settleAttendance() }, [now])
   const conversations = useStore((s) => s.conversations)
   const leads = useStore((s) => s.leads)
   const sessions = useStore((s) => s.sessions)

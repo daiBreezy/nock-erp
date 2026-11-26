@@ -3,6 +3,7 @@
 // One trip as a row of the week table — the standard DataTable (owner 2026-10-19 Bus Route ref + "Table ในรูปแบบที่เราทำกันไว้"):
 // van · time (+late) · passengers · zone · driver · trip type · branch · status · ⋯ — open it for the stops: order · child (+Parent) · grade · home · P/D · est. / actual
 // time · stop status. "แก้ไข" turns on drag-to-reorder and ✕ remove; "+ เพิ่มผู้โดยสาร" adds a child for the day.
+import { familyDisplay } from "@/domain/rules/people"
 import { useState } from "react"
 import { ArrowRightLeftIcon, BanIcon, ChevronDownIcon, ChevronUpIcon, ClockIcon, CopyIcon, EllipsisIcon, GripVerticalIcon, MapIcon, MapPinIcon, MapPinOffIcon, PencilIcon, PlusIcon, RotateCcwIcon, RouteIcon, SendIcon, TrashIcon, UserCogIcon, UserIcon, UserMinusIcon, UserXIcon, XIcon } from "lucide-react"
 import { type Column } from "@/components/app/data-grid"
@@ -139,7 +140,7 @@ export function TripDetail({ r }: { r: TripRowData }) {
                   </td>
                   <td className={cn(STOP_TD, "text-center")}><span className={cn("rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap", gradeTone(x.rider.grade))}>{x.rider.grade}</span></td>
                   <td className={cn(STOP_TD, "text-xs")}>
-                    {x.rider.loc ? <><span className="flex items-center gap-1 text-sm"><MapPinIcon className="size-3 shrink-0 text-muted-foreground" />{x.rider.addressNote ?? x.rider.familyName}</span><span className="block text-muted-foreground">{[x.rider.address, x.km !== null && `${x.km} กม.`].filter(Boolean).join(" · ")}</span></>
+                    {x.rider.loc ? <><span className="flex items-center gap-1 text-sm"><MapPinIcon className="size-3 shrink-0 text-muted-foreground" />{x.rider.addressNote ?? (x.rider.familyName ? familyDisplay(x.rider.familyName) : "")}</span><span className="block text-muted-foreground">{[x.rider.address, x.km !== null && `${x.km} กม.`].filter(Boolean).join(" · ")}</span></>
                       : <span className="inline-flex items-center gap-1 text-warning"><MapPinOffIcon className="size-3" />ยังไม่ปักหมุดบ้าน</span>}
                   </td>
                   <td className={STOP_TD}><TripTypeChip kind={x.rider.leg} short /></td>

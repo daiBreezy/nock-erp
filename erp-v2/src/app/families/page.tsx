@@ -165,7 +165,7 @@ export default function FamiliesPage() {
         {busOn && <Kpi icon={BusIcon} label="ใช้รถรับส่ง" value={kpi.bus} tone="sky" onClick={() => setBusF(!busF)} active={busF} />}
         <Kpi icon={TriangleAlertIcon} label="ต้องตามเรื่อง" value={kpi.follow} tone="amber" emphasis={kpi.follow > 0}
           sub={<>ผูก LINE ไม่ครบ {kpi.noLine}{busOn && <>{" · "}รถไม่มีที่อยู่ {kpi.busNoAddr}</>}</>} onClick={() => setFollow(!follow)} active={follow}
-          info="ครอบครัวที่ยังผูก LINE ไม่ครบทุกคน หรือใช้รถรับส่งแต่ยังไม่มีที่อยู่ (รถต้องรู้ที่อยู่)" />
+          info="ผูก LINE ยังไม่ครบทุกคน · ใช้รถรับส่งแต่ยังไม่มีที่อยู่ — รถต้องรู้ที่อยู่" />
       </>}
       search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาครอบครัว / ผู้ปกครอง / เบอร์ / ชื่อลูก" />}
       filters={<>

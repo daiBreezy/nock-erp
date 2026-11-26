@@ -239,7 +239,7 @@ export const SETTINGS: Record<string, Entry> = {
   "ถึง": { en: "to", ja: "〜" },
   "ปิด": { en: "Closed", ja: "休み" },
   "พรีวิว": { en: "Preview", ja: "プレビュー" },
-  "เลือกวันที่เพื่อดูว่าสาขาเปิดกี่โมงในวันนั้นจริงๆ (รวมวันหยุด/ช่วงเวลาพิเศษ)": { en: "Pick a date to see the branch's real hours that day (holidays / special periods included)", ja: "日付を選ぶとその日の実際の営業時間を表示（休日・特別期間を含む）" },
+  "เลือกวันที่เพื่อดูเวลาเปิดสาขาจริงในวันนั้น · รวมวันหยุด / ช่วงเวลาพิเศษ": { en: "Pick a date to see the branch's real hours that day · holidays / special periods included", ja: "日付を選ぶとその日の実際の営業時間を表示 · 休日・特別期間を含む" },
   "วันหยุด:": { en: "Holiday:", ja: "休日：" },
   "เปิด": { en: "Open", ja: "営業" },
   "ช่วงพิเศษ:": { en: "Special period:", ja: "特別期間：" },

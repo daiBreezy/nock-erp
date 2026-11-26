@@ -457,7 +457,9 @@ export function moveSession(
 
 // ---------- work state for scanning the calendar ----------
 
-export type WorkState = "scheduled" | "live" | "needs_attendance" | "needs_summary" | "done" | "cancelled"
+// owner 2026-11-26: 4 states only — attendance is "present" by default and summaries are optional, so nothing is "pending"
+// ("done" = Past). See ATTENDANCE-SUMMARY-REDESIGN.md
+export type WorkState = "scheduled" | "live" | "done" | "cancelled"
 
 export interface WorkInfo {
   state: WorkState
@@ -472,7 +474,7 @@ export interface WorkInfo {
 
 /**
  * The single status shown on a calendar card, from the admin's point of view:
- * รอเริ่ม → กำลังเรียน → รอเช็คชื่อ → รอสรุป → เสร็จแล้ว. Overdue = still unfinished after the session day.
+ * Upcoming (รอเริ่ม) → Live (กำลังเรียน) → Past (จบแล้ว) · Cancelled (ยกเลิก). Nothing is "overdue" any more.
  */
 export function workState(s: Session, now: Date, attendance: Attendance[], summaries: { sessionId: ID; studentId: ID; status: string }[]): WorkInfo {
   const t = sessionState(s, now)
@@ -484,9 +486,6 @@ export function workState(s: Session, now: Date, attendance: Attendance[], summa
   const start = at(s.date, s.start).getTime()
   if (t === "upcoming") return { state: "scheduled", ...base, startsInMin: Math.round((start - now.getTime()) / 60000) }
   if (t === "live") return { state: "live", ...base, progress: (now.getTime() - start) / (s.minutes * 60000) }
-  const overdue = t === "closed"
-  if (att.length < s.studentIds.length) return { state: "needs_attendance", ...base, overdue }
-  if (branchUsesSummary(s.branchId) && summariesDone < present.length) return { state: "needs_summary", ...base, overdue }
   return { state: "done", ...base }
 }
 
@@ -494,9 +493,7 @@ export function workState(s: Session, now: Date, attendance: Attendance[], summa
 export const WORK_LABEL: Record<WorkState, string> = {
   scheduled: "รอเริ่ม",
   live: "กำลังเรียน",
-  needs_attendance: "เช็คชื่อ",
-  needs_summary: "สรุป",
-  done: "เสร็จแล้ว",
+  done: "จบแล้ว",
   cancelled: "ยกเลิก",
 }
 

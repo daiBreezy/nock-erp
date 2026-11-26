@@ -218,7 +218,7 @@ export function BundleOverview({ members, onOpen, onAddChild, onDeleted, onDelet
         : dl === "no_line" ? <span className="inline-flex items-start gap-1.5"><UnlinkIcon role="img" aria-label="ไม่มี LINE" className="mt-0.5 size-3.5 shrink-0 text-warning"><title>ไม่มีผู้ปกครองที่ผูก LINE — ส่งใบแจ้งหนี้/สรุปทาง LINE ไม่ได้</title></UnlinkIcon><span>ผู้ปกครองไม่มี LINE — ดาวน์โหลด / พิมพ์ใบ แล้วส่งทางอื่น (อีเมล หรือให้ด้วยตัวเอง) · รอรับเงินต่อได้เลย</span></span> : "ข้อความเดียว รวมใบของทุกคน",
       extra: sentAt && fam && dl !== "no_line" ? (
         <div className="mt-1 flex items-center gap-2 text-xs">
-          <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{fam.name}</span>{fam.parents.find((x) => x.primary) ? ` · ${fam.parents.find((x) => x.primary)!.name}` : ""}</span>
+          <span className="min-w-0 truncate text-muted-foreground">ส่งให้ <span className="font-medium text-foreground">{familyDisplay(fam.name)}</span>{fam.parents.find((x) => x.primary) ? ` · ${fam.parents.find((x) => x.primary)!.name}` : ""}</span>
           <Button size="icon-sm" variant="outline" className="rounded-full" disabled={!conv} aria-label="เปิดแชท LINE ในหน้า Inbox" title={conv ? "เปิดแชท LINE กับผู้ปกครองใน Inbox" : "ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"} nativeButton={!conv} render={conv ? <Link href={`/inbox?conversation=${conv.id}`} /> : undefined}><MessagesSquareIcon /></Button>
         </div>
       ) : undefined },

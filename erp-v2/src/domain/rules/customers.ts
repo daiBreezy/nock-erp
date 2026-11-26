@@ -1,7 +1,7 @@
 // "Select Customer" (owner design 2026-09-28): one searchable, filterable, sortable list of students, leads and
 // families — replaces the plain dropdowns that loaded every record (rule: pickers must cope with 100,000 records).
 
-import { familyDisplay } from "@/domain/rules/people"
+import { familyCore, familyDisplay } from "@/domain/rules/people"
 import type { Family, ID, Lead, Student } from "../types"
 import { LEAD_STAGE_LABEL } from "./crm"
 import { nicknameFrom } from "./people"
@@ -53,7 +53,7 @@ export function customerRows(data: { students: Student[]; families: Family[]; le
     for (const f of data.families) {
       const kids = data.students.filter((s) => s.familyId === f.id)
       rows.push({
-        kind: "family", id: f.id, title: f.name, short: f.name.replace(/^ครอบครัว/, "") || f.name, sub: [f.parents.find((p) => p.primary)?.name, kids.map((k) => k.nickname).join(", ")].filter(Boolean).join(" · "), grade: kids[0]?.grade,
+        kind: "family", id: f.id, title: familyDisplay(f.name), short: familyCore(f.name), sub: [f.parents.find((p) => p.primary)?.name, kids.map((k) => k.nickname).join(", ")].filter(Boolean).join(" · "), grade: kids[0]?.grade,
         haystack: [f.name, ...f.parents.flatMap((p) => [p.name, digits(p.phone)]), ...kids.flatMap((k) => [k.name, k.nickname])].join(" ").toLowerCase(),
       })
     }

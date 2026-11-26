@@ -139,9 +139,12 @@ export function splitName(full = "", surnameFirst = false): { first: string; las
 /** `sf` = surname first (Liclass): "Sato Taro" — otherwise "Taro Sato" as Thai names go */
 export const joinName = (x: { first: string; last: string; sf?: boolean }) => (x.sf ? `${x.last.trim()} ${x.first.trim()}` : `${x.first.trim()} ${x.last.trim()}`).trim()
 
-/** owner 2026-10-15: the family is named after the main parent's surname ("ใจดี" → "ครอบครัวใจดี") unless someone typed a name */
+/** owner 2026-10-15: the family is named after the main parent's surname unless someone typed a name.
+ *  owner 2026-11-26: it is STORED as "[name] Family" ("ใจดี" → "ใจดี Family"; a typed "ครอบครัวใจดี" is normalised the same way) */
 export function familyNameFor(typed: string | undefined, parentLastName: string | undefined): string {
-  return typed?.trim() || (parentLastName?.trim() ? `ครอบครัว${parentLastName.trim()}` : "")
+  const t = typed?.trim()
+  if (t) return familyDisplay(t)
+  return parentLastName?.trim() ? `${parentLastName.trim()} Family` : ""
 }
 
 /** Nickname guess for a student created from a parent form: the first name without the title ("ด.ช. ภูมิ ใจดี" → "ภูมิ"). Staff can edit it later. */
@@ -163,7 +166,7 @@ export function familyFromLead(
   const surname = parts.length > 1 ? parts[parts.length - 1] : nameParts(lead.name).slice(-1)[0] ?? lead.name
   return {
     id,
-    name: `ครอบครัว${surname}`,
+    name: `${surname} Family`,
     parents: [{ name: child.parentName?.trim() || lead.name, phone: formatPhone(child.parentPhone?.trim() || lead.phone), lineLinked: !!lead.lineUserId, primary: true }],
     lineUserId: lead.lineUserId,
   }
@@ -182,7 +185,7 @@ export function familyFromSubmission(studentName: string, parents: FormParentInp
   const surname = parentParts.length > 1 ? parentParts[parentParts.length - 1] : childParts.length > 1 ? childParts[childParts.length - 1] : undefined
   return {
     id,
-    name: familyNameFor(family.name, surname) || "ครอบครัวใหม่",
+    name: familyNameFor(family.name, surname) || "New Family",
     nameEn: family.nameEn?.trim() || undefined,
     parents: parents.map((p, i) => ({
       name: p.name.trim(), nameEn: p.nameEn?.trim() || undefined, phone: formatPhone(p.phone.trim()), email: p.email?.trim() || undefined,
@@ -470,6 +473,17 @@ export function mergeSubmission(family: Family | undefined, student: Student | u
  *  ครอบครัว, and the leading word made every row sort the same. The stored name is unchanged. */
 export function familyShortName(name: string) {
   return name.replace(/^ครอบครัว\s*/, "").trim() || name
+}
+
+/** owner 2026-11-26: just the surname — neither the leading "ครอบครัว" nor the trailing "Family" ("สมใจ Family" → "สมใจ") */
+export function familyCore(name: string) {
+  return familyShortName(name).replace(/\s+family$/i, "").trim() || familyShortName(name)
+}
+
+/** Owner 2026-11-26: for the PARENT-facing Thai screens (LINE / LIFF greetings, parent app) the family stays "ครอบครัว[name]" — the
+ *  familiar word for parents; the stored name is "[name] Family" now. */
+export function familyThai(name: string) {
+  return `ครอบครัว${familyCore(name)}`
 }
 
 /** Owner 2026-11-24: a family is ALWAYS shown as "[name] Family" — "ครอบครัวแก้วงาม" → "แก้วงาม Family" (every ERP screen; the stored name is unchanged). */

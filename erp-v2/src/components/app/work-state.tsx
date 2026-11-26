@@ -1,4 +1,4 @@
-import { BanIcon, CalendarIcon, CheckIcon, ClipboardCheckIcon, PencilLineIcon, PlayIcon, type RadioIcon } from "lucide-react"
+import { BanIcon, CalendarIcon, CheckIcon, PlayIcon, type RadioIcon } from "lucide-react"
 import { WORK_LABEL, type WorkInfo, type WorkState } from "@/domain/rules/scheduling"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -7,14 +7,12 @@ import { Button } from "@/components/ui/button"
 export const WORK_ICON: Record<WorkState, typeof RadioIcon> = {
   scheduled: CalendarIcon,
   live: PlayIcon,
-  needs_attendance: ClipboardCheckIcon,
-  needs_summary: PencilLineIcon,
   done: CheckIcon,
   cancelled: BanIcon,
 }
 export const WORK_ICON_TONE: Record<WorkState, string> = {
-  scheduled: "text-muted-foreground", live: "text-primary", needs_attendance: "text-danger",
-  needs_summary: "text-warning", done: "text-success", cancelled: "text-muted-foreground",
+  scheduled: "text-muted-foreground", live: "text-primary",
+  done: "text-success", cancelled: "text-muted-foreground",
 }
 /** the state as one icon; the words (and what is left to do) on hover */
 export function WorkIcon({ w, students, className }: { w: WorkInfo; students: number; className?: string }) {
@@ -27,8 +25,6 @@ export function WorkIcon({ w, students, className }: { w: WorkInfo; students: nu
 export const WORK_CHIP: Record<WorkState, string> = {
   scheduled: "bg-card/80 text-muted-foreground ring-1 ring-border",
   live: "bg-white text-success",
-  needs_attendance: "bg-danger text-white",
-  needs_summary: "bg-warning text-warning-ink",
   done: "bg-success text-white",
   cancelled: "bg-muted text-muted-foreground",
 }
@@ -39,11 +35,7 @@ export function workDetail(w: WorkInfo, students: number) {
     case "scheduled":
       return w.startsInMin !== undefined && w.startsInMin <= 60 ? `อีก ${w.startsInMin} นาที` : ""
     case "live":
-      return `เช็คชื่อ ${w.marked}/${students}`
-    case "needs_attendance":
-      return `${w.marked}/${students}${w.overdue ? " · ค้าง" : ""}`
-    case "needs_summary":
-      return `${w.summariesDone}/${w.present}${w.overdue ? " · ค้าง" : ""}`
+      return ""
     default:
       return ""
   }
@@ -61,7 +53,7 @@ export function WorkChip({ w, className }: { w: WorkInfo; students?: number; cla
   )
 }
 
-export const WORK_ORDER: WorkState[] = ["needs_attendance", "needs_summary", "live", "scheduled", "done", "cancelled"]
+export const WORK_ORDER: WorkState[] = ["live", "scheduled", "done", "cancelled"]
 
 export function WorkLegend({ counts, active, onToggle }: { counts: Partial<Record<WorkState, number>>; active: WorkState | null; onToggle: (s: WorkState | null) => void }) {
   return (

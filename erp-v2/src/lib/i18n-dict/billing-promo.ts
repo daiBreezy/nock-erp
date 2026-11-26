@@ -27,7 +27,7 @@ export const BILLING_PROMO: Record<string, Entry> = {
   "ดูอย่างเดียว": { en: "View only", ja: "閲覧のみ" },
   "ไม่มีใบที่รับเงิน + ออกใบเสร็จแล้วในช่วงนี้": { en: "No paid invoices with a receipt in this range", ja: "この期間に入金・領収書発行済みの請求書はありません" },
   "ชุด": { en: "sets", ja: "セット" },
-  "1 ชุด = ใบแจ้งหนี้ → สลิปโอนเงิน → ใบเสร็จ ใน PDF เดียว (เลือกช่วงตามวันที่เงินเข้า)": { en: "1 set = invoice → pay slip → receipt in one PDF (range chosen by the day the money arrived)", ja: "1セット＝請求書→振込スリップ→領収書を1つのPDFに（入金日で期間を指定）" },
+  "1 ชุด = ใบแจ้งหนี้ → สลิปโอนเงิน → ใบเสร็จ · รวมใน PDF เดียว · เลือกช่วงตามวันที่เงินเข้า": { en: "1 set = invoice → pay slip → receipt · in one PDF · range chosen by the day the money arrived", ja: "1セット＝請求書→振込スリップ→領収書 · 1つのPDFに · 入金日で期間を指定" },
   "ช่วงวันที่กรองตามวันที่สร้างใบ หรือวันที่เงินเข้า (เลือกในเมนู แสดง) · ใช้กับมุมมอง All / Done / Void — Pending และการ์ดที่รอดำเนินการแสดงทุกใบที่ค้างเสมอ ไม่ว่าสร้างเมื่อไหร่": { en: "The range filters by the day the invoice was created or the day the money arrived (pick in the Show menu). It applies to the All / Done / Void views — Pending and the action cards always show every open invoice.", ja: "期間は請求書の作成日または入金日（「表示」メニューで選択）で絞り込みます。All / Done / Void に適用され、Pending と対応待ちカードは未完了をすべて表示します。" },
   // owner 2026-11-15: accounting pack — outstanding list, preview / download / share
   "เงินเข้าแล้ว รอยืนยัน · ยังไม่อยู่ในรายงาน": { en: "Money in, awaiting confirmation · not in the report yet", ja: "入金済み・確認待ち・レポート未反映" },

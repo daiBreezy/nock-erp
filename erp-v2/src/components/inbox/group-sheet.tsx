@@ -81,7 +81,7 @@ export function GroupSheet({ conversationId, onClose }: { conversationId: string
           </section>
 
           <section className="space-y-2 border-t pt-4">
-            <h3 className="flex items-center gap-1 text-sm font-semibold">คนในกลุ่ม ({senders.length}) <InfoTip text="“ผู้ติดตามข่าว” = ญาติที่อยากเห็นข่าวสารเฉยๆ ไม่ถูกเพิ่มเป็นสมาชิกครอบครัวใน ERP" /></h3>
+            <h3 className="flex items-center gap-1 text-sm font-semibold">คนในกลุ่ม ({senders.length}) <InfoTip text="“ผู้ติดตามข่าว” = ญาติที่อยากเห็นข่าวสารเฉยๆ · ไม่ถูกเพิ่มเป็นสมาชิกครอบครัวใน ERP" /></h3>
             {senders.length === 0 && <p className="text-sm text-muted-foreground">จะขึ้นชื่อเมื่อมีคนพิมพ์ในกลุ่ม</p>}
             <ul className="divide-y rounded-2xl border">
               {senders.map((s) => {

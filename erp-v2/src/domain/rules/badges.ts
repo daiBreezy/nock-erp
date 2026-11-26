@@ -4,7 +4,6 @@
 import type { Attendance, Conversation, ID, Invoice, Lead, LessonSummary, Session, Staff } from "../types"
 import * as Bill from "./billing"
 import * as Sum from "./summaries"
-import { workState } from "./scheduling"
 
 export interface BadgeData {
   conversations: Conversation[]
@@ -19,7 +18,6 @@ export interface BadgeData {
 export function navBadges(d: BadgeData, me: Staff, branchId: ID, now: Date): Record<string, number> {
   const mine = (s: Session) => s.teacherId === me.id || s.coTeacherIds.includes(me.id)
   const office = me.roles.some((r) => r !== "teacher")
-  const branchSessions = d.sessions.filter((s) => s.branchId === branchId && (office || mine(s)))
   const sessionIds = new Set(d.sessions.filter((s) => s.branchId === branchId).map((s) => s.id))
   const invoices = d.invoices.filter((i) => i.branchId === branchId)
   return {
@@ -27,11 +25,8 @@ export function navBadges(d: BadgeData, me: Staff, branchId: ID, now: Date): Rec
     "/inbox": d.conversations.filter((c) => c.branchId === branchId && c.unread).length,
     // leads nobody has contacted yet
     "/crm": d.leads.filter((l) => l.branchId === branchId && l.stage === "new").length,
-    // classes already over that still need attendance or summaries
-    "/sessions": branchSessions.filter((s) => {
-      const w = workState(s, now, d.attendance, d.summaries).state
-      return w === "needs_attendance" || w === "needs_summary"
-    }).length,
+    // owner 2026-11-26: attendance defaults to present and summaries are optional — a session has no pending work
+    "/sessions": 0,
     // summaries waiting for my approval + mine sent back for changes
     // + approved but not sent with the 7-day send deadline 2 days away or already passed
     "/summaries": d.summaries.filter((x) => {

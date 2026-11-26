@@ -131,7 +131,7 @@ export default function StudentsPage() {
   // G3: export only for roles with student.export — and it is logged in the toast
   const exportCsv = () => {
     const head = ["ชื่อ", "ชื่อเล่น", "ชั้น", "ครอบครัว", "สถานะ"]
-    const lines = shown.map((r) => [r.s.name, r.s.nickname, r.s.grade, r.fam?.name ?? "", STATUS_PILL[r.st].label].map((x) => `"${x.replace(/"/g, '""')}"`).join(","))
+    const lines = shown.map((r) => [r.s.name, r.s.nickname, r.s.grade, r.fam ? familyDisplay(r.fam.name) : "", STATUS_PILL[r.st].label].map((x) => `"${x.replace(/"/g, '""')}"`).join(","))
     const blob = new Blob(["﻿" + [head.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" })
     const a = document.createElement("a")
     a.href = URL.createObjectURL(blob)
