@@ -28,6 +28,8 @@ export interface Column<R> {
   /** minimum width (the column grows to fit its content) */
   width?: string
   align?: "left" | "center" | "right"
+  /** owner 2026-11-26: the alignment while this column is the LAST visible one (e.g. a Status pill sits flush right at the row end) — elsewhere `align` applies */
+  alignWhenLast?: "left" | "center" | "right"
   /** sort key — the header becomes a sort button */
   sort?: string
   /** ⓘ after the label — hover explains the column */
@@ -102,7 +104,6 @@ function useLayout<R>(tableId: string, columns: Column<R>[]) {
 
 const DRAG_TYPE = "application/x-nock-column"
 /** header icons: no width until the header is hovered, then they slide open */
-const SLIDE = "flex w-0 shrink-0 items-center overflow-hidden opacity-0 transition-[width,opacity] duration-150 ease-out group-hover/th:w-4.5 group-hover/th:opacity-100 focus-visible:w-4.5 focus-visible:opacity-100"
 const justify = (a?: Column<unknown>["align"]) => (a === "right" ? "justify-end" : a === "center" ? "justify-center" : "justify-start")
 const textAlign = (a?: Column<unknown>["align"]) => (a === "right" ? "text-right" : a === "center" ? "text-center" : "text-left")
 
@@ -135,6 +136,10 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
   const [over, setOver] = useState<string | null>(null)
   // owner 2026-10-29: the column under the pointer (header) is tinted top to bottom, so you can see which one you are on
   const [hoverCol, setHoverCol] = useState<string | null>(null)
+  // owner 2026-11-26: how much room the hovered header has — 0 = enough for the label + every icon · 1 = icons only (the label moves to a
+  // popup) · 2 = very tight: the ⓘ folds into that popup too. Measured when the pointer enters the header.
+  const [room, setRoom] = useState<Record<string, 0 | 1 | 2>>({})
+  const [overInfo, setOverInfo] = useState(false)
   // widths saved for a different set of columns (one added / removed in the code since) are stale — fit content again
   const fixed = !!L.widths && cols.every((c) => L.widths![c.id]) && Object.keys(L.widths).every((k) => columns.some((c) => c.id === k))
   const totalWidth = fixed ? cols.reduce((a, c) => a + L.widths![c.id], 0) : 0
@@ -201,52 +206,100 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                 const isLast = cols.length > 1 && c.id === cols.at(-1)!.id
                 // owner 2026-11-23 (all tables): the pin / drag icons that slide in on hover sit on the side AWAY from the text —
                 // a right-aligned header (numbers) shows them on its left, a left-aligned header on its right. Mirrored order, drag handle outermost.
-                const toLeft = c.align === "right"
+                const al = isLast && c.alignWhenLast ? c.alignWhenLast : c.align
+                const toLeft = al === "right"
+                // how much room this header has while it is hovered (0 = everything fits)
+                const lv = hoverCol === c.id ? (room[c.id] ?? 0) : 0
+                // owner 2026-11-26: the three header icons (sort · pin · drag) are the same size and the same colour — a 20px box each, no extra spacers
+                const ICON = "grid size-5 shrink-0 place-items-center text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent"
                 const pinBtn = (
                       <Button variant="ghost" size="inline" type="button" onClick={() => L.toggleLock(c.id)} aria-pressed={isLocked}
                         title={isLocked ? "เลิกปักหมุด — กลับไปที่เดิม" : "ปักหมุดคอลัมน์ — ไว้ด้านหน้า ไม่เลื่อนตาม"} aria-label={isLocked ? `เลิกปักหมุด ${c.label}` : `ปักหมุด ${c.label}`}
-                        className={cn("flex items-center hover:text-foreground", isLocked ? "w-4.5 shrink-0 text-primary" : SLIDE)}>
-                        {!toLeft && <span className="w-1 shrink-0" />}{isLocked ? <PinIcon className="size-3.5 shrink-0" /> : <PinOffIcon className="size-3.5 shrink-0" />}{toLeft && <span className="w-1 shrink-0" />}
+                        className={cn(ICON, isLocked && "text-primary hover:text-primary")}>
+                        {isLocked ? <PinIcon className="size-3.5" /> : <PinOffIcon className="size-3.5" />}
                       </Button>
                 )
                 const gripBtn = (
                       <span draggable title="ลากเพื่อย้ายคอลัมน์" aria-label={`ย้ายคอลัมน์ ${c.label}`}
                         onDragStart={(e) => { e.dataTransfer.setData(DRAG_TYPE, c.id); e.dataTransfer.effectAllowed = "move" }}
                         onDragEnd={() => setOver(null)}
-                        className={cn(SLIDE, "cursor-grab text-muted-foreground/60 hover:text-foreground active:cursor-grabbing")}>
-                        {!toLeft && <span className="w-1 shrink-0" />}<GripVerticalIcon className="size-3.5 shrink-0" />{toLeft && <span className="w-1 shrink-0" />}
+                        className={cn(ICON, "cursor-grab active:cursor-grabbing")}>
+                        <GripVerticalIcon className="size-3.5" />
                       </span>
                 )
                 const sortNode = c.sort && onSort ? (
-                  <Button variant="ghost" size="inline" type="button" title={c.label} onClick={() => (onSort as (k: string) => void)(c.sort!)} className={cn("inline-flex min-w-0 items-center gap-1", active && "text-foreground")}>
-                    {toLeft && <SortIcon className={cn("size-3 shrink-0", !active && "opacity-40")} />}<span className="truncate">{c.label}</span>{!toLeft && <SortIcon className={cn("size-3 shrink-0", !active && "opacity-40")} />}
+                  <Button variant="ghost" size="inline" type="button" title={c.label} onClick={() => (onSort as (k: string) => void)(c.sort!)} className={cn("inline-flex min-w-0 items-center gap-1 hover:bg-transparent aria-expanded:bg-transparent", active && "text-foreground")}>
+                    {toLeft && <SortIcon className={cn("size-3.5 shrink-0 transition-colors", active ? "text-foreground" : "text-muted-foreground group-hover/button:text-foreground")} />}<span className="truncate">{c.label}</span>{!toLeft && <SortIcon className={cn("size-3.5 shrink-0 transition-colors", active ? "text-foreground" : "text-muted-foreground group-hover/button:text-foreground")} />}
                   </Button>
                 ) : <span className="truncate" title={c.label}>{c.label}</span>
                 const infoNode = c.info && (
+                        <span className="inline-flex" onMouseEnter={() => setOverInfo(true)} onMouseLeave={() => setOverInfo(false)}>
                         <HoverCard>
-                          <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className={cn(toLeft ? "mr-1" : "ml-1", "grid size-4 shrink-0 place-items-center rounded-full hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none")} />}>
+                          <HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label={`เกี่ยวกับคอลัมน์ ${c.label}`} className={cn(toLeft ? "mr-1" : "ml-1", "grid size-4 shrink-0 place-items-center rounded-full hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none")} />}>
                             <InfoIcon className="size-3.5" />
                           </HoverCardTrigger>
-                          <HoverCardContent side="bottom" align="start" className="leading-relaxed">{c.info}</HoverCardContent>
+                          <HoverCardContent side="top" align="start" className="leading-relaxed">{c.info}</HoverCardContent>
                         </HoverCard>
+                        </span>
                       )
                 return (
                   <th key={c.id} ref={(el) => { if (el) heads.current.set(c.id, el); else heads.current.delete(c.id) }}
                     style={sticky(c) ? { left: left[c.id] ?? 0 } : undefined}
-                    onMouseEnter={() => setHoverCol(c.id)} onMouseLeave={() => setHoverCol((h) => (h === c.id ? null : h))}
+                    onMouseEnter={(e) => {
+                      setHoverCol(c.id)
+                      const th = e.currentTarget, natural = th.querySelector<HTMLElement>("[data-natural]")?.offsetWidth ?? 0
+                      const avail = th.clientWidth - 24, hoverIcons = 40, withSort = c.sort && onSort ? 20 : 0
+                      // an icons-only row may use the WHOLE cell (it ignores the cell's side padding), icons 2px apart
+                      const row = withSort + (c.info ? 22 : 0) + hoverIcons + 2 * ((c.sort && onSort ? 1 : 0) + (c.info ? 1 : 0) + 1)
+                      const lv: 0 | 1 | 2 = avail >= natural + hoverIcons - (isLocked ? 20 : 0) ? 0 : th.clientWidth - 4 >= row ? 1 : 2
+                      setRoom((r) => (r[c.id] === lv ? r : { ...r, [c.id]: lv }))
+                    }} onMouseLeave={() => { setHoverCol((h) => (h === c.id ? null : h)); setOverInfo(false) }}
                     onDragOver={(e) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); setOver(c.id) } }}
                     onDragLeave={() => setOver((o) => (o === c.id ? null : o))}
                     onDrop={(e) => { const src = e.dataTransfer.getData(DRAG_TYPE); setOver(null); if (src) L.move(src, c.id) }}
-                    className={cn("group/th relative px-3 py-2.5 font-medium whitespace-nowrap", maxHeight && "sticky top-0 z-[5] bg-[color-mix(in_oklab,var(--muted)_40%,var(--card))]", textAlign(c.align), stickyCls(c, true), maxHeight && sticky(c) && "z-20", hoverCol === c.id && "bg-primary/10 text-foreground", over === c.id && "bg-primary/10 shadow-[inset_2px_0_0_var(--primary)]")}>
+                    className={cn("group/th relative px-3 py-2.5 font-medium whitespace-nowrap", maxHeight && "sticky top-0 z-[5] bg-[color-mix(in_oklab,var(--muted)_40%,var(--card))]", textAlign(al), stickyCls(c, true), maxHeight && sticky(c) && "z-20", hoverCol === c.id && "bg-primary/10 text-foreground", over === c.id && "bg-primary/10 shadow-[inset_2px_0_0_var(--primary)]")}>
                     {/* owner 2026-10-12: the pin / drag icons take no room until the header is hovered — then they slide in
                         and the label gets shorter (…) inside the SAME column width: hovering never widens a column.
                         owner 2026-10-29: drag handle goes LAST, lock → pin. The invisible sizer gives the column its width. */}
                     <span aria-hidden className="invisible flex h-0 items-center gap-1 overflow-hidden">
-                      {c.label}{c.sort && onSort && <span className="size-3" />}{c.info && <span className="ml-1 size-4" />}{isLocked && <span className="w-4.5" />}
+                      {c.label}{c.sort && onSort && <span className="size-3.5" />}{c.info && <span className="ml-1 size-4" />}{isLocked && <span className="w-5" />}
                     </span>
-                    <span className={cn("flex min-w-0 items-center [contain:inline-size]", justify(c.align))}>
-                      {toLeft ? <>{gripBtn}{pinBtn}{infoNode}{sortNode}</> : <>{sortNode}{infoNode}{pinBtn}{gripBtn}</>}
+                    {/* the header's natural width (label + its own icons), measured when the pointer enters */}
+                    <span aria-hidden data-natural className="pointer-events-none invisible absolute top-0 left-0 inline-flex items-center gap-1 whitespace-nowrap">
+                      {c.label}{c.sort && onSort && <span className="size-3.5" />}{c.info && <span className="ml-1 size-4" />}{isLocked && <span className="w-5" />}
                     </span>
+                    {lv === 0 ? (
+                      <>
+                        <span className={cn("flex min-w-0 items-center [contain:inline-size]", justify(al))}>
+                          {toLeft ? <>{isLocked && pinBtn}{infoNode}{sortNode}</> : <>{sortNode}{infoNode}{isLocked && pinBtn}</>}
+                        </span>
+                        {/* owner 2026-11-26: with room to spare, the drag / pin icons slide in on the free side of the header (away from the text) */}
+                        <span className={cn("pointer-events-none absolute top-1/2 z-[1] flex -translate-y-1/2 items-center rounded-full px-0.5 opacity-0 transition-opacity group-hover/th:pointer-events-auto group-hover/th:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100", toLeft ? "left-1" : "right-1")}>
+                          {toLeft ? <>{gripBtn}{!isLocked && pinBtn}</> : <>{!isLocked && pinBtn}{gripBtn}</>}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {/* owner 2026-11-26: not enough room → the label is hidden and the icons are laid out in a row; the title (and, when it is really
+                            tight, the ⓘ too) shows in a popup instead */}
+                        <span className="absolute inset-0 flex items-center justify-center gap-0.5">
+                          {c.sort && onSort && (
+                            <Button variant="ghost" size="inline" type="button" aria-label={c.label} onClick={() => (onSort as (k: string) => void)(c.sort!)} className={cn(ICON, active && "text-foreground")}>
+                              <SortIcon className="size-3.5" />
+                            </Button>
+                          )}
+                          {lv === 1 && infoNode}
+                          {pinBtn}{gripBtn}
+                        </span>
+                        <HoverCard open={hoverCol === c.id && !overInfo}>
+                          <HoverCardTrigger render={<span aria-hidden className="pointer-events-none absolute inset-0" />} />
+                          <HoverCardContent side="top" align="start" className="leading-relaxed">
+                            <p className="font-medium text-foreground">{c.label}</p>
+                            {lv === 2 && c.info && <div className="mt-1.5 border-t pt-1.5 text-muted-foreground">{c.info}</div>}
+                          </HoverCardContent>
+                        </HoverCard>
+                      </>
+                    )}
                     {/* resize: right edge — the last column from its left edge */}
                     <span role="separator" aria-orientation="vertical" aria-label={`ปรับความกว้าง ${c.label}`} title="ลากเพื่อปรับความกว้าง · ดับเบิลคลิก = พอดีเนื้อหา"
                       onPointerDown={(e) => startResize(e, c.id)} onDoubleClick={() => L.setWidths(undefined)} onClick={(e) => e.stopPropagation()}
@@ -266,7 +319,7 @@ export function DataTable<R>({ id, columns, rows, rowKey, onRowClick, rowClassNa
                   <tr onClick={onRowClick && (() => onRowClick(r))} {...rowProps?.(r)} className={cn("group/row", ROW, "[&>td]:whitespace-nowrap", !onRowClick && "cursor-default", more != null && "bg-primary/5 hover:bg-primary/5", rowClassName?.(r))}>
                     {cols.map((c, ci) => (
                       <td key={c.id} style={sticky(c) ? { left: left[c.id] ?? 0 } : undefined}
-                        className={cn(textAlign(c.align), stickyCls(c, false), fixed && "overflow-hidden text-ellipsis", hoverCol === c.id && "bg-primary/5", rowActions && ci === cols.length - 1 && !sticky(c) && "relative", typeof c.className === "function" ? c.className(r) : c.className)}>
+                        className={cn(textAlign(ci === cols.length - 1 && cols.length > 1 && c.alignWhenLast ? c.alignWhenLast : c.align), stickyCls(c, false), fixed && "overflow-hidden text-ellipsis", hoverCol === c.id && "bg-primary/5", rowActions && ci === cols.length - 1 && !sticky(c) && "relative", typeof c.className === "function" ? c.className(r) : c.className)}>
                         {c.cell(r)}
                         {rowActions && ci === cols.length - 1 && (
                           // over the last cell, so nothing moves: hidden until the row is hovered (or its menu is open)

@@ -219,7 +219,7 @@ export interface RevenueRow {
   credit?: boolean
 }
 
-export const packageKey = (c: Pick<Course, "unit" | "duration">) => `${c.duration}${c.unit === "hour" ? "h" : c.unit === "week" ? "w" : "m"}`
+export const packageKey = (c: Pick<Course, "unit" | "duration">) => `${c.duration}${c.unit === "hour" ? "h" : c.unit === "week" ? "w" : c.unit === "session" ? "s" : "m"}`
 export const packageLabel = (key: string) => key.replace(/h$/, " ชม.").replace(/w$/, " สัปดาห์").replace(/m$/, " เดือน")
 
 /**

@@ -3,11 +3,12 @@ import type { Course, PriceUnit } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 // Design "Package Type Status": coloured circle = package type, number = package size bought
-// (H 24 = 24-hour pack · W 4 = 4-week pack · M 1 = one month).
+// (H 24 = 24-hour pack · W 4 = 4-week pack · M 1 = one month · S 10 = 10 sessions).
 const STYLE: Record<PriceUnit, { letter: string; bg: string }> = {
   hour: { letter: "H", bg: "bg-[#D9A13A]" },
   week: { letter: "W", bg: "bg-[#EC6BA0]" },
   month: { letter: "M", bg: "bg-[#58B6B4]" },
+  session: { letter: "S", bg: "bg-[#7C8BE0]" },
 }
 
 export function PackageBadge({ course, size = "sm", className }: { course: Pick<Course, "unit" | "duration">; size?: "sm" | "md"; className?: string }) {
@@ -24,10 +25,10 @@ export function PackageBadge({ course, size = "sm", className }: { course: Pick<
 export const PACKAGE_LEGEND = (
   <div className="space-y-1">
     <div className="font-medium">ประเภทแพ็กเกจ</div>
-    {(["hour", "week", "month"] as const).map((u) => (
+    {(["hour", "session", "week", "month"] as const).map((u) => (
       <div key={u} className="flex items-center gap-1.5">
         <span className={cn("grid size-4 place-items-center rounded-full text-2xs font-extrabold text-white", STYLE[u].bg)}>{STYLE[u].letter}</span>
-        {u === "hour" ? "รายชั่วโมง — ตัวเลข = จำนวนชั่วโมง" : u === "week" ? "รายสัปดาห์ — ตัวเลข = จำนวนสัปดาห์" : "รายเดือน"}
+        {u === "hour" ? "รายชั่วโมง — ตัวเลข = จำนวนชั่วโมง" : u === "session" ? "รายคาบ — ตัวเลข = จำนวนคาบ (หัก 1 ต่อคาบที่เรียน)" : u === "week" ? "รายสัปดาห์ — ตัวเลข = จำนวนสัปดาห์" : "รายเดือน"}
       </div>
     ))}
     <div className="opacity-70">สีจาง = แพ็กเกจหมดแล้ว</div>

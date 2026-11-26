@@ -60,7 +60,7 @@ export function useT() {
 }
 
 /** "12 ชม." / "12 hrs" / "12時間" — package durations in the chosen language */
-export const durationText = (unit: "hour" | "week" | "month", d: number) => tx(unit === "hour" ? "{0} ชม." : unit === "week" ? "{0} สัปดาห์" : "{0} เดือน", [d])
+export const durationText = (unit: "hour" | "week" | "month" | "session", d: number) => tx(unit === "hour" ? "{0} ชม." : unit === "week" ? "{0} สัปดาห์" : unit === "session" ? "{0} คาบ" : "{0} เดือน", [d])
 
 /**
  * Names in the chosen language (owner 2026-10-07): Thai as typed; English / Japanese = Latin letters — a branch's

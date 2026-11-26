@@ -6,6 +6,7 @@ import { PanelForm } from "@/components/app/form-shell"
 import { CoursePicker } from "@/components/billing/course-picker"
 import { LeadDialog } from "./lead-dialog"
 import Link from "next/link"
+import { ContactJump } from "@/components/app/contact-jump"
 import { useEffect, useState } from "react"
 import { SchoolPicker } from "@/components/app/school-picker"
 import { BookOpenIcon, CalendarPlusIcon, ChevronDownIcon, ClipboardListIcon, PlusIcon, TargetIcon, XIcon, ArchiveIcon, CalendarIcon, GraduationCapIcon, MessageCircleIcon, PhoneIcon, ReceiptIcon, RotateCcwIcon, SendIcon, StickyNoteIcon, UserCheckIcon, UsersRoundIcon, PencilIcon, UserPlusIcon, UsersIcon } from "lucide-react"
@@ -17,6 +18,8 @@ import { Tabs } from "@/components/app/page-layout"
 import { CourseWishEditor, LeadParentCard, ReturnsHint, SentForms, useSentForms } from "./lead-form-block"
 import { decideSend, FORM_LABEL } from "@/domain/rules/form-send"
 import { revokeFormLink } from "@/lib/forms"
+import { ReasonChipsDialog, type ReasonPick } from "@/components/app/reason-chips-dialog"
+import { CANCEL_REASONS } from "@/domain/rules/form-hub"
 import { FamilyInfoTab } from "@/components/app/family-info-tab"
 import { FamilyForm, type FamilyFormOnly } from "@/components/app/family-form"
 import { FamilyEditItems, type EditTarget } from "@/components/app/family-edit-menu"
@@ -363,7 +366,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
         {!canManage ? (
           <>
             <p className="text-xs text-muted-foreground">ดูอย่างเดียว — ไม่มีสิทธิ์จัดการ Lead</p>
-            <span className="ml-auto">{conversation && <Button variant="outline" size="icon" aria-label="เปิดแชทใน Inbox" title="เปิดแชทใน Inbox" nativeButton={false} render={<Link href={`/inbox?conversation=${conversation.id}`} />}><MessageCircleIcon /></Button>}</span>
+            <span className="ml-auto"><ContactJump kind="lead" id={lead.id} conversationId={conversation?.id} /></span>
           </>
         ) : (
           <>
@@ -392,7 +395,7 @@ function Body({ id, onEdit }: { id: ID; onEdit: () => void }) {
             <span className="ml-auto flex items-center gap-2">
               {/* owner 2026-10-12: what moves the stage by itself — an ⓘ to hover, not a line of text */}
               {AUTO_HINT[lead.stage] && <InfoTip text={`อัตโนมัติ: ${AUTO_HINT[lead.stage]}`} />}
-              {conversation && <Button variant="outline" size="icon" aria-label="เปิดแชทใน Inbox" title="เปิดแชทใน Inbox" nativeButton={false} render={<Link href={`/inbox?conversation=${conversation.id}`} />}><MessageCircleIcon /></Button>}
+              <ContactJump kind="lead" id={lead.id} conversationId={conversation?.id} />
             </span>
           </>
         )}
@@ -578,11 +581,14 @@ function NextStepForm({ lead, type, kids, interests, canSend, subs, subsReady, o
   const sent = useSentForms(lead, type, subs, subsReady)
   // nothing sent yet → the send form is open straight away; something already out → it stays closed until “ส่งอีกครั้ง”
   const [composing, setComposing] = useState(false)
-  const [confirmBlock, setConfirmBlock] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const dead = sent.items.length > 0 && sent.items.every((i) => i.state === "cancelled" || i.state === "expired")
+  const [cancelFor, setCancelFor] = useState<string | null>(null) // owner 2026-11-26: cancelling a link asks WHY (chips + Remark)
+  const recordCancel = useStore((st) => st.recordFormCancel)
   // owner 2026-11-25: ONE live link per lead — a form waiting for the parent blocks every OTHER form; the same form again is “ส่งใหม่” (the old link is cancelled by the send)
   const decision = decideSend(type, sent.links)
   const open = decision.action !== "blocked" && (composing || !sent.everSent || decision.action === "resend" && composing)
-  const cancelLink = async (token: string) => { if (report(await revokeFormLink(token), tx("ยกเลิกลิงก์แล้ว"))) sent.refresh() }
+  const cancelLink = async (token: string, why: ReasonPick) => { if (report(await revokeFormLink(token), tx("ยกเลิกลิงก์แล้ว"))) { recordCancel({ token, reasonId: why.reasonId, label: why.label, remark: why.remark }); sent.refresh() } }
   const picked = kids.filter((k) => !offKids.includes(k.id))
   if (!kids.length) return null
   // what they like: the ticked children's courses (a course two children share is listed once) — or, with none, their subjects
@@ -595,18 +601,23 @@ function NextStepForm({ lead, type, kids, interests, canSend, subs, subsReady, o
   return (
     <div className="space-y-2">
       {/* owner 2026-11-25: a form that is already out says so (and where it stands); a NEW one is one quiet step away */}
-      <SentForms type={type} items={sent.items} onCancel={cancelLink} />
+      <SentForms type={type} items={sent.items} onCancel={setCancelFor} />
+      {archiveOpen && <LeadLostDialog lead={lead} onClose={() => setArchiveOpen(false)} />}
+      <ReasonChipsDialog open={!!cancelFor} title={tx("ยกเลิกลิงก์ฟอร์ม")} description={tx("ลิงก์เดิมจะใช้ไม่ได้ — ผู้ปกครองต้องใช้ลิงก์ใหม่ ถ้าจะส่งอีกครั้ง")} options={CANCEL_REASONS.map((r) => ({ id: r.id, label: tx(r.label) }))}
+        confirmLabel={tx("ยกเลิกลิงก์")} destructive onConfirm={(why) => { if (cancelFor) void cancelLink(cancelFor, why) }} onClose={() => setCancelFor(null)} />
       {decision.action === "blocked" && (
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl bg-muted/40 p-2.5 text-xs text-muted-foreground">
           <span>{tx("รอผู้ปกครองกรอก{0} — ส่งฟอร์มอื่นไม่ได้", [tx(FORM_LABEL[decision.blocking.kind])])} · {fmtDateTime(decision.blocking.sentAt)}</span>
           {/* the way out is right here: cancel that link (two taps), then this form can be sent */}
-          {canSend && (confirmBlock
-            ? <span className="flex items-center gap-1"><Button size="xs" variant="ghost" type="button" className="text-danger" onClick={() => { void cancelLink(decision.blocking.token); setConfirmBlock(false) }}>{tx("ยืนยันยกเลิกลิงก์")}</Button><Button size="xs" variant="ghost" type="button" onClick={() => setConfirmBlock(false)}>{tx("ไม่")}</Button></span>
-            : <Button size="xs" variant="ghost" type="button" onClick={() => setConfirmBlock(true)}>{tx("ยกเลิกลิงก์{0}", [tx(FORM_LABEL[decision.blocking.kind])])}</Button>)}
+          {canSend && <Button size="xs" variant="ghost" type="button" onClick={() => setCancelFor(decision.blocking.token)}>{tx("ยกเลิกลิงก์{0}", [tx(FORM_LABEL[decision.blocking.kind])])}</Button>}
         </div>
       )}
       {!sent.ready ? null : decision.action === "blocked" ? null : !open ? (
-        <Button size="xs" variant="ghost" type="button" className="text-muted-foreground" onClick={() => setComposing(true)}><SendIcon /> {decision.action === "resend" ? tx("{0} ใหม่ (ยกเลิกลิงก์เดิม)", [tx(noun)]) : sent.everSent ? tx("{0} อีกครั้ง", [tx(noun)]) : tx(noun)}</Button>
+        // owner 2026-11-26: a form that is already out never turns into a faint little link — the next step is a normal button. A dead link (cancelled / expired) with nobody answering: send again, or Archive the Lead
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant={dead ? "default" : "outline"} type="button" onClick={() => setComposing(true)}><SendIcon /> {decision.action === "resend" ? tx("{0} ใหม่ (ยกเลิกลิงก์เดิม)", [tx(noun)]) : sent.everSent ? tx("{0} อีกครั้ง", [tx(noun)]) : tx(noun)}</Button>
+          {dead && lead.stage !== "archived" && <Button size="sm" variant="outline" type="button" onClick={() => setArchiveOpen(true)}><ArchiveIcon /> {tx("Archive Lead")}</Button>}
+        </div>
       ) : (
         // owner 2026-11-25: the send form is a CARD like every other box in the steps
         <div className="space-y-2 rounded-xl bg-muted/40 p-2.5">
@@ -656,7 +667,7 @@ function NextStepForm({ lead, type, kids, interests, canSend, subs, subsReady, o
           </div>
         </div>
       )}
-      {type === "enroll" && !open && onInvoice && <div><Button size="xs" variant="ghost" type="button" className="text-muted-foreground" onClick={onInvoice}><ReceiptIcon /> ออกใบแจ้งหนี้</Button></div>}
+      {type === "enroll" && !open && onInvoice && <div><Button size="sm" variant="outline" type="button" onClick={onInvoice}><ReceiptIcon /> ออกใบแจ้งหนี้</Button></div>}
     </div>
   )
 }

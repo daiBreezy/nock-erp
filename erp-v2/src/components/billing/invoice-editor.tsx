@@ -82,6 +82,12 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
   // a draft made from an enrolment (no bus legs yet) starts from the student's bus default (owner 2026-10-16)
   const [busTouched, setBusTouched] = useState(!!invoice && !(invoice.status === "draft" && invoice.bus.length === 0))
   const [bookFee, setBookFee] = useState(invoice?.bookFee ?? 0)
+  // owner 2026-11-26: every invoice has a pay-by date — the creator picks it every time: 14 days · 30 days · own date (counted from the day the invoice is made)
+  const dueBase = (invoice?.createdAt ?? now.toISOString()).slice(0, 10)
+  const dueGap = (d: string) => Math.round((new Date(`${d}T00:00:00`).getTime() - new Date(`${dueBase}T00:00:00`).getTime()) / 86_400_000)
+  const [dueMode, setDueMode] = useState<"14" | "30" | "custom" | null>(() => (!invoice?.dueDate ? null : dueGap(invoice.dueDate) === 14 ? "14" : dueGap(invoice.dueDate) === 30 ? "30" : "custom"))
+  const [dueCustom, setDueCustom] = useState(invoice?.dueDate ?? "")
+  const dueDate = dueMode === "14" ? addDays(dueBase, 14) : dueMode === "30" ? addDays(dueBase, 30) : dueMode === "custom" && dueCustom ? dueCustom : undefined
   // "" = follow the distance band of the family's pin (owner 2026-10-16) until the admin picks a type
   const [busFeeId, setBusFeeId] = useState(invoice?.busFeeId ?? "")
   // Advance Optional: follows the default (entry fee unless already paid) until the admin ticks something
@@ -191,6 +197,7 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
     busExtras,
     bookFee, advance,
     concession: concession > 0 ? { amount: concession, remark: concessionRemark } : null,
+    dueDate,
     noteToParent: invoice?.noteToParent ?? lastNoteFor(studentId, invoices),
     status: "draft",
     pdf: "none",
@@ -236,6 +243,8 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
     ...validateInvoiceDraft(draft, totals, { today, lastAssessment: studentId ? lastAssessmentDate(studentId, assessments) : null }),
   ]
 
+  // creating (not drafting) needs the pay-by date
+  const createErrors = [...errors, ...(!dueDate ? ["เลือกกำหนดชำระ (14 วัน / 30 วัน / กำหนดเอง)"] : dueDate < dueBase ? ["กำหนดชำระต้องไม่ก่อนวันที่ออกใบ"] : [])]
   // owner 2026-11-24: two different things — Draft (not created yet) vs Create Invoice (real data, pending approval, NO number until the Admin issues it)
   const full = { ...draft, familyPromoPct: familyPct || undefined, familyMode: familyPct ? familyMode : undefined }
   const submit = (create: boolean) => {
@@ -253,10 +262,10 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
       footer={<>
         {/* owner 2026-11-24: Cancel sits on the left; the preview button is an icon only (tonal) */}
         <Button variant="ghost" onClick={onClose}>ยกเลิก</Button>
-        {(errors.length > 0 || (!wasCreated && noBank)) && <span className="mr-auto text-xs text-danger">{errors[0] ?? noBank}</span>}
-        <Button variant="tonal" size="icon" className={errors.length > 0 ? undefined : "ml-auto"} aria-label="ดูตัวอย่าง" title="ดูตัวอย่าง" disabled={!studentId} onClick={() => setPreviewing(true)}><EyeIcon /></Button>
+        {(createErrors.length > 0 || (!wasCreated && noBank)) && <span className="mr-auto text-xs text-danger">{createErrors[0] ?? noBank}</span>}
+        <Button variant="tonal" size="icon" className={createErrors.length > 0 ? undefined : "ml-auto"} aria-label="ดูตัวอย่าง" title="ดูตัวอย่าง" disabled={!studentId} onClick={() => setPreviewing(true)}><EyeIcon /></Button>
         {!wasCreated && <Button variant="outline" disabled={errors.length > 0} onClick={() => submit(false)}>บันทึกร่าง</Button>}
-        <Button disabled={errors.length > 0 || (!wasCreated && !!noBank)} onClick={() => submit(true)}>{wasCreated ? "บันทึก" : "สร้างใบแจ้งหนี้"}</Button>
+        <Button disabled={createErrors.length > 0 || (!wasCreated && !!noBank)} onClick={() => submit(true)}>{wasCreated ? "บันทึก" : "สร้างใบแจ้งหนี้"}</Button>
       </>}>
         {previewing && <InvoicePreview draft={full} onClose={() => setPreviewing(false)} />}
         <div data-invoice-editor className="@container h-full">
@@ -556,6 +565,16 @@ export function InvoiceEditor({ invoice, defaultStudentId, renewEntitlementId, d
           {totals.credit > 0 && <div className="flex justify-between text-special-ink"><span>หักเครดิตคอร์ส</span><span>−{fmtMoney(totals.credit)}</span></div>}
           {totals.concession > 0 && <div className="flex justify-between text-success"><span>ส่วนลดพิเศษ</span><span>−{fmtMoney(totals.concession)}</span></div>}
           <div className={cn("flex justify-between border-t pt-1 text-base font-semibold", totals.total < 0 && "text-danger")}><span>ยอดรวม</span><span>{fmtMoney(totals.total)}</span></div>
+        </div>
+        <div className="space-y-1.5 pt-3">
+          <Label className="text-xs">กำหนดชำระ *</Label>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {([["14", "14 วัน"], ["30", "30 วัน"], ["custom", "กำหนดเอง"]] as const).map(([k, label]) => (
+              <Button key={k} variant="chip" size="inline" type="button" aria-pressed={dueMode === k} onClick={() => setDueMode(k)} className="px-2.5 py-1 text-xs">{label}</Button>
+            ))}
+            {dueMode === "custom" && <Input type="date" min={dueBase} value={dueCustom} onChange={(e) => setDueCustom(e.target.value)} className="h-8 w-40" />}
+          </div>
+          <p className="text-xs text-muted-foreground">{dueDate ? `ชำระภายใน ${fmtDate(dueDate)}` : "เลือกทุกครั้งที่สร้างใบแจ้งหนี้ — ใช้ติดตามใบที่ส่งไปแล้วยังไม่จ่าย"}</p>
         </div>
         </Section>
         </div>

@@ -6,6 +6,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { buildSeed, uid, type DB } from "@/data/seed"
+import { leadSets } from "@/domain/rules/customer-state"
 import { withDemoSlips } from "@/data/demo-slip"
 import { buildExamDemo } from "@/data/exam-demo"
 import { addDays, at, fmtDate, TH_DAYS_FULL, fmtMoney, nextWeekday, toDateStr, toMinutes, weekdayOf } from "@/domain/dates"
@@ -47,7 +48,7 @@ import * as Msg from "@/domain/rules/messages"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
 import * as FB from "@/domain/rules/form-builder"
-import type { Attendance, BankAccountEntry, SystemLogEntry, HomePin, CustomFormResponse, FormDef, GradeRolloverRecord, Brand, LinkWho } from "@/domain/types"
+import type { Attendance, BankAccountEntry, SystemLogEntry, HomePin, CustomFormResponse, FormCancel, FormSend, FormDef, GradeRolloverRecord, Brand, LinkWho } from "@/domain/types"
 import * as Nock from "@/domain/rules/nock"
 import * as Dev from "@/domain/rules/dev-tickets"
 import { toast } from "@/lib/toast"
@@ -303,6 +304,12 @@ type Store = DB & UIState & {
   /** owner 2026-11-05: a family set — Drafts from each child's last invoice, linked as one set from the start */
   createFamilyBundle: (sourceIds: ID[]) => Result<{ created: Invoice[]; failed: { id: ID; error: string }[] }>
   unlinkInvoice: (id: ID) => Result
+  /** owner 2026-11-26: bind / unbind an invoice (its whole family set) to the Enroll Form — nothing is sent by this */
+  setInvoiceEnroll: (id: ID, on: boolean) => Result
+  /** owner 2026-11-26: "make the Enroll Form first, then its invoice" — waiting until an invoice is approved + numbered */
+  setEnrollWaiting: (familyId: ID, on: boolean) => Result
+  /** owner 2026-11-26: the Enroll Form went out WITH these invoices — they count as sent, the binding is used up */
+  markEnrollSent: (ids: ID[]) => Result
   /** the message to the parent can be edited any time before it is sent / the invoice is paid (owner 2026-11-05) */
   setInvoiceNote: (id: ID, note: string) => Result
   /** optional, manual: tell the parent on LINE that a voided invoice was cancelled (never automatic) */
@@ -432,6 +439,12 @@ type Store = DB & UIState & {
   duplicateForm: (id: ID) => Result<FormDef>
   /** custom-form answers pulled from the form server (only new ones are added) */
   syncFormResponses: (list: CustomFormResponse[]) => Result<{ added: number }>
+  /** owner 2026-11-26: what the admin sent to families (Enroll / Custom) + the admin's "จบงาน" on a money matter */
+  formSends: FormSend[]
+  logFormSend: (rec: Omit<FormSend, "id" | "sentAt">) => void
+  closeFormSend: (id: ID) => Result
+  formCancels: FormCancel[]
+  recordFormCancel: (c: Omit<FormCancel, "at" | "by">) => void
   saveSurveyWindow: (w: { from: string; to: string }) => Result
   /** enroll-now (owner 2026-10-05): the branch's Rich Menu link */
   setEnrollLink: (branchId: ID, link: Branch["enrollLink"]) => Result
@@ -573,9 +586,9 @@ type PricedLine = ReturnType<typeof Bill.invoiceTotals>["lines"][number]
 const entitlementOf = (studentId: ID, invoiceId: ID | null, l: PricedLine, branch: Branch | undefined): Entitlement | null => {
   if (!l.course || !l.quote) return null
   const q = l.quote, co = l.course
-  // hour packs are counted; week and month packs are a window with any number of sessions
+  // hour and session packs are counted (a session pack: one off per session attended, no minutes); week and month packs are a window with any number of sessions
   // hour packs are used up by minutes really attended (owner 2026-09-30)
-  return { id: uid("en"), studentId, courseId: co.id, subjects: co.subjects, classIds: l.line.classIds, invoiceId, kind: co.unit === "hour" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, leaveQuota: branch ? Cfg.leaveQuotaFor(branch, co.unit, co.duration, l.line.periods, q.slots.length) : undefined, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }
+  return { id: uid("en"), studentId, courseId: co.id, subjects: co.subjects, classIds: l.line.classIds, invoiceId, kind: co.unit === "hour" || co.unit === "session" ? "sessions" : "subscription", from: q.from, to: q.to, sessionsTotal: q.slots.length, leaveQuota: branch ? Cfg.leaveQuotaFor(branch, co.unit, co.duration, l.line.periods, q.slots.length) : undefined, minutesTotal: co.unit === "hour" ? q.slots.reduce((m, x) => m + x.minutes, 0) : undefined, carryMinutes: q.carryOut || undefined }
 }
 /** the student joins the line's classes (with their part of it when they attend only part) and the paid/credited sessions */
 const joinLine = (studentId: ID, l: PricedLine, classes: Klass[], sessions: Session[]) => {
@@ -813,11 +826,13 @@ export const useStore = create<Store>()(
       return {
       // owner 2026-10-20 ("เที่ยวรถ หายไปไหนหมด"): a browser with nothing saved yet starts with the same demo as a reset /
       // an upgrade — before, only those added the vans, drivers and bus riders, so a fresh tab showed no trips at all
-      ...withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(buildSeed()))) as unknown as Store)),
+      ...withInvoiceFollowDemo(withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(buildSeed()))) as unknown as Store))),
       userId: "u_nock",
       branchId: "br_thl",
       clockOffset: 0,
       referralAwards: [],
+      formSends: [],
+      formCancels: [],
       gradeRollovers: [],
 
       now: () => new Date(Date.now() + get().clockOffset),
@@ -872,7 +887,7 @@ export const useStore = create<Store>()(
         return OK
       },
 
-      resetData: () => set({ ...withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(get(), buildSeed())))) as unknown as Store)), clockOffset: 0 }),
+      resetData: () => set({ ...withInvoiceFollowDemo(withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(get(), buildSeed())))) as unknown as Store))), clockOffset: 0 }),
       restartAsVisitor: (lineUserId) => set({ ...withFamilyNames(withBirthdayDemo(withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(withoutLineLink(get(), lineUserId), buildSeed())))) as unknown as Store)), clockOffset: 0 }),
 
       // ---------------- classes & sessions ----------------
@@ -1299,7 +1314,14 @@ export const useStore = create<Store>()(
         const s = get()
         const perm = requirePerm(s.me(), "student.manage")
         if (!perm.ok) return perm
-        set({ students: s.students.map((x) => (x.id === id ? { ...x, archived: undefined } : x)) })
+        // owner 2026-11-26: Restore the family alone (children stay archived — they come back one by one) OR start from a child: the moment one child is back, an archived family comes back by itself
+        const famId = s.students.find((x) => x.id === id)?.familyId
+        const famBack = !!famId && s.families.some((f) => f.id === famId && f.archived)
+        set({
+          students: s.students.map((x) => (x.id === id ? { ...x, archived: undefined } : x)),
+          ...(famBack ? { families: s.families.map((f) => (f.id === famId ? { ...f, archived: undefined } : f)) } : {}),
+        })
+        if (famBack) log("profile", [id], "เอาครอบครัวกลับจากคลัง", "นักเรียนคนแรกกลับมาเรียน — ครอบครัวกลับมาเอง")
         log("profile", [id], "กลับมาเรียน", "ยกเลิก Archive — เพิ่มเข้าคลาสใหม่ได้จากปฏิทิน/ใบแจ้งหนี้")
         return OK
       },
@@ -2784,6 +2806,8 @@ export const useStore = create<Store>()(
         if (submit && (!existing || existing.status === "draft")) { const blockedBy = Bank.billingBlockReason(s.branches.find((b) => b.id === inv.branchId)!)
         if (blockedBy) return fail(blockedBy)
         }
+        // owner 2026-11-26: creating an invoice needs a pay-by date (14 days · 30 days · own date) — chosen every time
+        if (submit && !inv.dueDate) return fail("เลือกกำหนดชำระ (14 วัน / 30 วัน / กำหนดเอง) ก่อนสร้างใบแจ้งหนี้")
         if (submit && (blank || (!inv.lines.length && !inv.advance.length && !inv.bookFee))) return fail("ใบนี้ยังไม่มีรายการ — เติมคอร์สก่อนสร้างใบแจ้งหนี้")
         const totals = Bill.invoiceTotals(inv, ctxOf(s, inv.branchId))
         const errs = blank ? [] : Bill.validateInvoiceDraft(inv, totals, { lastAssessment: Forms.lastAssessmentDate(inv.studentId, s.assessments) })
@@ -2872,6 +2896,7 @@ export const useStore = create<Store>()(
         const blockedBy = Bank.billingBlockReason(s.branches.find((b) => b.id === inv.branchId)!)
         if (blockedBy) return fail(blockedBy)
 
+        if (!inv.dueDate) return fail("ใบนี้ยังไม่ได้เลือกกำหนดชำระ — กด “แก้ไข” แล้วเลือก 14 วัน / 30 วัน / กำหนดเอง")
         if (!inv.lines.length && !inv.advance.length && !inv.bookFee) return fail("ใบนี้ยังไม่มีรายการ — เติมคอร์สก่อนสร้างใบแจ้งหนี้")
         const next: Invoice = { ...inv, status: "pending_approval" }
         set({ invoices: s.invoices.map((x) => (x.id === id ? next : x)), notifications: [approvalNeededNotice(next, s.students.find((x) => x.id === inv.studentId)?.nickname ?? ""), ...s.notifications] })
@@ -3676,6 +3701,42 @@ export const useStore = create<Store>()(
         return OK
       },
 
+      setInvoiceEnroll: (id, on) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const inv = s.invoices.find((x) => x.id === id)
+        if (!inv) return fail("ไม่พบใบแจ้งหนี้")
+        const ids = new Set(inv.bundleId ? s.invoices.filter((x) => x.bundleId === inv.bundleId).map((x) => x.id) : [id])
+        set({ invoices: s.invoices.map((x) => (ids.has(x.id) ? { ...x, withEnroll: on || undefined } : x)) })
+        return OK
+      },
+
+      setEnrollWaiting: (familyId, on) => {
+        const s = get()
+        if (!s.families.some((f) => f.id === familyId)) return fail("ไม่พบครอบครัว")
+        set({ families: s.families.map((f) => (f.id === familyId ? { ...f, enrollWaiting: on || undefined } : f)) })
+        return OK
+      },
+
+      markEnrollSent: (ids) => {
+        const s = get()
+        const perm = requirePerm(s.me(), "billing.manage")
+        if (!perm.ok) return perm
+        const mine = s.invoices.filter((x) => ids.includes(x.id))
+        if (!mine.length) return fail("ไม่พบใบแจ้งหนี้")
+        const famIds = new Set(mine.map((x) => s.students.find((y) => y.id === x.studentId)?.familyId).filter(Boolean) as ID[])
+        const now = s.now().toISOString()
+        set({
+          invoices: s.invoices.map((x) => (ids.includes(x.id) && x.number && x.status !== "paid" && x.status !== "void"
+            ? { ...x, withEnroll: undefined, status: "sent", sentAt: now, delivery: "delivered", deliveryError: undefined, bankSnapshot: x.bankSnapshot ?? s.branches.find((b) => b.id === x.branchId)?.bankAccount }
+            : x)),
+          families: s.families.map((f) => (famIds.has(f.id) ? { ...f, enrollWaiting: undefined } : f)),
+        })
+        for (const x of mine) { const lead = leadOfStudent(x.studentId); if (lead) advanceLead(lead.id, "payment_pending") }
+        return OK
+      },
+
       setInvoiceNote: (id, note) => {
         const s = get()
         const perm = requirePerm(s.me(), "billing.manage")
@@ -4171,6 +4232,14 @@ export const useStore = create<Store>()(
         return { ok: true, value: copy }
       },
 
+      logFormSend: (rec) => set((st) => ({ formSends: [...(st.formSends ?? []), { ...rec, id: uid("fs"), sentAt: st.now().toISOString() }] })),
+      recordFormCancel: (c) => set((st) => ({ formCancels: [...(st.formCancels ?? []).filter((x) => x.token !== c.token), { ...c, at: st.now().toISOString(), by: st.userId }] })),
+      closeFormSend: (id) => {
+        const s = get()
+        if (!(s.formSends ?? []).some((x) => x.id === id)) return fail("ไม่พบฟอร์มนี้")
+        set({ formSends: s.formSends.map((x) => (x.id === id ? { ...x, closedAt: s.now().toISOString(), closedBy: s.userId } : x)) })
+        return OK
+      },
       syncFormResponses: (list) => {
         const s = get()
         const known = new Set(s.formResponses.map((r) => r.id))
@@ -4758,8 +4827,8 @@ export const useStore = create<Store>()(
       skipHydration: true,
       onRehydrateStorage: () => () => idb.enableWrites(),
       // bump when the data model changes; older saved data is replaced by fresh sample data
-      version: 133, // 133: families are stored as "[name] Family" (withFamilyNames, saved data renamed in place) · // 132: Special Period parent messages (periodSent) · 131: session credits (sessionCredits) · // 130: system audit log (systemLogs) · 129: invoices keep the bank account they had when sent / paid (bankSnapshot) · 128: demo pay slips on every transfer (kept data, `slip` added) · 127: the Nockacademy main account carries its saved QR image · 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
-      migrate: (old, from) => withFamilyNames(withPeriodSent(withSessionCredits(withSystemLogs(Bank.withBankSnapshots(withDemoSlips(withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store)))))))))),
+      version: 139, // 139: (138 again — demo invoices in the branch being viewed) · // 138: (137 again — demo invoices on customer families only) · // 137: (136 again — demo invoices on every second customer family) · // 136: (135 again — the demo invoices go to families the list really shows) · // 135: the demo invoices follow the first families of the list · // 134: demo — a few sent-and-unpaid invoices with pay-by dates (Invoice column on Student / Family) · // 133: families are stored as "[name] Family" (withFamilyNames, saved data renamed in place) · // 132: Special Period parent messages (periodSent) · 131: session credits (sessionCredits) · // 130: system audit log (systemLogs) · 129: invoices keep the bank account they had when sent / paid (bankSnapshot) · 128: demo pay slips on every transfer (kept data, `slip` added) · 127: the Nockacademy main account carries its saved QR image · 126: central Bank Accounts in Settings › System › การเงิน (saved data kept) · 125: Nock Academy exam subjects (8, basic / additional) in the exam demo ·  124: exam demo with school-style full marks (30 / 40 / 60) ·  123: school exam results demo (kept data, results added) ·  122: a few Thonglor families have a birthday today (the cake beside the name) ·  // 121: demo Course Summary + session-note texts follow the course's subject (refreshed in place) · 120: the demo Course Summary texts are longer, under headings (refreshed in place) · 119: a LINE-linked family gets a sent, long Course Summary (saved data kept) · 118: every branch gets the sample PromptPay ID (payment QR on every branch's invoice) · 117: Thonglor gets a sample PromptPay ID for the invoice payment QR (kept data, one field added) · 116: document numbers in the new format — saved data is KEPT and renumbered (renumberDocuments), not reseeded · 115: 115: form builder round 2 — system forms in steps / groups / tied data, the camp form in 3 steps · 114: (113 again — system forms show their real choices) · 113: form builder — system forms + 2 company forms with answers · 112: every survey child has a teacher (demo teacher scores) · 111: some survey answers pick "อื่นๆ" (with text) · 110: parent survey answers in the shape of the school's real form · 109: Test / Trial appointment records for the history leads (funnel by way) · 106–108: (105 again — more second courses, repeated course breaks, their check-ins summarised) · 105: second courses (kept / dropped / bought again) + course check-ins with a long break — Reports' course trend · 104: (103 again — finished) · 103: sample leads spread over each branch's admins / managers / teachers (Members Conversion rate) · 102: fresh browsers start with the transport demo too (were missing vans / drivers / riders) · 101: Thonglor bus homes in two bunches + 1 family without a home pin (location analysis) · 100: (99 again — Both run named รับ-ส่ง) · 99: Thonglor — 2 vans + 2 zones + Saturday Both trip (owner) · 98: (97 again — both Saturday vans run Both) · 97: Bus Route rebuild — drivers as staff (one outsource), Saturday Both run at Sriracha · 96: (95 again — finished demo) · 95: Sriracha — 2 vans, zones North / South · 94: transport demo — each rider on their own paid bus invoice · 93: Transport — a van, a dozen children riding at Thonglor, busTrips · 92: demo child rides the bus on Math days only (English days open to ask for a ride) · 91: demo child with classes for LINE-linked families (parent app) · 90: Liclass bus — branch pin, fee distance bands, bus runs · 89: Note Calendar (ถาวร / ชั่วคราว) replaces the free-text session notes · 88: demo exit notices all "sent" · 87: 3 open exit notices · 86: course history capped at 8 sessions (storage size) · 85: course-history check per course · 84: + running rounds · 83: finished courses with a Course Summary get their session history · 82: per-subject levels in Bundle sessions · 80–81: Bundle demo students sit in the combo class for 3 months (charts) · 79: 1–5 understanding on session summaries + Bundle notes per subject · 78: Dev statuses กำลังทำ / เสร็จแล้ว / ไม่ทำ / เก็บไว้ก่อน · 77: images on Nock + Dev tickets · 76: คำถามถึง Dev examples · 75: Developer role + เรื่องถึง Dev · 74: Nock answers per person + thumbs per answer · 73: Nock locations + knowledge = answered questions + votes · 72: Nock question bank + knowledge · 71: Summer Memo + Summer course + paid Summer invoice · 68–70: session summaries in every stage this week + sample Course Summaries (Single + Bundle) · 65–67: names without titles, parent relationship, phones without dashes, subject colours · 61: real branches (owner 2026-10-07) · 62: CB = ตึกน้ำ · 63: sample schools · 64: schools from the Ministry list
+      migrate: (old, from) => withInvoiceFollowDemo(withFamilyNames(withPeriodSent(withSessionCredits(withSystemLogs(Bank.withBankSnapshots(withDemoSlips(withBankAccounts(withExamDemo(withBirthdayDemo((from >= 115 && old ? withLinkedCourseSummary(withSamplePromptPay(from === 115 ? Bill.renumberDocuments(old as unknown as Store) : (old as unknown as Store))) : ({ ...withLinkedCourseSummary(withTransportDemo(withLinkedFamilyDemo(keepLineLinks(old as Partial<Store> | undefined, buildSeed())))), userId: "u_nock", branchId: "br_thl", clockOffset: 0 }) as unknown as Store))))))))))),
       // persist data + UI state only, never the action functions
       partialize: (s) => Object.fromEntries(Object.entries(s).filter(([, v]) => typeof v !== "function")) as Partial<Store>,
     },
@@ -4818,6 +4887,39 @@ function withExamDemo(s: Store): Store {
 /** saved data from before the payment QR: every branch gets the sample PromptPay ID (the company tax ID — replace it in Settings › Bank); nothing else changes */
 /** owner 2026-11-24: saved data from before the central Bank Accounts — one account per business type is made from the branches as they are
  *  (the QR stays on the Nockacademy account only) and sent back to the branches */
+/**
+ * owner 2026-11-26: demo for the Invoice column of the Student / Family lists — a few invoices that were SENT and are not paid yet, with pay-by dates that
+ * show the three colours (overdue / 2 days = red · 5 days = yellow · 12–25 days = grey; one family has two). Cloned from a paid invoice of the same child;
+ * saved data is kept, nothing existing changes. Skipped once any `inv_follow_` invoice exists.
+ */
+function withInvoiceFollowDemo(s: Store): Store {
+  const now = new Date(Date.now() + (s.clockOffset ?? 0))
+  const day = (n: number) => addDays(toDateStr(now), n)
+  const keep = (s.invoices ?? []).filter((i) => !i.id.startsWith("inv_follow_"))
+  const paid = keep.filter((i) => i.status === "paid" && !i.bundleId)
+  // the first families of the list (the order the Families page opens in) — each one's child, with that child's own paid invoice as the model, or any paid invoice of the branch
+  const leadSet = leadSets({ students: s.students, leads: s.leads, invoices: keep, entitlements: s.entitlements })
+  const fams = [...s.families].filter((f) => !f.archived && !leadSet.familyIds.has(f.id) && s.students.some((k) => k.familyId === f.id && !k.archived && k.branchId === (s.branchId ?? "br_thl")))
+    .sort((a, b) => People.familyShortName(a.name).localeCompare(People.familyShortName(b.name), "th"))
+  // every second customer family, so the first page of the list shows all three colours (and one family with two invoices)
+  const dues = [-2, 2, 5, 12, 1, 8, 4, 18, 3, 6]
+  const specs = [...dues.map((due, k) => ({ fam: k * 2, due })), { fam: 6, due: 25 }]
+  const made = specs.flatMap((sp, n) => {
+    const f = fams[sp.fam]
+    const kids = f ? s.students.filter((k) => k.familyId === f.id && !k.archived && k.branchId === (s.branchId ?? "br_thl")) : []
+    const kid = kids[n === specs.length - 1 && kids[1] ? 1 : 0]
+    if (!kid) return []
+    const t = paid.find((i) => i.studentId === kid.id) ?? paid.find((i) => i.branchId === kid.branchId) ?? paid[0]
+    if (!t) return []
+    return [{
+      ...t, id: `inv_follow_${n}`, studentId: kid.id, branchId: kid.branchId, number: `INV-DEMO-${n + 1}`, status: "sent" as const, payments: [], rejectedPayments: undefined, receiptNumber: undefined, receiptDelivery: undefined, receiptMerges: undefined,
+      bundleId: undefined, withEnroll: undefined, agreement: undefined, creditsUsed: undefined, busExtras: undefined, duplicatedFrom: undefined, forced: undefined,
+      noteToParent: "ค่าเรียนเดือนนี้ — โอนภายในกำหนดนะคะ", createdAt: `${day(-3)}T09:00:00.000Z`, sentAt: `${day(-2)}T10:00:00.000Z`, delivery: "delivered" as const, deliveryError: undefined, dueDate: day(sp.due),
+    } as Invoice]
+  })
+  return made.length ? { ...s, invoices: [...keep, ...made] } : s
+}
+
 function withPeriodSent(s: Store): Store {
   return s.periodSent ? s : { ...s, periodSent: {} }
 }

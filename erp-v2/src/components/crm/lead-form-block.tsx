@@ -161,8 +161,9 @@ export function useSentForms(lead: Lead, type: FormKind, subs: FormSubmission[],
   return { items, links, ready, everSent: mine.length > 0 || subs.some((x) => x.type === type), refresh }
 }
 
-export function SentForms({ type, items, onCancel }: { type: FormKind; items: ReturnType<typeof useSentForms>["items"]; onCancel?: (token: string) => void }) {
-  const [confirming, setConfirming] = useState<string | null>(null)
+export function SentForms({ type, items, onCancel }: { type: FormKind; items: ReturnType<typeof useSentForms>["items"]; onCancel?: (token: string) => void /* asks to cancel — the reason dialog lives with the caller */ }) {
+  const cancelList = useStore((s) => s.formCancels)
+  const cancels = new Map((cancelList ?? []).map((c) => [c.token, c]))
   if (!items.length) return null
   const label = tx(FORM_LABEL[type])
   const stateOf = (it: (typeof items)[number]): { tone: "blue" | "amber" | "green" | "gray"; text: string } => {
@@ -186,10 +187,11 @@ export function SentForms({ type, items, onCancel }: { type: FormKind; items: Re
             <Pill tone={st.tone}>{st.text}</Pill>
             <span>{label}{it.subjects.length > 0 && <span className="text-muted-foreground"> · {it.subjects.join(", ")}</span>}</span>
             <span className="text-muted-foreground">{fmtDateTime(it.at)}</span>
+            {it.state === "cancelled" && cancels.get(it.token) && (
+              <span className="text-muted-foreground">· {cancels.get(it.token)!.label}{cancels.get(it.token)!.remark ? ` — ${cancels.get(it.token)!.remark}` : ""}</span>
+            )}
             {it.state === "waiting" && onCancel && (
-              confirming === it.token
-                ? <span className="ml-auto flex items-center gap-1"><Button size="xs" variant="ghost" type="button" className="text-danger" onClick={() => { onCancel(it.token); setConfirming(null) }}>{tx("ยืนยันยกเลิกลิงก์")}</Button><Button size="xs" variant="ghost" type="button" onClick={() => setConfirming(null)}>{tx("ไม่")}</Button></span>
-                : <Button size="xs" variant="ghost" type="button" className="ml-auto text-muted-foreground" onClick={() => setConfirming(it.token)}>{tx("ยกเลิกลิงก์")}</Button>
+              <Button size="xs" variant="ghost" type="button" className="ml-auto text-muted-foreground" onClick={() => onCancel(it.token)}>{tx("ยกเลิกลิงก์")}</Button>
             )}
           </li>
         )

@@ -69,7 +69,7 @@ export function CatalogApp({ token, preview, embedded, onDetail }: { token: stri
   if (!t) return <Center><LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" /></Center>
   const subjectName = (s: string) => (lang !== "th" && t.subjectNames?.[s]?.[lang]) || tx(s)
   // the rules' Thai labels (priceLabel / classWhen), built from translated pieces so EN / JP read whole
-  const price = (c: CatalogCourse) => tx("เริ่มต้น {0} บาท / {1}", [c.price.toLocaleString("en-US"), c.unit === "month" ? tx("เดือน") : tx(c.unit === "hour" ? "{0} ชม." : "{0} สัปดาห์", [c.duration])])
+  const price = (c: CatalogCourse) => tx("เริ่มต้น {0} บาท / {1}", [c.price.toLocaleString("en-US"), c.unit === "month" ? tx("เดือน") : tx(c.unit === "hour" ? "{0} ชม." : c.unit === "session" ? "{0} คาบ" : "{0} สัปดาห์", [c.duration])])
   const when = (k: EnrollClassOffer) => tx("ทุก {0} {1}–{2}", [tx(DAY[k.weekday]), k.start, endTime(k.start, k.minutes)])
   const classOf = (id: ID) => t.classes.find((k) => k.id === id)
 

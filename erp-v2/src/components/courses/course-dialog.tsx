@@ -13,14 +13,14 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { fmtDate, fmtMoney } from "@/domain/dates"
 import { chartPrice, defaultCourseName, needsPriceReason } from "@/domain/rules/course"
-import { brandPriceUnits, durationLabel, durationsOf, GRADE_GROUPS, PRICE_UNIT_LABEL, priceRange, sortGrades } from "@/domain/rules/settings"
+import { brandPriceUnits, durationLabel, durationsOf, GRADE_GROUPS, PACKAGE_LABEL, priceRange, sortGrades } from "@/domain/rules/settings"
 import type { Branch, Course, PriceUnit } from "@/domain/types"
 import { uid } from "@/data/seed"
 import { report } from "@/lib/feedback"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-const UNITS: PriceUnit[] = ["hour", "week", "month"]
+const UNITS: PriceUnit[] = ["month", "week", "hour", "session"]
 
 export function emptyCourse(branch: Branch): Course {
   return {
@@ -165,10 +165,11 @@ export function CourseDialog({ branch, initial, onClose, onSaved }: { branch: Br
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="แพ็กเกจ (Duration type) *" hint={c.unit === "hour" ? "ซื้อเป็นชั่วโมง หักตามความยาวคาบจริง (24 ชม. ที่คาบ 2 ชม. = 12 คาบ, คาบ 90 นาที = 16 คาบ)"
+              : c.unit === "session" ? "ซื้อเป็นจำนวนคาบ หัก 1 คาบต่อคาบที่เรียน ไม่ว่าคาบนั้นยาวกี่ชั่วโมง · ลา/ชดเชยตามกติกาเดียวกับ Hourly · หมดอายุตามวันเริ่ม–จบของคอร์ส (ถ้ากำหนดไว้)"
               : c.unit === "week" ? "ซื้อเป็นสัปดาห์ นับจากวันเริ่ม เรียนกี่คาบก็ได้ในช่วงนั้น"
                 : "รายเดือนตามปฏิทิน (วันที่ 1 – สิ้นเดือน) เรียนกี่คาบก็ได้ · เดือนแรก pro-rate 100/60/30%"}>
               <NativeSelect value={c.unit} onChange={(e) => { const unit = e.target.value as PriceUnit; set({ unit, duration: unit === "month" ? 1 : durationsOf(branch, unit)[0] ?? 0 }) }}
-                options={brandPriceUnits(branch.brand).concat(c.unit && !brandPriceUnits(branch.brand).includes(c.unit) ? [c.unit] : []).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] }))} />
+                options={brandPriceUnits(branch.brand).concat(c.unit && !brandPriceUnits(branch.brand).includes(c.unit) ? [c.unit] : []).map((u) => ({ value: u, label: PACKAGE_LABEL[u] }))} />
             </Field>
             {c.unit !== "month" && (
               <Field label="ระยะเวลา *">

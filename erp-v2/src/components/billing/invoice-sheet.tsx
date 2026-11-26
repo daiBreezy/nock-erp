@@ -1,7 +1,9 @@
 "use client"
 
 import { Tabs } from "@/components/app/page-layout"
-import { syncEnrollInvoice } from "@/lib/forms"
+import { sendEnrollWithInvoices, syncEnrollInvoice } from "@/lib/forms"
+import { isNewcomer } from "@/domain/rules/form-hub"
+import { SendWithEnrollDialog } from "./send-with-enroll-dialog"
 import { ForceApprove } from "@/components/app/force-approve"
 import Link from "next/link"
 import { Fragment, useEffect, useState } from "react"
@@ -122,6 +124,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
   const brandMemos = useStore((s) => s.system.invoiceMemos)
   const act = useStore(useShallow((s) => ({ create: s.createInvoice, issue: s.issueInvoice, del: s.deleteInvoice, delSet: s.deleteInvoiceSet, approve: s.approveInvoice, send: s.sendInvoice, void: s.voidInvoice, notifyVoid: s.notifyVoid, duplicate: s.duplicateInvoice, setNote: s.setInvoiceNote, pay: s.recordPayment, payGroup: s.recordGroupPayment, confirm: s.confirmPayment, regroup: s.setReceiptGrouping, sendAgreement: s.sendAgreement, confirmAgreement: s.confirmAgreement })))
   const invoices = useStore((s) => s.invoices)
+  const conversations = useStore((s) => s.conversations)
   // the message to the parent: this invoice's, else the one from this student's last invoice — editable until it is sent
   const prevNote = inv ? Bill.lastNoteFor(inv.studentId, invoices, inv.id) : ""
   const [note, setNote] = useState(inv?.noteToParent || prevNote)
@@ -132,6 +135,7 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
   const [receiptOpen, setReceiptOpen] = useState(false)
   const [deleting, setDeleting] = useState<false | "one" | "set">(false)
   const [merging, setMerging] = useState(false)
+  const [sendChoice, setSendChoice] = useState(false) // owner 2026-11-26: newcomer → alone or WITH the Enroll Form
   const mergeCandidates = useMergeCandidates(inv)
   // owner 2026-11-24: every delete says WHAT it deletes — this child's invoice, or the whole set
   const nickOf = (x: { studentId: ID }) => students.find((y) => y.id === x.studentId)?.nickname ?? "—"
@@ -344,6 +348,9 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
   // the action box only when it has something to show (sending + recording money now live in the Note section / the payment step)
   const showAction = (inv.status === "draft" && manage) || (inv.status === "pending_approval" && approveCheck.ok) || inv.status === "void"
   // owner 2026-11-19: the admin can always send again once it has been sent — the parent may not have seen it, for any reason
+  const enrollConv = fam ? conversations.find((c) => c.familyId === fam.id) : undefined
+  const newcomer = isNewcomer(inv.studentId, invoices)
+  const sendAlone = () => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))
   const canSendNote = ((inv.status === "approved" && !!inv.number) || inv.status === "sent") && manage
   const noteEditable = manage && inv.status !== "paid" && inv.status !== "void"
   const noteSaved = (inv.noteToParent || "") === note.trim()
@@ -545,13 +552,18 @@ function Body({ id, slipMediaId, onEdit, onDuplicated, onDeleted, tabs }: { id: 
           {inv.status === "pending_approval" && approveCheck.ok && <Button className={manage ? undefined : "ml-auto"} onClick={() => report(act.approve(inv.id), "อนุมัติแล้ว — Admin ออกเลข Official ได้")}><CheckIcon /> อนุมัติ</Button>}
           {inv.status === "approved" && !inv.number && manage && <Button disabled={!!noBank} title={noBank ?? undefined} onClick={issue}><FileTextIcon /> ออกเลข Official</Button>}
           {canSendNote && (
-            <Button className="ml-auto" variant={sentToParent ? "outline" : "default"} disabled={!note.trim() || !!noBank} title={noBank ?? undefined} onClick={() => report(act.send(inv.id, note), (v) => (v.delivered ? "ส่งทาง LINE แล้ว" : "บันทึกแล้ว แต่ยังไม่ถึงผู้ปกครอง (ไม่มี LINE)"))}>
+            <Button className="ml-auto" variant={sentToParent ? "outline" : "default"} disabled={!note.trim() || !!noBank} title={noBank ?? undefined} onClick={() => (enrollConv && newcomer && inv.status !== "sent" ? setSendChoice(true) : sendAlone())}>
               <SendIcon /> {inv.status === "sent" ? "ส่งอีกครั้ง" : "ส่งผู้ปกครอง"}
             </Button>
           )}
           {sentToParent && canAddPayment && <Button onClick={() => setPayOpen(true)}><UploadIcon /> อัปโหลดสลิป</Button>}
           {inv.status === "draft" && manage && <Button disabled={!!noBank} title={noBank ?? undefined} onClick={generate}><FileTextIcon /> สร้างใบแจ้งหนี้</Button>}
         </PanelFooter>
+      )}
+      {sendChoice && enrollConv && (
+        <SendWithEnrollDialog bound={!!(inv.withEnroll || setMembers.some((x) => x.withEnroll) || fam?.enrollWaiting)} setLabel={setMembers.length > 1 ? `ชุดครอบครัว · ${setMembers.map(nickOf).join(" + ")}` : (inv.number ?? "")}
+          onClose={() => setSendChoice(false)} onInvoiceOnly={() => { setSendChoice(false); sendAlone() }}
+          onWithEnroll={async () => { const r = await sendEnrollWithInvoices(enrollConv.id, setMembers.length > 1 ? setMembers.map((x) => x.id) : [inv.id]); if (report(r, "ส่งใบสมัครเรียนพร้อมใบแจ้งหนี้แล้ว")) setSendChoice(false) }} />
       )}
       {merging && <MergeInvoicesDialog inv={inv} onClose={() => setMerging(false)} />}
       <MathGate open={deleting !== false} onClose={() => setDeleting(false)} confirmLabel="ลบถาวร"

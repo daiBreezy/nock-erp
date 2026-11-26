@@ -199,7 +199,10 @@ export function FamilyProfile({ family, kids, onGoBilling }: { family: Family; k
  *  · each CHILD under their own name: next session · what is left, then their courses as plain text
  * Tap a child → that child's panel.
  */
-export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: Family; kids: Student[]; onOpen: (id: ID) => void; onGoBilling?: () => void }) {
+import { FormSnapshot } from "@/components/forms/form-snapshot"
+import type { FormActions } from "@/components/forms/form-card"
+
+export function FamilyOverview({ family, kids, onOpen, onGoBilling, formActions }: { family: Family; kids: Student[]; onOpen: (id: ID) => void; onGoBilling?: () => void; formActions?: FormActions }) {
   const families = useStore((s) => s.families)
   const ents = useEntitlements()
   const leaves = useStore((s) => s.leaves)
@@ -229,6 +232,8 @@ export function FamilyOverview({ family, kids, onOpen, onGoBilling }: { family: 
         <Kpi variant="tonal" label="Referral" value={referred.length > 0 ? `${referred.length} ${tx("ครอบครัว")}` : "-"}
           sub={referrer ? `${tx("แนะนำโดย")} ${familyDisplay(referrer.name)}` : referred.length > 0 ? referred.slice(0, 2).map((f) => familyDisplay(f.name)).join(", ") : tx("ยังไม่มีผู้แนะนำ")} />
       </KpiGroup>
+      {/* owner 2026-11-26: forms that went out and are not done yet — gone from here once done (still in ฟอร์มทั้งหมด) */}
+      <FormSnapshot family={family} actions={formActions} />
       <div className="divide-y">
         {kids.map((k) => {
           const mine = ents.filter((e) => e.studentId === k.id)

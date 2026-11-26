@@ -231,6 +231,21 @@ export function studentState(
   return { status: active.every((e) => e.to <= soon) ? "renewal" : "active" }
 }
 
+/**
+ * owner 2026-11-26: a FAMILY is Active while ANY of its (not archived) children is Active — Renewal counts as Active; Archived when the family was put away;
+ * otherwise Inactive (nobody has a running package, or no children yet). One rule for the list column, its filter and the panel header.
+ */
+export type FamilyStatus = "active" | "inactive" | "archived"
+export function familyStatus(family: { archived?: unknown }, kids: Pick<Student, "id" | "archived">[], ents: Entitlement[], leaves: StudentLeave[], today: string, renewalDays = 7): FamilyStatus {
+  if (family.archived) return "archived"
+  const live = kids.some((k) => {
+    if (k.archived) return false
+    const st = studentStatus(k, ents.filter((e) => e.studentId === k.id), leaves.filter((l) => l.studentId === k.id), today, renewalDays)
+    return st === "active" || st === "renewal"
+  })
+  return live ? "active" : "inactive"
+}
+
 /** Status only — for lists and filters. */
 export function studentStatus(stu: Pick<Student, "id" | "archived">, ents: Entitlement[], leaves: StudentLeave[], today: string, renewalDays = 7): StudentStatus {
   return studentState(stu, ents, leaves, today, renewalDays).status

@@ -26,7 +26,7 @@ import { can } from "@/domain/rules/permissions"
 import type { ID, Lead, Staff } from "@/domain/types"
 import { report } from "@/lib/feedback"
 import { EditCell } from "@/components/app/inline-edit"
-import { useBranch, useNow, useQueryState } from "@/lib/hooks"
+import { useBranch, useNow, useQueryState, useOpenFromQuery } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { tagChip, type TAG_HUE } from "@/components/app/tags"
 import { useStore } from "@/store/store"
@@ -75,6 +75,7 @@ export default function CrmPage() {
   const showEnrolled = false
   const hiddenStage = (l: Lead) => (l.stage === "archived" && !showArchived) || (l.stage === "enrolled" && !showEnrolled)
   const [openLead, setOpenLead] = useState<ID | null>(null)
+  useOpenFromQuery((id) => setOpenLead(id as ID))
   const [overCol, setOverCol] = useState<string | null>(null)
   const { sort, toggle } = useSort<LeadSort>("created", true)
 

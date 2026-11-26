@@ -307,3 +307,7 @@ tr.focus-hit > td { animation: focus-pulse-cell 1.1s ease-in-out 5; }
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
 }
+
+/* owner 2026-11-26: an empty table cell ("—", marked by <EmptyCellDash />) shows a short, faint line instead of a long dark dash */
+td[data-dash] { font-size: 0 !important; }
+td[data-dash]::after { content: ""; display: inline-block; width: 0.625rem; height: 1px; vertical-align: middle; background: color-mix(in oklab, var(--muted-foreground) 35%, transparent); }

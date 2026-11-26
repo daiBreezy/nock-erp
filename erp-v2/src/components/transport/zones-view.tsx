@@ -9,7 +9,7 @@
 import { familyDisplay } from "@/domain/rules/people"
 import { useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { MapPinCheckIcon, MapPinOffIcon, MessageCircleIcon, PinIcon, PlusIcon, TrashIcon, WandSparklesIcon } from "lucide-react"
+import { MapPinCheckIcon, MapPinOffIcon, MessagesSquareIcon, PinIcon, PlusIcon, TrashIcon, WandSparklesIcon } from "lucide-react"
 import { DataTable, type Column } from "@/components/app/data-grid"
 import { NativeSelect } from "@/components/app/native-select"
 import { Button } from "@/components/ui/button"
@@ -172,7 +172,7 @@ function BusHomesTable({ homes, zones, onZone }: { homes: Home[]; zones: BusZone
       : (
         <span className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <span className="flex items-center gap-1 text-warning"><MapPinOffIcon className="size-4" />ยังไม่มีหมุด</span>
-          <Button size="xs" variant="outline" disabled={!conversations.some((x) => x.familyId === h.fam.id)} title={conversations.some((x) => x.familyId === h.fam.id) ? "เปิดแชทครอบครัว พร้อมข้อความขอหมุด" : "ครอบครัวนี้ยังไม่มีแชท LINE"} onClick={() => askPin(h)}><MessageCircleIcon /> ขอหมุดจากผู้ปกครอง</Button>
+          <Button size="xs" variant="outline" disabled={!conversations.some((x) => x.familyId === h.fam.id)} title={conversations.some((x) => x.familyId === h.fam.id) ? "เปิดแชทครอบครัว พร้อมข้อความขอหมุด" : "ครอบครัวนี้ยังไม่มีแชท LINE"} onClick={() => askPin(h)}><MessagesSquareIcon /> ขอหมุดจากผู้ปกครอง</Button>
         </span>
       ) },
     { id: "zone", label: "โซน", width: "280px", cell: (h) => zones.length === 0 ? <span className="text-xs text-muted-foreground">ยังไม่แบ่งโซน</span> : (

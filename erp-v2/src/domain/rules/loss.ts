@@ -45,6 +45,9 @@ export function reasonsForLead(stage: LeadStage, list: LossReason[] | undefined,
   return contactFirst ? [...all.filter((r) => r.contactOnly), ...all.filter((r) => !r.contactOnly)] : [...all.filter((r) => !r.contactOnly), ...all.filter((r) => r.contactOnly)]
 }
 
+/** owner 2026-11-26: why a FAMILY is put away — what a leaving student can say, plus "could not reach / no reply / wrong contact" (the family went quiet) */
+export const reasonsForFamily = (list: LossReason[] | undefined) => lossReasonsOf(list).filter((r) => r.active && (r.for !== "lead" || r.contactOnly))
+
 export const reasonsForStudent = (list: LossReason[] | undefined) => lossReasonsOf(list).filter((r) => r.active && r.for !== "lead")
 
 export const CHANNEL_LABEL: Record<ContactChannel, string> = { call: "โทร", line: "LINE", other: "อื่นๆ" }

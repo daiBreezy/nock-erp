@@ -1,5 +1,6 @@
 "use client"
 
+import { tx } from "@/lib/i18n"
 import { ListPage, ShowChip, SearchBox } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
@@ -17,7 +18,8 @@ import { fmtDate, fmtMoney, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
 import { PACKAGE_LEGEND, PackageBadge } from "@/components/app/package-badge"
 import { can } from "@/domain/rules/permissions"
-import { gradeRanges, PRICE_UNIT_LABEL } from "@/domain/rules/settings"
+import { gradeRanges, PACKAGE_LABEL } from "@/domain/rules/settings"
+import { matchesPeriod, PeriodTag, usePeriodFilterOptions } from "@/components/app/period-tag"
 import type { Course, ID, PriceUnit } from "@/domain/types"
 import { useBranch, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -44,6 +46,7 @@ export default function CoursesPage() {
   const [subjectF, setSubjectF] = useState("")
   const [kindF, setKindF] = useState("")
   const [unitF, setUnitF] = useState("")
+  const [periodF, setPeriodF] = useState("") // owner 2026-11-26: Special Period courses show and filter
   const [showArchived, setShowArchived] = useState(false) // NEGATIVE-ACTIONS.md §5: ดูที่เก็บเข้าคลัง
   const { sort, toggle } = useSort<SortKey>("subject")
   // the course panel: an id = that course, a Course = a new one being created
@@ -51,6 +54,7 @@ export default function CoursesPage() {
 
   // NEGATIVE-ACTIONS.md §5: archived (the unified "เก็บเข้าคลัง" / old ปิดขาย) are hidden until the ShowChip is on
   const scopedAll = courses.filter((c) => scope.ids.includes(c.branchId))
+  const periodOptions = usePeriodFilterOptions(scopedAll.map((c) => c.periodId))
   const archivedCount = scopedAll.filter((c) => c.archived).length
   const scoped = showArchived ? scopedAll : scopedAll.filter((c) => !c.archived)
 
@@ -75,8 +79,9 @@ export default function CoursesPage() {
     .filter((c) => !subjectF || c.subjects.includes(subjectF))
     .filter((c) => !kindF || c.kind === kindF)
     .filter((c) => !unitF || c.unit === unitF)
+    .filter((c) => matchesPeriod(periodF, c.periodId))
     .sort((a, b) => {
-      const unitRank = { hour: 0, week: 1, month: 2 }
+      const unitRank = { hour: 0, session: 0.5, week: 1, month: 2 }
       const v = sort.key === "subject" ? (a.subjects.join("+")).localeCompare(b.subjects.join("+"), "th") || a.name.localeCompare(b.name, "th")
         : sort.key === "name" ? a.name.localeCompare(b.name, "th")
           : sort.key === "kind" ? a.kind.localeCompare(b.kind)
@@ -101,7 +106,7 @@ export default function CoursesPage() {
   const columns: Column<Course>[] = [
     { id: "subject", label: "วิชา", width: "120px", sort: "subject", cell: (c) => <div className="flex gap-1">{c.subjects.map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div> },
     { id: "name", label: "ชื่อคอร์ส", width: "200px", sort: "name", required: true, cell: (c) => (
-      <span className="flex items-center gap-1.5"><span className="font-medium">{c.name}</span>{c.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}</span>
+      <span className="flex items-center gap-1.5"><span className="font-medium">{c.name}</span>{c.periodId && <PeriodTag periodId={c.periodId} />}{c.archived && <Pill tone="gray">เก็บเข้าคลัง</Pill>}</span>
     ) },
     { id: "grades", label: "ระดับชั้น", width: "110px", cell: (c) => <div className="flex gap-1" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</div> },
     { id: "kind", label: "ประเภท", width: "100px", sort: "kind", cell: (c) => <Pill tone={c.kind === "bundle" ? "special" : "gray"}>{c.kind === "bundle" ? <><LayersIcon className="size-3" /> Bundle</> : "Single"}</Pill> },
@@ -136,7 +141,8 @@ export default function CoursesPage() {
         <FilterMenu fields={[
           { id: "subject", label: "วิชา", value: subjectF, onChange: setSubjectF, placeholder: "ทุกวิชา", options: subjects.map((x) => ({ value: x, label: x })) },
           { id: "kind", label: "ประเภทคอร์ส", value: kindF, onChange: setKindF, placeholder: "ทุกประเภท", options: [{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }] },
-          { id: "unit", label: "แพ็กเกจ", value: unitF, onChange: setUnitF, placeholder: "ทุกแพ็กเกจ", options: (["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] })) },
+          { id: "unit", label: "แพ็กเกจ", value: unitF, onChange: setUnitF, placeholder: "ทุกแพ็กเกจ", options: (["month", "week", "hour", "session"] as PriceUnit[]).map((u) => ({ value: u, label: PACKAGE_LABEL[u] })) },
+          { id: "period", label: tx("ช่วง"), value: periodF, onChange: setPeriodF, placeholder: tx("ทุกช่วง"), options: periodOptions },
         ]} />
         {/* owner 2026-10-09: branch chip always last in the row */}
         {(archivedCount > 0 || showArchived) && <ShowChip label="ที่เก็บเข้าคลัง" on={showArchived} count={archivedCount} onChange={setShowArchived} />}

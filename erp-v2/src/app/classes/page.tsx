@@ -1,20 +1,23 @@
 "use client"
 
+import { tx } from "@/lib/i18n"
 import { ListPage, SearchBox } from "@/components/app/page-layout"
 import { BranchCode, useBranchScope } from "@/components/app/branch-scope"
 import { useState } from "react"
-import { BookOpenIcon, CalendarIcon, ClockIcon, DoorOpenIcon, PlusIcon, RefreshCwIcon, UserRoundIcon, UsersIcon } from "lucide-react"
+import { BookOpenIcon, PlusIcon, RefreshCwIcon, UserRoundIcon, UsersIcon } from "lucide-react"
 import { ClassSheet } from "@/components/app/class-sheet"
 import { Pager, usePage, useSort } from "@/components/app/data-table"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
 import { Kpi } from "@/components/app/kpi"
 import { FilterMenu } from "@/components/app/filter-menu"
-import { avatarTone, gradeTone, initial, subjectColor } from "@/components/app/subject-color"
+import { avatarTone, initial, subjectColor } from "@/components/app/subject-color"
 import { Button } from "@/components/ui/button"
 import { endTime, fmtDate, TH_DAYS_FULL, toDateStr } from "@/domain/dates"
 import { CAPACITY, subjectsOf } from "@/domain/rules/scheduling"
 import * as Att from "@/domain/rules/attendance"
-import { gradeRanges, PRICE_UNIT_LABEL, sortGrades } from "@/domain/rules/settings"
+import { PACKAGE_LABEL } from "@/domain/rules/settings"
+import { PACKAGE_LEGEND, PackageBadge } from "@/components/app/package-badge"
+import { matchesPeriod, PeriodTag, usePeriodFilterOptions } from "@/components/app/period-tag"
 import type { ID, Klass, PriceUnit } from "@/domain/types"
 import { useEntitlements, useLookup, useNow } from "@/lib/hooks"
 import { ATTENTION_THRESHOLDS } from "@/domain/rules/reports"
@@ -22,7 +25,7 @@ import { useFocusFirst } from "@/components/app/focus-banner"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 
-type ClassSort = "subject" | "name" | "day" | "time" | "grade" | "students" | "teacher" | "room" | "status"
+type ClassSort = "subject" | "name" | "day" | "time" | "students" | "teacher" | "room" | "status"
 
 /** Class page (owner design "Class Page.png", 2026-09-28): KPIs · search + Branch/Subject/Course type/Package
  *  filters · data table. Inactive classes stay in the list, greyed. Click a row → edit panel. */
@@ -42,10 +45,12 @@ export default function ClassesPage() {
   const [subjectF, setSubjectF] = useState("")
   const [kindF, setKindF] = useState("")
   const [unitF, setUnitF] = useState("")
+  const [periodF, setPeriodF] = useState("") // owner 2026-11-26: Special Period classes show and filter
   const [openId, setOpenId] = useState<ID | null>(null)
   const { sort, toggle } = useSort<ClassSort>("day")
 
   const classes = allClasses.filter((c) => scope.ids.includes(c.branchId))
+  const periodOptions = usePeriodFilterOptions(classes.map((c) => c.periodId ?? courses.find((x) => x.id === c.courseId)?.periodId))
   const courseOf = (c: Klass) => courses.find((x) => x.id === c.courseId)
   const teacherOf = (id: ID | null) => staff.find((t) => t.id === id)
 
@@ -65,17 +70,17 @@ export default function ClassesPage() {
     .filter((c) => !subjectF || subjectsOf(c).includes(subjectF))
     .filter((c) => !kindF || courseOf(c)?.kind === kindF)
     .filter((c) => !unitF || courseOf(c)?.unit === unitF)
+    .filter((c) => matchesPeriod(periodF, c.periodId ?? courseOf(c)?.periodId))
     .filter((c) => {
       if (!needle) return true
       const t = teacherOf(c.teacherId)
-      return `${c.name} ${subjectsOf(c).join(" ")} ${c.grades.join(" ")} ${t?.nickname ?? ""} ${t?.name ?? ""} ${c.coTeacherIds.map((x) => teacherOf(x)?.nickname ?? "").join(" ")} ${L.room(c.roomId)}`.toLowerCase().includes(needle)
+      return `${c.name} ${subjectsOf(c).join(" ")} ${t?.nickname ?? ""} ${t?.name ?? ""} ${c.coTeacherIds.map((x) => teacherOf(x)?.nickname ?? "").join(" ")} ${L.room(c.roomId)}`.toLowerCase().includes(needle)
     })
     .sort((a, b) => {
       const byDay = ((a.weekday + 6) % 7) - ((b.weekday + 6) % 7) || a.start.localeCompare(b.start)
       const v = sort.key === "subject" ? a.subject.localeCompare(b.subject, "th")
         : sort.key === "name" ? a.name.localeCompare(b.name, "th")
         : sort.key === "time" ? a.start.localeCompare(b.start)
-          : sort.key === "grade" ? (sortGrades(a.grades)[0] ?? "").localeCompare(sortGrades(b.grades)[0] ?? "")
             : sort.key === "students" ? a.studentIds.length - b.studentIds.length
               : sort.key === "teacher" ? L.teacher(a.teacherId).label.localeCompare(L.teacher(b.teacherId).label, "th")
                 : sort.key === "room" ? L.room(a.roomId).localeCompare(L.room(b.roomId), "th")
@@ -91,26 +96,32 @@ export default function ClassesPage() {
   const columns: Column<Row>[] = [
     { id: "subject", label: "วิชา", width: "120px", sort: "subject", cell: (c) => <div className="flex gap-1">{subjectsOf(c).map((x) => <span key={x} className={cn("rounded-full px-2 py-0.5 text-xs font-medium", subjectColor(x).chip)}>{x}</span>)}</div> },
     // owner Row 16 (2026-10-28): when a class is linked to a course, show the course name under the class name
-    { id: "name", label: "ชื่อคลาส", width: "180px", sort: "name", required: true, className: "font-medium", cell: (c) => { const co = courseOf(c); return <div className="leading-tight">{c.name}{co && <div className="text-xs font-normal text-muted-foreground">{co.name}</div>}</div> } },
-    { id: "day", label: "วัน", width: "110px", sort: "day", cell: (c) => <span className="flex items-center gap-1.5"><CalendarIcon className="size-4 shrink-0 text-muted-foreground" />{c.kind === "learning" ? TH_DAYS_FULL[c.weekday] : fmtDate(c.startDate, { weekday: true })}</span> },
-    { id: "time", label: "เวลา", width: "130px", sort: "time", className: "tabular-nums", cell: (c) => <span className="flex items-center gap-1.5"><ClockIcon className="size-4 shrink-0 text-muted-foreground" />{c.start}–{endTime(c.start, c.minutes)}</span> },
-    { id: "grade", label: "ชั้น", width: "100px", sort: "grade", cell: (c) => <div className="flex gap-1" title={c.grades.join(", ")}>{gradeRanges(c.grades).map((g) => <span key={g} className={cn("rounded-md px-1.5 py-0.5 text-xs font-semibold", gradeTone(g))}>{g}</span>)}</div> },
-    { id: "students", label: "นักเรียน", width: "90px", sort: "students", className: "tabular-nums", cell: (c) => {
+    { id: "name", label: "ชื่อคลาส", width: "180px", sort: "name", required: true, className: "font-medium", cell: (c) => { const co = courseOf(c); const pid = c.periodId ?? co?.periodId; return <div className="leading-tight"><span className="inline-flex items-center gap-1.5">{c.name}{pid && <PeriodTag periodId={pid} />}</span>{co && <div className="text-xs font-normal text-muted-foreground">{co.name}</div>}</div> } },
+    // owner 2026-11-26: the course's Package (H · S · W · M + size), the same badge as the Courses list
+    { id: "package", label: "Package", width: "96px", info: PACKAGE_LEGEND, cell: (c) => { const co = courseOf(c); return co ? <PackageBadge course={co} /> : <span className="text-muted-foreground">—</span> } },
+    { id: "day", label: "วัน", width: "110px", sort: "day", cell: (c) => c.kind === "learning" ? TH_DAYS_FULL[c.weekday] : fmtDate(c.startDate, { weekday: true }) },
+    { id: "time", label: "เวลา", width: "130px", sort: "time", className: "tabular-nums", cell: (c) => `${c.start}–${endTime(c.start, c.minutes)}` },
+    { id: "students", label: "นักเรียน", width: "90px", sort: "students", align: "center", className: "tabular-nums", cell: (c) => {
       const cap = CAPACITY[c.type]
-      return <span title={`รับได้ ${cap} คน`} className={cn("flex items-center gap-1", c.studentIds.length >= cap && "font-semibold text-warning")}><UsersIcon className="size-3.5 shrink-0 text-muted-foreground" />{c.studentIds.length}</span>
+      return <span title={`รับได้ ${cap} คน`} className={cn(c.studentIds.length >= cap && "font-semibold text-warning")}>{c.studentIds.length}</span>
     } },
     { id: "teacher", label: "ครู", width: "140px", sort: "teacher", cell: (c) => {
-      const t = teacherOf(c.teacherId)
       const co = c.coTeacherIds.map((x) => L.teacher(x).label)
+      // owner 2026-11-26: small thumbs — with a co-teacher they overlap (the main teacher on top, then the others); the name stays beside them
+      const people = [c.teacherId, ...c.coTeacherIds].slice(0, 3)
       return (
         <div className="flex items-center gap-2">
-          <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold", t ? avatarTone(t.id) : "bg-muted text-muted-foreground")}>{t ? initial(t.nickname) : "?"}</span>
+          <span className="flex shrink-0 -space-x-2">
+            {people.map((id, i) => { const p = id ? teacherOf(id) : null; return (
+              <span key={id ?? i} style={{ zIndex: people.length - i }} className={cn("grid size-6 shrink-0 place-items-center rounded-full text-2xs font-semibold ring-2 ring-background", p ? avatarTone(p.id) : "bg-muted text-muted-foreground")}>{p ? initial(p.nickname) : "?"}</span>
+            ) })}
+          </span>
           <span className={cn("text-sm", L.teacher(c.teacherId).missing && "text-warning")}>{L.teacher(c.teacherId).label}</span>
           {co.length > 0 && <span className="text-xs text-muted-foreground" title={`ครูร่วม: ${co.join(", ")}`}>+{co.length}</span>}
         </div>
       )
     } },
-    { id: "room", label: "ห้อง", width: "100px", sort: "room", cell: (c) => <span className="flex items-center gap-1.5 text-xs"><DoorOpenIcon className="size-4 shrink-0 text-muted-foreground" />{L.room(c.roomId)}</span> },
+    { id: "room", label: "ห้อง", width: "100px", sort: "room", cell: (c) => L.room(c.roomId) },
     { id: "branch", label: "สาขา", width: "72px", cell: (c) => <BranchCode code={scope.code(c.branchId)} /> },
     // owner 2026-10-12: status right-aligned
     { id: "status", label: "สถานะ", width: "100px", sort: "status", align: "right", cell: (c) => (c.active ? <span className="text-sm font-medium text-success">เปิดอยู่</span> : <span className="text-sm text-muted-foreground">ปิดแล้ว</span>) },
@@ -125,12 +136,13 @@ export default function ClassesPage() {
         <Kpi icon={UserRoundIcon} label="ครู" value={kpiTeachers.size} />
         <Kpi icon={RefreshCwIcon} label="ใกล้หมดแพ็กเกจ (ต่อคอร์ส)" value={renewal} emphasis={!!(renewal)} />
       </>}
-      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาครู / ชั้น / วิชา / ห้อง" />}
+      search={<SearchBox value={q} onChange={setQ} placeholder="ค้นหาครู / วิชา / ห้อง" />}
       filters={<>
         <FilterMenu fields={[
           { id: "subject", label: "วิชา", value: subjectF, onChange: setSubjectF, placeholder: "ทุกวิชา", options: [...new Set(classes.flatMap((c) => subjectsOf(c)))].map((x) => ({ value: x, label: x })) },
           { id: "kind", label: "ประเภทคอร์ส", value: kindF, onChange: setKindF, placeholder: "ทุกประเภท", options: [{ value: "single", label: "Single" }, { value: "bundle", label: "Bundle" }] },
-          { id: "unit", label: "แพ็กเกจ", value: unitF, onChange: setUnitF, placeholder: "ทุกแพ็กเกจ", options: (["hour", "week", "month"] as PriceUnit[]).map((u) => ({ value: u, label: PRICE_UNIT_LABEL[u] })) },
+          { id: "unit", label: "แพ็กเกจ", value: unitF, onChange: setUnitF, placeholder: "ทุกแพ็กเกจ", options: (["month", "week", "hour", "session"] as PriceUnit[]).map((u) => ({ value: u, label: PACKAGE_LABEL[u] })) },
+          { id: "period", label: tx("ช่วง"), value: periodF, onChange: setPeriodF, placeholder: tx("ทุกช่วง"), options: periodOptions },
         ]} />
         <ColumnsMenu id="classes" columns={columns} />
       </>}>

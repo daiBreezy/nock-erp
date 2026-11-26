@@ -6,7 +6,7 @@
 // adds / moves / removes, swaps van or driver, and approves & sends — one trip or the whole week.
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, ChartColumnIcon, CheckIcon, MapIcon, MessageCircleIcon, PlusIcon, RouteIcon, SettingsIcon, SquareCheckBigIcon, TableIcon, UsersIcon } from "lucide-react"
+import { AlertTriangleIcon, BusIcon, CalendarDaysIcon, ChartColumnIcon, CheckIcon, MapIcon, MessagesSquareIcon, PlusIcon, RouteIcon, SettingsIcon, SquareCheckBigIcon, TableIcon, UsersIcon } from "lucide-react"
 import { Kpi } from "@/components/app/kpi"
 import { NativeSelect } from "@/components/app/native-select"
 import { KpiRow, ListBar, Page, PageHeader, RangeStepper, SearchBox, Segmented, Toolbar } from "@/components/app/page-layout"
@@ -182,7 +182,7 @@ export default function TransportPage() {
                         ) : (
                           <div key={`r${j}`} className="flex flex-wrap items-center gap-2 rounded-xl bg-background px-3 py-1.5">
                             <span className="min-w-0 flex-1"><span className="font-medium">{x.r.studentNickname}</span><span className="text-muted-foreground"> · ผู้ปกครองขอ / ยกเลิกรอบรถ — ยังไม่ได้อนุมัติ</span></span>
-                            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/inbox?conversation=line_${x.r.lineUserId}`} />}><MessageCircleIcon /> อนุมัติในแชท</Button>
+                            <Button size="sm" variant="outline" nativeButton={false} render={<Link href={`/inbox?conversation=line_${x.r.lineUserId}`} />}><MessagesSquareIcon /> อนุมัติในแชท</Button>
                           </div>
                         ))}
                       </div>

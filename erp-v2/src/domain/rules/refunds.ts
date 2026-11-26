@@ -158,7 +158,7 @@ export interface WeekRefund {
  *  back at most what it was billed; the total is net of promotion. A week pack of more than 5 weeks has no tier → pro rata. */
 export function refundByWeeks(l: Pick<LineQuote, "amount" | "promotion" | "quote" | "course" | "line">, stopFrom: DateStr, openDays: Weekday[]): WeekRefund | null {
   const q = l.quote, c = l.course
-  if (!q || !c || c.unit === "hour" || !q.slots.length) return null
+  if (!q || !c || c.unit === "hour" || c.unit === "session" || !q.slots.length) return null
   const tuition = Math.max(0, l.amount - l.promotion)
   const weeksLeft = (dates: DateStr[]) => new Set(dates.filter((d) => d >= stopFrom).map((d) => weekKey(d, openDays))).size
   const raw: { label: string; left: number; factor: number; billed: number; back: number }[] = []

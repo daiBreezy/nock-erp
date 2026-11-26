@@ -15,6 +15,7 @@ import { StudentSheet } from "@/components/app/student-sheet"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { GradeCell, gradeCompare, Pager, usePage, useSort } from "@/components/app/data-table"
 import { CreditTag } from "@/components/app/credit-tag"
+import { InvoiceFollowCell, InvoiceFollowInfo, useFollowedByStudent } from "@/components/billing/invoice-follow"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { creditCourseOn, creditOwedTotal, creditsOwed } from "@/domain/rules/credit"
 import { ColumnsMenu, DataTable, type Column } from "@/components/app/data-grid"
@@ -32,7 +33,7 @@ import { EditCell } from "@/components/app/inline-edit"
 import { report } from "@/lib/feedback"
 
 type StudentSort = "nickname" | "name" | "grade" | "family" | "course" | "enroll" | "end" | "status" | "left"
-import { useBranch, useEntitlements, useLeadSets, useNow, useQueryState } from "@/lib/hooks"
+import { useBranch, useEntitlements, useLeadSets, useNow, useQueryState, useOpenFromQuery } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { toast } from "@/lib/toast"
@@ -81,6 +82,7 @@ export default function StudentsPage() {
   // owner 2026-11-19: Archived is a show / hide tick in the filters (hidden until ticked), not a status choice
   const [showArchived, setShowArchived] = useQueryState<"0" | "1">("archived", "0")
   const [openId, setOpenId] = useState<ID | "new" | null>(null)
+  useOpenFromQuery((id) => setOpenId(id as ID))
 
   const { sort, toggle } = useSort<StudentSort>("nickname")
   const byGrade = gradeCompare(branch.grades)
@@ -154,6 +156,7 @@ export default function StudentsPage() {
   const pick = (v: string) => setStatus(status === v ? "" : v)
 
   type Row = (typeof rows)[number]
+  const followOf = useFollowedByStudent(today)
   const ended = (r: Row) => !!r.main && r.main.to < today
   const columns: Column<Row>[] = [
     // owner 2026-10-12: photo and name in their own columns — click the photo to upload / change / remove
@@ -217,9 +220,11 @@ export default function StudentsPage() {
       )
     }, className: (r) => cn("tabular-nums", ended(r) ? "text-muted-foreground" : "text-foreground") },
     // owner 2026-11-04: "เหลือ" (sessions left) counts only session-based packs — monthly / flat-rate show — (unlimited)
-    { id: "left", label: "เหลือ", width: "80px", sort: "left", align: "right", info: "จำนวนคาบที่ยังเหลือในแพ็กเกจ — แพ็กเกจแบบนับคาบนับจากยอดคงเหลือ · รายเดือน/รายสัปดาห์นับคาบข้างหน้าที่ยังไม่ถึงจนถึงวันจบ", className: (r) => cn("tabular-nums", left(r) <= 2 && "font-semibold text-danger"),
+    { id: "left", label: "เหลือ", width: "80px", sort: "left", align: "center", info: "จำนวนคาบที่ยังเหลือในแพ็กเกจ — แพ็กเกจแบบนับคาบนับจากยอดคงเหลือ · รายเดือน/รายสัปดาห์นับคาบข้างหน้าที่ยังไม่ถึงจนถึงวันจบ", className: (r) => cn("tabular-nums", left(r) <= 2 && "font-semibold text-danger"),
       cell: (r) => { const n = left(r); return Number.isFinite(n) ? n : <span className="text-muted-foreground">—</span> } },
     // owner 2026-11-04: keep the status pill short — the date / details live in the tooltip, not the chip
+    // owner 2026-11-26: sent-and-unpaid invoices — an icon coloured by the nearest pay-by date, hover for the list
+    { id: "invoice", label: "INV", width: "80px", align: "center", info: <InvoiceFollowInfo />, cell: ({ s: stu }) => <InvoiceFollowCell items={followOf([stu.id])} nameOf={() => stu.nickname} /> },
     { id: "status", label: "สถานะ", width: "112px", sort: "status", align: "right", cell: ({ st, ex }) => {
       if (!ex) return <Pill tone={STATUS_PILL[st].tone}>{STATUS_PILL[st].label}</Pill>
       // owner 2026-11-19: urgency is told by colour, never by extra words — a notice still running = soft red "แจ้งออก"; past the last day = solid red;

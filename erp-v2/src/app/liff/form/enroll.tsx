@@ -25,7 +25,7 @@ export const ENROLL_DICT = {
     pkg: "รูปแบบแพ็กเกจ", pkgs: { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์ (คอร์สสั้น)", unsure: "ยังไม่แน่ใจ" } as Record<EnrollPackage, string>,
     times: "วัน-เวลาที่สะดวก", timesSub: "แตะได้หลายช่อง", periods: { am: "เช้า", pm: "บ่าย", eve: "เย็น" }, days: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"],
     start: "อยากเริ่มเรียนวันที่", bus: "ต้องการรถรับส่ง", busSub: "ใช้ที่อยู่ในหน้าผู้ปกครอง", placement: "ให้ครูประเมินระดับในคาบแรก", placementSub: "แนะนำ — เพราะไม่ได้สอบวัดระดับก่อน",
-    terms: "ยอมรับเงื่อนไขการเรียน การลา และการชำระเงินของสถาบัน", termsNeed: "กรุณายอมรับเงื่อนไขก่อนส่ง", perMonth: "/เดือน", hours: "ชม.", weeks: "สัปดาห์",
+    terms: "ยอมรับเงื่อนไขการเรียน การลา และการชำระเงินของสถาบัน", termsNeed: "กรุณายอมรับเงื่อนไขก่อนส่ง", perMonth: "/เดือน", hours: "ชม.", weeks: "สัปดาห์", sessions: "คาบ",
     classes: "เลือกคลาสที่สะดวก", classesSub: "แอดมินเลือกคลาสเหล่านี้ไว้ให้แล้ว — เลือกได้หลายวัน", every: "ทุก", seats: "ว่าง", full: "เต็ม", picked: "คลาสที่เลือก",
     daysFull: ["วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์"],
     plan: "คอร์สที่ตกลงกันไว้", periodsUnit: "งวด", busLegs: { both: "ไป-กลับ", pickup: "ขาไป (รับที่บ้าน)", dropoff: "ขากลับ (ส่งที่บ้าน)" },
@@ -38,7 +38,7 @@ export const ENROLL_DICT = {
     pkg: "Package", pkgs: { month: "Monthly", hour: "Hour pack", week: "Weekly (short course)", unsure: "Not sure yet" } as Record<EnrollPackage, string>,
     times: "Convenient times", timesSub: "Tap any that work", periods: { am: "Morning", pm: "Afternoon", eve: "Evening" }, days: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
     start: "Preferred start date", bus: "School bus needed", busSub: "Uses the address on the parent step", placement: "Teacher checks the level in the first class", placementSub: "Recommended — there was no placement test",
-    terms: "I accept the school's study, leave and payment terms", termsNeed: "Please accept the terms", perMonth: "/month", hours: "hrs", weeks: "weeks",
+    terms: "I accept the school's study, leave and payment terms", termsNeed: "Please accept the terms", perMonth: "/month", hours: "hrs", weeks: "weeks", sessions: "sessions",
     classes: "Choose the classes that suit you", classesSub: "Our staff picked these for you — choose as many days as you like", every: "Every", seats: "seats", full: "Full", picked: "Chosen classes",
     daysFull: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     plan: "The course we agreed", periodsUnit: "periods", busLegs: { both: "Both ways", pickup: "To school (pick-up)", dropoff: "Home (drop-off)" },
@@ -51,7 +51,7 @@ export const ENROLL_DICT = {
     pkg: "プラン", pkgs: { month: "月謝制", hour: "時間パック", week: "短期（週単位）", unsure: "未定" } as Record<EnrollPackage, string>,
     times: "ご都合の良い時間", timesSub: "複数選択可", periods: { am: "午前", pm: "午後", eve: "夕方" }, days: ["日", "月", "火", "水", "木", "金", "土"],
     start: "開始希望日", bus: "送迎バス希望", busSub: "保護者情報の住所を使用", placement: "初回授業で講師がレベルを確認", placementSub: "おすすめ（事前テストなし）",
-    terms: "授業・欠席・支払いの規約に同意します", termsNeed: "規約に同意してください", perMonth: "/月", hours: "時間", weeks: "週",
+    terms: "授業・欠席・支払いの規約に同意します", termsNeed: "規約に同意してください", perMonth: "/月", hours: "時間", weeks: "週", sessions: "回",
     classes: "ご都合の良いクラスを選択", classesSub: "担当者が選んだクラスです — 複数の曜日を選べます", every: "毎週", seats: "空き", full: "満席", picked: "選択したクラス",
     daysFull: ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"],
     plan: "合意したコース", periodsUnit: "回", busLegs: { both: "往復", pickup: "行き（お迎え）", dropoff: "帰り（お送り）" },
@@ -65,7 +65,7 @@ const PERIODS = ["am", "pm", "eve"] as const
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
 
 export const timeLabel = (key: string, t: EnrollT) => { const [d, p] = key.split("-"); return `${t.days[Number(d)]} ${t.periods[p as (typeof PERIODS)[number]]}` }
-export const courseLine = (c: EnrollCourseOption, t: EnrollT) => `${c.unit === "month" ? `${c.price.toLocaleString()}฿${t.perMonth}` : c.unit === "hour" ? `${c.duration} ${t.hours} · ${c.price.toLocaleString()}฿` : `${c.duration} ${t.weeks} · ${c.price.toLocaleString()}฿`}`
+export const courseLine = (c: EnrollCourseOption, t: EnrollT) => `${c.unit === "month" ? `${c.price.toLocaleString()}฿${t.perMonth}` : c.unit === "hour" ? `${c.duration} ${t.hours} · ${c.price.toLocaleString()}฿` : c.unit === "session" ? `${c.duration} ${t.sessions} · ${c.price.toLocaleString()}฿` : `${c.duration} ${t.weeks} · ${c.price.toLocaleString()}฿`}`
 
 /** a child is ready when they have a subject (or a course), at least one convenient time and a start date */
 export const enrollValid = (v: EnrollFieldsValue) => (v.subjects.length > 0 || v.courseIds.length > 0) && v.times.length > 0 && !!v.startDate

@@ -8,14 +8,15 @@ import * as People from "@/domain/rules/people"
 import { tagChip } from "@/components/app/tags"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
 import { CloseExitDialog, ExitPanel, ExitRequestDialog } from "./student-exit"
+import { StudentFormSnapshot } from "@/components/forms/form-snapshot"
 import { FamilySheet } from "./family-sheet"
 import { StudentFacts, daysLeftTone } from "./student-facts"
 import { StudentKpis } from "./student-kpis"
 import { branchHasBus } from "@/domain/rules/settings"
 import { mergeSameCourse } from "@/domain/rules/family-overview"
-import Link from "next/link"
+import { ContactJump } from "@/components/app/contact-jump"
 import { useMemo, useState } from "react"
-import { ArchiveRestoreIcon, CalendarDaysIcon, DoorOpenIcon, GraduationCapIcon, MessageSquareIcon, MessagesSquareIcon, PencilIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
+import { ArchiveRestoreIcon, CalendarDaysIcon, DoorOpenIcon, GraduationCapIcon, MessageSquareIcon, PencilIcon, PlaneIcon, PlusIcon, ReceiptIcon, CreditCardIcon, ClipboardListIcon, UsersIcon, ChevronRightIcon, ChevronLeftIcon, ChevronDownIcon, UsersRoundIcon, HistoryIcon, ArrowUpIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { startFamilySet } from "@/lib/family-set"
@@ -170,6 +171,7 @@ function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEd
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {stu.exit && <div className="mb-4"><ExitPanel stu={stu} /></div>}
+        {seg === "overview" && <StudentFormSnapshot stu={stu} />}
         {seg === "overview" && owed.length > 0 && <CreditPanel stu={stu} owed={owed} today={today} onInvoice={(id) => setInvoice(id ?? "new")} />}
         {seg === "overview" && <Overview stu={stu} ents={ents} today={today} status={state.status} onNotRenewing={() => setArchiving(true)} onHistory={() => { setClassSub("history"); setSeg("class") }} onEditLeave={(leave) => setLeaveDialog({ leave })} onOpenInvoice={(id) => setInvoice(id)} onFamily={() => (back ? back.onBack() : setFamilyOpen(true))} onOpenStudent={onOpenStudent} />}
         {seg === "class" && <ClassSeg kids={[stu]} ents={ents} sub={classSub} setSub={setClassSub} />}
@@ -189,11 +191,7 @@ function Body({ id, onEdit, invoiceOnOpen, back, onOpenStudent }: { id: ID; onEd
             canLeave && { label: "ลาพักยาว", icon: PlaneIcon, onClick: () => setLeaveDialog({}) },
             can(me, "student.manage") && !stu.archived && !stu.exit && { label: "แจ้งออก", icon: DoorOpenIcon, destructive: true, onClick: () => setArchiving(true) },
           ]} />
-          {conv ? (
-            <Button size="icon" variant="outline" className="ml-auto rounded-full" aria-label="แชท LINE กับผู้ปกครอง" title="เปิดแชท LINE กับผู้ปกครองใน Inbox" nativeButton={false} render={<Link href={`/inbox?conversation=${conv.id}`} />}><MessagesSquareIcon /></Button>
-          ) : (
-            <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled aria-label="ยังไม่มีแชท" title="ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox"><MessagesSquareIcon /></Button>
-          )}
+          <ContactJump kind="student" id={stu.id} conversationId={conv?.id} className="ml-auto rounded-full" />
           {can(me, "billing.manage") && creditOn && <Button variant="outline" onClick={() => setCreditAdd(true)}><CreditCardIcon /> เพิ่มคอร์ส (Credit)</Button>}
           {/* owner 2026-11-20: same as the Family panel — outline, and with brothers / sisters a menu: this child or the whole family */}
           {can(me, "billing.manage") && (siblings.length > 0 ? (

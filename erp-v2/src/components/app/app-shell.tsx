@@ -1,5 +1,6 @@
 "use client"
 
+import { toast } from "@/lib/toast"
 import { periodHours } from "./period-banner"
 import { periodOn, brandUsesSummary } from "@/domain/rules/scheduling"
 import { fmtDate, toDateStr } from "@/domain/dates"
@@ -10,7 +11,7 @@ import { usePublishParentViews } from "@/lib/parent-app"
 import { usePublishDriverTrips } from "@/lib/driver"
 import { useLineLinkSync } from "@/lib/line-links"
 import { Fragment, useEffect, useState, useSyncExternalStore, type ReactNode } from "react"
-import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, GlobeIcon, LockIcon, MapPinIcon, MenuIcon, PanelLeftIcon, SearchIcon, SunIcon } from "lucide-react"
+import { ArrowLeftRightIcon, BellIcon, CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronsUpDownIcon, GlobeIcon, LockIcon, MapPinIcon, MenuIcon, PanelLeftIcon, SearchIcon, SunIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { branchShort, nm, tx, UI_LANGS, useT, useUiLang } from "@/lib/i18n"
@@ -310,17 +311,45 @@ function UserCard() {
   // Director / Super Admin / Area Manager: every branch · others: their own branches only (same rule as approvals)
   const mine = branches.filter((b) => inBranch(me, b.id) && (b.active || b.id === branchId)).sort((a, b) => a.name.localeCompare(b.name, "th"))
   const [open, setOpen] = useState(false)
+  const [roleOpen, setRoleOpen] = useState(false)
+  const staff = useStore((s) => s.staff)
+  const setUser = useStore((s) => s.setUser)
   const t = useT()
   return (
     <div className="rounded-2xl border bg-background p-2.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
       title={`${me.name} · ${me.roles.map((r) => ROLE_LABEL[r]).join(", ")} · สาขา${branch.name}`}>
-      <div className="flex items-center gap-2.5">
-        <span className={cn("grid size-9 shrink-0 place-items-center rounded-full font-semibold group-data-[collapsible=icon]:size-8", avatarTone(me.id))}>{initial(me.nickname)}</span>
-        <div className="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
-          <div className="text-sm font-semibold break-words">{nm(me.nickname)} <span className="font-normal text-muted-foreground">{me.name !== me.nickname ? nm(me.name) : ""}</span></div>
-          <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <span key={r} className={cn("rounded-full px-1.5 text-2xs font-medium", ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}</div>
-        </div>
-      </div>
+      {/* owner 2026-11-26: tap the person to switch role (the demo switch, one tap away — no need to open the demo panel) */}
+      <Popover open={roleOpen} onOpenChange={setRoleOpen}>
+        <PopoverTrigger render={<Button variant="row" size="inline" type="button" className="flex w-full items-center rounded-xl text-left group-data-[collapsible=icon]:justify-center" aria-label="สลับผู้ใช้งาน / บทบาท" title="สลับผู้ใช้งาน / บทบาท" />}>
+          <div className="flex w-full items-center gap-2.5">
+            <span className={cn("grid size-9 shrink-0 place-items-center rounded-full font-semibold group-data-[collapsible=icon]:size-8", avatarTone(me.id))}>{initial(me.nickname)}</span>
+            <div className="min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
+              <div className="text-sm font-semibold break-words">{nm(me.nickname)}</div>
+              <div className="mt-0.5 flex flex-wrap gap-1">{me.roles.map((r) => <span key={r} className={cn("rounded-full px-1.5 text-2xs font-medium", ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}</div>
+            </div>
+            <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+          </div>
+        </PopoverTrigger>
+        <PopoverContent side="right" align="start" className="w-72 p-1.5">
+          <p className="px-2 py-1 text-xs text-muted-foreground">ใช้งานในฐานะ</p>
+          <ul className="max-h-96 overflow-y-auto">
+            {staff.filter((x) => x.active && x.canLogin).map((x) => (
+              <li key={x.id}>
+                <Button variant="row" size="inline" type="button"
+                  onClick={() => { setUser(x.id); setRoleOpen(false); toast.info(`สลับเป็น ${x.nickname} (${x.roles.map((r) => ROLE_LABEL[r]).join(", ")})`) }}
+                  className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted", x.id === me.id && "bg-primary/10 font-medium text-primary")}>
+                  <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold", avatarTone(x.id))}>{initial(x.nickname)}</span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="block truncate">{nm(x.nickname)}</span>
+                    <span className="flex flex-wrap gap-1">{x.roles.map((r) => <span key={r} className={cn("rounded-full px-1.5 text-2xs font-medium", ROLE_TONE[r])}>{ROLE_LABEL[r]}</span>)}</span>
+                  </span>
+                  <CheckIcon className={cn("size-4 shrink-0", x.id !== me.id && "invisible")} />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </PopoverContent>
+      </Popover>
       <div className="mt-2 space-y-1 group-data-[collapsible=icon]:hidden">
         {mine.length > 1 ? (
           <Popover open={open} onOpenChange={setOpen}>

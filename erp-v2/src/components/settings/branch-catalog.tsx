@@ -6,7 +6,7 @@ import { useState } from "react"
 import { CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { defaultLeaveQuota, durationsOf, GRADE_GROUPS, LEAVE_EVERY_SESSIONS, HOURS_PER_SESSION, setLeaveQuota, PRICE_UNIT_LABEL, brandPriceUnits, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
+import { defaultLeaveQuota, durationsOf, GRADE_GROUPS, LEAVE_EVERY_SESSIONS, HOURS_PER_SESSION, setLeaveQuota, PACKAGE_LABEL, brandPriceUnits, priceOf, setPrice, sortGrades } from "@/domain/rules/settings"
 import type { Branch, PriceUnit } from "@/domain/types"
 import { useStore } from "@/store/store"
 import { SaveRow, SettingsCard, useBranchDraft } from "./common"
@@ -63,7 +63,7 @@ export function GradesTab({ branch }: { branch: Branch }) {
  *  subject × grade × duration. Reference prices that pre-fill Create Course (owner 2026-09-26). */
 export function PackagesTab({ branch }: { branch: Branch }) {
   const { b, setB, dirty, reset, save } = useBranchDraft(branch, ["packageDurations", "priceChart", "leaveQuotas"])
-  const [unit, setUnit] = useState<PriceUnit>("hour")
+  const [unit, setUnit] = useState<PriceUnit>("month")
   const [subject, setSubject] = useState(branch.subjects[0] ?? "")
   const [newDur, setNewDur] = useState("")
   const durations = durationsOf(b, unit)
@@ -72,15 +72,15 @@ export function PackagesTab({ branch }: { branch: Branch }) {
 
   const addDuration = () => {
     const d = Number(newDur)
-    if (unit === "month" || !(d > 0) || b.packageDurations[unit].includes(d)) return
-    setB({ ...b, packageDurations: { ...b.packageDurations, [unit]: [...b.packageDurations[unit], d] } })
+    if (unit === "month" || !(d > 0) || durations.includes(d)) return
+    setB({ ...b, packageDurations: { ...b.packageDurations, [unit]: [...durations, d] } })
     setNewDur("")
   }
   const removeDuration = (d: number) => {
     if (unit === "month") return
     const quotas = { ...b.leaveQuotas?.[unit] }
     delete quotas[d]
-    setB({ ...b, packageDurations: { ...b.packageDurations, [unit]: b.packageDurations[unit].filter((x) => x !== d) }, priceChart: b.priceChart.filter((r) => !(r.unit === unit && r.duration === d)), leaveQuotas: { ...b.leaveQuotas, [unit]: quotas } })
+    setB({ ...b, packageDurations: { ...b.packageDurations, [unit]: durations.filter((x) => x !== d) }, priceChart: b.priceChart.filter((r) => !(r.unit === unit && r.duration === d)), leaveQuotas: { ...b.leaveQuotas, [unit]: quotas } })
   }
   const setQuota = (d: number, v: string) => {
     const rest = { ...b.leaveQuotas?.[unit] }
@@ -90,14 +90,14 @@ export function PackagesTab({ branch }: { branch: Branch }) {
 
   return (
     <SettingsCard title={tx("แพ็กเกจ & ตารางราคา (Packages)")} hint={tx("ราคาแนะนำต่อ วิชา × ระดับชั้น × ระยะเวลา — ใช้เติมราคาอัตโนมัติตอนสร้างคอร์ส (แก้ราคาจริงที่คอร์สได้)")}>
-      <Segmented className="mb-3" value={unit} onChange={setUnit} options={brandPriceUnits(b.brand).map((u) => ({ value: u, label: tx(PRICE_UNIT_LABEL[u]) }))} />
+      <Segmented className="mb-3" value={unit} onChange={setUnit} options={brandPriceUnits(b.brand).map((u) => ({ value: u, label: PACKAGE_LABEL[u] }))} />
 
       {unit !== "month" && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {durations.map((d) => (
             <span key={d} className="flex items-center gap-1 rounded-full border px-3 py-1 text-sm">
               {durationText(unit, d)}
-              <span className="text-xs text-muted-foreground">{unit === "hour" ? tx("· {0} นาที", [d * 60]) : tx("· หลายคลาส & ชั่วโมง")}</span>
+              <span className="text-xs text-muted-foreground">{unit === "hour" ? tx("· {0} นาที", [d * 60]) : unit === "session" ? tx("· หัก 1 ต่อคาบที่เรียน") : tx("· หลายคลาส & ชั่วโมง")}</span>
               <Button variant="ghost" size="inline" aria-label={tx("ลบระยะเวลา")} onClick={() => removeDuration(d)}><XIcon className="size-3.5" /></Button>
             </span>
           ))}

@@ -3368,9 +3368,9 @@ describe("message to the parent is remembered per student (owner 2026-11-05)", (
 })
 
 describe("brand rules (owner 2026-11-05)", () => {
-  it("Liclass has no Monthly package; NockAcademy has no bus", () => {
-    expect(brandPriceUnits("liclass")).toEqual(["hour", "week"])
-    expect(brandPriceUnits("nockacademy")).toEqual(["hour", "week", "month"])
+  it("every business type offers Monthly · Weekly · Hourly · Session (owner 2026-11-26); NockAcademy has no bus", () => {
+    expect(brandPriceUnits("liclass")).toEqual(["month", "week", "hour", "session"])
+    expect(brandPriceUnits("nockacademy")).toEqual(["month", "week", "hour", "session"])
     expect(brandUsesBus("liclass")).toBe(true)
     expect(brandUsesBus("nockacademy")).toBe(false)
   })

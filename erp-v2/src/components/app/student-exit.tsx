@@ -17,6 +17,7 @@ import { useEntitlements, useNow } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/store/store"
 import { InfoTip } from "./info-tip"
+import { tx } from "@/lib/i18n"
 import { PeriodNote } from "@/components/app/period-note"
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -42,9 +43,10 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
   const [lastDate, setLastDate] = useState(running ?? today)
   const siblings = students.filter((x) => x.familyId && x.familyId === stu.familyId && x.id !== stu.id && !x.archived && !x.exit)
   const [withIds, setWithIds] = useState<ID[]>([])
+  const [scope, setScope] = useState<"one" | "all" | "some">("one")
   const [busy, setBusy] = useState(false)
   const [link, setLink] = useState<{ url: string; sent: boolean } | null>(null)
-  const ids = [stu.id, ...withIds]
+  const ids = [stu.id, ...(scope === "all" ? siblings.map((x) => x.id) : scope === "some" ? withIds : [])]
 
   const sendForm = useExitFormSender(stu)
   const send = async () => {
@@ -71,11 +73,19 @@ export function ExitRequestDialog({ stu, onClose, onCloseNow }: { stu: Student; 
               <PeriodNote date={lastDate} />
             </div>
             {siblings.length > 0 && (
+              // owner 2026-11-26: the admin asks the parent FIRST — one child, or the whole family — then sends the form for exactly that
               <div className="space-y-1.5">
-                <Label>พี่น้องที่ออกด้วย (ฟอร์มเดียวกัน)</Label>
-                {siblings.map((x) => (
+                <Label>{tx("ออกกี่คน?")}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  <Chip on={scope === "one"} onClick={() => setScope("one")}>{tx("เฉพาะ {0}", [stu.nickname])}</Chip>
+                  <Chip on={scope === "all"} onClick={() => setScope("all")}>{tx("ทั้งครอบครัว ({0} คน)", [siblings.length + 1])}</Chip>
+                  {siblings.length > 1 && <Chip on={scope === "some"} onClick={() => setScope("some")}>{tx("เลือกเอง")}</Chip>}
+                </div>
+                {scope === "all" && <p className="text-xs text-muted-foreground">{[stu, ...siblings].map((x) => x.nickname).join(" + ")} · {tx("ฟอร์มเดียวกัน")}</p>}
+                {scope === "some" && siblings.map((x) => (
                   <label key={x.id} className="flex items-center gap-2 text-sm"><Checkbox checked={withIds.includes(x.id)} onCheckedChange={(v) => setWithIds((w) => (v ? [...w, x.id] : w.filter((y) => y !== x.id)))} />{x.nickname} · {x.grade}</label>
                 ))}
+                {scope === "one" && <p className="text-xs text-muted-foreground">{tx("คนอื่นในครอบครัวยังเรียนต่อตามปกติ")}</p>}
               </div>
             )}
             <p className="rounded-lg bg-muted/60 p-2 text-xs text-muted-foreground">{conv?.id.startsWith("line_") ? `ส่งในแชท LINE ของ${fam ? familyDisplay(fam.name) : "ครอบครัว"}` : "ครอบครัวนี้ยังไม่มีแชท LINE — จะได้ลิงก์ไว้คัดลอกส่งเอง"}</p>

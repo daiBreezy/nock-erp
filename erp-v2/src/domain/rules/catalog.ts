@@ -30,7 +30,7 @@ export function filterCatalog(courses: CatalogCourse[], f: { grade?: string; sub
   return courses.filter((c) => (!f.grade || c.grades.includes(f.grade)) && (!f.subject || c.subjects.includes(f.subject)))
 }
 
-const UNIT_LABEL: Record<PriceUnit, (n: number) => string> = { hour: (n) => `${n} ชม.`, week: (n) => `${n} สัปดาห์`, month: () => "เดือน" }
+const UNIT_LABEL: Record<PriceUnit, (n: number) => string> = { hour: (n) => `${n} ชม.`, week: (n) => `${n} สัปดาห์`, month: () => "เดือน", session: (n) => `${n} คาบ` }
 /** "เริ่มต้น 4,350 บาท / เดือน" */
 export const priceLabel = (c: Pick<CatalogCourse, "price" | "unit" | "duration">) => `เริ่มต้น ${c.price.toLocaleString("en-US")} บาท / ${UNIT_LABEL[c.unit](c.duration)}`
 

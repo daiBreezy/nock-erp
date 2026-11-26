@@ -28,6 +28,22 @@ export function useQueryState<T extends string>(key: string, initial: T): [T, (v
   return [value, set]
 }
 
+/**
+ * owner 2026-11-26: "/crm?open=<id>" · "/families?open=<id>" · "/students?open=<id>" open that record's panel straight away (the jump button of a person's panel
+ * links here). The param is removed after use so a refresh does not reopen it.
+ */
+export function useOpenFromQuery(open: (id: string) => void) {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get("open")
+    if (!id) return
+    open(id)
+    params.delete("open")
+    const qs = params.toString()
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 /** Current (demo-adjustable) time, re-rendering every 30 s so session states update live. */
 export function useNow(intervalMs = 30_000) {
   const offset = useStore((s) => s.clockOffset)

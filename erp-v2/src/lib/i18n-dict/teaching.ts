@@ -131,4 +131,5 @@ export const TEACHING: Record<string, Entry> = {
   "คาบที่สอนจบแล้ว": { en: "sessions already taught", ja: "教え終えた授業" },
   "ตั้งแต่": { en: "Since", ja: "開始日" },
   "ชั่วโมงสอนของครูหลัก ใช้คิดค่าสอน Part-time": { en: "The lead teacher's teaching hours — used to pay Part-time", ja: "主担当講師の授業時間 — パートタイムの報酬計算に使用" },
+  "สลับผู้ใช้งาน / บทบาท": { en: "Switch user / role", ja: "ユーザー／役割を切り替え" },
 }

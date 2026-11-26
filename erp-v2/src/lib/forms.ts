@@ -311,7 +311,13 @@ export async function sendEnrollToChat(conversationId: ID, classOffers?: EnrollC
     ? notice(brandOfBranch(conv.branchId), "enrollPick", url)
     : classOffers ? notice(brandOfBranch(conv.branchId), "enrollPlan", url)
     : notice(brandOfBranch(conv.branchId), "enrollGeneral", url))
-  return sent.ok ? { ok: true, value: { url } } : sent
+  if (!sent.ok) return sent
+  // owner 2026-11-26: remember it — the family's "ฟอร์มทั้งหมด" and the overview snapshot follow this form until it is done
+  const invIds = invoiceId ? (Array.isArray(invoiceId) ? invoiceId : [invoiceId]) : []
+  const stuOfLead = lead ? s.students.find((x) => x.id === lead.convertedStudentId || x.id === lead.trialStudentId) : undefined
+  const familyId = fam?.id ?? stuOfLead?.familyId
+  if (familyId) s.logFormSend({ kind: "enroll", familyId, studentIds: [...new Set(invIds.map((id) => s.invoices.find((x) => x.id === id)?.studentId).filter(Boolean) as ID[])], token: res.token.token, title: "ใบสมัครเรียน", invoiceIds: invIds.length ? invIds : undefined })
+  return { ok: true, value: { url } }
 }
 
 /** This year's survey link for one family — only once the year's round has been sent (Broadcast / Settings). */
@@ -380,7 +386,7 @@ export async function broadcastSurvey(): Promise<Result<{ sent: number; lineSent
 }
 
 /** form builder (owner 2026-10-22): a one-time link to a company-made form for a family — the link carries a copy of the form */
-async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }, offers?: Record<ID, string[]>): Promise<Result<{ url: string; text: string }>> {
+async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }, offers?: Record<ID, string[]>): Promise<Result<{ url: string; text: string; token: string }>> {
   // round 2 (owner 2026-10-22): choices from the branch / the admin's offer, and the family's data filled in
   const s = useStore.getState()
   const branch = s.branches.find((b) => b.id === family.branchId)
@@ -396,13 +402,14 @@ async function customFormLink(form: FormDef, family: { id: ID; branchId: ID; con
   if (!res.ok || !res.token) return { ok: false, error: res.error ?? "สร้างลิงก์ไม่สำเร็จ" }
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID
   const url = family.conversationId?.startsWith("line_") && liffId ? `https://liff.line.me/${liffId}?token=${res.token.token}` : `${window.location.origin}/liff/custom?token=${res.token.token}`
-  return { ok: true, value: { url, text: customFormMessage(branch?.brand, form.name, url) } }
+  return { ok: true, value: { url, text: customFormMessage(branch?.brand, form.name, url), token: res.token.token } }
 }
 
 /** from the family panel: through LINE when the family has a LINE chat, otherwise just the link (copy and send it yourself) */
 export async function sendCustomForm(form: FormDef, family: { id: ID; branchId: ID; conversationId?: ID | null }, offers?: Record<ID, string[]>): Promise<Result<{ url: string; sent: boolean }>> {
   const link = await customFormLink(form, family, offers)
   if (!link.ok) return link
+  useStore.getState().logFormSend({ kind: "custom", familyId: family.id, studentIds: [], token: link.value.token, title: form.name, formId: form.id })
   if (!family.conversationId?.startsWith("line_")) return { ok: true, value: { url: link.value.url, sent: false } }
   const sent = await postToChat(family.conversationId, link.value.text)
   if (!sent.ok) return { ok: false, error: sent.error ?? "ส่งทาง LINE ไม่สำเร็จ — คัดลอกลิงก์ส่งเองได้" }
@@ -417,7 +424,9 @@ export async function sendCustomFormToChat(conversationId: ID, form: FormDef, of
   const branchId = s.students.find((x) => x.familyId === conv.familyId)?.branchId ?? conv.branchId ?? s.branchId
   const link = await customFormLink(form, { id: conv.familyId, branchId, conversationId }, offers)
   if (!link.ok) return link
-  return postToChat(conversationId, link.value.text)
+  const posted = await postToChat(conversationId, link.value.text)
+  if (posted.ok) s.logFormSend({ kind: "custom", familyId: conv.familyId, studentIds: [], token: link.value.token, title: form.name, formId: form.id })
+  return posted
 }
 
 export async function pullCustomFormResponses() {
@@ -473,4 +482,20 @@ export async function fetchTokenStates(tokens: string[]): Promise<Record<string,
 export async function revokeFormLink(token: string): Promise<Result> {
   const r = await postJson<{ ok: boolean; error?: string }>("/api/forms/revoke", { token })
   return r.ok ? { ok: true, value: undefined } : { ok: false, error: r.error ?? "ยกเลิกลิงก์ไม่สำเร็จ" }
+}
+
+/**
+ * owner 2026-11-26 — the ONE send point for "Enroll Form + Invoice": the invoices are approved + numbered, the admin confirmed.
+ * One link carries the form and the invoice (or the whole family set); the invoices then count as sent and the binding is used up.
+ */
+export async function sendEnrollWithInvoices(conversationId: ID, invoiceIds: ID[]): Promise<Result<{ url: string }>> {
+  const s = useStore.getState()
+  const invs = invoiceIds.map((id) => s.invoices.find((x) => x.id === id))
+  if (!invs.length || invs.some((i) => !i)) return { ok: false, error: "ไม่พบใบแจ้งหนี้" }
+  const notReady = invs.find((i) => !i!.number || (i!.status !== "approved" && i!.status !== "sent"))
+  if (notReady) return { ok: false, error: "ใบแจ้งหนี้ยังไม่อนุมัติ / ยังไม่ออกเลข Official — ส่งไม่ได้" }
+  const r = await sendEnrollToChat(conversationId, [], undefined, invoiceIds)
+  if (!r.ok) return r
+  s.markEnrollSent(invoiceIds)
+  return r
 }

@@ -153,8 +153,8 @@ export interface BusTrip {
   actuals?: { start?: TimeStr; finish?: TimeStr; stops?: Record<string, { in?: TimeStr; out?: TimeStr; noshow?: boolean }> }
 }
 
-/** Package duration unit (Settings → Packages tabs: Hour / Week / Month). */
-export type PriceUnit = "hour" | "week" | "month"
+/** Package duration unit (Settings → Packages tabs: Hour / Week / Month / Session). Session (owner 2026-11-26) = N class sessions, one off per session attended whatever its length. */
+export type PriceUnit = "hour" | "week" | "month" | "session"
 
 /** One cell of the branch price chart: subject × grade × duration → suggested price.
  *  Reference only (owner 2026-09-26) — it pre-fills Create Course, the real price lives on the Course. */
@@ -232,7 +232,8 @@ export interface Branch {
   fees: Fee[]
   promotions: Promotion[]
   /** Settings → Packages: offered durations per unit + the price chart */
-  packageDurations: { hour: number[]; week: number[] }
+  /** `session` (owner 2026-11-26): how many sessions a Session pack holds — unset (older saved data) = the defaults 10 / 20 */
+  packageDurations: { hour: number[]; week: number[]; session?: number[] }
   /** leave quota per package (owner 2026-10-09) — key = duration (month: 1). Unset = the default rule
    *  (`defaultLeaveQuota`: 1 session = 2 hrs, 4 sessions = 1 leave). 0 = no leave allowed. */
   leaveQuotas?: Partial<Record<PriceUnit, Record<number, number>>>
@@ -691,6 +692,8 @@ export interface HomePin { lat: number; lng: number; addressNote?: string; addre
 export interface Family {
   id: ID
   name: string
+  /** owner 2026-11-26: the admin started an Enroll Form and is waiting for its invoice (approved + Run no.) — nothing is sent until then */
+  enrollWaiting?: boolean
   /** name in English (owner 2026-10-09) — optional; NockAcademy = TH + EN, Liclass = JP + EN. Empty = auto romanized */
   nameEn?: string
   parents: Parent[]
@@ -1649,6 +1652,8 @@ export interface Invoice {
   concession: { amount: number; remark: string } | null
   /** siblings' invoices linked to be sent to the parent as ONE message (owner 2026-11-05) */
   bundleId?: ID
+  /** owner 2026-11-26: this invoice (the whole set) is bound to the Enroll Form — when the admin confirms the send it goes WITH the form, one link */
+  withEnroll?: boolean
   /** made by Duplicate / bulk renewal from this invoice (owner 2026-11-05) */
   duplicatedFrom?: ID
   /** auto-applied best promotion (id kept so the invoice shows which one) */
@@ -1658,6 +1663,8 @@ export interface Invoice {
   /** how Family Promotion meets a branch promotion (owner 2026-11-17: the admin decides): best = the bigger one (system's pick) ·
    *  both = stack them · family = Family only. Unset = best. */
   familyMode?: "best" | "both" | "family"
+  /** owner 2026-11-26: the pay-by date the creator chose (14 days · 30 days · own date) — every invoice has one; the Invoice column on the Student / Family lists colours by it */
+  dueDate?: DateStr
   noteToParent: string
   /** owner 2026-11-20: the course summary sent to the parent BEFORE the PDF ("here is what we agreed — start date, classes, price").
    *  `hash` = what the summary said; if the draft changes afterwards the hash no longer matches and the summary must be sent again.
@@ -2154,3 +2161,23 @@ export interface CatalogToken {
   createdAt: string
   updatedAt: string
 }
+
+/** owner 2026-11-26: a form the admin sent to a family — the log behind "ฟอร์มทั้งหมด" and the overview snapshot (exit + survey keep their own records) */
+export interface FormSend {
+  id: ID
+  kind: "enroll" | "custom"
+  familyId: ID
+  /** the children it is about (enroll: the ones on the invoice / newcomers) — empty = the whole family */
+  studentIds: ID[]
+  token: string
+  title: string
+  sentAt: string
+  /** enroll sent together with these invoices = a money matter → the admin closes it by hand */
+  invoiceIds?: ID[]
+  formId?: ID
+  closedAt?: string
+  closedBy?: ID
+}
+
+/** owner 2026-11-26: why a form link was cancelled (chips + an optional Remark) — shown on the step beside "ยกเลิกแล้ว" */
+export interface FormCancel { token: string; reasonId: string; label: string; remark?: string; at: string; by: ID }

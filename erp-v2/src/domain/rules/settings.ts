@@ -11,14 +11,20 @@ export const FEE_KIND_LABEL: Record<FeeKind, { title: string; hint: string }> = 
   mock: { title: "ค่าสอบ Mock test", hint: "เก็บครั้งเดียว — เป็นรายการ Advance Optional ในใบแจ้งหนี้" },
 }
 
-/** Brand rules (owner 2026-11-05): Liclass has no Monthly packages · NockAcademy has no bus service. */
-export const brandPriceUnits = (brand: Branch["brand"]): PriceUnit[] => (brand === "liclass" ? ["hour", "week"] : ["hour", "week", "month"])
+/** Package types (owner 2026-11-26): every business type and every branch offers all four, always in this order — Monthly · Weekly · Hourly · Session
+ *  (it used to be: Liclass had no Monthly — owner 2026-11-05). NockAcademy has no bus service. */
+export const PRICE_UNITS_ORDER: PriceUnit[] = ["month", "week", "hour", "session"]
+export const brandPriceUnits = (_brand?: Branch["brand"]): PriceUnit[] => PRICE_UNITS_ORDER
 export const brandUsesBus = (brand: Branch["brand"]) => brand === "liclass"
 
-export const PRICE_UNIT_LABEL: Record<PriceUnit, string> = { hour: "รายชั่วโมง", week: "รายสัปดาห์", month: "รายเดือน" }
+export const PRICE_UNIT_LABEL: Record<PriceUnit, string> = { hour: "รายชั่วโมง", week: "รายสัปดาห์", month: "รายเดือน", session: "รายคาบ" }
+/** owner 2026-11-26: the Package column / filter of the staff lists (Classes · Courses) — English names */
+export const PACKAGE_LABEL: Record<PriceUnit, string> = { month: "Monthly", week: "Weekly", hour: "Hourly", session: "Session" }
+/** the default Session pack sizes when a branch has none saved */
+export const DEFAULT_SESSION_PACKS = [10, 20]
 
 export function durationLabel(unit: PriceUnit, d: number) {
-  return unit === "hour" ? `${d} ชม.` : unit === "week" ? `${d} สัปดาห์` : `${d} เดือน`
+  return unit === "hour" ? `${d} ชม.` : unit === "week" ? `${d} สัปดาห์` : unit === "session" ? `${d} คาบ` : `${d} เดือน`
 }
 
 /** Grade catalog grouped the way staging shows it (Primary / Middle-High / Special). */
@@ -60,7 +66,7 @@ export function gradeMix(grades: string[]): { grade: string; count: number }[] {
 
 /** Durations a unit offers — month is always the single "price per month" column. */
 export function durationsOf(branch: Branch, unit: PriceUnit): number[] {
-  return unit === "month" ? [1] : [...branch.packageDurations[unit]].sort((a, b) => a - b)
+  return unit === "month" ? [1] : [...(branch.packageDurations[unit] ?? (unit === "session" ? DEFAULT_SESSION_PACKS : []))].sort((a, b) => a - b)
 }
 
 /** Leave quota default (owner 2026-10-09): 1 session = 2 hrs, every 4 sessions = 1 leave. */
@@ -71,6 +77,7 @@ export const HOURS_PER_SESSION = 2
  *  so the default needs the sessions really bought (null when not known yet — e.g. in Settings). */
 export function defaultLeaveQuota(unit: PriceUnit, duration: number, sessions?: number): number | null {
   if (unit === "hour") return Math.floor(duration / HOURS_PER_SESSION / LEAVE_EVERY_SESSIONS)
+  if (unit === "session") return Math.floor(duration / LEAVE_EVERY_SESSIONS) // the pack IS its sessions — the same rule as Hourly (every 4 sessions = 1 leave)
   return sessions == null ? null : Math.floor(sessions / LEAVE_EVERY_SESSIONS)
 }
 
@@ -83,7 +90,7 @@ export function setLeaveQuota(branch: Branch, unit: PriceUnit, duration: number)
 export function leaveQuotaFor(branch: Branch, unit: PriceUnit, duration: number, periods: number, sessions: number): number {
   const set = setLeaveQuota(branch, unit, duration)
   if (set != null) return set * Math.max(1, periods)
-  return unit === "hour" ? defaultLeaveQuota(unit, duration)! * Math.max(1, periods) : defaultLeaveQuota(unit, duration, sessions)!
+  return unit === "hour" || unit === "session" ? defaultLeaveQuota(unit, duration)! * Math.max(1, periods) : defaultLeaveQuota(unit, duration, sessions)!
 }
 
 export function priceOf(branch: Branch, unit: PriceUnit, duration: number, subject: string, grade: string): number | null {

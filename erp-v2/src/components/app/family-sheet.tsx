@@ -1,18 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, MessagesSquareIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UsersIcon, UsersRoundIcon, PencilIcon } from "lucide-react"
+import { ContactJump } from "@/components/app/contact-jump"
+import { ArchiveIcon, ArchiveRestoreIcon, CakeIcon, ChevronDownIcon, ReceiptIcon, SmartphoneIcon, Trash2Icon, UsersIcon, UsersRoundIcon, PencilIcon, UserPlusIcon } from "lucide-react"
 import { ParentPreview } from "@/components/parent/parent-preview"
 import { tx } from "@/lib/i18n"
 import { Pill } from "@/components/app/badges"
 import { tagInk } from "@/components/app/tags"
 import { avatarTone, initial } from "@/components/app/subject-color"
 import { MathGate } from "@/components/app/math-gate"
-import { ReasonDialog } from "@/components/app/reason-dialog"
+import { ReasonChipsDialog } from "@/components/app/reason-chips-dialog"
+import { reasonsForFamily } from "@/domain/rules/loss"
 import { StudentPanelContent } from "@/components/app/student-sheet"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { startFamilySet } from "@/lib/family-set"
 import { Tabs } from "@/components/app/page-layout"
 import { InvoiceSheet } from "@/components/billing/invoice-sheet"
@@ -25,9 +26,10 @@ import { FamilyEditItems, type EditTarget } from "./family-edit-menu"
 import { FamilyForms } from "@/components/forms/family-forms"
 import { StudentExams } from "@/components/exams/student-exams"
 import { FamilyInfoTab } from "@/components/app/family-info-tab"
-import { EnrollFormCard } from "@/components/forms/enroll-form-card"
+import { isNewcomer } from "@/domain/rules/form-hub"
+import { InfoTip } from "@/components/app/info-tip"
 import { toDateStr } from "@/domain/dates"
-import { studentState } from "@/domain/rules/attendance"
+import { familyStatus } from "@/domain/rules/attendance"
 import { birthdaysToday, mainLineAccount, familyDisplay, familyCore } from "@/domain/rules/people"
 import { STATUS_PILL } from "@/components/app/student-status"
 import { useEntitlements, useNow } from "@/lib/hooks"
@@ -73,8 +75,14 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const [tab, setTab] = useState<FamilyTab>(initialTab ?? "overview")
   const [invoice, setInvoice] = useState<ID | "new" | null>(null)
   const [invoiceFor, setInvoiceFor] = useState<ID | undefined>()
+  const allInvoices = useStore((s) => s.invoices)
+  const setEnrollWaiting = useStore((s) => s.setEnrollWaiting)
+  const formActions = { onGoBilling: () => setTab("billing"), onOpenInvoice: (iid: ID) => setInvoice(iid), onOpenStudent: (sid: ID) => setStudentOpen(sid) }
+  // owner 2026-11-26: the Enroll Form is for a newcomer only (no paid invoice yet) — an existing customer's menu has no enroll option
+  const newKids = kids.filter((k) => !k.archived && isNewcomer(k.id, allInvoices))
   const [parentApp, setParentApp] = useState(false)
   const [archiving, setArchiving] = useState(false)
+  const lossReasons = useStore((s) => s.system.lossReasons)
   const [deleting, setDeleting] = useState(false)
   const manage = can(me, "family.manage")
   // owner 2026-11-20: next to the name — "Active" while ANY child is still Active · a small cake on anyone's birthday (a guardian or a child)
@@ -82,7 +90,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
   const leaves = useStore((s) => s.leaves)
   const renewalDays = useStore((s) => s.system.settings.renewalDaysBefore)
   const today = toDateStr(useNow())
-  const anyActive = kids.some((k) => studentState(k, ents.filter((e) => e.studentId === k.id), leaves.filter((l) => l.studentId === k.id), today, renewalDays).status === "active")
+  const famStatus = f ? familyStatus(f, kids, ents, leaves, today, renewalDays) : "inactive"
   const bdayNames = f ? birthdaysToday(f, kids, today) : []
   return (
     <>
@@ -106,7 +114,7 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <SheetTitle className="truncate text-lg">{/* owner 2026-11-24: always "[name] Family" — no Thai "ครอบครัว" prefix */}{familyDisplay(f.name)}{f.nameEn && <span className="ml-1.5 font-normal text-muted-foreground">({f.nameEn})</span>}</SheetTitle>
-                      {f.archived ? <Pill tone="gray">เก็บเข้าคลัง</Pill> : anyActive && <Pill tone={STATUS_PILL.active.tone}>{STATUS_PILL.active.label}</Pill>}
+                      <Pill tone={STATUS_PILL[famStatus].tone}>{STATUS_PILL[famStatus].label}</Pill>
                       {bdayNames.length > 0 && <span title={`${tx("วันเกิดวันนี้")}: ${bdayNames.join(", ")}`} className={cn("inline-grid size-5 shrink-0 place-items-center opacity-70", tagInk("birthday", "today"))}><CakeIcon className="size-4" aria-label={tx("วันเกิดวันนี้")} /></span>}
                     </div>
                     {/* h-5 = the same line height as the student's (its status pills / ⓘ are 20px) — the two panel headers are the same height (owner 2026-11-20) */}
@@ -122,23 +130,17 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   { value: "courses", label: tx("คลาส") },
                   { value: "exams", label: tx("ผลสอบ") },
                   { value: "notes", label: tx("โน้ต") },
-                  { value: "forms", label: tx("ฟอร์มพิเศษ") },
+                  { value: "forms", label: tx("ฟอร์มทั้งหมด") },
                 ]} />
               </SheetHeader>
               <PanelBody>
-                {tab === "overview" && <FamilyOverview family={f} kids={kids} onOpen={setStudentOpen} onGoBilling={() => setTab("billing")} />}
+                {tab === "overview" && <FamilyOverview family={f} kids={kids} onOpen={setStudentOpen} onGoBilling={() => setTab("billing")} formActions={formActions} />}
                 {tab === "info" && <FamilyInfoTab f={f} kids={kids} onOpenStudent={setStudentOpen} onAddParent={() => pick({ kind: "newParent" })} onGoBilling={() => setTab("billing")} />}
                 {tab === "billing" && <FamilyBillingTab kids={kids} />}
                 {tab === "courses" && <FamilyClassTab kids={kids} />}
                 {tab === "exams" && <StudentExams students={kids} />}
                 {tab === "notes" && <FamilyNotesTab kids={kids} />}
-                {tab === "forms" && (
-                  <div className="space-y-3">
-                    <p className="rounded-2xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">{tx("ฟอร์มของครอบครัวนี้ — ดูว่ามีข้อมูลอะไรอยู่แล้ว ส่งแล้วได้อะไรกลับมา · ฟอร์มที่บริษัทสร้างเอง (ตั้งค่า › ฟอร์ม) อยู่ด้านล่าง · Test / Trial อยู่ในแผง Lead")}</p>
-                    <EnrollFormCard family={f} />
-                    <FamilyForms family={f} />
-                  </div>
-                )}
+                {tab === "forms" && <FamilyForms family={f} actions={formActions} />}
               </PanelBody>
               {/* Bottom = actions (owner 2026-10-09) · NEGATIVE-ACTIONS.md §2–3: archive / restore / delete */}
               {/* owner 2026-11-20: Bottom = ⋯ on the left (view as parent · edit · archive · delete), the one main action on the right (new invoice → pick a child or the whole family) */}
@@ -150,22 +152,37 @@ export function FamilySheet({ id: target, onClose, initialTab }: { id: ID | "new
                   manage && !f.archived && { label: "เก็บเข้าคลัง", icon: ArchiveIcon, destructive: true, onClick: () => setArchiving(true) },
                       manage && !f.archived && { label: "ลบถาวร", icon: Trash2Icon, destructive: true, disabled: kids.length > 0, title: kids.length > 0 ? "ครอบครัวนี้มีนักเรียนผูกอยู่ — เก็บเข้าคลังแทน" : undefined, onClick: () => setDeleting(true) },
                 ]} />
-                <Button size="icon" variant="outline" className="ml-auto rounded-full" disabled={!conv} aria-label={tx("แชท LINE กับผู้ปกครอง")} title={conv ? tx("เปิดแชท LINE กับผู้ปกครองใน Inbox") : tx("ครอบครัวนี้ยังไม่มีแชท LINE ใน Inbox")} nativeButton={!conv} render={conv ? <Link href={`/inbox?conversation=${conv.id}`} /> : undefined}><MessagesSquareIcon /></Button>
+                <ContactJump kind="family" id={f.id} conversationId={conv?.id} className="ml-auto rounded-full" />
                 {manage && f.archived && <Button variant="outline" onClick={() => report(restore(f.id), "เอาครอบครัวกลับจากคลังแล้ว")}><ArchiveRestoreIcon /> เอากลับจากคลัง</Button>}
                 {!f.archived && can(me, "billing.manage") && kids.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger render={<Button variant="outline" />}><ReceiptIcon /> {tx("ออกใบแจ้งหนี้")} <ChevronDownIcon /></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" side="top">
+                    <DropdownMenuContent align="end" side="top" className="w-max min-w-64">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel className="flex items-center gap-1.5">{tx("ออกใบแจ้งหนี้เท่านั้น")} <InfoTip title={tx("ออกใบแจ้งหนี้เท่านั้น")} text={tx("ส่งเฉพาะใบแจ้งหนี้ให้ผู้ปกครอง\nใช้กับลูกค้าเดิม · ต่ออายุ · ซื้อคอร์สเพิ่ม")} /></DropdownMenuLabel>
                       {kids.map((k) => <DropdownMenuItem key={k.id} onClick={() => { setInvoiceFor(k.id); setInvoice("new") }}>{k.nickname} · {k.grade}</DropdownMenuItem>)}
-                      {kids.length > 1 && <>
+                        {kids.length > 1 && (
+                          <DropdownMenuItem onClick={() => { const r = startFamilySet({ familyId: f.id }); if (report(r, "สร้างชุดครอบครัวแล้ว — เติมคอร์สให้ลูกแต่ละคน")) { setInvoiceFor(undefined); setInvoice(r.value.firstId) } }}><UsersRoundIcon /> {tx("ทั้งครอบครัว")} ({kids.length} {tx("คน")})</DropdownMenuItem>
+                        )}
+                      </DropdownMenuGroup>
+                      {/* owner 2026-11-26: only a Lead / a newly enrolling child (no paid invoice yet) can have an Enroll Form */}
+                      {newKids.length > 0 && <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => { const r = startFamilySet({ familyId: f.id }); if (report(r, "สร้างชุดครอบครัวแล้ว — เติมคอร์สให้ลูกแต่ละคน")) { setInvoiceFor(undefined); setInvoice(r.value.firstId) } }}><UsersRoundIcon /> {tx("ทั้งครอบครัว")} ({kids.length} {tx("คน")})</DropdownMenuItem>
+                        <DropdownMenuGroup>
+                          <DropdownMenuLabel className="flex items-center gap-1.5">{tx("ออกใบแจ้งหนี้ + Enroll Form")} <InfoTip title={tx("ออกใบแจ้งหนี้ + Enroll Form")} text={tx("สำหรับ Lead และนักเรียนสมัครใหม่\nผู้ปกครองได้ลิงก์เดียว: กรอกใบสมัคร · ดูใบแจ้งหนี้ · แนบสลิป\nส่งได้เมื่อใบอนุมัติและออกเลข Official แล้ว")} /></DropdownMenuLabel>
+                        {newKids.map((k) => <DropdownMenuItem key={`en-${k.id}`} onClick={() => { setEnrollWaiting(f.id, true); setInvoiceFor(k.id); setInvoice("new") }}><UserPlusIcon /> {k.nickname} · {k.grade}</DropdownMenuItem>)}
+                          {newKids.length > 1 && (
+                            <DropdownMenuItem onClick={() => { setEnrollWaiting(f.id, true); const r = startFamilySet({ familyId: f.id }); if (report(r, "สร้างชุดครอบครัวแล้ว — เติมคอร์สให้ลูกแต่ละคน")) { setInvoiceFor(undefined); setInvoice(r.value.firstId) } }}><UsersRoundIcon /> {tx("ทั้งครอบครัว")} ({newKids.length} {tx("คน")})</DropdownMenuItem>
+                          )}
+                        </DropdownMenuGroup>
                       </>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
               </PanelFooter>
-              <ReasonDialog open={archiving} title={`เก็บครอบครัว “${familyDisplay(f.name)}” เข้าคลัง`} description="ครอบครัวจะหายจากลิสต์ปกติแต่ประวัติยังอยู่ — เอากลับมาได้" onConfirm={(r) => report(archive(f.id, r), "เก็บครอบครัวเข้าคลังแล้ว")} onClose={() => setArchiving(false)} />
+              <ReasonChipsDialog open={archiving} title={`เก็บครอบครัว “${familyDisplay(f.name)}” เข้าคลัง`} description={tx("ครอบครัวจะหายจากลิสต์ปกติแต่ประวัติยังอยู่ — Inbox ยังคุยกับผู้ปกครองได้ · เอากลับมาได้")}
+                options={reasonsForFamily(lossReasons).map((r) => ({ id: r.id, label: r.label }))} remarkRequiredFor={["lr_other"]} confirmLabel={tx("เก็บเข้าคลัง")} destructive
+                onConfirm={(p) => report(archive(f.id, p.remark ? `${p.label} · ${p.remark}` : p.label), "เก็บครอบครัวเข้าคลังแล้ว")} onClose={() => setArchiving(false)} />
               <MathGate open={deleting} title={`ลบครอบครัว “${familyDisplay(f.name)}”`} warning="การลบนี้ย้อนกลับไม่ได้ — ครอบครัวนี้ยังไม่มีนักเรียนผูกอยู่" onConfirm={() => { if (report(del(f.id), "ลบครอบครัวแล้ว")) onClose() }} onClose={() => setDeleting(false)} />
             </>
           )}

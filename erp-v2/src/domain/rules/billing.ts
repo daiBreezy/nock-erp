@@ -143,6 +143,18 @@ export function quoteCourse(opts: {
     return done(slots, skipped, first, to, [{ month: monthKey(first), sessions: slots.map((x) => x.date), factor: stopped === 0 ? opts.periods : billedWeeks / Math.max(1, course.duration), amount }], 0, 0, periodSkipped)
   }
 
+  // session packs (owner 2026-11-26): the pack IS its sessions — N sessions per period bought, taken in real class order across every class, one off per
+  // session attended whatever its length (an hour pack is paid in minutes). Leaves / make-ups follow the Hourly rules; the course's own start–end window is its expiry.
+  if (course.unit === "session") {
+    const want = course.duration * opts.periods
+    const { slots, skipped, periodSkipped } = classSlots(klasses, first, holidays, (_, taken) => taken.length > want, opts.specialPeriods)
+    const paid = slots.slice(0, want)
+    const lastDate = paid[paid.length - 1]?.date
+    return done(paid, skipped.filter((d) => !lastDate || d <= lastDate), first, lastDate ?? first,
+      [{ month: monthKey(first), sessions: paid.map((x) => x.date), factor: opts.periods, amount: course.price * opts.periods }],
+      0, 0, periodSkipped.filter((d) => !lastDate || d <= lastDate))
+  }
+
   // hour packs: whole sessions the minutes pay for, in real class order across every class, at each class's real
   // length (24 h at 1:30 = 16 sessions) · what doesn't fill the next session is the leftover (owner 2026-09-30)
   const bought = course.duration * 60 * opts.periods + (opts.carryIn ?? 0) + (opts.bonusMinutes ?? 0)
@@ -785,3 +797,35 @@ export function agreementState(inv: Invoice, totals: InvoiceTotals): AgreementSt
   return a.confirmedAt ? "confirmed" : "sent"
 }
 export const AGREEMENT_LABEL: Record<AgreementState, string> = { none: "ยังไม่ส่งสรุปคอร์ส", sent: "ส่งสรุปแล้ว · รอผู้ปกครองยืนยัน", confirmed: "ผู้ปกครองยืนยันแล้ว", stale: "แก้ใบหลังส่งสรุป — ต้องส่งสรุปใหม่" }
+
+
+// ---------------- Following up a sent invoice (owner 2026-11-26) ----------------
+
+/** the pay-by date: the one the creator chose; older invoices that were never given one count 14 days from when they were sent (or created) */
+export function dueDateOf(inv: Pick<Invoice, "dueDate" | "sentAt" | "createdAt">): { date: DateStr; assumed: boolean } {
+  if (inv.dueDate) return { date: inv.dueDate, assumed: false }
+  return { date: addDays((inv.sentAt ?? inv.createdAt).slice(0, 10), 14), assumed: true }
+}
+
+/** days from today to the due date (negative = overdue) */
+export const daysToDue = (due: DateStr, today: DateStr) => Math.round((new Date(`${due}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86_400_000)
+
+/** colour of the follow-up icon: under 3 days (or overdue) red · under 7 yellow · 7+ grey */
+export const dueTone = (days: number): "red" | "amber" | "gray" => (days < 3 ? "red" : days < 7 ? "amber" : "gray")
+
+/** an invoice that LEFT the office (sent to the parent) and is not cleared yet — what the Invoice column follows */
+export const isFollowed = (inv: Pick<Invoice, "status">) => inv.status === "sent"
+
+export interface FollowedInvoice { id: string; studentId: string; number: string | null; owed: number; due: DateStr; assumed: boolean; days: number; tone: "red" | "amber" | "gray"; slipWaiting: boolean; delivery?: Invoice["delivery"] }
+
+/** the sent-and-unpaid invoices of some children, soonest due first */
+export function followedInvoices(invoices: Invoice[], studentIds: Set<string>, today: DateStr, owedOf: (inv: Invoice) => number): FollowedInvoice[] {
+  return invoices
+    .filter((i) => studentIds.has(i.studentId) && isFollowed(i))
+    .map((i) => {
+      const { date, assumed } = dueDateOf(i)
+      const days = daysToDue(date, today)
+      return { id: i.id, studentId: i.studentId, number: i.number, owed: owedOf(i), due: date, assumed, days, tone: dueTone(days), slipWaiting: i.payments.some((p) => !p.confirmedBy), delivery: i.delivery }
+    })
+    .sort((a, b) => a.days - b.days)
+}
