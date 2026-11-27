@@ -1010,7 +1010,7 @@ export interface SurveyCampaign {
 }
 
 /** Enroll-now form (owner 2026-10-05): a family that wants to start without a test / trial. */
-export type EnrollPackage = "hour" | "week" | "month" | "unsure"
+export type EnrollPackage = "hour" | "week" | "month" | "session" | "unsure"
 
 /** A course the enroll form offers — a snapshot (the parent's page has no access to ERP data). */
 export interface EnrollCourseOption { id: ID; name: string; subjects: string[]; grades: string[]; unit: PriceUnit; duration: number; price: number }

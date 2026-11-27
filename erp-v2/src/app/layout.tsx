@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Ms_Madi, Noto_Sans, Noto_Sans_Thai } from "next/font/google"
+import { DragScroll } from "@/components/app/drag-scroll"
 import { EmptyCellDash } from "@/components/app/empty-cell-dash"
 import { ShellGate } from "@/components/app/shell-gate"
 import { Toaster } from "@/components/ui/toast"
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {/* system feedback (saved / error) — bottom-right; notifications are the Noti, top-right (components/app/noti.tsx) */}
           <Toaster limit={3} />
           <EmptyCellDash />
+          <DragScroll />
         </TooltipProvider>
       </body>
     </html>

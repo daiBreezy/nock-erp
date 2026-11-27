@@ -398,7 +398,7 @@ function MoveStudentDialog({ from, studentId, to, onClose }: { from: string; stu
  * The Room line above a block (owner 2026-10-01): room first and boldest, then students · kind · group/single as quiet
  * grey icons — words appear only when the column is wide enough (container query), so neighbours stay calm.
  */
-function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: Session[]; classes: Klass[]; clash: string[]; onResolve?: (ids: string[]) => void; inCell?: boolean }) {
+export function RoomLine({ sessions, classes, clash, onResolve, inCell, noCoTeacher }: { sessions: Session[]; classes: Klass[]; clash: string[]; onResolve?: (ids: string[]) => void; inCell?: boolean; /** the caller shows the co-teachers itself (Dashboard card: on the teacher's own line) */ noCoTeacher?: boolean }) {
   const L = useLookup()
   if (!sessions.length) return <div className="border-b border-l bg-muted px-3 py-1.5 text-center text-xs text-muted-foreground">-</div>
   // owner 2026-10-15: inside a class cell the room line takes the cell's own colour — no grey band, no divider
@@ -426,7 +426,7 @@ function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: S
               <span className="flex items-center gap-1" title={single ? "Single (เรียนเดี่ยว)" : "Group"}>
                 {single ? <UserIcon className="size-3.5" /> : <UsersIcon className="size-3.5" />}{!inCell && <span className="hidden @[15rem]:inline">{single ? "Single" : "Group"}</span>}
               </span>
-              {inCell && s.coTeacherIds.length > 0 && <span className="truncate" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
+              {inCell && !noCoTeacher && s.coTeacherIds.length > 0 && <span className="truncate" title="ครูช่วยสอน">+{s.coTeacherIds.map((x) => L.teacher(x).label).join(", ")}</span>}
             </span>
           </div>
         )
@@ -435,8 +435,12 @@ function RoomLine({ sessions, classes, clash, onResolve, inCell }: { sessions: S
   )
 }
 
-/** One session inside a block — no card: just the subject line and the students, on the cell itself. */
-function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, attendance, allSessions, canDrag, onDropStudent }: {
+/**
+ * One session inside a block — no card: just the subject line and the students, on the cell itself.
+ * `compact` (owner 2026-11-27, the Dashboard reuses this very block): the same header (subject · state icon · time · room · count) WITHOUT the student list.
+ */
+export function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, attendance, allSessions, canDrag, onDropStudent, compact }: {
+  compact?: boolean
   s: Session; room?: React.ReactNode; state: WorkState; ended: boolean; dayDate: (d: DateStr) => string; canEdit: boolean
   onOpen: (id: string) => void
   klass?: Klass; attendance: Attendance[]; allSessions: Session[]
@@ -495,7 +499,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
       </div>
       {/* owner 2026-10-15: class on top, then the room (day view) */}
       {room}
-      {s.studentIds.map((sid, idx) => {
+      {!compact && s.studentIds.map((sid, idx) => {
         const seat = Seats.seatOf(s, sid, klass)
         const a = attendance.find((x) => x.sessionId === s.id && x.studentId === sid)
         const moved = s.rescheduledIn?.includes(sid) ? allSessions.find((x) => x.rescheduledOut?.some((m) => m.studentId === sid && m.toSessionId === s.id)) : undefined
@@ -512,7 +516,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
             onOpen={() => onOpen(s.id)} canEdit={canEdit} />
         )
       })}
-      {(s.rescheduledOut ?? []).map((m) => {
+      {!compact && (s.rescheduledOut ?? []).map((m) => {
         const to = allSessions.find((x) => x.id === m.toSessionId)
         return (
           <Button variant="row" size="inline" key={`out-${m.studentId}`} type="button" onClick={() => to && onOpen(to.id)} className="flex w-full items-center gap-2 text-left text-xs text-muted-foreground">
@@ -521,7 +525,7 @@ function SessionBlock({ s, room, state, ended, dayDate, canEdit, onOpen, klass, 
           </Button>
         )
       })}
-      {s.studentIds.length === 0 && <Button variant="link" size="inline" type="button" onClick={() => onOpen(s.id)} className="text-xs text-muted-foreground hover:underline">ยังไม่มีนักเรียน · เปิดคาบ</Button>}
+      {!compact && s.studentIds.length === 0 && <Button variant="link" size="inline" type="button" onClick={() => onOpen(s.id)} className="text-xs text-muted-foreground hover:underline">ยังไม่มีนักเรียน · เปิดคาบ</Button>}
     </div>
   )
 }

@@ -2,19 +2,28 @@
 
 import Link from "next/link"
 import { AlertTriangleIcon, ChevronRightIcon } from "lucide-react"
-import { Kpi } from "@/components/app/kpi"
+import { Button } from "@/components/ui/button"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { AttentionItem } from "@/domain/rules/reports"
 import { tx } from "@/lib/i18n"
 
 export const GROUP_LABEL: Record<AttentionItem["group"], string> = { trend: "ยอดและแนวโน้ม", money: "เงินค้าง", students: "นักเรียนเสี่ยงหลุด", teaching: "ครูและการสอน", sales: "ขาย (CRM)" }
 
-/** The red "Need Attention" KPI button (owner 2026-10-01, shared with Dashboard from 2026-10-06) — opens AttentionDialog. */
-export function AttentionButton({ count, onClick }: { count: number; onClick: () => void }) {
-  // the standard KPI card (owner 2026-10-09) — red number while there is something to look at
-  // (Design System 2026-11-10: no tinted card any more — every KPI has one look; `emphasis` colours the number)
+/**
+ * "Need Attention" (owner 2026-10-01; an icon button + badge since 2026-11-27 — it is no longer a KPI card): a warning icon in the page header with the
+ * count as a badge, opens AttentionDialog. Same look as the Dashboard's activity button.
+ */
+export function AttentionButton({ count, onClick, className }: { count: number; onClick: () => void; className?: string }) {
   return (
-    <Kpi icon={AlertTriangleIcon} tone={count ? "red" : "primary"} label="Need Attention" value={count} emphasis={!!count} sub={count ? tx("กดเพื่อดูรายการ") : tx("ไม่มีเรื่องต้องดู")} onClick={onClick} />
+    <HoverCard>
+      <HoverCardTrigger render={<Button variant="outline" size="icon-sm" className={cn("relative", className)} aria-label={tx("Need Attention")} onClick={onClick} />}>
+        <AlertTriangleIcon className={count ? "text-danger" : undefined} />
+        {count > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-4 rounded-full bg-danger px-1 text-2xs leading-4 font-semibold text-white tabular-nums">{count}</span>}
+      </HoverCardTrigger>
+      <HoverCardContent>{count ? tx("Need Attention · กดเพื่อดูรายการ") : tx("Need Attention · ไม่มีเรื่องที่ต้องดู")}</HoverCardContent>
+    </HoverCard>
   )
 }
 

@@ -193,3 +193,10 @@ md→sm · xl→lg · max-md→max-sm · ⚠ reports/page ที่ xl→lg อ�
 ## ยังต้องทบทวน (พบตอนทำ F3 — ยังไม่ได้แก้)
 
 `tags.ts` `role` ใช้สีที่ใกล้ system colour: `admin`=amber (ใกล้เหลือง) · `driver`=lime (ใกล้เขียว) · `director`=rose (ใกล้แดง) · `area_manager`=orange — ถ้าจะใช้กฎ "ไม่ชน system colour" กับป้ายบทบาทด้วย ต้องให้เจ้าของเลือกสีใหม่
+
+## KPI card with a visual — `KpiV` (owner 2026-11-27)
+- `Kpi` (no chart) is the card for every page. **`KpiV` = `Kpi` + a visual under it, used ONLY by the Dashboard and Reports** (`components/app/kpi-v.tsx`, visuals in `components/app/kpi-visuals.tsx`).
+- A visual carries NO words — its figures live in a hover card (`TipRows`). One hue (the primary at different strengths; red only for a problem). It must answer "better or worse than what?" by drawing the comparison.
+- Visuals: `PaceLines` (revenue: running total vs the previous period, faint, + optional dashed forecast) · `PlanBar` / `ShareBar` / `StageBar` (one bar split into parts — students, classes, leads; the bar is 8px with no grey track). One hue, red only for a problem. The hover card is the legend (with colour swatches). (Tried 2026-11-27 and rejected by the owner: net-change columns, funnel columns, half-ring gauge — "not pretty".)
+- Order of the cards (same on both pages): รายรับ · นักเรียน · Lead · คาบ — 4 cards each. Dashboard = this month. Reports = the chosen period vs the compared one. Need Attention is NOT a card: on Reports it is an icon button (⚠ + count badge) in the page header (`AttentionButton`).
+- "คาบ": Dashboard = done / total + problems (no teacher, clash) · Reports = "คาบเป็นไปตามแผน" (`domain/rules/plan-fit.ts`: leave · moved · shifted per student-seat).

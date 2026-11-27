@@ -47,7 +47,8 @@ export function AssessmentResult({ a, editable, compact = true }: { a: Assessmen
         {a.note && <p className="whitespace-pre-line text-muted-foreground">{a.note}</p>}
         <div className="flex items-center gap-2">
           {a.notedAt && <p className="text-2xs text-muted-foreground">บันทึกโดย {who ?? "—"} · {fmtDateTime(a.notedAt)}</p>}
-          {editable && <Button size="xs" variant="ghost" className="ml-auto" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>}
+          {/* owner 2026-11-27: the button that turns the result into the Edit card must be easy to see */}
+          {editable && <Button size="sm" variant="outline" className="ml-auto border-primary/40 text-primary hover:text-primary" onClick={() => setEditing(true)}><PencilIcon /> แก้ไข</Button>}
         </div>
       </div>
     )
@@ -55,7 +56,7 @@ export function AssessmentResult({ a, editable, compact = true }: { a: Assessmen
   return (
     <div className="flex items-center gap-2">
       <p className="text-xs text-muted-foreground">ยังไม่มีบันทึกผล</p>
-      {editable && compact && <Button size="xs" variant="outline" className="ml-auto" onClick={() => setEditing(true)}>บันทึกผล</Button>}
+      {editable && compact && <Button size="sm" variant="outline" className="ml-auto border-primary/40 text-primary hover:text-primary" onClick={() => setEditing(true)}><PencilIcon /> บันทึกผล</Button>}
     </div>
   )
 }

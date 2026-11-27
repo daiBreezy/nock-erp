@@ -1,7 +1,7 @@
 "use client"
 /* eslint-disable no-restricted-syntax -- ds-exception: printed paper sits on a paper-grey backdrop */
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ZoomInIcon, ZoomOutIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -32,8 +32,38 @@ export function InvoicePaper({ draft, className }: { draft: Invoice; className?:
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  // owner 2026-11-27: Ctrl / Cmd + mouse wheel, or a two-finger PINCH on a touchpad (the browser sends it as ctrl + wheel), zooms around the pointer.
+  // (Shift + wheel stays the normal sideways scroll.) The scroll position is corrected after the new size renders so the point under the pointer stays put.
+  const zoomRef = useRef(1)
+  const anchor = useRef<{ ox: number; oy: number; r: number } | null>(null)
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      e.preventDefault()
+      const from = zoomRef.current
+      const to = Math.min(Math.max(from * Math.exp(-e.deltaY * 0.0025), ZOOM_STEPS[0]), ZOOM_STEPS[ZOOM_STEPS.length - 1])
+      if (to === from) return
+      const rect = el.getBoundingClientRect()
+      const prior = anchor.current
+      anchor.current = { ox: e.clientX - rect.left, oy: e.clientY - rect.top, r: (prior?.r ?? 1) * (to / from) }
+      zoomRef.current = to
+      setZoom(to)
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [])
   const step = (dir: 1 | -1) => setZoom((z) => (dir > 0 ? ZOOM_STEPS.find((x) => x > z + 0.001) ?? z : [...ZOOM_STEPS].reverse().find((x) => x < z - 0.001) ?? z))
   const scale = fit * zoom
+  useLayoutEffect(() => {
+    const el = box.current, a = anchor.current
+    if (!el || !a) return
+    anchor.current = null
+    el.scrollLeft = (el.scrollLeft + a.ox) * a.r - a.ox
+    el.scrollTop = (el.scrollTop + a.oy) * a.r - a.oy
+  }, [scale])
   // owner 2026-11-24: drag the paper to move around it once zoomed in (grab cursor)
   const [grabbing, setGrabbing] = useState(false)
   const pan = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -57,7 +87,7 @@ export function InvoicePaper({ draft, className }: { draft: Invoice; className?:
         <Button type="button" variant="ghost" size="inline" className="min-w-12 rounded-md px-1 text-center text-xs tabular-nums text-muted-foreground hover:bg-muted" aria-label="พอดีกับความกว้าง" title="พอดีกับความกว้าง" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</Button>
         <Button size="icon-xs" variant="outline" aria-label="ซูมเข้า" title="ซูมเข้า" disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]} onClick={() => step(1)}><ZoomInIcon /></Button>
       </div>
-      <div ref={box} onPointerDown={pan} className={cn(className ?? "min-h-0 flex-1 overflow-auto rounded-xl bg-neutral-200 p-0", canPan && (grabbing ? "cursor-grabbing select-none" : "cursor-grab"))}>
+      <div ref={box} data-no-pan onPointerDown={pan} className={cn(className ?? "min-h-0 flex-1 overflow-auto rounded-xl bg-neutral-200 p-0", canPan && (grabbing ? "cursor-grabbing select-none" : "cursor-grab"))}>
         <div style={{ width: PAGE_W * scale, height: PAGE_H * scale, margin: "0 auto" }}>
           <div style={{ width: PAGE_W, transform: `scale(${scale})`, transformOrigin: "top left" }}>
             <PrintDocument kind="invoice" id={draft.id} bare preview={draft} />

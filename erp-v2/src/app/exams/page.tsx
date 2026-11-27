@@ -70,7 +70,15 @@ export default function ExamsPage() {
     return { s, res, done, avg: res ? Exam.examAverage(res) : null, change: done ? Exam.examChangeAt(results, s.id, year, term) : null }
   })
   type Row = (typeof rows)[number]
-  const schools = [...new Set(students.map((s) => s.school).filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b, "th"))
+  // owner 2026-11-27: filter options follow the data on screen — each list only offers what the other filters still leave (a picked value always stays)
+  const withKeep = (opts: string[], keep: string) => (keep && !opts.includes(keep) ? [...opts, keep] : opts)
+  const inGrade = students.filter((s) => !grade || s.grade === grade)
+  const inSchool = students.filter((s) => !school || s.school === school)
+  const schools = withKeep([...new Set(inGrade.map((s) => s.school).filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b, "th")), school)
+  const gradeOptions = withKeep(branch.grades.filter((g) => inSchool.some((s) => s.grade === g)), grade)
+  const idsOnScreen = new Set(students.filter((s) => (!grade || s.grade === grade) && (!school || s.school === school)).map((s) => s.id))
+  const scoredSubjects = new Set(results.filter((r) => idsOnScreen.has(r.studentId)).flatMap((r) => Object.keys(r.scores)))
+  const subjectOptions = withKeep(allSubjects.filter((g) => scoredSubjects.has(g)), subject)
   const shown = rows
     .filter((r) => !grade || r.s.grade === grade)
     .filter((r) => !school || r.s.school === school)
@@ -130,8 +138,8 @@ export default function ExamsPage() {
       view={<Segmented value={term} onChange={setTerm} options={Exam.EXAM_TERMS.map((t) => ({ value: t.id, label: t.label }))} label="การสอบ" />}
       filters={<>
         <FilterMenu fields={[
-          { id: "subject", label: "วิชา", value: subject, onChange: setSubject, placeholder: "ทุกวิชา", options: allSubjects.map((g) => ({ value: g, label: g })) },
-          { id: "grade", label: "ชั้น", value: grade, onChange: setGrade, placeholder: "ทุกชั้น", options: branch.grades.map((g) => ({ value: g, label: g })) },
+          { id: "subject", label: "วิชา", value: subject, onChange: setSubject, placeholder: "ทุกวิชา", options: (edit ? allSubjects : subjectOptions).map((g) => ({ value: g, label: g })) },
+          { id: "grade", label: "ชั้น", value: grade, onChange: setGrade, placeholder: "ทุกชั้น", options: gradeOptions.map((g) => ({ value: g, label: g })) },
           { id: "school", label: "โรงเรียน", value: school, onChange: setSchool, placeholder: "ทุกโรงเรียน", searchable: true, options: schools.map((g) => ({ value: g, label: g })) },
         ]} />
         {canEdit && <Button variant="outline" type="button" aria-pressed={edit} onClick={() => setEdit(!edit)} className={cn("h-9 rounded-3xl px-3 text-sm", edit && "border-primary bg-primary/10 font-medium text-primary hover:bg-primary/15")}>{edit ? <CheckIcon /> : <PencilIcon />} Edit</Button>}

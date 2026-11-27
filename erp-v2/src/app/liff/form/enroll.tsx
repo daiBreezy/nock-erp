@@ -22,7 +22,7 @@ export const ENROLL_DICT = {
     invoiceVoid: "ใบแจ้งหนี้นี้ถูกยกเลิกแล้ว — โปรดใช้ลิงก์ใหม่ที่แอดมินส่งให้",
     title: "ใบสมัครเรียน", sent: "ส่งใบสมัครเรียนแล้ว", sentSub: "ขอบคุณค่ะ แอดมินจะจัดคลาสและส่งใบแจ้งหนี้ให้ทาง LINE เร็วๆ นี้",
     studentSub: "ข้อมูลน้อง + คอร์สและเวลาที่สะดวก", subjects: "อยากเรียนวิชา", courses: "คอร์สที่สนใจ", coursesSub: "ไม่แน่ใจ เว้นไว้ได้ — แอดมินช่วยเลือกให้",
-    pkg: "รูปแบบแพ็กเกจ", pkgs: { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์ (คอร์สสั้น)", unsure: "ยังไม่แน่ใจ" } as Record<EnrollPackage, string>,
+    pkg: "รูปแบบแพ็กเกจ", pkgs: { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์ (คอร์สสั้น)", session: "แพ็กรายคาบ (Session)", unsure: "ยังไม่แน่ใจ" } as Record<EnrollPackage, string>,
     times: "วัน-เวลาที่สะดวก", timesSub: "แตะได้หลายช่อง", periods: { am: "เช้า", pm: "บ่าย", eve: "เย็น" }, days: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"],
     start: "อยากเริ่มเรียนวันที่", bus: "ต้องการรถรับส่ง", busSub: "ใช้ที่อยู่ในหน้าผู้ปกครอง", placement: "ให้ครูประเมินระดับในคาบแรก", placementSub: "แนะนำ — เพราะไม่ได้สอบวัดระดับก่อน",
     terms: "ยอมรับเงื่อนไขการเรียน การลา และการชำระเงินของสถาบัน", termsNeed: "กรุณายอมรับเงื่อนไขก่อนส่ง", perMonth: "/เดือน", hours: "ชม.", weeks: "สัปดาห์", sessions: "คาบ",
@@ -35,7 +35,7 @@ export const ENROLL_DICT = {
     invoiceVoid: "This invoice was cancelled — please use the new link our staff sent you.",
     title: "Enrolment form", sent: "Application sent", sentSub: "Thank you! Our staff will arrange the class and send the invoice on LINE shortly.",
     studentSub: "Your child + courses and times", subjects: "Subjects", courses: "Courses", coursesSub: "Not sure? Leave it — our staff will help",
-    pkg: "Package", pkgs: { month: "Monthly", hour: "Hour pack", week: "Weekly (short course)", unsure: "Not sure yet" } as Record<EnrollPackage, string>,
+    pkg: "Package", pkgs: { month: "Monthly", hour: "Hour pack", week: "Weekly (short course)", session: "Session pack", unsure: "Not sure yet" } as Record<EnrollPackage, string>,
     times: "Convenient times", timesSub: "Tap any that work", periods: { am: "Morning", pm: "Afternoon", eve: "Evening" }, days: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
     start: "Preferred start date", bus: "School bus needed", busSub: "Uses the address on the parent step", placement: "Teacher checks the level in the first class", placementSub: "Recommended — there was no placement test",
     terms: "I accept the school's study, leave and payment terms", termsNeed: "Please accept the terms", perMonth: "/month", hours: "hrs", weeks: "weeks", sessions: "sessions",
@@ -48,7 +48,7 @@ export const ENROLL_DICT = {
     invoiceVoid: "この請求書は取り消されました — 担当者から届く新しいリンクをご利用ください。",
     title: "入塾申込書", sent: "申込書を送信しました", sentSub: "ありがとうございます。担当者がクラスを手配し、LINEで請求書をお送りします。",
     studentSub: "お子様の情報・コースとご希望の時間", subjects: "希望科目", courses: "希望コース", coursesSub: "未定の場合は空欄で構いません",
-    pkg: "プラン", pkgs: { month: "月謝制", hour: "時間パック", week: "短期（週単位）", unsure: "未定" } as Record<EnrollPackage, string>,
+    pkg: "プラン", pkgs: { month: "月謝制", hour: "時間パック", week: "短期（週単位）", session: "回数パック", unsure: "未定" } as Record<EnrollPackage, string>,
     times: "ご都合の良い時間", timesSub: "複数選択可", periods: { am: "午前", pm: "午後", eve: "夕方" }, days: ["日", "月", "火", "水", "木", "金", "土"],
     start: "開始希望日", bus: "送迎バス希望", busSub: "保護者情報の住所を使用", placement: "初回授業で講師がレベルを確認", placementSub: "おすすめ（事前テストなし）",
     terms: "授業・欠席・支払いの規約に同意します", termsNeed: "規約に同意してください", perMonth: "/月", hours: "時間", weeks: "週", sessions: "回",
@@ -167,7 +167,7 @@ export function EnrollFields({ t, lang, grade, subjects, subjectLabel, courses, 
       <div>
         <p className="mb-1.5 text-sm font-semibold">{t.pkg}</p>
         <div className="flex flex-wrap gap-1.5">
-          {(["month", "hour", "week", "unsure"] as EnrollPackage[]).map((k) => (
+          {(["month", "hour", "week", "session", "unsure"] as EnrollPackage[]).map((k) => (
             <Button variant="chip" size="inline" key={k} type="button" onClick={() => onChange({ pkg: k })} aria-pressed={v.pkg === k} className="px-3 py-1.5 text-sm">{t.pkgs[k]}</Button>
           ))}
         </div>

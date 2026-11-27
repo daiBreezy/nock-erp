@@ -5,22 +5,25 @@
 // slot (never collapse). Click a day → the calendar on that date.
 import Link from "next/link"
 import { CalendarIcon } from "lucide-react"
-import { subjectColor } from "@/components/app/subject-color"
-import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { sessionState } from "@/domain/rules/scheduling"
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashCard } from "./box"
 import { addDays, fmtDate } from "@/domain/dates"
 import { tx } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import type { Session } from "@/domain/types"
 
-export function WeekSessions({ sessions, weekStart, today, markedCount }: { sessions: Session[]; weekStart: string; today: string; markedCount: number }) {
+export function WeekSessions({ sessions, weekStart, today, now }: { sessions: Session[]; weekStart: string; today: string; now: Date }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const total = sessions.length
+  const over = sessions.filter((s) => ["ended", "closed"].includes(sessionState(s, now))).length
   return (
     <DashCard className="flex h-full flex-col">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold"><CalendarIcon className="size-4 text-muted-foreground" /> {tx("คาบสัปดาห์นี้")}</CardTitle>
-        <CardDescription>{total} {tx("คาบ")} · {tx("เช็คแล้ว {0}", [markedCount])}</CardDescription>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold"><CalendarIcon className="size-4 text-muted-foreground" /> {tx("คาบสัปดาห์นี้")}</CardTitle>
+          <span className="text-xs tabular-nums text-muted-foreground">{tx("สัปดาห์นี้ {0}/{1} คาบ", [over, total])}</span>
+        </div>
       </CardHeader>
       <CardContent className="flex-1">
         <div className="grid grid-cols-7 gap-1.5">
@@ -39,7 +42,7 @@ export function WeekSessions({ sessions, weekStart, today, markedCount }: { sess
                 ) : (
                   <>
                     <div className="flex flex-1 flex-col gap-1">
-                      {of.slice(0, 6).map((s) => <span key={s.id} className={cn("h-1.5 rounded-full", subjectColor(s.subject).bar)} title={`${s.start} ${s.subject}`} />)}
+                      {of.slice(0, 6).map((s) => <span key={s.id} className="h-1.5 rounded-full bg-primary/30" title={`${s.start} ${s.subject}`} />)}
                     </div>
                     <div className={cn("mt-1.5 text-center text-base font-semibold tabular-nums", isToday ? "text-danger" : "text-foreground")}>{of.length}</div>
                   </>

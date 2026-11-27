@@ -3,6 +3,7 @@
 import { useMemo } from "react"
 import { addDays, toDateStr } from "@/domain/dates"
 import { invoiceTotals } from "@/domain/rules/billing"
+import { planFit } from "@/domain/rules/plan-fit"
 import * as R from "@/domain/rules/reports"
 import * as Loss from "@/domain/rules/loss"
 import * as Survey from "@/domain/rules/survey"
@@ -144,6 +145,8 @@ export function useReports(branchIds: string[], filter: R.ResolvedFilter) {
     const appts = R.leadAppointments(leads, s.assessments, s.attendance, today)
     const crm = {
       funnel: R.leadFunnel(leads, range, appts),
+      // owner 2026-11-27: the leads of the period split open / signed up / lost — the Reports KPI bar
+      split: (() => { const xs = leads.filter((l) => R.inRange(l.createdAt.slice(0, 10), range)); return { total: xs.length, enrolled: xs.filter((l) => l.stage === "enrolled").length, lost: xs.filter((l) => l.stage === "archived").length, open: xs.filter((l) => l.stage !== "enrolled" && l.stage !== "archived").length } })(),
       paths: R.leadPaths(leads, range, appts),
       sankey: R.leadSankey(leads, range, appts),
       sources: R.leadSources(leads, rows, range),
@@ -201,6 +204,12 @@ export function useReports(branchIds: string[], filter: R.ResolvedFilter) {
 
     const exits = R.exitSummary(students, range)
 
+    // owner 2026-11-27: the Reports KPI visuals — how the classes of the
+    // period ran against the plan (leave · moved · shifted) next to the compared stretch
+    const toToday = (r: { from: string; to: string }) => ({ from: r.from, to: r.to < today ? r.to : today })
+    const plan = planFit(sessions, s.attendance, toToday(range))
+    const planPrev = filter.prev ? planFit(sessions, s.attendance, toToday(prev)) : null
+
     // yearly parent survey (owner 2026-10-05): per year, scoped to the branches in view
     const surveyYears = [...new Set(s.surveyCampaigns.map((c) => c.year))].sort((a, b) => b - a)
     const surveyOf = (y: number) => {
@@ -222,7 +231,7 @@ export function useReports(branchIds: string[], filter: R.ResolvedFilter) {
         revenue: rev.total, revenueChange: R.change(rev.total, revPrev.total, prev, since),
         active, paused, activePrev, activeChange: comparable && activePrev !== null ? active - activePrev : null, activeAtStart,
         weekSessions, attendance: att.rate, attendanceChange: att.rate !== null && attPrev.rate !== null ? Math.round((att.rate - attPrev.rate) * 1000) / 10 : null,
-        attention: attention.length,
+        attention: attention.length, plan, planPrev,
       },
       rev, revPrev, strip, attention,
       // students studying now (active today) by school — Reports › นักเรียน (owner 2026-10-07)

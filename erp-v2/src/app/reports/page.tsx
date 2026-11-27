@@ -3,12 +3,14 @@
 import { ExamProgress } from "@/components/reports/exam-progress"
 import { KpiRow, Page, PageHeader, Segmented, Tabs } from "@/components/app/page-layout"
 import { Kpi, KpiGroup, abbreviate, compactNum } from "@/components/app/kpi"
+import { KpiV } from "@/components/app/kpi-v"
+import { PaceLines, PlanBar, ShareBar as KpiShareBar, TipRows } from "@/components/app/kpi-visuals"
 import { TipFacts } from "@/components/app/info-tip"
 import { BranchChip, scopeOptions as buildScopeOptions } from "@/components/app/branch-scope"
 import Link from "next/link"
 import { Fragment, Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { InfoIcon, BanknoteIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, UsersIcon, UserCheckIcon } from "lucide-react"
+import { InfoIcon, BanknoteIcon, ChevronDownIcon, ClockIcon, DownloadIcon, FileSpreadsheetIcon, PrinterIcon, SchoolIcon, UsersIcon, UserCheckIcon, UserSearchIcon, CalendarCheckIcon } from "lucide-react"
 import { NativeSelect } from "@/components/app/native-select"
 import { StudentSheet } from "@/components/app/student-sheet"
 import { AttentionButton, AttentionDialog } from "@/components/reports/attention-dialog"
@@ -121,6 +123,17 @@ function Reports() {
   /** what the "change" figures are against — empty when nothing is compared */
   /** Buddhist years in 2 digits (2568 → 68) — the same short form the dates use; other languages keep the full year */
   const shortYear = (y: number) => { const v = yearOf(y); return v > 2400 ? String(v).slice(-2) : v }
+  /** running totals of the 12 months (a missing future month ends this year's line; a missing month of the compared year counts as 0) */
+  const cumYear = (months: (number | null)[], fillGaps = false) => { let t = 0; const out: number[] = []; for (const v of months) { if (v === null && !fillGaps) break; t += v ?? 0; out.push(t) } return out }
+  /** the students card bar = everyone who studied in the period, split by where they stand at its end — the same split as the Students panel below */
+  const studentsFlow = d.courseFlow.flow.now.student
+  const studentsEnd = [
+    { label: tx("เรียนอยู่"), value: studentsFlow.right.get("active") ?? 0, tone: "a" as const },
+    { label: tx("พัก"), value: studentsFlow.right.get("paused") ?? 0, tone: "b" as const },
+    { label: tx("รอต่อ"), value: (studentsFlow.right.get("grace") ?? 0) + (studentsFlow.right.get("future") ?? 0), tone: "c" as const },
+    { label: tx("Churn"), value: studentsFlow.lost, tone: "danger" as const },
+  ]
+  const pctOf = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0)
   const cmpLabel = filter.prev === null ? "" : cmpChoice === "prev"
     ? (span === "mtd" || span === "month" ? tx("vs เดือนก่อน (MoM)") : span === "qtd" || /^q\d$/.test(span) ? tx("vs ไตรมาสก่อน (QoQ)") : tx("vs ช่วงก่อนหน้า"))
     : tx("vs ปี {0}", [shortYear(cmpChoice as number)])
@@ -141,6 +154,15 @@ function Reports() {
     return { actual, coming, total: actual + coming }
   }, [d])
   const forecastYear = forecastParts?.total ?? null
+  /** this year's forecast as a line continuing the running total: real so far, then month by month what is still expected (the last point = the year's forecast) */
+  const forecastLine = (() => {
+    if (!forecastParts) return undefined
+    const cur = Number(d.today.slice(5, 7)) - 1
+    let t = forecastParts.actual
+    const out = [t]
+    for (let m = cur; m < 12; m++) { t += d.forecast.byMonth[m]?.total ?? 0; if (m > cur) out.push(t) }
+    return out
+  })()
 
   if (!can(me, "reports.view")) return <Empty>{tx("บทบาทนี้ไม่ได้ใช้ Reports")}</Empty>
 
@@ -157,6 +179,8 @@ function Reports() {
       <PageHeader title={<span className="inline-flex items-center gap-2">Reports <HoverCard><HoverCardTrigger render={<Button variant="ghost" size="inline" type="button" aria-label="รายละเอียดรายงาน" className="rounded-full text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />}><InfoIcon className="size-4" /></HoverCardTrigger><HoverCardContent className="max-w-sm">{scopeLabel} · {periodLabel}{span !== "custom" && ` ${fmtDate(d.range.from)} – ${fmtDate(d.range.to)}`}  {filter.prev && <>{tx("· เทียบ")} {fmtDate(filter.prev.from, { year: filter.prev.from.slice(0, 4) !== d.range.from.slice(0, 4) })} – {fmtDate(filter.prev.to, { year: filter.prev.to.slice(0, 4) !== d.range.to.slice(0, 4) })}</>}  {tx("· ข้อมูลจริงจากใบแจ้งหนี้ที่จ่ายแล้ว แพ็กเกจ และการเช็คชื่อ")}</HoverCardContent></HoverCard></span>}
         description="รายงานสรุปข้อมูลในหัวข้อต่างๆ"
         actions={<>
+          {/* "needs attention" is about now — a past year has none */}
+          {d.isCurrentYear && <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} className="print:hidden" />}
           {allowed.length > 1 && <BranchChip className="print:hidden" value={scope} onChange={setScope} options={scopeOptions} active={false} />}
           {/* owner 2026-10-07: one download button, pick the format */}
           <DropdownMenu>
@@ -171,15 +195,33 @@ function Reports() {
       {/* headline numbers */}
       <KpiRow>
         {/* owner 2026-11-26: the Forecast sits right after the revenue number (no extra line, no label) — what it is lives behind the ⓘ */}
-        <Kpi icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])}
+        <KpiV icon={BanknoteIcon} label={tx("รายได้ · {0}", [periodLabel])}
           value={<RevenueValue revenue={d.kpi.revenue} forecast={forecastYear} />}
           sub={<><Delta value={d.kpi.revenueChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>}
-          info={forecastParts ? <ForecastTip title={tx("คาดการณ์ทั้งปี")} {...forecastParts} /> : undefined} />
-        <Kpi icon={UsersIcon} label={d.asOf === d.today ? tx("นักเรียน Active") : tx("นักเรียน Active · {0}", [fmtDate(d.asOf)])} value={fmtNum(d.kpi.active)} sub={<><DeltaCount value={d.kpi.activeChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>}
-          info={tx("ลาพักยาว (Pause) {0} คน", [d.kpi.paused])} />
-        <Kpi icon={UserCheckIcon} label={tx("อัตราเข้าเรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.attendance)} sub={<><DeltaPts value={d.kpi.attendanceChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span> <InfoTip className="size-4 align-top" text={tx("อัตราเข้าเรียน = มา ÷ (มา + ลา)")} /></>} />
-        {/* "needs attention" is about now — a past year has none */}
-        {d.isCurrentYear && <AttentionButton count={d.kpi.attention} onClick={() => setShowAttention(true)} />}
+          info={forecastParts ? <ForecastTip title={tx("คาดการณ์ทั้งปี")} {...forecastParts} /> : undefined}
+          visual={<PaceLines now={cumYear(d.monthly.thisYear)} forecast={forecastLine} prev={d.monthly.compareYear === null ? [] : cumYear(d.monthly.lastYear, true)} days={12} tip={<TipRows title={tx("สะสมรายเดือน")} rows={[
+            { label: tx("ปีนี้ ถึงเดือนล่าสุด"), value: fmtShort(cumYear(d.monthly.thisYear).at(-1) ?? 0), mark: "primary" as const },
+            ...(d.monthly.compareYear !== null ? [{ label: tx("ปี {0} ช่วงเดียวกัน", [shortYear(d.monthly.compareYear)]), value: fmtShort(cumYear(d.monthly.lastYear, true)[Math.max(cumYear(d.monthly.thisYear).length - 1, 0)] ?? 0), mark: "faint" as const }] : []),
+            ...(forecastYear !== null ? [{ label: tx("คาดการณ์ทั้งปี"), value: fmtShort(forecastYear), mark: "dashed" as const }] : [])]} />} />} />
+        <KpiV icon={UsersIcon} label={d.asOf === d.today ? tx("นักเรียน Active") : tx("นักเรียน Active · {0}", [fmtDate(d.asOf)])} value={fmtNum(d.kpi.active)} sub={<><DeltaCount value={d.kpi.activeChange} /> <span>{cmpLabel || tx("ไม่เทียบ")}</span></>}
+          info={tx("ลาพักยาว (Pause) {0} คน", [d.kpi.paused])}
+          visual={<PlanBar parts={studentsEnd.map((x) => ({ value: x.value, tone: x.tone }))} tip={<TipRows title={tx("ทุกคนที่เรียนในช่วงนี้ {0}", [fmtNum(studentsFlow.total)])} rows={[
+            ...studentsEnd.map((x) => ({ label: x.label, value: fmtNum(x.value), mark: x.tone === "a" ? "primary" as const : x.tone === "b" ? "p65" as const : x.tone === "c" ? "p40" as const : "danger" as const, tone: x.tone === "danger" && x.value > 0 ? "danger" as const : undefined })),
+            { label: tx("สุทธิ (เข้า − ออก)"), value: `${studentsFlow.net > 0 ? "+" : ""}${fmtNum(studentsFlow.net)}` }]} />} />} />
+        <KpiV icon={UserSearchIcon} label={tx("ลีด · {0}", [periodLabel])} value={fmtNum(d.crm.split.total)}
+          sub={tx("ลงทะเบียน {0}", [d.crm.split.enrolled])}
+          visual={<KpiShareBar done={d.crm.split.enrolled} todo={d.crm.split.open} problem={d.crm.split.lost} tip={<TipRows title={tx("ลีดของช่วงนี้")} rows={[
+            { label: tx("ลงทะเบียนแล้ว"), value: fmtNum(d.crm.split.enrolled), mark: "primary" }, { label: tx("ยังติดตามอยู่"), value: fmtNum(d.crm.split.open), mark: "p25" },
+            { label: tx("เสียไป"), value: fmtNum(d.crm.split.lost), tone: d.crm.split.lost > 0 ? "danger" : undefined, mark: "danger" }]} />} />} />
+        <KpiV icon={CalendarCheckIcon} label={tx("คาบที่ได้เรียน · {0}", [periodLabel])} value={fmtPct(d.kpi.plan.deliveredRate)}
+          sub={<span>{tx("ลา {0}% · ย้าย {1}% · เลื่อน {2}%", [pctOf(d.kpi.plan.leave, d.kpi.plan.total), pctOf(d.kpi.plan.moved, d.kpi.plan.total), pctOf(d.kpi.plan.shifted, d.kpi.plan.total)])}{d.kpi.plan.cancelled > 0 && ` · ${tx("ยกเลิก {0}%", [pctOf(d.kpi.plan.cancelled, d.kpi.plan.total)])}`}</span>}
+          info={tx("ได้เรียน = ตามแผน + เปลี่ยนนัด (ย้าย / เลื่อน) · นับเป็นนักเรียน-คาบ · ไม่ได้เรียน = ลา + คาบที่ถูกยกเลิก")}
+          visual={<PlanBar parts={[{ value: d.kpi.plan.planned, tone: "a" }, { value: d.kpi.plan.moved + d.kpi.plan.shifted, tone: "c" }, { value: d.kpi.plan.leave + d.kpi.plan.cancelled, tone: "danger" }]} tip={<TipRows title={tx("นักเรียน-คาบ {0}", [fmtNum(d.kpi.plan.total)])} rows={[
+            { label: tx("เป็นไปตามแผน"), value: fmtNum(d.kpi.plan.planned), mark: "primary" },
+            { label: tx("ย้ายไปคาบอื่น"), mark: "p40", value: `${fmtNum(d.kpi.plan.moved)}${d.kpi.planPrev ? ` · ${cmpName} ${fmtNum(d.kpi.planPrev.moved)}` : ""}` },
+            { label: tx("เลื่อนคาบ"), mark: "p40", value: `${fmtNum(d.kpi.plan.shifted)}${d.kpi.planPrev ? ` · ${cmpName} ${fmtNum(d.kpi.planPrev.shifted)}` : ""}` },
+            { label: tx("ลา"), mark: "danger", value: `${fmtNum(d.kpi.plan.leave)}${d.kpi.planPrev ? ` · ${cmpName} ${fmtNum(d.kpi.planPrev.leave)}` : ""}` },
+            { label: tx("ยกเลิก"), mark: "danger", value: `${fmtNum(d.kpi.plan.cancelled)}${d.kpi.planPrev ? ` · ${cmpName} ${fmtNum(d.kpi.planPrev.cancelled)}` : ""}` }]} />} />} />
       </KpiRow>
 
       {/* owner 2026-10-07: tabs + periods stick under the top bar while scrolling — always one tap away */}

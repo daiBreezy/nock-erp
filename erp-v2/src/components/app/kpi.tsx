@@ -74,7 +74,7 @@ export const kpiMoney = (n: number) => <KpiNumber n={n} prefix="฿" />
  *   24px number
  *   sub                           ← its own line under the number; the whole ROW keeps it if any card has one (KpiGroup)
  * Calm card: rounded-xl, soft ring, 12–14px padding. Width = its column (KpiRow sets the columns; 4 cards share the row equally).
- * Numbers ≥100K abbreviate on phones (K / M). No visual / chart here — micro-charts live on the Dashboard only.
+ * Numbers ≥100K abbreviate on phones (K / M). No visual / chart here — a card WITH a visual is `KpiV` (components/app/kpi-v.tsx), used ONLY by the Dashboard and Reports (owner 2026-11-27).
  * No className / valueClassName / compact — those were what made pages differ.
  */
 export function Kpi({

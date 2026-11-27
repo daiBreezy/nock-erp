@@ -159,13 +159,16 @@ export function Toolbar({ children, end }: { children: React.ReactNode; end?: Re
 
 /**
  * ( ‹  range  › ) — the one date stepper (owner 2026-10-09): Sessions / Attendance / Summaries (inside PeriodControl)
- * and Calendar. Off the current period the range turns pink and a "กลับวันนี้" link appears.
+ * and Calendar. Off the current period the range turns pink and "กลับวันนี้" appears — on the side away from the pinned edge (`todaySide`), so it never pushes the arrows.
  */
-export function RangeStepper({ label, current = true, onPrev, onNext, onToday, pick }: { label: React.ReactNode; current?: boolean; onPrev: () => void; onNext: () => void; onToday?: () => void
+export function RangeStepper({ label, current = true, onPrev, onNext, onToday, pick, todaySide = "right" }: { label: React.ReactNode; current?: boolean; /** which side "กลับวันนี้" appears on — the side AWAY from the edge the group is pinned to, so it never pushes the arrows (a right-aligned header → "left") */ todaySide?: "left" | "right"; onPrev: () => void; onNext: () => void; onToday?: () => void
   /** click the date text to choose any range in a calendar popup (replaces the old "กำหนดเอง" button) */
   pick?: { from: DateStr; to: DateStr; onPick: (r: { from: DateStr; to: DateStr }) => void } }) {
+  // only when off the current period; never squeezed in beside the arrows — it appears on the side where nothing is pinned
+  const todayButton = !current && onToday ? <Button variant="outline" type="button" onClick={onToday}>กลับวันนี้</Button> : null
   return (
     <div className="flex items-center gap-2">
+      {todaySide === "left" && todayButton}
       <div className="inline-flex h-9 items-center rounded-full border bg-background">
         <button type="button" aria-label="ก่อนหน้า" onClick={onPrev} className="grid h-full w-9 place-items-center rounded-l-full hover:bg-muted"><ChevronLeftIcon className="size-4" /></button>
         {pick
@@ -173,7 +176,7 @@ export function RangeStepper({ label, current = true, onPrev, onNext, onToday, p
           : <span className={cn("min-w-36 px-1 text-center text-sm font-medium whitespace-nowrap tabular-nums", !current && "text-primary")}>{label}</span>}
         <button type="button" aria-label="ถัดไป" onClick={onNext} className="grid h-full w-9 place-items-center rounded-r-full hover:bg-muted"><ChevronRightIcon className="size-4" /></button>
       </div>
-      {!current && onToday && <Button variant="outline" type="button" onClick={onToday}>กลับวันนี้</Button>}
+      {todaySide === "right" && todayButton}
     </div>
   )
 }

@@ -16,7 +16,7 @@ import { useStore } from "@/store/store"
 import { FamilyMatchChoice } from "@/components/app/family-match-choice"
 import { ReferrerPicker } from "@/components/inbox/referrer-picker"
 
-const PKG = { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์", unsure: "ยังไม่แน่ใจ" } as const
+const PKG = { month: "รายเดือน", hour: "แพ็กชั่วโมง", week: "รายสัปดาห์", session: "Session", unsure: "ยังไม่แน่ใจ" } as const
 const DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"]
 const PERIOD = { am: "เช้า", pm: "บ่าย", eve: "เย็น" } as Record<string, string>
 const timeLabel = (k: string) => { const [d, p] = k.split("-"); return `${DAYS[Number(d)]} ${PERIOD[p]}` }

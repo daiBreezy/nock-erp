@@ -582,7 +582,7 @@ function StudentRow({ s, sid, viewOnly, canManage, mine, onOpenStudent, text, se
           {thisLeave?.noQuota ? `ลาไม่หักโควตา · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : unlimitedLeave ? (thisLeave?.quota ? `ลาไม่จำกัด · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `ลาไม่จำกัด · ไม่ยืดแพ็กเกจ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`) : thisLeave?.quota ? `ใช้โควตาลา ${usedQuota}/${quota} · ยืดให้อีก 1 คาบ → เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })}` : `โควตาลาหมดแล้ว (${quota}/${quota}) — ไม่ชดเชยคาบนี้ · เรียนจบ ${fmtDate(ent?.to ?? raw.to, { weekday: true, year: true })} เหมือนเดิม`}
         </p>
       )}
-      {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} /></div>}
+      {asm && <div className={indent}><AssessmentNote a={asm} editable={canManage || mine} compact /></div>}
         </>
       )}
 
