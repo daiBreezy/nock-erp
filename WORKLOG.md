@@ -5,6 +5,11 @@
 
 ---
 
+## 2026-11-27 — erp-v2: Write ปิดวัน (เอกสารอย่างเดียว)
+- อัปเดตหน้า Architect (ครอบครัว · นักเรียน · คอร์ส · คลาส · Billing · CRM · ตั้งค่า) + Checklist 9 รายการ (เสร็จ 5 · ค้าง 4: ยังไม่ได้ลองกดจริง 2 · รอเจ้าของตัดสิน 2 = ฟอร์มสมัครกับ Session, ระบบทวง) + คำแปล EN ครบ
+
+---
+
 ## 2026-11-26 — erp-v2: ฟอร์มทั้งหมด · ติดตาม Invoice · Session package · ตาราง (commit ทั้งชุด)
 - **Enroll Form ↔ Invoice (ผูกกัน 2 case):** `Invoice.withEnroll` / `Family.enrollWaiting` · จุดส่งจุดเดียว = แอดมินกดยืนยันหลังใบ Approve + ออกเลข · ใบสมัครใช้เฉพาะลูกค้าใหม่ (เด็กยังไม่เคยจ่าย) · เมนู "ออกใบแจ้งหนี้เท่านั้น" / "ออกใบแจ้งหนี้ + Enroll Form" · `sendEnrollWithInvoices` (lib/forms.ts) · dialog `send-with-enroll-dialog.tsx`
 - **แท็บ "ฟอร์มทั้งหมด" + Snapshot ที่ภาพรวม (ครอบครัว+นักเรียน):** `FormCard` พับ/ขยาย (Header·Body·CTA) · `store.formSends` บันทึกที่ส่ง (Enroll/Custom) · เรื่องเงิน (ใบสมัคร+ใบ, แจ้งหยุด) แอดมินกดจบเอง · NPS/Custom หายเองเมื่อผู้ปกครอง Submit · ยกเลิกลิงก์ฟอร์มเลือกเหตุผลเป็นชิป+Remark (`formCancels`)
